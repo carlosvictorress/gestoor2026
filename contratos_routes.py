@@ -2,8 +2,8 @@
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, make_response
 from functools import wraps
-from extensions import db, bcrypt
-from models import Servidor, Contrato
+from .extensions import db, bcrypt
+from .models import Servidor, Contrato
 from datetime import datetime
 import io
 import locale
@@ -16,7 +16,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, BaseDocTemp
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER, TA_LEFT
 from num2words import num2words
-from utils import role_required
+from .utils import role_required
 
 try:
     locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Recuperar Senha</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com" rel="preconnect"/>
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                        "foreground-light": "#101922",
+                        "foreground-dark": "#f6f7f8",
+                        "subtle-light": "#6b7280",
+                        "subtle-dark": "#9ca3af",
+                        "input-light": "#ffffff",
+                        "input-dark": "#1e293b",
+                        "border-light": "#e5e7eb",
+                        "border-dark": "#374151"
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "0.75rem",
+                        "xl": "1rem",
+                        "full": "9999px"
+                    },
+                    boxShadow: {
+                        'card': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-foreground-light dark:text-foreground-dark">
+<div class="flex min-h-screen items-center justify-center p-4">
+    <div class="w-full max-w-md space-y-6">
+        <div class="text-center">
+            <h1 class="text-3xl font-bold tracking-tight text-foreground-light dark:text-foreground-dark">Redefina a sua Senha</h1>
+            <p class="mt-2 text-subtle-light dark:text-subtle-dark">Digite o seu endereço de e-mail para receber um link de recuperação.</p>
+        </div>
+
+        <!-- ***** 1. LOCAL PARA AS MENSAGENS FLASH ***** -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="rounded-md p-4 text-sm {% if category == 'danger' %} bg-red-100 text-red-800 {% elif category == 'success' %} bg-green-100 text-green-800 {% else %} bg-blue-100 text-blue-800 {% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        <!-- ********************************************** -->
+
+        <div class="rounded-lg bg-input-light dark:bg-input-dark p-8 shadow-card border border-border-light dark:border-border-dark">
+            
+            <!-- ***** 2. FORMULÁRIO LIGADO AO FLASK ***** -->
+            <form class="space-y-6" method="POST" action="{{ url_for('reset_request') }}">
+                <div>
+                    <label class="block text-sm font-medium text-subtle-light dark:text-subtle-dark" for="email">Endereço de e-mail</label>
+                    <div class="mt-2">
+                        <input autocomplete="email" class="block w-full rounded-DEFAULT border-0 bg-background-light dark:bg-background-dark py-3 px-4 text-foreground-light dark:text-foreground-dark ring-1 ring-inset ring-border-light dark:ring-border-dark placeholder:text-subtle-light dark:placeholder:text-subtle-dark focus:ring-2 focus:ring-inset focus:ring-primary transition-all" id="email" name="email" placeholder="voce@exemplo.com" required="" type="email"/>
+                    </div>
+                </div>
+                <div>
+                    <button class="flex w-full justify-center rounded-DEFAULT bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors" type="submit">
+                        Enviar Link de Recuperação
+                    </button>
+                </div>
+            </form>
+            <!-- ***************************************** -->
+
+        </div>
+        <p class="text-center text-sm text-subtle-light dark:text-subtle-dark">
+            <!-- ***** 3. LINK DE RETORNO LIGADO AO FLASK ***** -->
+            <a class="font-medium text-primary hover:text-primary/90" href="{{ url_for('login') }}">
+                Voltar para o login
+            </a>
+            <!-- *********************************************** -->
+        </p>
+    </div>
+</div>
+
+</body>
+</html>

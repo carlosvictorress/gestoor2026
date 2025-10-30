@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}Ajustar Estoque de Material{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Ajustar Estoque</h1>
+
+<div class="card">
+    <div class="card-header">
+        <h4>Material: {{ material.descricao }}</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info">
+            <strong>Estoque Atual no Sistema:</strong> 
+            <span class="fw-bold fs-5">{{ material.estoque_atual }}</span> {{ material.unidade_medida }}
+        </div>
+        
+        <hr>
+
+        <form method="POST" action="{{ url_for('almoxarifado.ajustar_estoque', material_id=material.id) }}">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="nova_quantidade" class="form-label">Nova Quantidade Correta (Estoque Físico)*</label>
+                    <input type="number" step="0.01" class="form-control" id="nova_quantidade" name="nova_quantidade" required 
+                           placeholder="Digite a quantidade contada no estoque">
+                    <div class="form-text">
+                        Informe a quantidade que você contou fisicamente. O sistema calculará a diferença.
+                    </div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="justificativa" class="form-label">Justificativa do Ajuste*</label>
+                <textarea class="form-control" id="justificativa" name="justificativa" rows="3" required 
+                          placeholder="Ex: Contagem de inventário, Perda por dano, etc."></textarea>
+            </div>
+            
+            <hr>
+            
+            <a href="{{ url_for('almoxarifado.gerenciar_materiais') }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Voltar
+            </a>
+            <button type="submit" class="btn btn-warning">
+                <i class="bi bi-check-circle"></i> Confirmar Ajuste de Estoque
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

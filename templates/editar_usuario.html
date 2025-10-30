@@ -15,13 +15,35 @@
                     <input type="text" class="form-control" id="username" name="username" value="{{ user.username }}" required>
                 </div>
                 <div class="col-md-6 mb-3">
+                    <label for="email" class="form-label">E-mail</label>
+                    <input type="email" class="form-control" id="email" name="email" value="{{ user.email or '' }}" required>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
                     <label for="role" class="form-label">Papel</label>
                     <select name="role" id="role" class="form-select">
-                        <option value="operador" {% if user.role == 'operador' %}selected{% endif %}>Operador</option>
-                        <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Administrador</option>
+                        <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Super Admin</option>
+                        <option value="RH" {% if user.role == 'RH' %}selected{% endif %}>RH</option>
+                        <option value="Combustivel" {% if user.role == 'Combustivel' %}selected{% endif %}>Combustível</option>
+                        <option value="Merenda Escolar" {% if user.role == 'Merenda Escolar' %}selected{% endif %}>Merenda Escolar</option>
+                        <option value="Patrimonio" {% if user.role == 'Patrimonio' %}selected{% endif %}>Patrimônio</option>
+                        <option value="operador" {% if user.role == 'operador' %}selected{% endif %}>Operador (Básico)</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="secretaria_id" class="form-label">Secretaria</label>
+                    <select class="form-select" name="secretaria_id" required>
+                        {% for sec in secretarias %}
+                            <option value="{{ sec.id }}" {% if user.secretaria_id == sec.id %}selected{% endif %}>
+                                {{ sec.nome }}
+                            </option>
+                        {% endfor %}
                     </select>
                 </div>
             </div>
+
             <div class="mb-3">
                 <label for="password" class="form-label">Nova Senha</label>
                 <input type="password" class="form-control" id="password" name="password">

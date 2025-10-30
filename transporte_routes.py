@@ -5,10 +5,10 @@ from functools import wraps
 from sqlalchemy.orm import joinedload
 from datetime import datetime, time
 # CORRIJA AS LINHAS ABAIXO
-from extensions import db, bcrypt
-from models import RotaTransporte, AlunoTransporte, Servidor, Veiculo, TrechoRota
-from utils import login_required, fleet_required # Adicione/crie esta importação
-from utils import role_required
+from .extensions import db, bcrypt
+from .models import RotaTransporte, AlunoTransporte, Servidor, Veiculo, TrechoRota
+from .utils import login_required, fleet_required # Adicione/crie esta importação
+from .utils import role_required
 
 
 import requests

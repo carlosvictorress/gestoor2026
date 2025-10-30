@@ -1,0 +1,44 @@
+<div class="row">
+    <div class="col-md-8 mb-3">
+        <label class="form-label">Nome da Turma*</label>
+        <input type="text" class="form-control" name="nome" value="{{ turma.nome if turma else '' }}" required placeholder="Ex: 5º Ano A">
+    </div>
+    <div class="col-md-4 mb-3">
+        <label class="form-label">Ano Letivo*</label>
+        <input type="number" class="form-control" name="ano_letivo" value="{{ turma.ano_letivo if turma else ano_selecionado }}" required>
+    </div>
+</div>
+<div class="mb-3">
+    <label class="form-label">Escola*</label>
+    <select name="escola_id" class="form-select" required>
+        <option value="">Selecione a escola...</option>
+        {% for escola in escolas %}
+        <option value="{{ escola.id }}" {% if turma and turma.escola_id == escola.id %}selected{% endif %}>{{ escola.nome }}</option>
+        {% endfor %}
+    </select>
+</div>
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <label class="form-label">Turno*</label>
+        <select name="turno" class="form-select" required>
+            <option value="Manhã" {% if turma and turma.turno == 'Manhã' %}selected{% endif %}>Manhã</option>
+            <option value="Tarde" {% if turma and turma.turno == 'Tarde' %}selected{% endif %}>Tarde</option>
+            <option value="Noite" {% if turma and turma.turno == 'Noite' %}selected{% endif %}>Noite</option>
+            <option value="Integral" {% if turma and turma.turno == 'Integral' %}selected{% endif %}>Integral</option>
+        </select>
+    </div>
+    <div class="col-md-6 mb-3">
+        <label class="form-label">Nº de Vagas*</label>
+        <input type="number" class="form-control" name="vagas" value="{{ turma.vagas if turma else 30 }}" required>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <label class="form-label">Etapa de Ensino*</label>
+        <input type="text" class="form-control" name="etapa_ensino" value="{{ turma.etapa_ensino if turma else '' }}" required placeholder="Ex: Ensino Fundamental I">
+    </div>
+    <div class="col-md-6 mb-3">
+        <label class="form-label">Modalidade*</label>
+        <input type="text" class="form-control" name="modalidade" value="{{ turma.modalidade if turma else 'Regular' }}" required placeholder="Ex: Regular, EJA, AEE">
+    </div>
+</div>

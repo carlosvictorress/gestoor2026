@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block title %}Nova Requisição de Material{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Nova Requisição de Material</h1>
+
+<form method="POST" action="{{ url_for('almoxarifado.nova_requisicao') }}">
+    <div class="card">
+        <div class="card-header">
+            <h4>Itens da Requisição</h4>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th style="width: 60%;">Material</th>
+                        <th style="width: 30%;">Quantidade</th>
+                        <th style="width: 10%;"></th>
+                    </tr>
+                </thead>
+                <tbody id="itens-container">
+                    </tbody>
+            </table>
+            <button type="button" id="add-item-btn" class="btn btn-secondary">
+                <i class="bi bi-plus"></i> Adicionar Item
+            </button>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="justificativa" class="form-label">Justificativa / Observação (Obrigatório)</label>
+                <textarea class="form-control" id="justificativa" name="justificativa" rows="3" required></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="{{ url_for('almoxarifado.minhas_requisicoes') }}" class="btn btn-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-primary">Enviar Requisição</button>
+    </div>
+</form>
+
+<template id="item-template">
+    <tr>
+        <td>
+            <select class="form-select" name="material_id[]" required>
+                <option value="" disabled selected>Selecione um material...</option>
+                {% for material in materiais %}
+                    <option value="{{ material.id }}">{{ material.descricao }} (Estoque: {{ material.estoque_atual }})</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td>
+            <input type="number" step="0.01" class="form-control" name="quantidade[]" required placeholder="Quantidade">
+        </td>
+        <td>
+            <button type="button" class="btn btn-danger remove-item-btn">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    </tr>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const addItemBtn = document.getElementById('add-item-btn');
+        const itemsContainer = document.getElementById('itens-container');
+        const itemTemplate = document.getElementById('item-template');
+
+        function addNewItem() {
+            const newRow = itemTemplate.content.cloneNode(true);
+            itemsContainer.appendChild(newRow);
+        }
+
+        // Adiciona a primeira linha ao carregar a página
+        addNewItem();
+
+        // Adiciona nova linha ao clicar no botão
+        addItemBtn.addEventListener('click', addNewItem);
+
+        // Delega o evento de clique para os botões de remover
+        itemsContainer.addEventListener('click', function(e) {
+            if (e.target && e.target.classList.contains('remove-item-btn') || e.target.closest('.remove-item-btn')) {
+                e.target.closest('tr').remove();
+            }
+        });
+    });
+</script>
+{% endblock %}

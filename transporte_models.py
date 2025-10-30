@@ -2,7 +2,7 @@
 
 from datetime import datetime
 # Aponte para o novo arquivo 'extensions.py' para pegar o 'db'
-from extensions import db 
+from .extensions import db 
 
 # O resto do arquivo continua exatamente igual...
 

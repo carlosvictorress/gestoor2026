@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block title %}Configurações Académicas{% endblock %}
+{% block content %}
+<h1 class="mb-4">Configurações do Módulo Académico</h1>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><h4>Disciplinas</h4></div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('academico.configuracoes_academicas') }}">
+                    <input type="hidden" name="form_type" value="disciplina">
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" name="nome" placeholder="Nome da Disciplina (ex: Matemática)" required>
+                        <input type="text" class="form-control" name="area_conhecimento" placeholder="Área (opcional)">
+                        <button class="btn btn-primary" type="submit">Adicionar</button>
+                    </div>
+                </form>
+                <ul class="list-group">
+                    {% for disciplina in disciplinas %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ disciplina.nome }}
+                        <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteDisciplinaModal-{{ disciplina.id }}"><i class="bi bi-trash"></i></button>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item">Nenhuma disciplina cadastrada.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><h4>Períodos Avaliativos</h4></div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('academico.configuracoes_academicas') }}">
+                    <input type="hidden" name="form_type" value="periodo">
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" name="nome" placeholder="Nome do Período (ex: 1º Bimestre)" required>
+                        <input type="number" class="form-control" name="ano_letivo" value="{{ ano_atual }}" required>
+                        <button class="btn btn-primary" type="submit">Adicionar</button>
+                    </div>
+                </form>
+                <ul class="list-group">
+                    {% for periodo in periodos %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ periodo.nome }} ({{ periodo.ano_letivo }})
+                        <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deletePeriodoModal-{{ periodo.id }}"><i class="bi bi-trash"></i></button>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item">Nenhum período cadastrado.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% for disciplina in disciplinas %}
+<div class="modal fade" id="deleteDisciplinaModal-{{ disciplina.id }}" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+    <form method="POST" action="{{ url_for('academico.excluir_disciplina', id=disciplina.id) }}"><div class="modal-header"><h5 class="modal-title">Confirmar Exclusão</h5></div>
+    <div class="modal-body"><p>Tem certeza que deseja excluir a disciplina <strong>{{ disciplina.nome }}</strong>?</p></div>
+    <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-danger">Excluir</button></div></form>
+</div></div></div>
+{% endfor %}
+{% for periodo in periodos %}
+<div class="modal fade" id="deletePeriodoModal-{{ periodo.id }}" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+    <form method="POST" action="{{ url_for('academico.excluir_periodo', id=periodo.id) }}"><div class="modal-header"><h5 class="modal-title">Confirmar Exclusão</h5></div>
+    <div class="modal-body"><p>Tem certeza que deseja excluir o período <strong>{{ periodo.nome }} ({{ periodo.ano_letivo }})</strong>?</p></div>
+    <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-danger">Excluir</button></div></form>
+</div></div></div>
+{% endfor %}
+
+{% endblock %}

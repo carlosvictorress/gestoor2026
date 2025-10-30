@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}Controle de Inventário{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Controle de Inventário</h1>
+
+<div class="alert alert-warning">
+    <strong>Instruções:</strong> Preencha o campo "Quantidade Contada" apenas para os itens que você contou fisicamente. Itens com o campo em branco não serão alterados. No final, forneça uma justificativa geral para o inventário (ex: "Inventário Mensal - Outubro/2025").
+</div>
+
+<form method="POST" action="{{ url_for('almoxarifado.iniciar_inventario') }}">
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Material</th>
+                        <th class="text-center">Estoque no Sistema</th>
+                        <th style="width: 20%;">Quantidade Contada (Físico)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for material in materiais %}
+                    <tr>
+                        <td>
+                            <input type="hidden" name="material_id[]" value="{{ material.id }}">
+                            {{ material.descricao }}
+                            <small class.="d-block text-muted">{{ material.unidade_medida }}</small>
+                        </td>
+                        <td class="text-center align-middle">
+                            <span class="badge bg-secondary">{{ material.estoque_atual }}</span>
+                        </td>
+                        <td>
+                            <input type="number" step="0.01" class="form-control" name="quantidade_contada[]" 
+                                   placeholder="Digite a qtd. física">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="justificativa_geral" class="form-label">Justificativa Geral do Inventário*</label>
+                <input type="text" class="form-control" id="justificativa_geral" name="justificativa_geral" required>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="{{ url_for('almoxarifado.dashboard') }}" class="btn btn-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-primary">Processar e Salvar Inventário</button>
+    </div>
+</form>
+{% endblock %}

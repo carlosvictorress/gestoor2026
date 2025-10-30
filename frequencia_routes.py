@@ -1,11 +1,11 @@
 import json
 from flask import Blueprint, render_template
 from sqlalchemy import func
-from models import Escola, Ponto, Servidor
-from utils import login_required
+from .models import Escola, Ponto, Servidor
+from .utils import login_required
 from datetime import date, timedelta
-from extensions import db, bcrypt
-from utils import role_required
+from .extensions import db, bcrypt
+from .utils import role_required
 
 frequencia_bp = Blueprint('frequencia', __name__)
 

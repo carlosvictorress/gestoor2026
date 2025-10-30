@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}Registrar Entrada de Material{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Registrar Entrada de Estoque</h1>
+
+<div class="card">
+    <div class="card-header">
+        <h4>Material: {{ material.descricao }}</h4>
+    </div>
+    <div class="card-body">
+        <p><strong>Estoque Atual:</strong> {{ material.estoque_atual }} {{ material.unidade_medida }}</p>
+        <hr>
+        <form method="POST" action="{{ url_for('almoxarifado.entrada_material', material_id=material.id) }}">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="quantidade" class="form-label">Quantidade a Adicionar*</label>
+                    <input type="number" step="0.01" class="form-control" id="quantidade" name="quantidade" required>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="valor_unitario" class="form-label">Custo por Unidade (R$)</label>
+                    <input type="text" class="form-control" id="valor_unitario" name="valor_unitario" placeholder="Ex: 12,50">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="nota_fiscal" class="form-label">Nº da Nota Fiscal (Opcional)</label>
+                    <input type="text" class="form-control" id="nota_fiscal" name="nota_fiscal">
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="justificativa" class="form-label">Justificativa / Observação (Opcional)</label>
+                <textarea class="form-control" id="justificativa" name="justificativa" rows="2"></textarea>
+            </div>
+            
+            <hr>
+            
+            <a href="{{ url_for('almoxarifado.gerenciar_materiais') }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Voltar
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle"></i> Confirmar Entrada
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

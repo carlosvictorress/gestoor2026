@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}Detalhes da Requisição #{{ requisicao.id }}{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Detalhes da Requisição #{{ requisicao.id }}</h1>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4>Itens Solicitados</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('almoxarifado.detalhes_requisicao', requisicao_id=requisicao.id) }}">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Material</th>
+                                <th class="text-center">Qtd. Solicitada</th>
+                                <th class="text-center" style="width: 25%;">
+                                    {% if requisicao.status == 'Atendida' %}
+                                        Qtd. Atendida
+                                    {% else %}
+                                        Qtd. a Atender
+                                    {% endif %}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in requisicao.itens %}
+                            <tr>
+                                <td>
+                                    {{ item.material.descricao }}
+                                    <small class="d-block text-muted">Estoque Atual: {{ item.material.estoque_atual }} {{ item.material.unidade_medida }}</small>
+                                </td>
+                                <td class="text-center">{{ item.quantidade_solicitada }}</td>
+                                <td>
+                                    {% if requisicao.status == 'Atendida' %}
+                                        <input type="number" class="form-control" value="{{ item.quantidade_atendida }}" readonly>
+                                    {% else %}
+                                        <input type="hidden" name="item_id[]" value="{{ item.id }}">
+                                        <input type="number" step="0.01" class="form-control" name="quantidade_atendida[]" value="{{ item.quantidade_solicitada }}">
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <hr>
+                    
+                    
+                    
+                    {% if requisicao.status == 'Aprovada' and session.get('role') in ['admin', 'almoxarifado'] %}
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-all"></i> Atender Requisição e Dar Baixa no Estoque
+                    </button>
+                    {% endif %}
+                </form>
+                
+                {% if requisicao.status == 'Pendente' and session.get('role') in ['admin', 'almoxarifado'] %}
+                <form method="POST" action="{{ url_for('almoxarifado.avaliar_requisicao', requisicao_id=requisicao.id) }}" class="d-inline">
+				<a href="{{ url_for('almoxarifado.minhas_requisicoes') }}" class="btn btn-secondary">Voltar</a>
+                    <button type="submit" name="acao" value="Aprovar" class="btn btn-primary">Aprovar</button>
+                    <button type="submit" name="acao" value="Recusar" class="btn btn-danger">Recusar</button>
+                </form>
+                {% endif %}
+				{% if requisicao.status == 'Atendida' %}
+                    <a href="{{ url_for('almoxarifado.comprovante_requisicao_pdf', requisicao_id=requisicao.id) }}" class="btn btn-info" target="_blank">
+                        <i class="bi bi-printer-fill"></i> Imprimir Comprovativo
+                    </a>
+                    {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Informações da Requisição</h5>
+                <p><strong>Status:</strong> 
+                    <span class="badge 
+                        {% if requisicao.status == 'Pendente' %}bg-warning text-dark
+                        {% elif requisicao.status == 'Aprovada' %}bg-info text-dark
+                        {% elif requisicao.status == 'Atendida' %}bg-success
+                        {% elif requisicao.status == 'Recusada' %}bg-danger
+                        {% endif %}">
+                        {{ requisicao.status }}
+                    </span>
+                </p>
+                <p><strong>Data:</strong> {{ requisicao.data_solicitacao.strftime('%d/%m/%Y %H:%M') }}</p>
+                <p><strong>Solicitante:</strong> {{ requisicao.usuario_solicitante.username }}</p>
+                <p><strong>Secretaria:</strong> {{ requisicao.secretaria_solicitante.nome }}</p>
+                <hr>
+                <h6>Justificativa:</h6>
+                <p>{{ requisicao.justificativa }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

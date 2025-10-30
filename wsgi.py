@@ -8,7 +8,7 @@ if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path)
 
 # Agora importa a aplicação
-from app import app
+from .app import app
 
 if __name__ == "__main__":
     app.run()

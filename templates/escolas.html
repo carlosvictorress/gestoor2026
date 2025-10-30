@@ -1,51 +1,83 @@
 {% extends 'base.html' %}
 
-{% block title %}Gerenciamento de Escolas{% endblock %}
+{% block title %}Gerenciar Escolas{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2><i class="bi bi-building"></i> Gerenciamento de Escolas</h2>
-    <a href="{{ url_for('escola.nova_escola') }}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Cadastrar Nova Escola</a>
+    <h1>Escolas Cadastradas</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEscolaModal">
+        <i class="bi bi-plus-circle"></i> Adicionar Nova Escola
+    </button>
 </div>
 
-<div class="table-responsive">
-    <table class="table table-striped table-hover table-bordered align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th>Nome da Escola</th>
-                <th>Endereço</th>
-                <th>Telefone</th>
-                <th>Coordenadas (Lat, Lon)</th>
-                <th>Status</th>
-                <th>Ações</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for escola in escolas %}
-            <tr>
-                <td>{{ escola.nome }}</td>
-                <td>{{ escola.endereco or '-' }}</td>
-                <td>{{ escola.telefone or '-' }}</td>
-                <td>{{ escola.latitude or '-' }}, {{ escola.longitude or '-' }}</td>
-                <td>
-                    {% if escola.status == 'Ativa' %}
-                        <span class="badge bg-success">Ativa</span>
-                    {% else %}
-                        <span class="badge bg-secondary">Inativa</span>
-                    {% endif %}
-                </td>
-                <td>
-                    <a href="{{ url_for('escola.editar_escola', id=escola.id) }}" class="btn btn-sm btn-primary" title="Editar">
-                        <i class="bi bi-pencil-fill"></i>
-                    </a>
+<div class="card">
+    <div class="card-body">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Nome da Escola</th>
+                    <th>Código INEP</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for escola in escolas %}
+                <tr>
+                    <td>{{ escola.nome }}</td>
+                    <td>{{ escola.codigo_inep or 'Não informado' }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editEscolaModal-{{ escola.id }}"><i class="bi bi-pencil"></i> Editar</button>
                     </td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="6" class="text-center">Nenhuma escola cadastrada.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
+
+<div class="modal fade" id="addEscolaModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('escola.nova_escola') }}">
+                <div class="modal-header"><h5 class="modal-title">Adicionar Nova Escola</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="mb-3"><label class="form-label">Nome da Escola*</label><input type="text" class="form-control" name="nome" required></div>
+                    <div class="mb-3"><label class="form-label">Código INEP</label><input type="text" class="form-control" name="codigo_inep"></div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3"><label class="form-label">Latitude</label><input type="text" class="form-control" name="latitude"></div>
+                        <div class="col-md-6 mb-3"><label class="form-label">Longitude</label><input type="text" class="form-control" name="longitude"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Escola</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% for escola in escolas %}
+<div class="modal fade" id="editEscolaModal-{{ escola.id }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('escola.editar_escola', id=escola.id) }}">
+                <div class="modal-header"><h5 class="modal-title">Editar Escola</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="mb-3"><label class="form-label">Nome da Escola*</label><input type="text" class="form-control" name="nome" value="{{ escola.nome }}" required></div>
+                    <div class="mb-3"><label class="form-label">Código INEP</label><input type="text" class="form-control" name="codigo_inep" value="{{ escola.codigo_inep }}"></div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3"><label class="form-label">Latitude</label><input type="text" class="form-control" name="latitude" value="{{ escola.latitude }}"></div>
+                        <div class="col-md-6 mb-3"><label class="form-label">Longitude</label><input type="text" class="form-control" name="longitude" value="{{ escola.longitude }}"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
 {% endblock %}

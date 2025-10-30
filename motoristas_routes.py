@@ -5,12 +5,12 @@ from werkzeug.utils import secure_filename
 import os
 import uuid
 from datetime import datetime
-from utils import role_required
+from .utils import role_required
 
-from extensions import db, bcrypt
+from .extensions import db, bcrypt
 # IMPORTAÇÃO CORRIGIDA
-from models import Motorista, DocumentoMotorista
-from utils import login_required, registrar_log, fleet_required
+from .models import Motorista, DocumentoMotorista
+from .utils import login_required, registrar_log, fleet_required
 
 # BLUEPRINT CORRIGIDO
 motoristas_bp = Blueprint('motoristas', __name__, url_prefix='/motoristas')

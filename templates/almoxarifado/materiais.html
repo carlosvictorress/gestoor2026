@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block title %}Gerenciar Materiais{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Materiais Cadastrados</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addMaterialModal">
+        <i class="bi bi-plus-circle"></i> Adicionar Novo Material
+    </button>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Descrição</th>
+                    <th>Unidade</th>
+                    <th>Categoria</th>
+                    <th class="text-center">Estoque Atual</th>
+                    <th>Localização</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for material in materiais %}
+                <tr>
+                    <td>{{ material.descricao }}</td>
+                    <td>{{ material.unidade_medida }}</td>
+                    <td>{{ material.categoria }}</td>
+                    <td class="text-center">{{ material.estoque_atual }}</td>
+                    <td>{{ material.localizacao_fisica }}</td>
+                    <td>
+    <a href="{{ url_for('almoxarifado.entrada_material', material_id=material.id) }}" class="btn btn-sm btn-success" title="Dar Entrada no Estoque"><i class="bi bi-plus-lg"></i></a>
+    <a href="{{ url_for('almoxarifado.ajustar_estoque', material_id=material.id) }}" class="btn btn-sm btn-warning" title="Ajustar Estoque"><i class="bi bi-rulers"></i></a>
+    <a href="{{ url_for('almoxarifado.gerar_qrcode_material', material_id=material.id) }}" class="btn btn-sm btn-info" title="Gerar QR Code"><i class="bi bi-qr-code"></i></a>
+    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editMaterialModal-{{ material.id }}" title="Editar Material"><i class="bi bi-pencil"></i></button>
+    <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteMaterialModal-{{ material.id }}" title="Excluir Material"><i class="bi bi-trash"></i></button>
+</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center">Nenhum material cadastrado.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="addMaterialModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('almoxarifado.gerenciar_materiais') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Adicionar Novo Material</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3"><label for="descricao" class="form-label">Descrição*</label><input type="text" class="form-control" name="descricao" required></div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3"><label for="unidade_medida" class="form-label">Unidade de Medida*</label><input type="text" class="form-control" name="unidade_medida" required></div>
+                        <div class="col-md-6 mb-3"><label for="categoria" class="form-label">Categoria</label><input type="text" class="form-control" name="categoria"></div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3"><label for="estoque_minimo" class="form-label">Estoque Mínimo</label><input type="number" step="0.01" class="form-control" name="estoque_minimo" value="0"></div>
+                        <div class="col-md-6 mb-3"><label for="estoque_maximo" class="form-label">Estoque Máximo</label><input type="number" step="0.01" class="form-control" name="estoque_maximo" value="0"></div>
+                    </div>
+                    <div class="mb-3"><label for="localizacao_fisica" class="form-label">Localização Física</label><input type="text" class="form-control" name="localizacao_fisica" placeholder="Ex: Prateleira A-01"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Material</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% for material in materiais %}
+    <div class="modal fade" id="editMaterialModal-{{ material.id }}" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form method="POST" action="{{ url_for('almoxarifado.editar_material', material_id=material.id) }}">
+                    <div class="modal-header"><h5 class="modal-title">Editar Material</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-body">
+                        <div class="mb-3"><label class="form-label">Descrição*</label><input type="text" class="form-control" name="descricao" value="{{ material.descricao }}" required></div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3"><label class="form-label">Unidade de Medida*</label><input type="text" class="form-control" name="unidade_medida" value="{{ material.unidade_medida }}" required></div>
+                            <div class="col-md-6 mb-3"><label class="form-label">Categoria</label><input type="text" class="form-control" name="categoria" value="{{ material.categoria }}"></div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3"><label class="form-label">Estoque Mínimo</label><input type="number" step="0.01" class="form-control" name="estoque_minimo" value="{{ material.estoque_minimo }}"></div>
+                            <div class="col-md-6 mb-3"><label class="form-label">Estoque Máximo</label><input type="number" step="0.01" class="form-control" name="estoque_maximo" value="{{ material.estoque_maximo }}"></div>
+                        </div>
+                        <div class="mb-3"><label class="form-label">Localização Física</label><input type="text" class="form-control" name="localizacao_fisica" value="{{ material.localizacao_fisica }}"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="deleteMaterialModal-{{ material.id }}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="{{ url_for('almoxarifado.excluir_material', material_id=material.id) }}">
+                    <div class="modal-header"><h5 class="modal-title">Confirmar Exclusão</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-body">
+                        <p>Tem a certeza de que deseja excluir o material <strong>"{{ material.descricao }}"</strong>?</p>
+                        <p class="text-danger">Atenção: Esta ação não pode ser desfeita. O material só poderá ser excluído se o seu estoque for zero.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-danger">Excluir</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+{% endblock %}

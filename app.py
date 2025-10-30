@@ -11,6 +11,9 @@ import base64
 import re
 import math
 
+from flask_mail import Message # Adicione esta
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature # Adicione esta
+
 from functools import wraps
 from datetime import datetime, timedelta
 from flask import session, flash, redirect, url_for
@@ -75,6 +78,7 @@ app = Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 
+
 # --- CÓDIGO CORRIGIDO ---
 database_url = os.environ.get("DATABASE_URL")
 
@@ -88,10 +92,22 @@ else:
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SECRET_KEY"] = "uma-chave-secreta-muito-dificil-de-adivinhar"
 app.config["UPLOAD_FOLDER"] = "uploads"
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.googlemail.com') # Servidor SMTP
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587)) # Porta (587 para TLS)
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'true').lower() in ['true', 'on', '1'] # Usar TLS? (True para Gmail)
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME') # Seu endereço de e-mail completo
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD') # Sua senha (ou senha de app para Gmail)
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME') # O remetente padrão será seu e-mail
+
 RAIO_PERMITIDO_METROS = 100
 
+s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
 # --- Inicialização das Extensões ---
-from extensions import db, bcrypt
+from .extensions import db, bcrypt
+
+from flask_mail import Mail
+mail = Mail(app)
 
 db.init_app(app)
 bcrypt.init_app(app)
@@ -100,7 +116,9 @@ migrate = Migrate(app, db)
 # ===================================================================
 # PARTE 3: Importação dos Modelos
 # ===================================================================
-from models import *
+from .models import *
+
+
 
 
 # ===================================================================
@@ -346,6 +364,132 @@ def cabecalho_e_rodape(canvas, doc):
 # ===================================================================
 
 
+@app.route("/reset_password", methods=["GET", "POST"])
+def reset_request():
+    """ Rota para solicitar a redefinição de senha via e-mail. """
+    if 'logged_in' in session: # Se já estiver logado, não faz sentido redefinir
+        return redirect(url_for('dashboard'))
+
+    if request.method == "POST":
+        email = request.form.get("email")
+        # Busca o usuário pelo e-mail fornecido
+        user = User.query.filter_by(email=email).first()
+
+        if user:
+            # Se o usuário existir, tenta gerar e enviar o e-mail
+            try:
+                # Gera um token seguro contendo o ID do usuário.
+                # O 'salt' adiciona uma camada extra de segurança.
+                # O token será válido por 3600 segundos (1 hora).
+                token = s.dumps(user.id, salt='password-reset-salt')
+
+                # Cria o URL completo que será enviado no e-mail
+                # _external=True garante que o URL inclua http://dominio...
+                reset_url = url_for('reset_token', token=token, _external=True)
+
+                # Cria o objeto da mensagem de e-mail
+                msg = Message(
+                    'Redefinição de Senha - Gestoor360', # Assunto
+                    recipients=[user.email] # Destinatário
+                    # O remetente será o MAIL_DEFAULT_SENDER configurado
+                )
+                # Define o corpo do e-mail (usando f-string e triple quotes)
+                msg.body = f"""Olá {user.username},
+
+Recebemos uma solicitação para redefinir a sua senha no sistema Gestoor360.
+
+Para criar uma nova senha, por favor, clique no link abaixo. Este link expirará em 1 hora:
+{reset_url}
+
+Se você não solicitou esta alteração, pode ignorar este e-mail com segurança. Sua senha não será alterada.
+
+Atenciosamente,
+Equipe Gestoor360
+""" # <-- Fim das triple quotes para msg.body
+
+                # Envia o e-mail usando a extensão Flask-Mail
+                mail.send(msg)
+
+                flash('Um e-mail foi enviado com as instruções para redefinir a sua senha.', 'info')
+            except Exception as e:
+                # Em caso de erro no envio (configuração errada, etc.), loga e avisa o usuário
+                print(f"Erro ao enviar e-mail de redefinição para {email}: {e}")
+                flash('Ocorreu um erro ao tentar enviar o e-mail. Por favor, tente novamente mais tarde ou contacte o suporte.', 'danger')
+        else:
+            # Se o e-mail não foi encontrado, mostra uma mensagem genérica por segurança
+            # (para não confirmar se um e-mail está ou não cadastrado)
+            flash('Se o endereço de e-mail estiver registado no nosso sistema, você receberá um link para redefinir a senha.', 'info')
+
+        # Redireciona de volta para a página de login após a tentativa
+        return redirect(url_for('login'))
+
+    # Se o método for GET, simplesmente exibe o formulário para pedir a redefinição
+    return render_template('reset_request.html')
+
+
+@app.route("/reset_password/<token>", methods=["GET", "POST"])
+def reset_token(token):
+    """ Rota que recebe o token do e-mail e permite definir a nova senha. """
+    if 'logged_in' in session: # Se já estiver logado, não faz sentido estar aqui
+        return redirect(url_for('dashboard'))
+
+    try:
+        # Tenta decodificar o token, validando o 'salt' e o tempo de expiração (max_age)
+        user_id = s.loads(token, salt='password-reset-salt', max_age=3600)
+    except SignatureExpired:
+        # Se o token expirou (passou mais de 1 hora)
+        flash('O link para redefinição de senha expirou. Por favor, solicite um novo.', 'warning')
+        return redirect(url_for('reset_request'))
+    except (BadTimeSignature, Exception) as e:
+        # Se o token é inválido (malformado, salt errado, etc.)
+        print(f"Erro ao decodificar token: {e}")
+        flash('O link para redefinição de senha é inválido ou já foi utilizado.', 'danger')
+        return redirect(url_for('reset_request'))
+
+    # Se o token foi válido, busca o usuário correspondente no banco
+    user = User.query.get(user_id)
+    if not user:
+        # Se o usuário associado ao token não existe mais (pouco provável)
+        flash('Usuário associado a este link não encontrado.', 'danger')
+        return redirect(url_for('login'))
+
+    # Se o formulário de nova senha for enviado (método POST)
+    if request.method == "POST":
+        password = request.form.get("password")
+        password_confirm = request.form.get("password_confirm")
+
+        # Verifica se as senhas foram preenchidas e se são iguais
+        if not password or not password_confirm:
+            flash('Por favor, preencha ambos os campos de senha.', 'warning')
+            return render_template('reset_password.html', token=token)
+        if password != password_confirm:
+            flash('As senhas digitadas não conferem. Tente novamente.', 'warning')
+            return render_template('reset_password.html', token=token)
+
+        # Se as senhas são válidas
+        try:
+            # Gera o hash da nova senha
+            hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+            # Atualiza o hash da senha do usuário no banco de dados
+            user.password_hash = hashed_password
+            db.session.commit() # Salva a alteração
+
+            # Registra o log da alteração
+            if 'registrar_log' in globals(): # Verifica se a função existe para evitar erros
+              registrar_log(f'Usuário "{user.username}" redefiniu a senha via e-mail.')
+
+            flash('Sua senha foi atualizada com sucesso! Você já pode fazer login com a nova senha.', 'success')
+            return redirect(url_for('login')) # Redireciona para a página de login
+
+        except Exception as e:
+            # Em caso de erro ao salvar no banco
+            db.session.rollback()
+            print(f"Erro ao atualizar senha para usuário {user_id}: {e}")
+            flash('Ocorreu um erro ao tentar atualizar sua senha. Por favor, tente novamente.', 'danger')
+            return render_template('reset_password.html', token=token)
+
+    # Se o método for GET, simplesmente exibe o formulário para digitar a nova senha
+    return render_template('reset_password.html', token=token)
 
 
 
@@ -485,23 +629,38 @@ def delete_secretaria(id):
 def add_usuario():
     username = request.form.get("username")
     password = request.form.get("password")
+    # --- LINHA ADICIONADA ---
+    email = request.form.get("email")
+    # ---------------------------
     role = request.form.get("role", "operador")
     secretaria_id = request.form.get("secretaria_id", type=int)
 
-    if not all([username, password, secretaria_id]):
+    # --- VALIDAÇÃO ATUALIZADA ---
+    if not all([username, password, email, secretaria_id]):
         flash(
-            "Todos os campos (Usuário, Senha e Secretaria) são obrigatórios.", "warning"
+            "Todos os campos (Usuário, E-mail, Senha e Secretaria) são obrigatórios.", "warning"
         )
         return redirect(url_for("lista_usuarios"))
+    # -----------------------------
 
     user_exists = User.query.filter_by(username=username).first()
     if user_exists:
         flash("Este nome de usuário já existe.", "danger")
         return redirect(url_for("lista_usuarios"))
+        
+    # --- VERIFICAÇÃO DE E-MAIL ADICIONADA ---
+    email_exists = User.query.filter_by(email=email).first()
+    if email_exists:
+        flash("Este e-mail já está em uso.", "danger")
+        return redirect(url_for("lista_usuarios"))
+    # -------------------------------------
 
     hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
     new_user = User(
         username=username,
+        # --- E-MAIL ADICIONADO ---
+        email=email,
+        # --------------------------
         password_hash=hashed_password,
         role=role,
         secretaria_id=secretaria_id,
@@ -519,36 +678,67 @@ def add_usuario():
 @admin_required
 def editar_usuario(id):
     user = User.query.get_or_404(id)
+    # Pega a lista de secretarias para o dropdown
+    secretarias = Secretaria.query.order_by(Secretaria.nome).all()
+
     if request.method == "POST":
+        # --- LÓGICA DE VERIFICAÇÃO DO ÚLTIMO ADMIN ---
         if (
             user.role == "admin"
             and User.query.filter_by(role="admin").count() == 1
-            and request.form.get("role") == "operador"
+            and request.form.get("role") != "admin" # Se a tentativa for mudar o role
         ):
             flash(
                 "Não é possível remover o status de administrador do último admin do sistema.",
                 "danger",
             )
-            return redirect(url_for("editar_usuario", id=id))
+            # Recarrega a página com os dados atuais
+            return render_template("editar_usuario.html", user=user, secretarias=secretarias)
+        
+        # --- VERIFICAÇÃO DE USERNAME E E-MAIL ---
         new_username = request.form.get("username")
+        new_email = request.form.get("email")
+
+        # Verifica se o username já está em uso por OUTRO usuário
         user_exists = User.query.filter(
             User.username == new_username, User.id != id
         ).first()
         if user_exists:
             flash("Este nome de usuário já está em uso.", "danger")
-            return render_template("editar_usuario.html", user=user)
-        user.username = new_username
-        user.role = request.form.get("role")
-        new_password = request.form.get("password")
-        if new_password:
-            user.password_hash = bcrypt.generate_password_hash(new_password).decode(
-                "utf-8"
-            )
-        db.session.commit()
-        registrar_log(f'Editou o usuário: "{user.username}".')
-        flash("Usuário atualizado com sucesso!", "success")
-        return redirect(url_for("lista_usuarios"))
-    return render_template("editar_usuario.html", user=user)
+            return render_template("editar_usuario.html", user=user, secretarias=secretarias)
+
+        # Verifica se o E-MAIL já está em uso por OUTRO usuário
+        email_exists = User.query.filter(
+            User.email == new_email, User.id != id
+        ).first()
+        if email_exists:
+            flash("Este e-mail já está em uso por outro usuário.", "danger")
+            return render_template("editar_usuario.html", user=user, secretarias=secretarias)
+            
+        # --- ATUALIZA OS DADOS DO USUÁRIO ---
+        try:
+            user.username = new_username
+            user.email = new_email  # <- CAMPO ADICIONADO
+            user.role = request.form.get("role")
+            user.secretaria_id = request.form.get("secretaria_id", type=int) # <- CAMPO ADICIONADO
+            
+            new_password = request.form.get("password")
+            if new_password:
+                user.password_hash = bcrypt.generate_password_hash(new_password).decode(
+                    "utf-8"
+                )
+                
+            db.session.commit()
+            registrar_log(f'Editou o usuário: "{user.username}".')
+            flash("Usuário atualizado com sucesso!", "success")
+            return redirect(url_for("lista_usuarios"))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Erro ao atualizar usuário: {e}", "danger")
+
+    # (GET) Apenas renderiza a página de edição
+    return render_template("editar_usuario.html", user=user, secretarias=secretarias)
 
 
 @app.route("/logs")
@@ -939,8 +1129,6 @@ def login():
         # Verifica se o usuário e a senha estão corretos primeiro
         if user and bcrypt.check_password_hash(user.password_hash, password):
 
-            # --- VERIFICAÇÃO ADICIONADA AQUI ---
-            # Garante que o usuário tem uma secretaria associada antes de comparar
             if not user.secretaria:
                 flash(
                     f"Erro: O usuário '{user.username}' não está associado a nenhuma secretaria. Por favor, contate o administrador.",
@@ -948,7 +1136,6 @@ def login():
                 )
                 return redirect(url_for("login"))
 
-            # Agora que sabemos que user.secretaria existe, podemos comparar com segurança
             if user.secretaria.nome != secretaria_nome_selecionada:
                 flash("Usuário não pertence à secretaria selecionada.", "danger")
                 return redirect(url_for("login"))
@@ -959,6 +1146,7 @@ def login():
             session["role"] = user.role
             session["secretaria"] = user.secretaria.nome
             session["secretaria_id"] = user.secretaria.id
+            session["user_id"] = user.id  # <-- LINHA ADICIONADA E FORMATADA CORRETAMENTE
 
             registrar_log(
                 f"Fez login no sistema pela secretaria '{user.secretaria.nome}'."
@@ -1489,13 +1677,19 @@ def get_servidor_details(num_contrato):
 @login_required
 @role_required("RH", "admin")
 def lista_servidores():
-    # Pega o ID da secretaria do usuário que está logado na sessão
+    # Pega a permissão e a secretaria do usuário logado na sessão
+    user_role = session.get("role")
     secretaria_id_logada = session.get("secretaria_id")
 
-    # A LINHA MAIS IMPORTANTE: A consulta principal agora começa com um filtro pela secretaria do usuário
-    query = Servidor.query.filter_by(secretaria_id=secretaria_id_logada)
+    # --- LÓGICA CORRIGIDA ---
+    # Verifica se o usuário é admin. Se for, mostra todos. Se não, filtra.
+    if user_role == 'admin':
+        query = Servidor.query
+    else:
+        query = Servidor.query.filter_by(secretaria_id=secretaria_id_logada)
+    # --- FIM DA CORREÇÃO ---
 
-    # O resto da lógica de filtro e busca continua a mesma, mas aplicada sobre a consulta já filtrada
+    # O resto da lógica de filtro e busca continua a mesma
     termo_busca = request.args.get("termo")
     funcao_filtro = request.args.get("funcao")
     lotacao_filtro = request.args.get("lotacao")
@@ -1518,7 +1712,7 @@ def lista_servidores():
 
     servidores = query.order_by(Servidor.nome).all()
 
-    # (A lógica para preencher os filtros e status continua a mesma)
+    # A lógica para preencher os filtros de dropdown continua a mesma
     funcoes_disponiveis = [
         r[0]
         for r in db.session.query(Servidor.funcao)
@@ -2326,15 +2520,17 @@ def debug_sessao():
 # ===================================================================
 # PARTE 6: Importação e Registro dos Blueprints
 # ===================================================================
-from patrimonio_routes import patrimonio_bp
-from merenda_routes import merenda_bp
-from motoristas_routes import motoristas_bp
-from escola_routes import escola_bp
-from transporte_routes import transporte_bp
-from protocolo_routes import protocolo_bp
-from contratos_routes import contratos_bp
-from frequencia_routes import frequencia_bp
-from backup_routes import backup_bp
+from .patrimonio_routes import patrimonio_bp
+from .merenda_routes import merenda_bp
+from .motoristas_routes import motoristas_bp
+from .escola_routes import escola_bp
+from .transporte_routes import transporte_bp
+from .protocolo_routes import protocolo_bp
+from .contratos_routes import contratos_bp
+from .frequencia_routes import frequencia_bp
+from .backup_routes import backup_bp
+from .almoxarifado_routes import almoxarifado_bp
+from .academico_routes import academico_bp
 
 app.register_blueprint(transporte_bp)
 app.register_blueprint(protocolo_bp)
@@ -2345,10 +2541,17 @@ app.register_blueprint(motoristas_bp)
 app.register_blueprint(escola_bp)
 app.register_blueprint(frequencia_bp)
 app.register_blueprint(backup_bp)
+app.register_blueprint(almoxarifado_bp)
+app.register_blueprint(academico_bp)
 
 
 # ===================================================================
 # PARTE 7: Bloco de Execução Principal
 # ===================================================================
+
+
+
+
+
 if __name__ == "__main__":
     app.run(debug=True)

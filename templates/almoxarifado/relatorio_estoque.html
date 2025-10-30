@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}Relatório de Estoque Atual{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Relatório de Estoque Atual</h1>
+    <a href="{{ url_for('almoxarifado.exportar_relatorio_estoque_csv') }}" class="btn btn-success">
+        <i class="bi bi-file-earmark-spreadsheet"></i> Exportar para CSV
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <div class="d-flex justify-content-between">
+            <span>Total de Itens: {{ materiais|length }}</span>
+            <span class="fw-bold">Valor Total do Estoque: R$ {{ "%.2f"|format(valor_total_estoque) }}</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <table class="table table-striped table-hover table-sm">
+            <thead>
+                <tr>
+                    <th>Descrição</th>
+                    <th>Categoria</th>
+                    <th class="text-center">Estoque Atual</th>
+                    <th class="text-end">Custo Unit. (R$)</th>
+                    <th class="text-end">Valor Total (R$)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for material in materiais %}
+                <tr>
+                    <td>{{ material.descricao }}</td>
+                    <td>{{ material.categoria or '-' }}</td>
+                    <td class="text-center">{{ material.estoque_atual }} {{ material.unidade_medida }}</td>
+                    <td class="text-end">{{ "%.2f"|format(material.ultimo_custo) }}</td>
+                    <td class="text-end fw-bold">{{ "%.2f"|format(material.estoque_atual * material.ultimo_custo) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center">Nenhum material cadastrado para exibir no relatório.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="{{ url_for('almoxarifado.dashboard') }}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Voltar ao Painel
+    </a>
+	<a href="{{ url_for('almoxarifado.relatorio_movimentacoes') }}" class="btn btn-info">
+        <i class="bi bi-list-check"></i> Relatório de Movimentações
+    </a>
+</div>
+{% endblock %}

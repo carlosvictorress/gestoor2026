@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}Almoxarifado - Painel{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Painel do Almoxarifado</h1>
+
+<div class="row">
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card text-white bg-primary h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Valor do Estoque</h5>
+                        <h3>R$ {{ "%.2f"|format(valor_total_estoque) }}</h3>
+                    </div>
+                    <div class="fs-1"><i class="bi bi-cash-stack"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-4">
+        <a href="{{ url_for('almoxarifado.minhas_requisicoes') }}" class="text-decoration-none text-dark">
+            <div class="card bg-warning h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Req. Pendentes</h5>
+                            <h3>{{ req_pendentes }}</h3>
+                        </div>
+                        <div class="fs-1"><i class="bi bi-hourglass-split"></i></div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-4">
+        <a href="{{ url_for('almoxarifado.minhas_requisicoes') }}" class="text-decoration-none text-dark">
+            <div class="card bg-info h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Req. Aprovadas</h5>
+                            <h3>{{ req_aprovadas }}</h3>
+                        </div>
+                        <div class="fs-1"><i class="bi bi-check2-circle"></i></div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+     <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card text-white bg-secondary h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Itens em Alerta</h5>
+                        <h3>{{ materiais_baixo_estoque|length }}</h3>
+                    </div>
+                    <div class="fs-1"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if materiais_baixo_estoque %}
+<div class="card mt-2">
+    <div class="card-header fw-bold text-danger">
+        <i class="bi bi-exclamation-triangle-fill"></i> Itens com Estoque Baixo ou Zerado
+    </div>
+    <ul class="list-group list-group-flush">
+        {% for material in materiais_baixo_estoque %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            {{ material.descricao }}
+            <span class="badge bg-danger rounded-pill">Estoque: {{ material.estoque_atual }} / Mínimo: {{ material.estoque_minimo }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+
+<hr class="my-4">
+<h3>Navegação Rápida</h3>
+<a href="{{ url_for('almoxarifado.iniciar_inventario') }}" class="btn btn-lg btn-success">Iniciar Inventário</a>
+<a href="{{ url_for('almoxarifado.minhas_requisicoes') }}" class="btn btn-lg btn-info">Fazer / Ver Requisições</a>
+<a href="{{ url_for('almoxarifado.relatorio_estoque') }}" class="btn btn-lg btn-warning">Relatórios</a>
+<a href="{{ url_for('almoxarifado.gerenciar_materiais') }}" class="btn btn-lg btn-secondary">Gerenciar Materiais</a>
+<a href="{{ url_for('almoxarifado.gerenciar_fornecedores') }}" class="btn btn-lg btn-secondary">Gerenciar Fornecedores</a>
+
+{% endblock %}

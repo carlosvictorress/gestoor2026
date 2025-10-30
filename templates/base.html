@@ -60,26 +60,40 @@
 						{% endif %}
                         <li><a class="dropdown-item" href="{{ url_for('lancar_abastecimento') }}"><i class="bi bi-fuel-pump-fill"></i> Combustível</a></li>
                         {% endif %}
+						{% if session.get('role') in ['admin', 'almoxarifado'] %}
+						<li class="nav-item">
+						<a class="dropdown-item href="  href="{{ url_for('almoxarifado.dashboard') }}"><i class="bi bi-box-seam-fill"></i> Almoxarifado</a></li>
+						{% endif %}
+						{% if session.get('role') in ['admin', 'academico', 'RH'] %}
+    <li class="nav-item">
+        <a class="nav-link {% if request.endpoint.startswith('academico.') %}active{% endif %}" href="{{ url_for('academico.dashboard') }}">
+            <i class="bi bi-mortarboard-fill"></i> Académico
+        </a>
+    </li>
+    {% endif %}
                     </ul>
                 </li>
 
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="modulosMenu" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-grid-fill"></i> Módulos
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="modulosMenu">
-                        {% if session.get('role') in ['admin', 'RH'] %}
-                        <li><a class="dropdown-item" href="{{ url_for('protocolo.dashboard') }}"><i class="bi bi-folder2-open"></i> Protocolo</a></li>
-						<li><a class="dropdown-item" href="{{ url_for('contratos.gerenciar_contratos') }}"><i class="bi bi-file-text-fill"></i> Contratos</a></li>
-						<li><a class="dropdown-item" href="{{ url_for('patrimonio.listar_itens') }}"><i class="bi bi-archive-fill"></i> Patrimônio</a></li>						
-                        <li><a class="dropdown-item" href="{{ url_for('listar_requerimentos') }}"><i class="bi bi-file-earmark-text"></i> Requerimentos</a></li>                         
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="{{ url_for('visualizar_frequencia') }}"><i class="bi bi-clock-history"></i> Frequência</a></li>
-						<li><a class="dropdown-item" href="{{ url_for('frequencia.dashboard_frequencia') }}"><i class="bi bi-clock-history"></i> Visão Frequência</a></li>
-						<li><a class="dropdown-item" href="{{ url_for('escola.listar_escolas') }}"><i class="bi bi-building"></i> Escolas</a></li>
-                        {% endif %}
-                    </ul>
-                </li>
+    <a class="nav-link dropdown-toggle" href="#" id="modulosMenu" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="bi bi-grid-fill"></i> Módulos
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="modulosMenu">
+        {% if session.get('role') in ['admin', 'RH'] %}
+        <li><a class="dropdown-item" href="{{ url_for('merenda.dashboard') }}"><i class="bi bi-cart4"></i> Merenda Escolar</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('listar_gams') }}"><i class="bi bi-heart-pulse"></i> GAM (Guia Médica)</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="{{ url_for('protocolo.dashboard') }}"><i class="bi bi-folder2-open"></i> Protocolo</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('contratos.gerenciar_contratos') }}"><i class="bi bi-file-text-fill"></i> Contratos</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('patrimonio.listar_itens') }}"><i class="bi bi-archive-fill"></i> Patrimônio</a></li>						
+        <li><a class="dropdown-item" href="{{ url_for('listar_requerimentos') }}"><i class="bi bi-file-earmark-text"></i> Requerimentos</a></li>                         
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="{{ url_for('visualizar_frequencia') }}"><i class="bi bi-clock-history"></i> Frequência</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('frequencia.dashboard_frequencia') }}"><i class="bi bi-clock-history"></i> Visão Frequência</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('escola.listar_escolas') }}"><i class="bi bi-building"></i> Escolas</a></li>
+        {% endif %}
+    </ul>
+</li>
                 
                 <li class="nav-item">
                     <a class="nav-link" href="{{ url_for('bloco_de_notas') }}"><i class="bi bi-journal-richtext"></i> Bloco de Notas</a>

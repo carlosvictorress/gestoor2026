@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}QR Code - {{ material.descricao }}{% endblock %}
+
+{% block content %}
+<div class="container text-center">
+    <h1 class="mb-2">QR Code do Material</h1>
+    <h4 class="text-muted mb-4">{{ material.descricao }}</h4>
+
+    <div class="card mx-auto" style="max-width: 300px;">
+        <div class="card-body">
+            <img src="data:image/png;base64,{{ qr_code_image }}" class="img-fluid" alt="QR Code para {{ material.descricao }}">
+        </div>
+        <div class="card-footer">
+            <p class="mb-0"><strong>ID Interno:</strong> {{ material.id }}</p>
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <a href="{{ url_for('almoxarifado.gerenciar_materiais') }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Voltar
+        </a>
+        <button onclick="window.print()" class="btn btn-primary">
+            <i class="bi bi-printer-fill"></i> Imprimir
+        </button>
+    </div>
+</div>
+
+<style>
+    /* Estilo para impressão: esconde elementos desnecessários */
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        .container.text-center, .container.text-center * {
+            visibility: visible;
+        }
+        .container.text-center {
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+        .btn {
+            display: none;
+        }
+    }
+</style>
+{% endblock %}

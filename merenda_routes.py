@@ -6,15 +6,15 @@ from reportlab.lib import colors
 from reportlab.lib.units import cm
 import io
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
-from extensions import db, bcrypt
+from .extensions import db, bcrypt
 # Importe todos os novos modelos aqui
-from models import Escola, ProdutoMerenda, EstoqueMovimento, SolicitacaoMerenda, SolicitacaoItem, Cardapio, PratoDiario, HistoricoCardapio, Servidor
-from utils import login_required, registrar_log
+from .models import Escola, ProdutoMerenda, EstoqueMovimento, SolicitacaoMerenda, SolicitacaoItem, Cardapio, PratoDiario, HistoricoCardapio, Servidor
+from .utils import login_required, registrar_log
 from sqlalchemy import or_, func
 from datetime import datetime
 from datetime import date, timedelta
 import calendar
-from utils import role_required
+from .utils import role_required
 
 
 merenda_bp = Blueprint('merenda', __name__, url_prefix='/merenda')

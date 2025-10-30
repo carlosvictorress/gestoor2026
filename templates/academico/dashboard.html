@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Módulo Académico{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Painel de Gestão Académica</h1>
+<p class="lead">Bem-vindo ao centro de gestão de escolas, turmas e alunos.</p>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card text-white bg-info mb-3">
+            <div class="card-header">Alunos Matriculados</div>
+            <div class="card-body">
+                <h5 class="card-title">{{ total_alunos }}</h5>
+                <p class="card-text">Total de alunos na rede.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="my-4">
+
+<h3>Navegação Rápida</h3>
+<div class="list-group">
+<a href="{{ url_for('academico.configuracoes_academicas') }}" class="list-group-item list-group-item-action">
+        <i class="bi bi-gear-fill"></i> Configurações (Disciplinas e Períodos)
+    </a>
+    <a href="{{ url_for('academico.gerenciar_alunos') }}" class="list-group-item list-group-item-action">
+        <i class="bi bi-people-fill"></i> Gerenciar Alunos
+    </a>
+    <a href="{{ url_for('escola.listar_escolas') }}" class="list-group-item list-group-item-action">
+        <i class="bi bi-building"></i> Gerenciar Escolas
+    </a>
+	<a href="{{ url_for('academico.gerenciar_turmas') }}" class="list-group-item list-group-item-action">
+        <i class="bi bi-person-video3"></i> Gerenciar Turmas
+    </a>
+</div>
+{% endblock %}

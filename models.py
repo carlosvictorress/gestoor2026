@@ -2,7 +2,7 @@
 
 # from .extensions import db
 from datetime import datetime, time
-from extensions import db
+from .extensions import db
 # --- SEUS MODELOS ---
 
 
@@ -17,6 +17,9 @@ class Log(db.Model):
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
+    # --- LINHA ADICIONADA E CORRIGIDA ---
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    # -----------------------------------
     password_hash = db.Column(db.String(120), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="operador")
     
@@ -189,7 +192,7 @@ class Ponto(db.Model):
     longitude = db.Column(db.Float, nullable=True)
     ip_address = db.Column(db.String(45), nullable=True)
     foto_filename = db.Column(db.String(100), nullable=True)
-    escola_id = db.Column(db.Integer, db.ForeignKey("escola.id"), nullable=True)
+    escola_id = db.Column(db.Integer, db.ForeignKey("escolas.id"), nullable=True)
     # -------------------------------------------
 
     servidor_ponto = db.relationship(
@@ -398,9 +401,10 @@ class MovimentacaoPatrimonio(db.Model):
 
 
 class Escola(db.Model):
-    __tablename__ = "escola"
+    __tablename__ = "escolas"
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(200), nullable=False, unique=True)
+    codigo_inep = db.Column(db.String(8), unique=True, nullable=True, index=True) 
     endereco = db.Column(db.String(300))
     telefone = db.Column(db.String(20))
 
@@ -458,7 +462,7 @@ class EstoqueMovimento(db.Model):
 class SolicitacaoMerenda(db.Model):
     __tablename__ = "solicitacao_merenda"
     id = db.Column(db.Integer, primary_key=True)
-    escola_id = db.Column(db.Integer, db.ForeignKey("escola.id"), nullable=False)
+    escola_id = db.Column(db.Integer, db.ForeignKey("escolas.id"), nullable=False)
     data_solicitacao = db.Column(db.DateTime, default=datetime.utcnow)
     data_entrega = db.Column(db.DateTime)
     status = db.Column(
@@ -499,7 +503,7 @@ class SolicitacaoItem(db.Model):
 class Cardapio(db.Model):
     __tablename__ = "cardapio"
     id = db.Column(db.Integer, primary_key=True)
-    escola_id = db.Column(db.Integer, db.ForeignKey("escola.id"), nullable=False)
+    escola_id = db.Column(db.Integer, db.ForeignKey("escolas.id"), nullable=False)
     # --- ALTERAÇÃO APLICADA AQUI ---
     mes = db.Column(
         db.Integer, nullable=False
@@ -614,3 +618,202 @@ class Secretaria(db.Model):
 
     def __repr__(self):
         return f'<Secretaria {self.nome}>'    
+
+		
+class Fornecedor(db.Model):
+    __tablename__ = 'almox_fornecedor'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(200), nullable=False)
+    cnpj = db.Column(db.String(20), unique=True, nullable=True)
+    endereco = db.Column(db.String(300))
+    telefone = db.Column(db.String(20))
+    email = db.Column(db.String(120))
+    dados_bancarios = db.Column(db.Text)
+    
+    materiais = db.relationship('Material', back_populates='fornecedor_padrao')
+    movimentacoes = db.relationship('MovimentoEstoque', back_populates='fornecedor')
+
+class Material(db.Model):
+    __tablename__ = 'almox_material'
+    id = db.Column(db.Integer, primary_key=True)
+    codigo_interno = db.Column(db.String(50), unique=True, nullable=True)
+    descricao = db.Column(db.String(300), nullable=False)
+    unidade_medida = db.Column(db.String(20), nullable=False)
+    categoria = db.Column(db.String(100))
+    estoque_atual = db.Column(db.Float, nullable=False, default=0.0)
+    estoque_minimo = db.Column(db.Float, default=0.0)
+    estoque_maximo = db.Column(db.Float, default=0.0)
+    localizacao_fisica = db.Column(db.String(100))
+    ultimo_custo = db.Column(db.Float, default=0.0)
+    codigo_barras = db.Column(db.String(100), unique=True, nullable=True)
+    
+    fornecedor_padrao_id = db.Column(db.Integer, db.ForeignKey('almox_fornecedor.id'), nullable=True)
+    fornecedor_padrao = db.relationship('Fornecedor', back_populates='materiais')
+
+    movimentacoes = db.relationship('MovimentoEstoque', backref='material', lazy=True)
+
+class Requisicao(db.Model):
+    __tablename__ = 'almox_requisicao'
+    id = db.Column(db.Integer, primary_key=True)
+    data_solicitacao = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    status = db.Column(db.String(50), nullable=False, default='Pendente') # Ex: Pendente, Aprovada, Atendida, Recusada
+    justificativa = db.Column(db.Text)
+    
+    secretaria_solicitante_id = db.Column(db.Integer, db.ForeignKey('secretaria.id'), nullable=False)
+    secretaria_solicitante = db.relationship('Secretaria', backref='requisicoes_almoxarifado')
+    
+    usuario_solicitante_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    usuario_solicitante = db.relationship('User', backref='requisicoes_almoxarifado')
+
+    itens = db.relationship('RequisicaoItem', backref='requisicao', lazy='dynamic', cascade="all, delete-orphan")
+
+class RequisicaoItem(db.Model):
+    __tablename__ = 'almox_requisicao_item'
+    id = db.Column(db.Integer, primary_key=True)
+    quantidade_solicitada = db.Column(db.Float, nullable=False)
+    quantidade_atendida = db.Column(db.Float, default=0.0)
+    
+    requisicao_id = db.Column(db.Integer, db.ForeignKey('almox_requisicao.id'), nullable=False)
+    material_id = db.Column(db.Integer, db.ForeignKey('almox_material.id'), nullable=False)
+    material = db.relationship('Material')
+
+class MovimentoEstoque(db.Model):
+    __tablename__ = 'almox_movimento_estoque'
+    id = db.Column(db.Integer, primary_key=True)
+    data_movimento = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    tipo_movimento = db.Column(db.String(50), nullable=False) # Ex: 'Entrada NF', 'Saída Requisição', 'Ajuste Inventário'
+    quantidade = db.Column(db.Float, nullable=False)
+    valor_unitario = db.Column(db.Float)
+    justificativa = db.Column(db.Text)
+    nota_fiscal = db.Column(db.String(100))
+
+    material_id = db.Column(db.Integer, db.ForeignKey('almox_material.id'), nullable=False)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    usuario = db.relationship('User', backref='movimentos_estoque')
+    
+    fornecedor_id = db.Column(db.Integer, db.ForeignKey('almox_fornecedor.id'), nullable=True)
+    fornecedor = db.relationship('Fornecedor', back_populates='movimentacoes')
+    
+    requisicao_item_id = db.Column(db.Integer, db.ForeignKey('almox_requisicao_item.id'), nullable=True)
+    requisicao_item = db.relationship('RequisicaoItem', backref='movimentos')
+		
+# ==========================================================
+# MÓDULO DE GESTÃO ACADÊMICA (ALINHADO AO CENSO ESCOLAR)
+# ==========================================================
+
+class AcadAluno(db.Model):
+    __tablename__ = 'acad_aluno'
+    id = db.Column(db.Integer, primary_key=True)
+    # --- Dados de Identificação (Censo) ---
+    nome_completo = db.Column(db.String(200), nullable=False, index=True)
+    data_nascimento = db.Column(db.Date, nullable=False)
+    sexo = db.Column(db.String(20)) # Masculino, Feminino
+    cor_raca = db.Column(db.String(50)) # Branca, Preta, Parda, Amarela, Indígena
+    filiacao_1 = db.Column(db.String(200)) # Nome da mãe/pai/responsável 1
+    filiacao_2 = db.Column(db.String(200)) # Nome da mãe/pai/responsável 2
+    nacionalidade = db.Column(db.String(50), default='Brasileira')
+    cpf = db.Column(db.String(14), unique=True, nullable=True, index=True)
+    id_inep = db.Column(db.String(20), unique=True, nullable=True) # Código do Aluno no Censo
+    
+    # --- Dados de Contato e Endereço ---
+    nome_responsavel = db.Column(db.String(200))
+    telefone_responsavel = db.Column(db.String(20))
+    endereco = db.Column(db.String(300))
+    
+    # --- Necessidades Especiais (Censo) ---
+    necessidade_especial = db.Column(db.Boolean, default=False)
+    tipo_necessidade = db.Column(db.Text) # Campo para descrever (ex: Baixa Visão, Surdez, TDAH)
+
+    status = db.Column(db.String(50), nullable=False, default='Ativo') # Ativo, Inativo, Transferido
+    
+    matriculas = db.relationship('AcadMatricula', back_populates='aluno', cascade="all, delete-orphan")
+
+class AcadTurma(db.Model):
+    __tablename__ = 'acad_turma'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False) # Ex: "1º Ano - A"
+    ano_letivo = db.Column(db.Integer, nullable=False)
+    turno = db.Column(db.String(50), nullable=False) # Manhã, Tarde, Noite, Integral
+    etapa_ensino = db.Column(db.String(100), nullable=False) # Ed. Infantil, Fundamental I, etc.
+    modalidade = db.Column(db.String(100), nullable=False) # Regular, EJA, AEE
+    vagas = db.Column(db.Integer, nullable=False, default=30)
+    
+    escola_id = db.Column(db.Integer, db.ForeignKey('escolas.id'), nullable=False)
+    escola = db.relationship('Escola', back_populates='turmas')
+    
+    matriculas = db.relationship('AcadMatricula', back_populates='turma', cascade="all, delete-orphan")
+
+class AcadMatricula(db.Model):
+    __tablename__ = 'acad_matricula'
+    id = db.Column(db.Integer, primary_key=True)
+    data_matricula = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    status = db.Column(db.String(50), nullable=False, default='Cursando') # Cursando, Transferido, Desistente, Aprovado, Reprovado
+    
+    aluno_id = db.Column(db.Integer, db.ForeignKey('acad_aluno.id'), nullable=False)
+    turma_id = db.Column(db.Integer, db.ForeignKey('acad_turma.id'), nullable=False)
+    
+    aluno = db.relationship('AcadAluno', back_populates='matriculas')
+    turma = db.relationship('AcadTurma', back_populates='matriculas')
+
+# Adiciona a relação de volta da Escola para as Turmas
+Escola.turmas = db.relationship('AcadTurma', order_by=AcadTurma.id, back_populates='escola')		
+
+
+# (Substitua o bloco do Módulo Académico que você adicionou antes por este)
+
+# ==========================================================
+# MÓDULO DE GESTÃO ACADÊMICA (ALINHADO AO CENSO ESCOLAR)
+# ==========================================================
+
+# Tabela de associação para ligar Professores e Disciplinas a uma Turma
+acad_turma_disciplinas_professores = db.Table('acad_turma_disciplinas_professores',
+    db.Column('turma_id', db.Integer, db.ForeignKey('acad_turma.id'), primary_key=True),
+    db.Column('disciplina_id', db.Integer, db.ForeignKey('acad_disciplina.id'), primary_key=True),
+    # CORREÇÃO: Aponta para a chave primária correta (String) de Servidor
+    db.Column('professor_num_contrato', db.String(50), db.ForeignKey('servidor.num_contrato'), primary_key=True)
+)
+
+class AcadDisciplina(db.Model):
+    __tablename__ = 'acad_disciplina'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), unique=True, nullable=False)
+    area_conhecimento = db.Column(db.String(100))
+
+class AcadPeriodo(db.Model):
+    __tablename__ = 'acad_periodo'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False) # Ex: "1º Bimestre", "2º Trimestre"
+    ano_letivo = db.Column(db.Integer, nullable=False, index=True)
+    data_inicio = db.Column(db.Date)
+    data_fim = db.Column(db.Date)
+
+class AcadNota(db.Model):
+    __tablename__ = 'acad_nota'
+    id = db.Column(db.Integer, primary_key=True)
+    valor = db.Column(db.Float, nullable=False)
+
+    matricula_id = db.Column(db.Integer, db.ForeignKey('acad_matricula.id'), nullable=False)
+    disciplina_id = db.Column(db.Integer, db.ForeignKey('acad_disciplina.id'), nullable=False)
+    periodo_id = db.Column(db.Integer, db.ForeignKey('acad_periodo.id'), nullable=False)
+    # CORREÇÃO: Aponta para a chave primária correta (String) de Servidor
+    professor_num_contrato = db.Column(db.String(50), db.ForeignKey('servidor.num_contrato'), nullable=False)
+
+    # Relações para fácil acesso
+    matricula = db.relationship('AcadMatricula', backref='notas')
+    disciplina = db.relationship('AcadDisciplina')
+    periodo = db.relationship('AcadPeriodo')
+    # CORREÇÃO: Define a foreign_keys para a relação com Servidor
+    professor = db.relationship('Servidor', foreign_keys=[professor_num_contrato])
+
+    # Garante que um aluno só tem uma nota por disciplina/período
+    __table_args__ = (db.UniqueConstraint('matricula_id', 'disciplina_id', 'periodo_id', name='_nota_unica_uc'),)
+
+# --- ADIÇÕES A MODELOS EXISTENTES ---
+
+# Adicione/substitua esta relação dentro da sua classe AcadTurma
+AcadTurma.disciplinas_professores = db.relationship('Servidor',
+    secondary=acad_turma_disciplinas_professores,
+    backref=db.backref('turmas_lecionadas', lazy='dynamic'),
+    lazy='dynamic'
+)
+

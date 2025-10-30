@@ -17,6 +17,7 @@
                     <thead>
                         <tr>
                             <th>Usuário</th>
+                            <th>Email</th>
                             <th>Permissão</th>
                             <th>Secretaria</th>
                             <th class="text-right">Ações</th>
@@ -26,6 +27,7 @@
                         {% for usuario in usuarios %}
                         <tr>
                             <td>{{ usuario.username }}</td>
+                            <td>{{ usuario.email or 'N/A' }}</td>
                             <td><span class="badge bg-secondary">{{ usuario.role|capitalize }}</span></td>
                             <td>{{ usuario.secretaria.nome if usuario.secretaria else 'N/A' }}</td>
                             <td class="text-right">
@@ -38,38 +40,42 @@
                 </table>
             </div>
             <div class="card-footer">
-     <form action="{{ url_for('add_usuario') }}" method="POST">
-         <h6 class="mb-3">Adicionar Novo Usuário</h6>
-         <div class="row g-2">
-             <div class="col-md-3">
-                 <input type="text" name="username" class="form-control" placeholder="Usuário" required>
-             </div>
-             <div class="col-md-3">
-                 <input type="password" name="password" class="form-control" placeholder="Senha" required>
-             </div>
-             <div class="col-md-3">
-                 <select name="secretaria_id" class="form-select" required>
-                    <option value="" disabled selected>-- Secretaria --</option>
-                    {% for sec in secretarias %}
-                    <option value="{{ sec.id }}">{{ sec.nome }}</option>
-                    {% endfor %}
-                 </select>
-             </div>
-             <div class="col-md-3">
-                 <select name="role" class="form-select" required>
-                     <option value="" disabled selected>-- Permissão --</option>
-                     <option value="admin">Super Admin</option>
-                     <option value="RH">RH</option>
-                     <option value="Combustivel">Combustível</option>
-                     <option value="Merenda Escolar">Merenda Escolar</option>
-                     <option value="Patrimonio">Patrimônio</option>
-                     <option value="operador">Operador (Básico)</option>
-                 </select>
-             </div>
-         </div>
-         <button type="submit" class="btn btn-primary mt-2 w-100">Adicionar Usuário</button>
-     </form>
-</div>
+                 <form action="{{ url_for('add_usuario') }}" method="POST">
+                     <h6 class="mb-3">Adicionar Novo Usuário</h6>
+                     <div class="row g-2">
+                         <div class="col-md-4">
+                             <input type="text" name="username" class="form-control" placeholder="Usuário" required>
+                         </div>
+                         <div class="col-md-4">
+                             <input type="email" name="email" class="form-control" placeholder="E-mail" required>
+                         </div>
+                         <div class="col-md-4">
+                             <input type="password" name="password" class="form-control" placeholder="Senha" required>
+                         </div>
+                     </div>
+                     <div class="row g-2 mt-1"> <div class="col-md-6">
+                             <select name="secretaria_id" class="form-select" required>
+                                <option value="" disabled selected>-- Secretaria --</option>
+                                {% for sec in secretarias %}
+                                <option value="{{ sec.id }}">{{ sec.nome }}</option>
+                                {% endfor %}
+                             </select>
+                         </div>
+                         <div class="col-md-6">
+                             <select name="role" class="form-select" required>
+                                 <option value="" disabled selected>-- Permissão --</option>
+                                 <option value="admin">Super Admin</option>
+                                 <option value="RH">RH</option>
+                                 <option value="Combustivel">Combustível</option>
+                                 <option value="Merenda Escolar">Merenda Escolar</option>
+                                 <option value="Patrimonio">Patrimônio</option>
+                                 <option value="operador">Operador (Básico)</option>
+                             </select>
+                         </div>
+                     </div>
+                     <button type="submit" class="btn btn-primary mt-2 w-100">Adicionar Usuário</button>
+                 </form>
+                 </div>
         </div>
     </div>
 

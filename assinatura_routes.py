@@ -19,9 +19,9 @@ import random # Para gerar o PIN
 from datetime import datetime
 
 # Importações dos seus módulos
-from .extensions import db
-from .models import DocumentoAssinado, User, Servidor
-from .utils import login_required, role_required, registrar_log, gerar_codigo_validade
+from extensions import db
+from models import DocumentoAssinado, User, Servidor
+from utils import login_required, role_required, registrar_log, gerar_codigo_validade
 
 # Cria o Blueprint
 assinatura_bp = Blueprint('assinatura', __name__, url_prefix='/assinatura')

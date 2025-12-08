@@ -1,9 +1,9 @@
 # escola_routes.py (VERSÃO ATUALIZADA)
 
 from flask import Blueprint, render_template, request, flash, redirect, url_for
-from .models import Escola
-from .extensions import db
-from .utils import role_required
+from models import Escola
+from extensions import db
+from utils import role_required
 
 escola_bp = Blueprint('escola', __name__, url_prefix='/escolas')
 

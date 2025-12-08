@@ -6,8 +6,8 @@ from werkzeug.utils import secure_filename
 from flask import current_app, make_response # Adicionado make_response
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from functools import wraps
-from .extensions import db, bcrypt
-from .models import Protocolo, Tramitacao, Anexo
+from extensions import db, bcrypt
+from models import Protocolo, Tramitacao, Anexo
 from datetime import datetime
 # Importações para gerar o PDF
 from reportlab.pdfgen import canvas
@@ -15,7 +15,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import cm
 from sqlalchemy.orm import joinedload
 from flask import send_from_directory
-from .utils import role_required
+from utils import role_required
 
 # Criação do Blueprint (sem alterações)
 protocolo_bp = Blueprint(

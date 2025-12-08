@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, session
-from .utils import login_required, role_required
+from utils import login_required, role_required
 from datetime import datetime
 
 # 1. Cria o Blueprint para o módulo de Prestação de Contas

@@ -2,7 +2,7 @@
 
 # from .extensions import db
 from datetime import datetime, time, date
-from .extensions import db
+from extensions import db
 # --- SEUS MODELOS ---
 
 

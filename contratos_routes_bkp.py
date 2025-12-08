@@ -2,8 +2,8 @@
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, make_response
 from functools import wraps
-from .extensions import db
-from .models import Servidor, Contrato
+from extensions import db
+from models import Servidor, Contrato
 from datetime import datetime
 import io
 import locale

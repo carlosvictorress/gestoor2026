@@ -1,11 +1,11 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session
-from .models import (
+from models import (
     AcadAluno, Escola, AcadTurma, AcadMatricula, 
     AcadDisciplina, AcadPeriodo, Servidor, 
     acad_turma_disciplinas_professores, AcadNota
 )
-from .extensions import db
-from .utils import role_required
+from extensions import db
+from utils import role_required
 from datetime import datetime
 import io
 import csv

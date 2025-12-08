@@ -1,7 +1,7 @@
 # Arquivo: whatsapp_routes.py (CORREÇÃO FINAL DE ENTREGA)
 
 from flask import Blueprint, request, jsonify
-from .agente_transporte import roteador_intencoes, menu_principal 
+from agente_transporte import roteador_intencoes, menu_principal 
 # Importação de funções de consulta para uso na lógica
 
 whatsapp_bp = Blueprint('whatsapp', __name__, url_prefix='/whatsapp')

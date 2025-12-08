@@ -5,7 +5,7 @@ import uuid
 import io
 import requests
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, make_response, send_from_directory, current_app, jsonify
-from .models import (
+from models import (
     FiscalContrato, FiscalAnexo, FiscalAtestoMensal, FiscalOcorrencia, 
     FiscalPenalidade, Secretaria, FiscalChecklistModel, FiscalChecklistItem, FiscalChecklistResposta, FiscalNotaFiscal 
 )
@@ -16,8 +16,8 @@ from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4
-from .extensions import db
-from .utils import login_required, role_required, cabecalho_e_rodape
+from extensions import db
+from utils import login_required, role_required, cabecalho_e_rodape
 from datetime import datetime, date, timedelta 
 from werkzeug.utils import secure_filename 
 from sqlalchemy import func

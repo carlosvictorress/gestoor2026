@@ -3,7 +3,7 @@ import shutil
 import zipfile
 from datetime import datetime
 from flask import Blueprint, render_template, current_app, flash, redirect, url_for, send_from_directory, request
-from .utils import login_required, admin_required
+from utils import login_required, admin_required
 from werkzeug.utils import secure_filename
 
 backup_bp = Blueprint('backup', __name__)

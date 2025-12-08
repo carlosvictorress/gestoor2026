@@ -5,9 +5,9 @@ import base64
 from datetime import datetime
 from flask import Response # Certifique-se de que 'Response' está a ser importado do flask
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session
-from .models import Material, Fornecedor, MovimentoEstoque, Requisicao, RequisicaoItem, Secretaria
-from .extensions import db
-from .utils import role_required # Supondo que você tem um decorador de permissão
+from models import Material, Fornecedor, MovimentoEstoque, Requisicao, RequisicaoItem, Secretaria
+from extensions import db
+from utils import role_required # Supondo que você tem um decorador de permissão
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors

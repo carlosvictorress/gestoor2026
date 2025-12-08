@@ -23,8 +23,8 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet # (Você já deve ter)
 from reportlab.lib import colors # (Você já deve ter)
 from reportlab.lib.units import cm # (Você já deve ter)
-from .utils import cabecalho_e_rodape # (Você já deve ter)
-from .utils import currency_filter_br
+from utils import cabecalho_e_rodape # (Você já deve ter)
+from utils import currency_filter_br
 
 from flask_mail import Message # Adicione esta
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature # Adicione esta
@@ -3400,22 +3400,22 @@ def haversine(lat1, lon1, lat2, lon2):
 # ===================================================================
 # PARTE 6: Importação e Registro dos Blueprints
 # ===================================================================
-from .patrimonio_routes import patrimonio_bp
-from .merenda_routes import merenda_bp
-from .motoristas_routes import motoristas_bp
-from .escola_routes import escola_bp
-from .transporte_routes import transporte_bp
-from .protocolo_routes import protocolo_bp
-from .contratos_routes import contratos_bp
-from .frequencia_routes import frequencia_bp
-from .backup_routes import backup_bp
-from .almoxarifado_routes import almoxarifado_bp
-from .academico_routes import academico_bp
-from .caee_routes import caee_bp 
-from .contrato_fiscal_routes import contrato_fiscal_bp
-from .contas_routes import contas_bp
-from .whatsapp_routes import whatsapp_bp
-from .assinatura_routes import assinatura_bp
+from patrimonio_routes import patrimonio_bp
+from merenda_routes import merenda_bp
+from motoristas_routes import motoristas_bp
+from escola_routes import escola_bp
+from transporte_routes import transporte_bp
+from protocolo_routes import protocolo_bp
+from contratos_routes import contratos_bp
+from frequencia_routes import frequencia_bp
+from backup_routes import backup_bp
+from almoxarifado_routes import almoxarifado_bp
+from academico_routes import academico_bp
+from caee_routes import caee_bp 
+from contrato_fiscal_routes import contrato_fiscal_bp
+from contas_routes import contas_bp
+from whatsapp_routes import whatsapp_bp
+from assinatura_routes import assinatura_bp
 
 
 app.register_blueprint(transporte_bp)

@@ -7,8 +7,8 @@ from reportlab.lib.units import cm # <-- Adicionar
 from reportlab.platypus import Image # <-- Adicionar
 from functools import wraps
 from flask import session, flash, redirect, url_for, request
-from .extensions import db
-from .models import Log
+from extensions import db
+from models import Log
 from functools import wraps
 from flask import session, flash, redirect, url_for
 

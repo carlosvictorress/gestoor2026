@@ -2,12 +2,12 @@
 
 import os 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, send_from_directory, make_response
-from .models import (
+from models import (
     CaeeAluno, CaeeProfissional, Secretaria, CaeePlanoAtendimento, 
     CaeeSessao, CaeeLaudo, CaeeRelatorioPeriodico, CaeeLinhaTempo
 )
-from .extensions import db
-from .utils import login_required, role_required
+from extensions import db
+from utils import login_required, role_required
 from datetime import datetime
 from werkzeug.utils import secure_filename
 import io
@@ -18,7 +18,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import cm
-from .utils import cabecalho_e_rodape
+from utils import cabecalho_e_rodape
 from sqlalchemy import or_
 
 caee_bp = Blueprint('caee', __name__, url_prefix='/caee')

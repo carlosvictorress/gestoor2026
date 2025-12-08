@@ -1,7 +1,7 @@
 # agente_transporte.py
 
-from .models import RotaTransporte, Servidor # Importamos apenas o necessário
-from .extensions import db
+from models import RotaTransporte, Servidor # Importamos apenas o necessário
+from extensions import db
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func
 

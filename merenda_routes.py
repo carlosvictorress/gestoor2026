@@ -9,18 +9,18 @@ import json
 import uuid
 from reportlab.lib.pagesizes import A4
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, make_response
-from .extensions import db, bcrypt
+from extensions import db, bcrypt
 # Importe todos os novos modelos aqui
 from werkzeug.utils import secure_filename
-from .models import Escola, ProdutoMerenda, EstoqueMovimento, SolicitacaoMerenda, SolicitacaoItem, Cardapio, PratoDiario, HistoricoCardapio, Servidor
-from .utils import login_required, registrar_log, limpar_cpf, cabecalho_e_rodape, currency_filter_br, cabecalho_e_rodape_moderno
+from models import Escola, ProdutoMerenda, EstoqueMovimento, SolicitacaoMerenda, SolicitacaoItem, Cardapio, PratoDiario, HistoricoCardapio, Servidor
+from utils import login_required, registrar_log, limpar_cpf, cabecalho_e_rodape, currency_filter_br, cabecalho_e_rodape_moderno
     
 from sqlalchemy import or_, func
 from datetime import datetime
 from datetime import date, timedelta
 import calendar
-from .utils import role_required
-from .models import AgricultorFamiliar, DocumentoAgricultor, ContratoPNAE, ItemProjetoVenda, EntregaPNAE, ConfiguracaoPNAE
+from utils import role_required
+from models import AgricultorFamiliar, DocumentoAgricultor, ContratoPNAE, ItemProjetoVenda, EntregaPNAE, ConfiguracaoPNAE
 
 
 

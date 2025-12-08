@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+
+{% block title %}Confirmar Assinatura{% endblock %}
+
+{% block content %}
+<style>
+    .pdf-container {
+        position: relative;
+        display: inline-block;
+        border: 2px solid #333;
+        cursor: crosshair;
+        max-width: 100%;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .pdf-page-img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        user-select: none;
+    }
+
+    #signature-marker {
+        position: absolute;
+        display: none;
+        width: 200px;
+        height: 45px;
+        background-color: rgba(0, 77, 64, 0.5);
+        border: 2px dashed #00ff00;
+        color: #fff;
+        font-size: 10px;
+        font-weight: bold;
+        text-align: center;
+        line-height: 40px;
+        pointer-events: none;
+        transform: translate(-50%, -50%);
+        z-index: 10;
+    }
+
+    .page-controls {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #dee2e6;
+        margin-bottom: 10px;
+    }
+</style>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12 mb-3">
+            <h3><i class="bi bi-shield-lock-fill"></i> Assinatura Segura</h3>
+            <p class="text-muted">Posicione a assinatura e valide com o PIN enviado ao servidor.</p>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('assinatura.confirmar_assinatura') }}" id="form-assinatura">
+        <div class="row">
+            <div class="col-md-8 text-center bg-light p-3" style="min-height: 600px;">
+                
+                <div class="d-flex justify-content-center align-items-center page-controls gap-3">
+                    <button type="button" class="btn btn-outline-primary" onclick="mudarPagina(-1)">
+                        <i class="bi bi-chevron-left"></i> Anterior
+                    </button>
+                    <span class="fw-bold" id="page-indicator">Página 1 de {{ total_paginas }}</span>
+                    <button type="button" class="btn btn-outline-primary" onclick="mudarPagina(1)">
+                        Próxima <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+
+                <div class="pdf-container" id="pdfContainer">
+                    <img src="{{ url_for('assinatura.preview_image', filename=temp_filename, pagina=1) }}" class="pdf-page-img" id="pdfImage" alt="Preview">
+                    <div id="signature-marker">ASSINATURA AQUI</div>
+                </div>
+
+            </div>
+
+            <div class="col-md-4">
+                <div class="card shadow-sm sticky-top" style="top: 20px;">
+                    <div class="card-header bg-dark text-white">
+                        Configuração
+                    </div>
+                    <div class="card-body">
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Servidor Responsável</label>
+                            <select name="servidor_cpf" id="servidor_cpf" class="form-select" required>
+                                <option value="">-- Selecione --</option>
+                                {% for s in todos_servidores %}
+                                    <option value="{{ s.cpf }}">{{ s.nome }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">O PIN de segurança será enviado para o e-mail deste servidor.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Página Selecionada</label>
+                            <input type="number" name="pagina" id="input_pagina" class="form-control" value="1" readonly>
+                        </div>
+
+                        <input type="hidden" name="rel_x" id="input_rel_x" required>
+                        <input type="hidden" name="rel_y" id="input_rel_y" required>
+                        
+                        <input type="hidden" name="pin_digitado" id="pin_digitado_form">
+
+                        <div class="alert alert-warning mt-3" id="msg-aviso">
+                            <i class="bi bi-arrow-left"></i> Clique na imagem para definir o local.
+                        </div>
+
+                        <button type="button" class="btn btn-primary w-100 btn-lg" id="btn-pre-submit" onclick="solicitarPIN()" disabled>
+                            <i class="bi bi-envelope-check"></i> Enviar PIN e Assinar
+                        </button>
+                        
+                        <a href="{{ url_for('assinatura.index_assinatura') }}" class="btn btn-outline-danger w-100 mt-2">Cancelar</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="modal fade" id="modalPIN" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="bi bi-lock-fill"></i> Segurança Necessária</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <p class="mb-3">Um código PIN de 6 dígitos foi enviado para o e-mail do servidor selecionado.</p>
+        <p class="text-muted small">Verifique a caixa de entrada (e spam) para autorizar.</p>
+        
+        <div class="mb-3">
+            <input type="text" id="input_pin_modal" class="form-control form-control-lg text-center fw-bold letter-spacing-2" placeholder="000000" maxlength="6" style="letter-spacing: 5px; font-size: 24px;">
+        </div>
+        
+        <div id="loading-spinner" class="d-none">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="small">Enviando e-mail...</p>
+        </div>
+        
+        <div id="modal-error" class="alert alert-danger d-none small"></div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success" onclick="confirmarComPIN()">
+            <i class="bi bi-pen-fill"></i> Validar e Assinar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    console.log("--- Sistema de Assinatura Iniciado ---");
+
+    // 1. Seleção Segura dos Elementos
+    const pdfContainer = document.getElementById('pdfContainer');
+    const pdfImage = document.getElementById('pdfImage');
+    const marker = document.getElementById('signature-marker');
+    
+    // Inputs Ocultos
+    const inputRelX = document.getElementById('input_rel_x');
+    const inputRelY = document.getElementById('input_rel_y');
+    const inputPagina = document.getElementById('input_pagina');
+    
+    // Botões e Avisos
+    const btnPreSubmit = document.getElementById('btn-pre-submit');
+    const msgAviso = document.getElementById('msg-aviso');
+    const pageIndicator = document.getElementById('page-indicator');
+    
+    // Configurações do Servidor (Jinja2)
+    let paginaAtual = 1;
+    const totalPaginas = {{ total_paginas|default(1) }};
+    const filename = "{{ temp_filename }}";
+
+    // Verifica se encontrou o elemento principal
+    if (!pdfContainer) {
+        console.error("ERRO CRÍTICO: Container do PDF não encontrado.");
+        alert("Erro ao carregar componente de assinatura. Recarregue a página.");
+        return;
+    }
+
+    // --- FUNÇÃO DE NAVEGAÇÃO ENTRE PÁGINAS ---
+    window.mudarPagina = function(delta) {
+        const novaPagina = paginaAtual + delta;
+        if (novaPagina >= 1 && novaPagina <= totalPaginas) {
+            paginaAtual = novaPagina;
+            
+            // Atualiza textos e inputs
+            if(pageIndicator) pageIndicator.innerText = `Página ${paginaAtual} de ${totalPaginas}`;
+            if(inputPagina) inputPagina.value = paginaAtual;
+            
+            // Reseta a interface de assinatura
+            if(marker) marker.style.display = 'none';
+            if(btnPreSubmit) btnPreSubmit.disabled = true;
+            
+            if(msgAviso) {
+                msgAviso.className = "alert alert-warning mt-3";
+                msgAviso.innerHTML = "Página mudou. <b>Clique novamente</b> para definir o local.";
+            }
+            
+            // Limpa coordenadas antigas
+            if(inputRelX) inputRelX.value = "";
+            if(inputRelY) inputRelY.value = "";
+
+            // Recarrega imagem
+            const timestamp = new Date().getTime();
+            if(pdfImage) pdfImage.src = `/assinatura/preview_image/${filename}/${paginaAtual}?t=${timestamp}`;
+        }
+    };
+
+    // --- LÓGICA DO CLIQUE (ONDE O ERRO ESTAVA) ---
+    pdfContainer.addEventListener('click', function(e) {
+        console.log("Clique detectado na imagem!"); // Debug no Console (F12)
+
+        if (!pdfImage) return;
+
+        const rect = pdfImage.getBoundingClientRect();
+        
+        // Coordenadas relativas ao elemento (pixels)
+        const x_pixel = e.clientX - rect.left;
+        const y_pixel = e.clientY - rect.top;
+        
+        // Cálculo da porcentagem (0.0 a 1.0)
+        const x_percent = x_pixel / rect.width;
+        const y_percent = y_pixel / rect.height;
+
+        console.log(`Posição: X=${x_percent.toFixed(4)}, Y=${y_percent.toFixed(4)}`);
+
+        // Preenche os inputs ocultos
+        if(inputRelX) inputRelX.value = x_percent.toFixed(5);
+        if(inputRelY) inputRelY.value = y_percent.toFixed(5);
+
+        // Move o marcador visual
+        if(marker) {
+            marker.style.display = 'block';
+            marker.style.left = x_pixel + 'px';
+            marker.style.top = y_pixel + 'px';
+        }
+
+        // Libera o botão
+        if(btnPreSubmit) {
+            btnPreSubmit.disabled = false;
+            btnPreSubmit.classList.remove('btn-secondary');
+            btnPreSubmit.classList.add('btn-primary');
+        }
+
+        if(msgAviso) {
+            msgAviso.className = "alert alert-success mt-3";
+            msgAviso.innerHTML = "<i class='bi bi-check-circle-fill'></i> Local definido! Clique em 'Enviar PIN'.";
+        }
+    });
+
+    // --- LÓGICA DO PIN (ENVIAR E-MAIL) ---
+    window.solicitarPIN = function() {
+        const selectServidor = document.getElementById('servidor_cpf');
+        const cpf = selectServidor ? selectServidor.value : null;
+        
+        if(!cpf) {
+            alert("Por favor, selecione um servidor na lista acima.");
+            return;
+        }
+
+        // Abre modal
+        const modalEl = document.getElementById('modalPIN');
+        const modalPIN = new bootstrap.Modal(modalEl);
+        modalPIN.show();
+
+        // UI de Carregamento
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const modalError = document.getElementById('modal-error');
+        const inputPinModal = document.getElementById('input_pin_modal');
+        
+        if(loadingSpinner) loadingSpinner.classList.remove('d-none');
+        if(modalError) modalError.classList.add('d-none');
+        if(inputPinModal) {
+            inputPinModal.value = '';
+            inputPinModal.disabled = true;
+        }
+
+        // Requisição AJAX
+        fetch("{{ url_for('assinatura.enviar_pin_seguranca') }}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cpf: cpf })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(loadingSpinner) loadingSpinner.classList.add('d-none');
+            
+            if (data.success) {
+                if(inputPinModal) {
+                    inputPinModal.disabled = false;
+                    inputPinModal.focus();
+                }
+            } else {
+                if(modalError) {
+                    modalError.classList.remove('d-none');
+                    modalError.innerText = data.message;
+                }
+            }
+        })
+        .catch(err => {
+            if(loadingSpinner) loadingSpinner.classList.add('d-none');
+            if(modalError) {
+                modalError.classList.remove('d-none');
+                modalError.innerText = "Erro de conexão ao enviar e-mail.";
+            }
+            console.error(err);
+        });
+    };
+
+    // --- CONFIRMAR FINAL ---
+    window.confirmarComPIN = function() {
+        const inputPinModal = document.getElementById('input_pin_modal');
+        const pin = inputPinModal.value;
+        
+        if (pin.length < 6) {
+            alert("Por favor, digite o PIN completo de 6 dígitos.");
+            return;
+        }
+
+        // Passa o PIN para o form e envia
+        const hiddenPin = document.getElementById('pin_digitado_form');
+        if(hiddenPin) hiddenPin.value = pin;
+        
+        // Fecha modal manualmente (opcional, pois o submit vai recarregar)
+        const modalEl = document.getElementById('modalPIN');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if(modalInstance) modalInstance.hide();
+
+        document.getElementById('form-assinatura').submit();
+    };
+});
+</script>
+{% endblock %}

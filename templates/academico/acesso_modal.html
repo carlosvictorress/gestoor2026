@@ -1,0 +1,45 @@
+<div class="modal fade" id="acessoModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="acessoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="acessoModalLabel"><i class="bi bi-person-badge"></i> Acesso ao Módulo Acadêmico</h5>
+            </div>
+            <form method="POST" action="{{ url_for('academico.dashboard_acesso') }}">
+                <div class="modal-body">
+                    <p class="mb-3">Selecione sua função para prosseguir:</p>
+                    
+                    <div class="mb-3">
+                        <label for="papel" class="form-label">Sua Função</label>
+                        <select class="form-select" id="papel" name="papel" required>
+                            <option value="" selected disabled>-- Selecione --</option>
+                            <option value="professor">Professor(a)</option>
+                            <option value="diretor">Diretor(a)</option>
+                            <option value="coordenador">Coordenador(a)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="codigo_acesso" class="form-label">Código de Acesso (Matrícula/Vínculo)</label>
+                        <input type="text" class="form-control" id="codigo_acesso" name="codigo_acesso" placeholder="Digite seu código ou matrícula" required>
+                    </div>
+
+                    <div class="alert alert-info small mt-3">
+                        Este código será usado para vincular seus acessos (ex: Diário de Classe) ao seu perfil.
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-box-arrow-in-right"></i> Entrar no Módulo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Exibe o modal automaticamente ao carregar a página
+        const acessoModal = new bootstrap.Modal(document.getElementById('acessoModal'));
+        acessoModal.show();
+    });
+</script>

@@ -149,3 +149,16 @@ def transferir_item(item_id):
         flash(f'Erro ao transferir o item: {e}', 'danger')
         
     return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
+
+@patrimonio_bp.route('/termos_responsabilidade')
+@login_required
+@role_required('Patrimonio', 'admin') # Ajuste as permissões conforme necessário
+def listar_termos_responsabilidade():
+    """
+    Rota para listar e gerenciar os Termos de Responsabilidade.
+    """
+    # 1. Lógica para buscar os termos de responsabilidade no banco de dados
+    # (Exemplo: termos = TermoResponsabilidade.query.all())
+
+    # 2. Renderizar o template
+    return render_template('patrimonio/termos_responsabilidade.html', termos=[]) # Troque o [] pela sua variável de termos

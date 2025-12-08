@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}Agricultores Familiares{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-people-fill"></i> Agricultores Familiares</h2>
+    <a href="{{ url_for('merenda.novo_agricultor') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Novo Fornecedor</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nome / Razão Social</th>
+                        <th>CPF/CNPJ</th>
+                        <th>DAP/CAF</th>
+                        <th>Zona</th>
+                        <th>Status</th>
+                        <th class="text-center">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in agricultores %}
+                    <tr>
+                        <td>
+                            <div class="fw-bold">{{ a.razao_social }}</div>
+                            <small class="text-muted">{{ a.tipo_fornecedor }}</small>
+                        </td>
+                        
+                        <td>{{ a.cpf_cnpj }}</td>
+                        
+                        <td>{{ a.dap_caf_numero or '-' }}</td>
+                        
+                        <td>{{ a.zona or 'N/A' }}</td>
+                        
+                        <td>
+                            <span class="badge {{ 'bg-success' if a.status == 'Ativo' else 'bg-secondary' }}">{{ a.status }}</span>
+                        </td>
+                        
+                        <td class="text-center">
+                            {% if a.contratos %}
+                                {% set ultimo_contrato = a.contratos[-1] %}
+                                <a href="{{ url_for('merenda.gerenciar_contrato_pnae', contrato_id=ultimo_contrato.id) }}" class="btn btn-sm btn-outline-success" title="Gerenciar Execução">
+                                    <i class="bi bi-gear-fill"></i> Gerenciar
+                                </a>
+                            {% else %}
+                                <a href="{{ url_for('merenda.novo_contrato_pnae', agricultor_id=a.id) }}" class="btn btn-sm btn-outline-info" title="Novo Contrato">
+                                    <i class="bi bi-file-earmark-plus"></i> Contratar
+                                </a>
+                            {% endif %}
+                            
+                            <a href="#" class="btn btn-sm btn-outline-secondary" title="Editar"><i class="bi bi-pencil"></i></a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">Nenhum agricultor cadastrado.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

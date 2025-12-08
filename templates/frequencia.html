@@ -8,15 +8,77 @@
     <a href="{{ url_for('exibir_qrcode_ponto') }}" class="btn btn-dark"><i class="bi bi-qr-code"></i> Exibir QR Code</a>
 </div>
 
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('visualizar_frequencia') }}" id="filtroForm">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label for="mes" class="form-label">Mês:</label>
+                    <select name="mes" id="mes" class="form-select">
+                        <option value="">Todos</option>
+                        {% for i in range(1, 13) %}
+                            <option value="{{ i }}" {% if filtros_atuais.mes == i %}selected{% endif %}>
+                                {{ ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"][i-1] }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="ano" class="form-label">Ano:</label>
+                    <select name="ano" id="ano" class="form-select">
+                        <option value="">Todos</option>
+                        {% for ano in anos_disponiveis %}
+                            <option value="{{ ano }}" {% if filtros_atuais.ano == ano %}selected{% endif %}>{{ ano }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label for="escola_id" class="form-label">Local de Trabalho (Escola):</label>
+                    <select name="escola_id" id="escola_id" class="form-select">
+                        <option value="">Todos</option>
+                        {% for escola in escolas %}
+                            <option value="{{ escola.id }}" {% if filtros_atuais.escola_id == escola.id %}selected{% endif %}>
+                                {{ escola.nome }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-filter"></i> Filtrar</button>
+                </div>
+            </div>
+        </form>
+        
+        <hr>
+        
+        <div class="row g-2">
+            <div class="col-md-6">
+                <button type="button" id="btnExportarExcel" class="btn btn-success w-100">
+                    <i class="bi bi-file-earmark-excel-fill"></i> Exportar para Excel
+                </button>
+            </div>
+            <div class="col-md-6">
+                <button type="button" id="btnExportarPDF" class="btn btn-danger w-100">
+                    <i class="bi bi-file-earmark-pdf-fill"></i> Exportar para PDF
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 <div class="table-responsive">
     <table class="table table-striped table-hover table-bordered align-middle">
         <thead class="table-dark">
             <tr>
                 <th>Servidor</th>
                 <th>CPF</th>
+                <th>Local (Escola)</th>
                 <th>Data</th>
                 <th>Hora</th>
                 <th>Tipo</th>
+                <th class="text-center">Auditoria</th>
             </tr>
         </thead>
         <tbody>
@@ -24,6 +86,7 @@
             <tr>
                 <td>{{ registro.servidor_ponto.nome if registro.servidor_ponto else 'Servidor não encontrado' }}</td>
                 <td>{{ registro.servidor_cpf }}</td>
+                <td>{{ registro.escola.nome if registro.escola else 'N/A' }}</td>
                 <td>{{ registro.timestamp.strftime('%d/%m/%Y') }}</td>
                 <td>{{ registro.timestamp.strftime('%H:%M:%S') }}</td>
                 <td>
@@ -33,10 +96,25 @@
                         <span class="badge bg-danger">Saída</span>
                     {% endif %}
                 </td>
+                
+                <td class="text-center">
+                    {% if registro.servidor_ponto and registro.servidor_ponto.foto_filename and registro.foto_filename %}
+                        <button class="btn btn-info btn-sm" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#modalAuditoria"
+                                data-servidor-nome="{{ registro.servidor_ponto.nome }}"
+                                data-ref-foto="{{ url_for('uploaded_file', filename=registro.servidor_ponto.foto_filename) }}"
+                                data-ponto-foto="{{ url_for('uploaded_file', filename='pontos/' ~ registro.foto_filename) }}">
+                            <i class="bi bi-images"></i> Verificar
+                        </button>
+                    {% else %}
+                        <span class="badge bg-secondary">N/A</span>
+                    {% endif %}
+                </td>
             </tr>
             {% else %}
             <tr>
-                <td colspan="5" class="text-center">Nenhum registro de ponto encontrado.</td>
+                <td colspan="7" class="text-center">Nenhum registro de ponto encontrado para os filtros selecionados.</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -47,22 +125,100 @@
 <nav aria-label="Navegação da frequência">
     <ul class="pagination justify-content-center">
         <li class="page-item {% if not registros.has_prev %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('visualizar_frequencia', page=registros.prev_num) }}">Anterior</a>
+            <a class="page-link" href="{{ url_for('visualizar_frequencia', page=registros.prev_num, **filtros_atuais) }}">Anterior</a>
         </li>
         {% for page_num in registros.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
             {% if page_num %}
                 <li class="page-item {% if registros.page == page_num %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('visualizar_frequencia', page=page_num) }}">{{ page_num }}</a>
+                    <a class="page-link" href="{{ url_for('visualizar_frequencia', page=page_num, **filtros_atuais) }}">{{ page_num }}</a>
                 </li>
             {% else %}
                 <li class="page-item disabled"><span class="page-link">...</span></li>
             {% endif %}
         {% endfor %}
         <li class="page-item {% if not registros.has_next %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('visualizar_frequencia', page=registros.next_num) }}">Próximo</a>
+            <a class="page-link" href="{{ url_for('visualizar_frequencia', page=registros.next_num, **filtros_atuais) }}">Próximo</a>
         </li>
     </ul>
 </nav>
 {% endif %}
 
+
+<div class="modal fade" id="modalAuditoria" tabindex="-1" aria-labelledby="modalAuditoriaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalAuditoriaLabel">Auditoria de Ponto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h6 id="modalServidorNome" class="text-center mb-3"></h6>
+                <div class="row">
+                    <div class="col-md-6 text-center">
+                        <h6 class="text-muted">Foto de Cadastro (Referência)</h6>
+                        <img id="fotoReferencia" src="" alt="Foto de Referência" class="img-fluid img-thumbnail" style="max-height: 400px;">
+                    </div>
+                    <div class="col-md-6 text-center">
+                        <h6 class="text-muted">Foto do Registro de Ponto</h6>
+                        <img id="fotoPonto" src="" alt="Foto do Ponto" class="img-fluid img-thumbnail" style="max-height: 400px;">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var modalAuditoria = document.getElementById('modalAuditoria');
+    modalAuditoria.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        var nomeServidor = button.getAttribute('data-servidor-nome');
+        var urlFotoRef = button.getAttribute('data-ref-foto');
+        var urlFotoPonto = button.getAttribute('data-ponto-foto');
+        var modalNome = modalAuditoria.querySelector('#modalServidorNome');
+        var imgRef = modalAuditoria.querySelector('#fotoReferencia');
+        var imgPonto = modalAuditoria.querySelector('#fotoPonto');
+        modalNome.textContent = 'Servidor: ' + nomeServidor;
+        imgRef.src = urlFotoRef;
+        imgPonto.src = urlFotoPonto;
+    });
+    modalAuditoria.addEventListener('hidden.bs.modal', function () {
+        modalAuditoria.querySelector('#fotoReferencia').src = '';
+        modalAuditoria.querySelector('#fotoPonto').src = '';
+    });
+
+    // --- NOVO SCRIPT PARA OS BOTÕES DE EXPORTAÇÃO ---
+    // Esta função pega os filtros atuais do formulário e os adiciona à URL de exportação
+    function exportarComFiltros(baseUrl) {
+        const mes = document.getElementById('mes').value;
+        const ano = document.getElementById('ano').value;
+        const escola_id = document.getElementById('escola_id').value;
+        
+        // Constrói os parâmetros da URL
+        const params = new URLSearchParams();
+        if (mes) params.append('mes', mes);
+        if (ano) params.append('ano', ano);
+        if (escola_id) params.append('escola_id', escola_id);
+        
+        // Redireciona para a URL de exportação com os filtros
+        window.location.href = baseUrl + '?' + params.toString();
+    }
+
+    // Adiciona os cliques aos botões de exportação
+    document.getElementById('btnExportarExcel').addEventListener('click', function() {
+        exportarComFiltros("{{ url_for('exportar_frequencia_excel') }}");
+    });
+
+    document.getElementById('btnExportarPDF').addEventListener('click', function() {
+        exportarComFiltros("{{ url_for('exportar_frequencia_pdf') }}");
+    });
+});
+</script>
 {% endblock %}

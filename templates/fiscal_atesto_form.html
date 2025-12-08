@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+
+{% block title %}Lançar Atesto{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-check2-circle"></i> Atesto de Execução Mensal</h2>
+    <a href="{{ url_for('fiscal.detalhes_contrato', contrato_id=contrato.id) }}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Voltar aos Detalhes
+    </a>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">Contrato: {{ contrato.num_contrato }}/{{ contrato.ano }} - {{ contrato.empresa_contratada }}</h5>
+    </div>
+    <div class="card-body">
+
+        <form method="POST" action="{{ url_for('fiscal.lancar_atesto', contrato_id=contrato.id) }}" enctype="multipart/form-data">
+
+            <h5 class="text-muted mb-3">1. Dados da Competência</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label for="mes_competencia" class="form-label">Mês/Ano Competência*</label>
+                    <input type="month" class="form-control" name="mes_competencia" value="{{ mes_atual }}" required>
+                </div>
+                <div class="col-md-8">
+                    <label for="descricao_servico" class="form-label">Descrição do Serviço Executado*</label>
+                    <input type="text" class="form-control" name="descricao_servico" placeholder="Ex: Execução de 100% da rota 03 e 04." required>
+                </div>
+            </div>
+
+            <h5 class="text-muted mb-3">2. Checklist de Fiscalização</h5>
+            {% if itens_checklist %}
+                <p class="alert alert-info py-2">
+                    <i class="bi bi-info-circle-fill"></i> Checklist ativado: **{{ modelo_checklist.nome }}** (Tipo: {{ modelo_checklist.tipo_contrato_associado }}).
+                </p>
+                <div class="row g-3 mb-4 p-3 border rounded">
+                    {% for item in itens_checklist %}
+                        <div class="col-md-6 col-lg-4">
+                            <label class="form-label small mb-1">{{ item.descricao }}</label>
+
+                            {% if item.tipo_resposta == 'Sim/Não' %}
+                                <select class="form-select form-select-sm" name="checklist_{{ item.id }}" required>
+                                    <option value="">-- Selecione --</option>
+                                    <option value="Sim">Sim (Conforme)</option>
+                                    <option value="Não">Não (Não-Conforme)</option>
+                                </select>
+                            {% elif item.tipo_resposta == 'Texto' %}
+                                <input type="text" class="form-control form-control-sm" name="checklist_{{ item.id }}" placeholder="Descreva a conformidade" required>
+                            {% elif item.tipo_resposta == 'Numerico' %}
+                                <input type="number" class="form-control form-control-sm" name="checklist_{{ item.id }}" placeholder="Valor medido" required>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-warning text-center">
+                    <i class="bi bi-exclamation-triangle"></i> Não há checklist ativo para o tipo de contrato "{{ contrato.tipo }}". O atesto prosseguirá sem itens de inspeção.
+                </div>
+            {% endif %}
+            <h5 class="text-muted mb-3 mt-4">3. Resultado e Evidências</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label for="conformidade" class="form-label">Conformidade Final*</label>
+                    <select class="form-select" name="conformidade" required>
+                        <option value="Aprovado">Aprovado (Sem ressalvas)</option>
+                        <option value="Aprovado com Ressalvas">Aprovado com Ressalvas</option>
+                        <option value="Reprovado">Reprovado (Não atestar)</option>
+                        <option value="Pendente de Ajuste">Pendente de Ajuste da Empresa</option>
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <label for="observacoes_fiscal" class="form-label">Observações do Fiscal</label>
+                    <textarea class="form-control" name="observacoes_fiscal" rows="2" placeholder="Informe aqui qualquer ressalva ou detalhe da execução..."></textarea>
+                </div>
+                <div class="col-md-6">
+                    <label for="evidencia_file" class="form-label">Evidência (Foto, Relatório, PDF)</label>
+                    <input type="file" class="form-control" name="evidencia_file">
+                </div>
+                <div class="col-md-6">
+                    <label for="localizacao_gps" class="form-label">Localização (GPS Opcional)</label>
+                    <input type="text" class="form-control" name="localizacao_gps" placeholder="Ex: -8.4545, -37.5858 (Coordenadas)">
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="d-flex justify-content-end">
+                <input type="hidden" name="assinatura_fiscal" value="{{ session.get('username') }}">
+                <button type="submit" class="btn btn-success btn-lg">
+                    <i class="bi bi-floppy"></i> Registrar Atesto
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <h5 class="mb-0">Histórico de Atestos Registrados</h5>
+    </div>
+    <ul class="list-group list-group-flush">
+    {% for atesto in atestos_existentes %}
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+        <div>
+            <strong>Competência: {{ atesto.mes_competencia }}</strong>
+            <br><small class="text-muted">Fiscal: {{ atesto.assinatura_fiscal }}</small>
+        </div>
+        <div class="text-nowrap">
+            <span class="badge bg-{{ 'success' if 'Aprovado' in atesto.status_atesto else 'danger' }} me-2">{{ atesto.status_atesto }}</span>
+            <a href="{{ url_for('fiscal.emitir_comprovante_atesto', atesto_id=atesto.id) }}" class="btn btn-sm btn-info" title="Emitir Comprovante">
+                <i class="bi bi-file-earmark-pdf-fill"></i>
+            </a>
+        </div>
+    </li>
+    {% else %}
+    <li class="list-group-item text-center text-muted">Nenhum atesto registrado.</li>
+    {% endfor %}
+</ul>
+</div>
+
+{% endblock %}

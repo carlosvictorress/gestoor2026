@@ -5,16 +5,23 @@ from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 import io
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+import json
+import uuid
+from reportlab.lib.pagesizes import A4
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, make_response
 from .extensions import db, bcrypt
 # Importe todos os novos modelos aqui
+from werkzeug.utils import secure_filename
 from .models import Escola, ProdutoMerenda, EstoqueMovimento, SolicitacaoMerenda, SolicitacaoItem, Cardapio, PratoDiario, HistoricoCardapio, Servidor
-from .utils import login_required, registrar_log
+from .utils import login_required, registrar_log, limpar_cpf, cabecalho_e_rodape, currency_filter_br, cabecalho_e_rodape_moderno
+    
 from sqlalchemy import or_, func
 from datetime import datetime
 from datetime import date, timedelta
 import calendar
 from .utils import role_required
+from .models import AgricultorFamiliar, DocumentoAgricultor, ContratoPNAE, ItemProjetoVenda, EntregaPNAE, ConfiguracaoPNAE
+
 
 
 merenda_bp = Blueprint('merenda', __name__, url_prefix='/merenda')
@@ -715,5 +722,433 @@ def gerar_pdf_consolidado(titulo, periodo, dados):
     response = make_response(buffer.getvalue())
     response.headers['Content-Type'] = 'application/pdf'
     response.headers['Content-Disposition'] = f'inline; filename=relatorio_consolidado_mensal.pdf'
+    
+    return response
+
+
+
+# --- MÓDULO AGRICULTURA FAMILIAR ---
+
+@merenda_bp.route('/agricultura', methods=['GET', 'POST']) # Alterado para aceitar POST
+@login_required
+def agricultura_dashboard():
+    # Lógica para SALVAR a configuração (se o form for enviado)
+    if request.method == 'POST':
+        try:
+            ano_atual = datetime.now().year
+            valor = float(request.form.get('valor_total_repasse', '0').replace('.', '').replace(',', '.'))
+            
+            config = ConfiguracaoPNAE.query.filter_by(ano=ano_atual).first()
+            if not config:
+                config = ConfiguracaoPNAE(ano=ano_atual, valor_total_repasse=valor)
+                db.session.add(config)
+            else:
+                config.valor_total_repasse = valor
+            
+            db.session.commit()
+            flash(f'Orçamento do PNAE para {ano_atual} atualizado!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao salvar configuração: {e}', 'danger')
+        return redirect(url_for('merenda.agricultura_dashboard'))
+
+    # Lógica de Visualização
+    total_agricultores = AgricultorFamiliar.query.count()
+    contratos_ativos = ContratoPNAE.query.count()
+    
+    # Busca contratos DO ANO ATUAL
+    ano_atual = datetime.now().year
+    
+    # Soma valor total contratado no ano
+    total_contratado = db.session.query(func.sum(ContratoPNAE.valor_total))\
+        .filter(func.extract('year', ContratoPNAE.data_inicio) == ano_atual).scalar() or 0.0
+        
+    # Busca configuração do ano
+    config_pnae = ConfiguracaoPNAE.query.filter_by(ano=ano_atual).first()
+    
+    # Dados para o gráfico de meta
+    meta_info = {
+        'total_repasse': 0.0,
+        'percentual_atual': 0.0,
+        'meta_lei': 30 if ano_atual < 2026 else 45, # Lógica da nova lei na interface
+        'falta_contratar': 0.0,
+        'status': 'Aguardando Configuração'
+    }
+    
+    if config_pnae:
+        meta_info['total_repasse'] = config_pnae.valor_total_repasse
+        meta_info['meta_lei'] = config_pnae.meta_percentual
+        
+        if config_pnae.valor_total_repasse > 0:
+            percentual = (total_contratado / config_pnae.valor_total_repasse) * 100
+            meta_info['percentual_atual'] = percentual
+            
+            valor_minimo = config_pnae.valor_meta_minima
+            if total_contratado >= valor_minimo:
+                meta_info['status'] = 'Meta Atingida! 🎉'
+            else:
+                meta_info['falta_contratar'] = valor_minimo - total_contratado
+                meta_info['status'] = 'Abaixo da Meta ⚠️'
+
+    return render_template('merenda/agricultura/dashboard.html', 
+                           total_agricultores=total_agricultores, 
+                           contratos_ativos=contratos_ativos,
+                           total_contratado=total_contratado,
+                           meta_info=meta_info,
+                           ano_atual=ano_atual)
+
+@merenda_bp.route('/agricultura/fornecedores')
+@login_required
+def listar_agricultores():
+    agricultores = AgricultorFamiliar.query.order_by(AgricultorFamiliar.razao_social).all()
+    return render_template('merenda/agricultura/agricultores_lista.html', agricultores=agricultores)
+
+
+@merenda_bp.route('/agricultura/fornecedores/novo', methods=['GET', 'POST'])
+@login_required
+def novo_agricultor():
+    if request.method == 'POST':
+        try:
+            # Captura dados básicos (resumo)
+            novo = AgricultorFamiliar(
+                tipo_fornecedor=request.form.get('tipo_fornecedor'),
+                razao_social=request.form.get('razao_social'),
+                cpf_cnpj=limpar_cpf(request.form.get('cpf_cnpj')),
+                dap_caf_numero=request.form.get('dap_caf_numero'),
+                zona=request.form.get('zona'),
+                # ... (Preencher todos os outros campos do form)
+            )
+            
+            # Tratamento de Uploads de Documentos (Exemplo simplificado)
+            if 'comprovante_residencia' in request.files:
+                file = request.files['comprovante_residencia']
+                if file.filename != '':
+                    filename = secure_filename(file.filename)
+                    file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], 'pnae', filename))
+                    # Criar registro em DocumentoAgricultor...
+
+            db.session.add(novo)
+            db.session.commit()
+            flash('Agricultor cadastrado com sucesso!', 'success')
+            return redirect(url_for('merenda.agricultura_dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao cadastrar: {e}', 'danger')
+            
+    return render_template('merenda/agricultura/fornecedor_form.html')
+
+@merenda_bp.route('/agricultura/contratos/<int:agricultor_id>/novo', methods=['GET', 'POST'])
+@login_required
+def novo_contrato_pnae(agricultor_id):
+    agricultor = AgricultorFamiliar.query.get_or_404(agricultor_id)
+    if request.method == 'POST':
+        try:
+            contrato = ContratoPNAE(
+                agricultor_id=agricultor.id,
+                numero_contrato=request.form.get('numero_contrato'),
+                data_inicio=datetime.strptime(request.form.get('data_inicio'), '%Y-%m-%d'),
+                data_termino=datetime.strptime(request.form.get('data_termino'), '%Y-%m-%d'),
+                valor_total=float(request.form.get('valor_total').replace(',', '.'))
+            )
+            db.session.add(contrato)
+            db.session.commit()
+            
+            # Adicionar Itens do Projeto de Venda
+            nomes = request.form.getlist('produto_nome[]')
+            qtds = request.form.getlist('produto_qtd[]')
+            precos = request.form.getlist('produto_preco[]')
+            
+            for i in range(len(nomes)):
+                item = ItemProjetoVenda(
+                    contrato=contrato,
+                    nome_produto=nomes[i],
+                    quantidade_total=float(qtds[i]),
+                    preco_unitario=float(precos[i])
+                )
+                db.session.add(item)
+            
+            db.session.commit()
+            flash('Contrato e Projeto de Venda cadastrados!', 'success')
+            return redirect(url_for('merenda.agricultura_dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro: {e}', 'danger')
+            
+    return render_template('merenda/agricultura/contrato_form.html', agricultor=agricultor)
+
+@merenda_bp.route('/agricultura/contratos/<int:contrato_id>/gerenciar', methods=['GET', 'POST'])
+@login_required
+def gerenciar_contrato_pnae(contrato_id):
+    contrato = ContratoPNAE.query.get_or_404(contrato_id)
+    
+    # Lógica para calcular o saldo de cada item
+    # Cria um dicionário para somar o que já foi entregue de cada produto
+    entregue_por_produto = {} # Ex: {'Alface': 50.0, 'Tomate': 10.0}
+    
+    for entrega in contrato.entregas:
+        if entrega.status == 'Aprovado' and entrega.itens_json:
+            try:
+                itens_entrega = json.loads(entrega.itens_json)
+                for item in itens_entrega:
+                    prod_nome = item['nome_produto']
+                    qtd = float(item['quantidade'])
+                    if prod_nome in entregue_por_produto:
+                        entregue_por_produto[prod_nome] += qtd
+                    else:
+                        entregue_por_produto[prod_nome] = qtd
+            except:
+                pass # Ignora erros de JSON antigo se houver
+
+    return render_template('merenda/agricultura/contrato_gerenciar.html', 
+                           contrato=contrato, 
+                           entregue_por_produto=entregue_por_produto)
+
+@merenda_bp.route('/agricultura/contratos/<int:contrato_id>/nova-entrega', methods=['POST'])
+@login_required
+def registrar_entrega_pnae(contrato_id):
+    contrato = ContratoPNAE.query.get_or_404(contrato_id)
+    
+    try:
+        data_entrega = datetime.strptime(request.form.get('data_entrega'), '%Y-%m-%d').date()
+        nota_fiscal = request.form.get('numero_nota_fiscal')
+        
+        # --- LÓGICA DE UPLOAD DA NOTA FISCAL (NOVO) ---
+        filename_nf = None
+        if 'arquivo_nf' in request.files:
+            file = request.files['arquivo_nf']
+            if file and file.filename != '':
+                # Cria nome seguro: ID_CONTRATO_DATA_NOMEO.pdf
+                ext = file.filename.rsplit('.', 1)[1].lower()
+                nome_arquivo = f"NF_Contrato{contrato.id}_{data_entrega.strftime('%Y%m%d')}_{uuid.uuid4().hex[:6]}.{ext}"
+                
+                # Garante que a pasta existe
+                caminho_pasta = os.path.join(current_app.config['UPLOAD_FOLDER'], 'pnae_notas')
+                os.makedirs(caminho_pasta, exist_ok=True)
+                
+                file.save(os.path.join(caminho_pasta, nome_arquivo))
+                filename_nf = nome_arquivo
+        # -----------------------------------------------
+
+        # Processar os itens (igual ao anterior)
+        item_ids = request.form.getlist('item_id[]')
+        qtds = request.form.getlist('qtd_entregue[]')
+        
+        lista_itens_entrega = []
+        valor_total_entrega = 0.0
+        
+        for i, item_id in enumerate(item_ids):
+            qtd = float(qtds[i].replace(',', '.')) if qtds[i] else 0.0
+            if qtd > 0:
+                item_contrato = ItemProjetoVenda.query.get(item_id)
+                valor_item = qtd * item_contrato.preco_unitario
+                
+                lista_itens_entrega.append({
+                    'item_id': item_contrato.id,
+                    'nome_produto': item_contrato.nome_produto,
+                    'quantidade': qtd,
+                    'preco_unitario': item_contrato.preco_unitario,
+                    'valor_total': valor_item
+                })
+                valor_total_entrega += valor_item
+        
+        if not lista_itens_entrega:
+            flash('Informe a quantidade de pelo menos um item.', 'warning')
+            return redirect(url_for('merenda.gerenciar_contrato_pnae', contrato_id=contrato.id))
+
+        nova_entrega = EntregaPNAE(
+            contrato_id=contrato.id,
+            data_entrega=data_entrega,
+            numero_nota_fiscal=nota_fiscal,
+            recibo_filename=filename_nf, # Salva o nome do arquivo aqui
+            responsavel_recebimento=session.get('username'),
+            status='Aprovado',
+            valor_total=valor_total_entrega,
+            itens_json=json.dumps(lista_itens_entrega)
+        )
+        
+        db.session.add(nova_entrega)
+        db.session.commit()
+        
+        flash('Entrega registrada com sucesso!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao registrar entrega: {e}', 'danger')
+        
+    return redirect(url_for('merenda.gerenciar_contrato_pnae', contrato_id=contrato.id))
+
+@merenda_bp.route('/agricultura/contratos/<int:contrato_id>/pdf')
+@login_required
+def pdf_contrato_pnae(contrato_id):
+    from .utils import cabecalho_e_rodape # Importa seu cabeçalho padrão
+    contrato = ContratoPNAE.query.get_or_404(contrato_id)
+    agricultor = contrato.agricultor
+    
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, 
+                            rightMargin=2*cm, leftMargin=2*cm, 
+                            topMargin=3*cm, bottomMargin=2*cm)
+    
+    styles = getSampleStyleSheet()
+    style_titulo = styles['Heading1']
+    style_titulo.alignment = 1 # Centralizado
+    style_normal = styles['BodyText']
+    style_normal.alignment = 4 # Justificado
+    
+    story = []
+    
+    # Título
+    story.append(Paragraph("PROJETO DE VENDA DE GÊNEROS ALIMENTÍCIOS DA AGRICULTURA FAMILIAR", style_titulo))
+    story.append(Paragraph(f"(PNAE - Chamada Pública {contrato.chamada_publica or '____/____'})", style_titulo))
+    story.append(Spacer(1, 1*cm))
+    
+    # Dados do Fornecedor
+    texto_fornecedor = f"""
+    <b>1. IDENTIFICAÇÃO DO FORNECEDOR</b><br/><br/>
+    <b>Nome/Razão Social:</b> {agricultor.razao_social}<br/>
+    <b>CPF/CNPJ:</b> {agricultor.cpf_cnpj} &nbsp;&nbsp;&nbsp; <b>DAP/CAF:</b> {agricultor.dap_caf_numero or 'Não informado'}<br/>
+    <b>Endereço:</b> {agricultor.endereco_completo or 'Não informado'} - {agricultor.zona}<br/>
+    <b>Telefone:</b> {agricultor.telefone or ''}
+    """
+    story.append(Paragraph(texto_fornecedor, style_normal))
+    story.append(Spacer(1, 0.5*cm))
+    
+    # Dados do Contrato
+    texto_contrato = f"""
+    <b>2. DADOS DA CONTRATAÇÃO</b><br/><br/>
+    <b>Contrato Nº:</b> {contrato.numero_contrato}<br/>
+    <b>Vigência:</b> {contrato.data_inicio.strftime('%d/%m/%Y')} a {contrato.data_termino.strftime('%d/%m/%Y')}<br/>
+    <b>Valor Total Estimado:</b> {currency_filter_br(contrato.valor_total)}
+    """
+    story.append(Paragraph(texto_contrato, style_normal))
+    story.append(Spacer(1, 0.5*cm))
+    
+    # Tabela de Itens
+    story.append(Paragraph("<b>3. RELAÇÃO DE PRODUTOS</b>", style_normal))
+    story.append(Spacer(1, 0.2*cm))
+    
+    # Cabeçalho da Tabela
+    dados_tabela = [['Produto', 'Unid.', 'Qtd.', 'Preço Unit.', 'Total']]
+    
+    for item in contrato.itens:
+        dados_tabela.append([
+            item.nome_produto,
+            item.unidade_medida,
+            f"{item.quantidade_total:.2f}".replace('.', ','),
+            currency_filter_br(item.preco_unitario),
+            currency_filter_br(item.quantidade_total * item.preco_unitario)
+        ])
+    
+    # Estilo da Tabela
+    t = Table(dados_tabela, colWidths=[8*cm, 2*cm, 2*cm, 2.5*cm, 2.5*cm])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0e0e0')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (0, 1), (0, -1), 'LEFT'), # Alinha nomes dos produtos à esquerda
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+    ]))
+    story.append(t)
+    story.append(Spacer(1, 2*cm))
+    
+    # Assinaturas
+    story.append(Paragraph("_____________________________________________", style_titulo))
+    story.append(Paragraph("Gestor(a) do PNAE", style_titulo))
+    story.append(Spacer(1, 1*cm))
+    
+    story.append(Paragraph("_____________________________________________", style_titulo))
+    story.append(Paragraph(f"{agricultor.razao_social}", style_titulo))
+    story.append(Paragraph("Agricultor(a) Familiar", style_titulo))
+    
+    # Gera o PDF
+    doc.build(story, onFirstPage=lambda canvas, doc: cabecalho_e_rodape(canvas, doc), 
+                     onLaterPages=lambda canvas, doc: cabecalho_e_rodape(canvas, doc))
+    
+    buffer.seek(0)
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=Contrato_PNAE_{contrato.numero_contrato}.pdf'
+    
+    return response
+
+@merenda_bp.route('/agricultura/entrega/<int:entrega_id>/termo-pdf')
+@login_required
+def pdf_termo_recebimento_pnae(entrega_id):
+    entrega = EntregaPNAE.query.get_or_404(entrega_id)
+    contrato = entrega.contrato
+    agricultor = contrato.agricultor
+    
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, 
+                            rightMargin=2*cm, leftMargin=2*cm, 
+                            topMargin=2*cm, bottomMargin=2*cm)
+    
+    styles = getSampleStyleSheet()
+    style_titulo = styles['Heading1']
+    style_titulo.alignment = 1 # Centralizado
+    style_normal = styles['BodyText']
+    style_normal.alignment = 4 # Justificado
+    
+    story = []
+    
+    # Cabeçalho
+    story.append(Paragraph("TERMO DE RECEBIMENTO DA AGRICULTURA FAMILIAR", style_titulo))
+    story.append(Spacer(1, 0.5*cm))
+    
+    texto_intro = f"""
+    Atesto para os devidos fins que foram entregues nesta data, pelo fornecedor <b>{agricultor.razao_social}</b> 
+    (CPF/CNPJ: {agricultor.cpf_cnpj}), referente ao Contrato/Chamada Pública nº {contrato.numero_contrato}, 
+    os gêneros alimentícios abaixo discriminados:
+    """
+    story.append(Paragraph(texto_intro, style_normal))
+    story.append(Spacer(1, 0.5*cm))
+    
+    # Tabela
+    dados_tabela = [['Produto', 'Unidade', 'Qtd. Entregue', 'Valor Total']]
+    
+    if entrega.itens_json:
+        try:
+            itens = json.loads(entrega.itens_json)
+            for item in itens:
+                dados_tabela.append([
+                    item['nome_produto'],
+                    "Unid.", 
+                    f"{item['quantidade']}".replace('.', ','),
+                    currency_filter_br(item['valor_total'])
+                ])
+        except:
+            dados_tabela.append(['Erro ao ler itens', '-', '-', '-'])
+            
+    dados_tabela.append(['TOTAL DA ENTREGA', '', '', currency_filter_br(entrega.valor_total)])
+    
+    t = Table(dados_tabela, colWidths=[8*cm, 2.5*cm, 3*cm, 3.5*cm])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (0, 1), (0, -2), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+    ]))
+    story.append(t)
+    story.append(Spacer(1, 1*cm))
+    
+    # Assinaturas
+    story.append(Paragraph("_____________________________________________", style_titulo))
+    story.append(Paragraph(f"Responsável: {entrega.responsavel_recebimento}", style_titulo))
+    story.append(Spacer(1, 1.5*cm))
+    
+    story.append(Paragraph("_____________________________________________", style_titulo))
+    story.append(Paragraph(f"{agricultor.razao_social}", style_titulo))
+    
+    doc.build(story, onFirstPage=lambda c, d: cabecalho_e_rodape(c, d), 
+                     onLaterPages=lambda c, d: cabecalho_e_rodape(c, d))
+    
+    buffer.seek(0)
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=Termo_Recebimento_{entrega.id}.pdf'
     
     return response

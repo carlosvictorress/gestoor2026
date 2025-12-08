@@ -1,0 +1,410 @@
+{% extends 'base.html' %}
+
+{% block title %}Prontuário: {{ aluno.nome_completo }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-person-lines-fill"></i> Prontuário do Aluno</h2>
+    <a href="{{ url_for('caee.dashboard') }}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Voltar ao Dashboard</a>
+</div>
+
+<div class="row">
+    <div class="col-md-5">
+        
+        <div class="card shadow-sm mb-3 border-start-4 border-primary">
+            <div class="card-header d-flex justify-content-between align-items-center bg-white">
+                <h5 class="mb-0 text-primary">Identificação</h5>
+                <a href="{{ url_for('caee.editar_aluno', aluno_id=aluno.id) }}" class="btn btn-outline-warning btn-sm">
+                    <i class="bi bi-pencil-fill"></i> Editar
+                </a>
+            </div>
+            <div class="card-body">
+                <h4 class="card-title mb-1">{{ aluno.nome_completo }}</h4>
+                <p class="text-muted small mb-2">Nascimento: {{ aluno.data_nascimento.strftime('%d/%m/%Y') }}</p>
+                
+                <div class="mb-2">
+                    <span class="badge bg-{{ 'success' if aluno.status == 'Ativo' else 'warning' }}">{{ aluno.status }}</span>
+                </div>
+
+                <p class="mb-1"><strong>CPF:</strong> {{ aluno.cpf or '--' }}</p>
+                <p class="mb-1"><strong>Escola:</strong> {{ aluno.escola_origem or '--' }}</p>
+                <p class="mb-0"><strong>CID:</strong> {{ aluno.cid_diagnostico or '--' }}</p>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Contato e Filiação</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-1"><i class="bi bi-person"></i> {{ aluno.nome_responsavel }}</p>
+                <p class="mb-1"><i class="bi bi-telephone"></i> {{ aluno.telefone_responsavel }}</p>
+                <p class="mb-0"><i class="bi bi-geo-alt"></i> {{ aluno.endereco or 'Endereço não informado' }}</p>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Laudos e Anexos</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('caee.upload_laudo', aluno_id=aluno.id) }}" enctype="multipart/form-data" class="mb-3 p-2 border rounded bg-light">
+                    <div class="mb-2">
+                        <input type="text" class="form-control form-control-sm" name="descricao" placeholder="Descrição (Ex: Laudo Neuro)" required>
+                    </div>
+                    <div class="input-group input-group-sm">
+                        <input type="file" class="form-control" name="laudo_file" required accept=".pdf,.jpg,.jpeg,.png">
+                        <button class="btn btn-primary" type="submit">Anexar</button>
+                    </div>
+                </form>
+                
+                {% if aluno.laudos %}
+                    <div class="list-group list-group-flush small">
+                        {% for laudo in aluno.laudos | sort(attribute='data_upload', reverse=True) %}
+                        <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                            <div class="text-truncate" style="max-width: 75%;">
+                                <i class="bi bi-file-earmark-text text-secondary me-1"></i>
+                                <strong>{{ laudo.descricao }}</strong>
+                                <div class="text-muted" style="font-size: 0.7rem;">{{ laudo.data_upload.strftime('%d/%m/%Y') }}</div>
+                            </div>
+                            <div>
+                                <a href="{{ url_for('caee.download_laudo', laudo_id=laudo.id) }}" class="text-success me-2"><i class="bi bi-download"></i></a>
+                                <button class="btn btn-link text-danger p-0 border-0" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#modalConfirmarExclusao"
+                                        data-url="{{ url_for('caee.excluir_laudo', laudo_id=laudo.id) }}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-center text-muted small my-2">Nenhum anexo.</p>
+                {% endif %}
+            </div>
+        </div>
+
+    </div> 
+
+    <div class="col-md-7">
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-diagram-3"></i> Fluxo de Atendimento</h5>
+                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalEncaminhar">
+                    <i class="bi bi-plus-circle"></i> Novo Evento
+                </button>
+            </div>
+            <div class="card-body bg-light overflow-auto">
+                <div class="d-flex flex-nowrap pb-2">
+                    {% for evento in linha_tempo %}
+                    <div class="me-4 text-center position-relative" style="min-width: 130px;">
+                        <div class="rounded-circle bg-white border border-2 border-{{ 'success' if evento.status == 'Concluído' else 'primary' }} d-flex align-items-center justify-content-center mx-auto mb-2 shadow-sm" style="width: 50px; height: 50px;">
+                            <i class="bi bi-{{ 'check-lg' if evento.status == 'Concluído' else 'person-walking' }} fs-4 text-{{ 'success' if evento.status == 'Concluído' else 'primary' }}"></i>
+                        </div>
+                        
+                        <h6 class="mb-0 small font-weight-bold text-truncate" style="max-width: 130px;" title="{{ evento.etapa }}">{{ evento.etapa }}</h6>
+                        <small class="text-muted d-block" style="font-size: 0.7rem;">{{ evento.data_evento.strftime('%d/%m/%Y') }}</small>
+                        
+                        <div class="mt-1">
+                            <button class="btn btn-link text-warning p-0 me-1" style="font-size: 0.8rem;" 
+                                    data-bs-toggle="modal" data-bs-target="#modalEditarEvento{{ evento.id }}">
+                                <i class="bi bi-pencil-fill"></i>
+                            </button>
+                            
+                            <button class="btn btn-link text-danger p-0 border-0" style="font-size: 0.8rem;"
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#modalConfirmarExclusao"
+                                    data-url="{{ url_for('caee.excluir_evento_linha_tempo', evento_id=evento.id) }}">
+                                <i class="bi bi-trash-fill"></i>
+                            </button>
+                        </div>
+
+                        {% if not loop.last %}
+                        <div class="position-absolute top-0 start-100 translate-middle-y bg-secondary" style="height: 2px; width: 40px; top: 25px; opacity: 0.3;"></div>
+                        {% endif %}
+                    </div>
+
+                    <div class="modal fade" id="modalEditarEvento{{ evento.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-sm">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h6 class="modal-title">Editar Evento</h6>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <form method="POST" action="{{ url_for('caee.editar_evento_linha_tempo', evento_id=evento.id) }}">
+                                    <div class="modal-body text-start">
+                                        <div class="mb-2">
+                                            <label class="form-label small">Etapa</label>
+                                            <input type="text" class="form-control form-control-sm" name="etapa" value="{{ evento.etapa }}" required>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label small">Status</label>
+                                            <select class="form-select form-select-sm" name="status">
+                                                <option value="Pendente" {% if evento.status == 'Pendente' %}selected{% endif %}>Pendente</option>
+                                                <option value="Em Andamento" {% if evento.status == 'Em Andamento' %}selected{% endif %}>Em Andamento</option>
+                                                <option value="Concluído" {% if evento.status == 'Concluído' %}selected{% endif %}>Concluído</option>
+                                                <option value="Encaminhado" {% if evento.status == 'Encaminhado' %}selected{% endif %}>Encaminhado</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label small">Observação</label>
+                                            <textarea class="form-control form-control-sm" name="observacao" rows="2">{{ evento.observacao or '' }}</textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer p-1">
+                                        <button type="submit" class="btn btn-primary btn-sm w-100">Salvar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% else %}
+                    <p class="text-muted text-center w-100 py-3">Nenhum histórico registrado.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Dados Clínicos e Pedagógicos</h5>
+            </div>
+            <div class="card-body">
+                <strong class="text-muted small">Necessidades Específicas:</strong>
+                <p class="mb-3">{{ aluno.necessidade_especifica or 'Não informado' }}</p>
+                
+                <strong class="text-muted small">Queixa / Hipótese:</strong>
+                <p class="mb-3 bg-light p-2 rounded small">{{ aluno.hipotese_diagnostica or 'Não preenchido' }}</p>
+                
+                <strong class="text-muted small">Anamnese:</strong>
+                <div class="bg-light p-2 rounded small" style="max-height: 100px; overflow-y: auto;">
+                    {{ aluno.anamnese or 'Não preenchido' }}
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="mb-0">Planos de Atendimento (PAI)</h5>
+            <a href="{{ url_for('caee.novo_plano', aluno_id=aluno.id) }}" class="btn btn-success btn-sm">
+                <i class="bi bi-plus-lg"></i> Novo Plano
+            </a>
+        </div>
+
+        {% if planos %}
+            <div class="row g-3 mb-4">
+            {% for plano in planos %}
+                <div class="col-md-6">
+                    <div class="card h-100 border-start-4 border-success shadow-sm">
+                        <div class="card-body p-3">
+                            <h6 class="card-title mb-1 text-truncate">{{ plano.profissional.nome_completo }}</h6>
+                            <p class="card-text small text-muted mb-2">{{ plano.profissional.especialidade }}</p>
+                            
+                            <div class="d-flex justify-content-between small text-secondary mb-3">
+                                <span><i class="bi bi-clock"></i> {{ plano.duracao_sessao_min }}min</span>
+                                <span><i class="bi bi-calendar-week"></i> {{ plano.frequencia_semanal }}x</span>
+                            </div>
+                            
+                            <div class="btn-group w-100">
+                                <a href="{{ url_for('caee.editar_plano', plano_id=plano.id) }}" class="btn btn-outline-secondary btn-sm">Editar</a>
+                                <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalSessao{{ plano.id }}">
+                                    <i class="bi bi-journal-plus"></i> Sessão
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal fade" id="modalSessao{{ plano.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Nova Sessão - {{ plano.profissional.nome_completo }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <form method="POST" action="{{ url_for('caee.adicionar_sessao', plano_id=plano.id) }}">
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label>Data</label>
+                                        <input type="date" class="form-control" name="data_sessao" value="{{ '' | today_date }}" required>
+                                    </div>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" name="presenca" value="true" checked>
+                                        <label class="form-check-label">Aluno Presente?</label>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label>Atividades</label>
+                                        <textarea class="form-control" name="atividades_realizadas" rows="3"></textarea>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label>Evolução</label>
+                                        <textarea class="form-control" name="observacoes_evolucao" rows="3"></textarea>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="submit" class="btn btn-primary">Salvar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-light border text-center py-3 mb-4 small">
+                Nenhum plano ativo.
+            </div>
+        {% endif %}
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Diário de Bordo (Últimos Atendimentos)</h5>
+            </div>
+            <ul class="list-group list-group-flush small">
+                {% if sessoes %}
+                    {% for sessao in sessoes %}
+                    <li class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ sessao.data_sessao.strftime('%d/%m/%Y') }}</strong>
+                                <span class="text-muted mx-1">|</span> 
+                                {{ sessao.profissional_nome }}
+                                <span class="ms-2 badge bg-{{ 'success' if sessao.presenca else 'danger' }}">
+                                    {{ 'Presente' if sessao.presenca else 'Falta' }}
+                                </span>
+                            </div>
+                            <div>
+                                <a href="{{ url_for('caee.editar_sessao', sessao_id=sessao.id) }}" class="text-warning me-2" title="Editar"><i class="bi bi-pencil-fill"></i></a>
+                                
+                                <button class="btn btn-link text-danger p-0 border-0" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#modalConfirmarExclusao"
+                                        data-url="{{ url_for('caee.excluir_sessao', sessao_id=sessao.id) }}">
+                                    <i class="bi bi-trash-fill"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-1 text-muted">{{ sessao.atividades_realizadas or 'Sem descrição.' }}</div>
+                        {% if sessao.observacoes_evolucao %}
+                        <div class="alert alert-light py-1 px-2 mt-1 mb-0 border-start border-4 border-info small">
+                            <strong>Evolução:</strong> {{ sessao.observacoes_evolucao }}
+                        </div>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                {% else %}
+                    <li class="list-group-item text-center text-muted py-3">Nenhum atendimento registrado.</li>
+                {% endif %}
+            </ul>
+        </div>
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Relatórios Periódicos</h5>
+                <a href="{{ url_for('caee.gerenciar_relatorio_periodico', aluno_id=aluno.id) }}" class="btn btn-outline-success btn-sm">
+                    <i class="bi bi-plus-lg"></i> Novo Relatório
+                </a>
+            </div>
+            <div class="list-group list-group-flush small">
+                {% if aluno.relatorios_periodicos %}
+                    {% for relatorio in aluno.relatorios_periodicos | sort(attribute='data_relatorio', reverse=True) %}
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <h6 class="mb-0 text-primary">{{ relatorio.periodo }}</h6>
+                            <div>
+                                <a href="{{ url_for('caee.gerenciar_relatorio_periodico', relatorio_id=relatorio.id) }}" class="text-warning me-2"><i class="bi bi-pencil-fill"></i></a>
+                                
+                                <button class="btn btn-link text-danger p-0 border-0" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#modalConfirmarExclusao"
+                                        data-url="{{ url_for('caee.excluir_relatorio_periodico', relatorio_id=relatorio.id) }}">
+                                    <i class="bi bi-trash-fill"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <small class="text-muted d-block mb-1">Prof: {{ relatorio.profissional.nome_completo if relatorio.profissional else 'N/A' }}</small>
+                        <p class="mb-0 text-truncate">{{ relatorio.relatorio_evolucao }}</p>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-center text-muted py-3 mb-0">Nenhum relatório periódico.</p>
+                {% endif %}
+            </div>
+        </div>
+
+    </div> </div>
+
+<div class="modal fade" id="modalEncaminhar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Novo Evento / Encaminhamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('caee.encaminhar_aluno', aluno_id=aluno.id) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Etapa / Ação</label>
+                        <input type="text" class="form-control" name="etapa" placeholder="Ex: Avaliação Psicológica, Triagem..." required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Profissional (Opcional)</label>
+                        <select class="form-select" name="profissional_destino_id">
+                            <option value="">-- Selecione --</option>
+                            {% for prof in profissionais %}
+                            <option value="{{ prof.id }}">{{ prof.nome_completo }} - {{ prof.especialidade }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Observação</label>
+                        <textarea class="form-control" name="observacao" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Registrar Evento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalConfirmarExclusao" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill"></i> Confirmar Exclusão</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <p class="fs-5 mb-0">Tem certeza que deseja excluir este item?</p>
+                <p class="text-muted small">Esta ação não pode ser desfeita.</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <a href="#" id="btnConfirmarExclusaoLink" class="btn btn-danger">Sim, Excluir</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // Quando o modal de exclusão é aberto...
+    var modalConfirmarExclusao = document.getElementById('modalConfirmarExclusao');
+    modalConfirmarExclusao.addEventListener('show.bs.modal', function (event) {
+        // Botão que acionou o modal
+        var button = event.relatedTarget;
+        // Extrai a URL de exclusão do atributo data-url
+        var urlExclusao = button.getAttribute('data-url');
+        // Atualiza o link do botão "Sim, Excluir" dentro do modal
+        var btnConfirmar = modalConfirmarExclusao.querySelector('#btnConfirmarExclusaoLink');
+        btnConfirmar.setAttribute('href', urlExclusao);
+    });
+</script>
+{% endblock %}

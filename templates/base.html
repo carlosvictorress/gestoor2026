@@ -7,135 +7,240 @@
     <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 	
+	{# Importações Leaflet para mapas e desenhar rotas #}
 	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://unpkg.com/leaflet.animatedmarker@1.0.0/src/AnimatedMarker.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 
-    <style>
-        body { background-color: #f8f9fa; }
-        .navbar { background-color: #004d40; }
-        .toast-container { z-index: 1100; }
-		 #map { height: 400px; }
-      </style>
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
 
     <style>
-        body { background-color: #f8f9fa; }
+        /* Variável de largura da sidebar */
+        :root {
+            --sidebar-width: 250px;
+        }
+
+        /* PADRÃO: Desktop (Menu visível) */
+        body { 
+            background-color: #f8f9fa; 
+            padding-top: 56px; 
+            padding-left: var(--sidebar-width); 
+            transition: padding-left 0.3s;
+        }
+        .navbar { 
+            background-color: #072657; 
+            position: fixed; 
+            top: 0; 
+            z-index: 1030;
+            left: var(--sidebar-width); 
+            width: calc(100% - var(--sidebar-width));
+        }
+        #sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1040;
+            background-color: #072657;
+            color: #f8f9fa;
+            overflow-y: auto;
+            padding-top: 1rem;
+            transition: transform 0.3s;
+        }
+
+        /* Estilos de submenu */
+        #sidebar .nav-link { color: rgba(255, 255, 255, 0.7); padding: 0.75rem 1rem; transition: background-color 0.2s; }
+        #sidebar .nav-link:hover, #sidebar .nav-link.active, #sidebar .nav-link.dropdown-toggle:not(.collapsed) { color: #fff; background-color: #133c7f; border-radius: 0; }
+        #sidebar .collapse .dropdown-menu { position: static; display: block; background-color: #061c3d; border: none; padding: 0; margin: 0; border-radius: 0; }
+        #sidebar .dropdown-item { color: rgba(255, 255, 255, 0.8); padding: 0.5rem 1.5rem; background-color: transparent; }
+        #sidebar .dropdown-item:hover { background-color: #133c7f; color: #fff; }
+        .sidebar-brand { padding: 0.5rem 1rem 1rem; font-size: 1.5rem; font-weight: bold; color: #fff; text-align: center; display: block; }
+
+        /* === MOBILE (Abaixo de 992px) === */
+        @media (max-width: 991.98px) {
+            body { padding-left: 0; }
+            .navbar { left: 0; width: 100%; }
+            #sidebar {
+                transform: translateX(-100%);
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            }
+            body.sidebar-toggled #sidebar { transform: translateX(0); }
+             #sidebar-backdrop {
+                content: '';
+                position: fixed;
+                top: 0; left: 0; width: 100%; height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                z-index: 1020;
+                display: none;
+            }
+            body.sidebar-toggled #sidebar-backdrop { display: block; }
+        }
     </style>
 	{% block head_extra %}{% endblock %}
-</head>
+{% block extra_head %}{% endblock %} </head>
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="{{ url_for('dashboard') }}"><b>gestor</b> 360º</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            {% if session.logged_in %}
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('dashboard') }}"><i class="bi bi-speedometer2"></i> Dashboard</a>
-                </li>
-
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="cadastrosMenu" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-pencil-square"></i> Cadastros
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="cadastrosMenu">
-                        {% if session.get('role') in ['admin', 'RH'] %}
-                        <li><a class="dropdown-item" href="{{ url_for('lista_servidores') }}"><i class="bi bi-people-fill"></i> Servidores</a></li>
-                        {% endif %}
-                        {% if session.get('role') in ['admin', 'Combustivel'] %}
-                        <li><a class="dropdown-item" href="{{ url_for('gerenciar_veiculos') }}"><i class="bi bi-truck"></i> Veículos</a></li>
-						<li><a class="dropdown-item" href="{{ url_for('motoristas.listar') }}"><i class="bi bi-person-video3"></i> Motoristas</a></li>
-						  {% if session.get('role') in ['Combustivel', 'admin'] %}
-						<li><a class="dropdown-item" href="{{ url_for('transporte.dashboard') }}"><i class="bi bi-bus-front-fill"></i> Transporte</a></li>
-						{% endif %}
-                        <li><a class="dropdown-item" href="{{ url_for('lancar_abastecimento') }}"><i class="bi bi-fuel-pump-fill"></i> Combustível</a></li>
-                        {% endif %}
-						{% if session.get('role') in ['admin', 'almoxarifado'] %}
-						<li class="nav-item">
-						<a class="dropdown-item href="  href="{{ url_for('almoxarifado.dashboard') }}"><i class="bi bi-box-seam-fill"></i> Almoxarifado</a></li>
-						{% endif %}
-						{% if session.get('role') in ['admin', 'academico', 'RH'] %}
-    <li class="nav-item">
-        <a class="nav-link {% if request.endpoint.startswith('academico.') %}active{% endif %}" href="{{ url_for('academico.dashboard') }}">
-            <i class="bi bi-mortarboard-fill"></i> Académico
-        </a>
-    </li>
-    {% endif %}
-                    </ul>
-                </li>
-
-                <li class="nav-item dropdown">
-    <a class="nav-link dropdown-toggle" href="#" id="modulosMenu" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-        <i class="bi bi-grid-fill"></i> Módulos
+<div class="modal fade" id="confirmarAcaoModal" tabindex="-1" aria-labelledby="confirmarAcaoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="confirmarAcaoModalLabel"><i class="bi bi-exclamation-triangle-fill"></i> Confirmação Necessária</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="mensagemConfirmacao" class="fw-bold text-center">Tem certeza que deseja prosseguir com esta ação?</p>
+                <p class="text-muted small text-center mb-0">Esta operação não pode ser desfeita.</p>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <a href="#" id="btnConfirmarUniversal" class="btn btn-danger">Sim, Excluir/Continuar</a>
+            </div>
+        </div>
+    </div>
+</div>
+<nav id="sidebar" class="d-flex flex-column">
+    <a class="sidebar-brand text-decoration-none" href="{{ url_for('dashboard') }}">
+        <b>gestor</b> 360º
     </a>
-    <ul class="dropdown-menu" aria-labelledby="modulosMenu">
-        {% if session.get('role') in ['admin', 'RH'] %}
-        <li><a class="dropdown-item" href="{{ url_for('merenda.dashboard') }}"><i class="bi bi-cart4"></i> Merenda Escolar</a></li>
-        <li><a class="dropdown-item" href="{{ url_for('listar_gams') }}"><i class="bi bi-heart-pulse"></i> GAM (Guia Médica)</a></li>
-        <li><hr class="dropdown-divider"></li>
-        <li><a class="dropdown-item" href="{{ url_for('protocolo.dashboard') }}"><i class="bi bi-folder2-open"></i> Protocolo</a></li>
-        <li><a class="dropdown-item" href="{{ url_for('contratos.gerenciar_contratos') }}"><i class="bi bi-file-text-fill"></i> Contratos</a></li>
-        <li><a class="dropdown-item" href="{{ url_for('patrimonio.listar_itens') }}"><i class="bi bi-archive-fill"></i> Patrimônio</a></li>						
-        <li><a class="dropdown-item" href="{{ url_for('listar_requerimentos') }}"><i class="bi bi-file-earmark-text"></i> Requerimentos</a></li>                         
-        <li><hr class="dropdown-divider"></li>
-        <li><a class="dropdown-item" href="{{ url_for('visualizar_frequencia') }}"><i class="bi bi-clock-history"></i> Frequência</a></li>
-        <li><a class="dropdown-item" href="{{ url_for('frequencia.dashboard_frequencia') }}"><i class="bi bi-clock-history"></i> Visão Frequência</a></li>
-        <li><a class="dropdown-item" href="{{ url_for('escola.listar_escolas') }}"><i class="bi bi-building"></i> Escolas</a></li>
+    
+    <div class="flex-grow-1 overflow-auto">
+    <ul class="nav nav-pills flex-column mb-auto">
+        
+        <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><i class="bi bi-speedometer2"></i> Dashboard</a>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('lista_servidores', 'gerenciar_veiculos', 'motoristas.listar', 'transporte.', 'lancar_abastecimento', 'almoxarifado.', 'academico.')) %}active{% endif %}" 
+               data-bs-toggle="collapse" 
+               href="#cadastrosCollapse" 
+               role="button" 
+               aria-expanded="{% if request.endpoint.startswith(('lista_servidores', 'gerenciar_veiculos', 'motoristas.listar', 'transporte.', 'lancar_abastecimento', 'almoxarifado.', 'academico.')) %}true{% else %}false{% endif %}" 
+               aria-controls="cadastrosCollapse">
+                <i class="bi bi-pencil-square"></i> Cadastros
+            </a>
+            <div class="collapse {% if request.endpoint.startswith(('lista_servidores', 'gerenciar_veiculos', 'motoristas.listar', 'transporte.', 'lancar_abastecimento', 'almoxarifado.', 'academico.')) %}show{% endif %}" id="cadastrosCollapse">
+                <ul class="dropdown-menu">
+                    {% if session.get('role') in ['admin', 'RH'] %}
+                    <li><a class="dropdown-item" href="{{ url_for('lista_servidores') }}"><i class="bi bi-people-fill"></i> Servidores</a></li>
+                    {% endif %}
+                    {% if session.get('role') in ['admin', 'Combustivel'] %}
+                    <li><a class="dropdown-item" href="{{ url_for('gerenciar_veiculos') }}"><i class="bi bi-truck"></i> Veículos</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('motoristas.listar') }}"><i class="bi bi-person-video3"></i> Motoristas</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('transporte.dashboard') }}"><i class="bi bi-bus-front-fill"></i> Transporte</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('lancar_abastecimento') }}"><i class="bi bi-fuel-pump-fill"></i> Combustível</a></li>
+                    {% endif %}
+                    {% if session.get('role') in ['admin', 'almoxarifado'] %}
+                    <li><a class="dropdown-item" href="{{ url_for('almoxarifado.dashboard') }}"><i class="bi bi-box-seam-fill"></i> Almoxarifado</a></li>
+                    {% endif %}
+                    {% if session.get('role') in ['admin', 'academico', 'RH'] %}
+                    <li><a class="dropdown-item" href="{{ url_for('academico.dashboard') }}"><i class="bi bi-mortarboard-fill"></i> Académico</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('merenda.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}active{% endif %}" 
+               data-bs-toggle="collapse" 
+               href="#modulosCollapse" 
+               role="button" 
+               aria-expanded="{% if request.endpoint.startswith(('merenda.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}true{% else %}false{% endif %}" 
+               aria-controls="modulosCollapse">
+                <i class="bi bi-grid-fill"></i> Módulos
+            </a>
+            <div class="collapse {% if request.endpoint.startswith(('merenda.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}show{% endif %}" id="modulosCollapse">
+                <ul class="dropdown-menu">
+                    {% if session.get('role') in ['admin', 'RH', 'CAEE'] %}
+                    <li><a class="dropdown-item" href="{{ url_for('caee.dashboard') }}"><i class="bi bi-heart-pulse-fill"></i> CAEE </a></li>
+                    {% endif %}
+                    {% if session.get('role') in ['admin', 'RH', 'Fiscal'] %}
+                    <li><a class="dropdown-item" href="{{ url_for('fiscal.dashboard') }}"><i class="bi bi-file-earmark-lock2-fill"></i> Fiscal de Contratos</a></li>
+                    {% endif %}
+                    
+                    {% if session.get('role') in ['admin', 'RH'] %}
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="{{ url_for('merenda.dashboard') }}"><i class="bi bi-cart4"></i> Merenda Escolar</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('merenda.agricultura_dashboard') }}"><i class="bi bi-tree-fill"></i> Agricultura Familiar (PNAE)</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('listar_gams') }}"><i class="bi bi-heart-pulse"></i> GAM (Guia Médica)</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="{{ url_for('protocolo.dashboard') }}"><i class="bi bi-folder2-open"></i> Protocolo</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('contratos.gerenciar_contratos') }}"><i class="bi bi-file-text-fill"></i> Contratos (RH)</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('patrimonio.listar_itens') }}"><i class="bi bi-archive-fill"></i> Patrimônio</a></li>						
+                    <li><a class="dropdown-item" href="{{ url_for('listar_requerimentos') }}"><i class="bi bi-file-earmark-text"></i> Requerimentos</a></li>                         
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="{{ url_for('visualizar_frequencia') }}"><i class="bi bi-clock-history"></i> Frequência</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('frequencia.dashboard_frequencia') }}"><i class="bi bi-clock-history"></i> Visão Frequência</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('escola.listar_escolas') }}"><i class="bi bi-building"></i> Escolas</a></li>
+                    {% endif %}
+                </ul>
+                <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('contas.dashboard') }}">
+        <i class="bi bi-file-earmark-bar-graph-fill"></i> Prestação de Contas
+    </a>
+</li>
+            </div>
+        </li>
+                
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('bloco_de_notas') }}"><i class="bi bi-journal-richtext"></i> Bloco de Notas</a>
+        </li>
+        {% if session['role'] in ['admin', 'RH'] %}
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('assinatura.index_assinatura') }}">
+        <i class="bi bi-pen-fill"></i>
+        <span>Assinatura Digital</span>
+    </a>
+</li>
+{% endif %}
+        {% if session.get('role') == 'admin' %}
+        <li class="nav-item">
+            <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('lista_usuarios', 'ver_logs', 'admin_licenca', 'backup.')) %}active{% endif %}" 
+               data-bs-toggle="collapse" 
+               href="#adminCollapse" 
+               role="button" 
+               aria-expanded="{% if request.endpoint.startswith(('lista_usuarios', 'ver_logs', 'admin_licenca', 'backup.')) %}true{% else %}false{% endif %}" 
+               aria-controls="adminCollapse">
+                <i class="bi bi-gear-fill"></i> Administração
+            </a>
+            <div class="collapse {% if request.endpoint.startswith(('lista_usuarios', 'ver_logs', 'admin_licenca', 'backup.')) %}show{% endif %}" id="adminCollapse">
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="{{ url_for('lista_usuarios') }}"><i class="bi bi-person-gear"></i> Usuários</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('ver_logs') }}"><i class="bi bi-journal-text"></i> Logs</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('admin_licenca') }}"><i class="bi bi-key-fill"></i> Licença</a></li>
+					<li><a class="dropdown-item" href="{{ url_for('backup.index') }}"><i class="bi bi-database-down"></i> Backup</a></li>
+                </ul>
+            </div>
+        </li>
         {% endif %}
     </ul>
-</li>
-                
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('bloco_de_notas') }}"><i class="bi bi-journal-richtext"></i> Bloco de Notas</a>
-                </li>
-                
-                {% if session.get('role') == 'admin' %}
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="adminMenu" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-gear-fill"></i> Administração
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="adminMenu">
-                        <li><a class="dropdown-item" href="{{ url_for('lista_usuarios') }}"><i class="bi bi-person-gear"></i> Usuários</a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('ver_logs') }}"><i class="bi bi-journal-text"></i> Logs</a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('admin_licenca') }}"><i class="bi bi-key-fill"></i> Licença</a></li>
-						<a class="dropdown-item" href="{{ url_for('backup.index') }}"><i class="bi bi-database-down"></i> Backup</a>
-                    </ul>
-                </li>
-                {% endif %}
-            </ul>
-
-            <div class="d-flex align-items-center">
-                <div class="dropdown">
-                    <button class="btn btn-light dropdown-toggle" type="button" id="relatoriosMenu" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-file-earmark-arrow-down-fill"></i> Relatórios
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="relatoriosMenu">
-                        <li><a class="dropdown-item" href="{{ url_for('gerar_relatorio_pdf') }}">Relatório de Servidores (PDF)</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="{{ url_for('pagina_relatorio_mensal') }}">Relatório Mensal de Combustível</a></li>
-						        <li><a class="dropdown-item" href="{{ url_for('relatorio_combustivel_tce_pi') }}">Relatório de Combustível (TCE-PI)</a></li>
-    <li><a class="dropdown-item" href="{{ url_for('selecionar_relatorio_veiculos') }}">Relatório Mensal de Abastecimentos</a></li>
-
-
-						<li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="{{ url_for('merenda.relatorio_saidas') }}">Relatório de Saídas da Merenda</a></li>
-		                <li><a class="dropdown-item" href="{{ url_for('merenda.relatorio_consolidado_mensal') }}">Relatório Consolidado da Merenda</a></li>
-                    </ul>
-                </div>
-                <a href="{{ url_for('logout') }}" class="btn btn-danger ms-2"><i class="bi bi-box-arrow-right"></i> Sair</a>
-            </div>
-            {% endif %}
+    </div>
+    
+    <div class="mt-auto border-top p-3">
+                <div class="d-grid">
+            <a href="{{ url_for('logout') }}" class="btn btn-danger"><i class="bi bi-box-arrow-right"></i> Sair</a>
         </div>
+    </div>
+</nav>
+<div id="sidebar-backdrop" onclick="toggleSidebar()"></div> 
+<nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
+    <div class="container-fluid">
+        <button class="btn btn-primary d-lg-none me-3" onclick="toggleSidebar()">
+            <i class="bi bi-list"></i>
+        </button>
+        
+        <span class="navbar-text me-auto">
+             {% if session.logged_in %}
+                Olá, <strong class="text-white">{{ session.get('username')|capitalize }}</strong> 
+                (<small>{{ session.get('secretaria') }}</small>)
+            {% endif %}
+        </span>
+         <div class="d-flex align-items-center">
+         </div>
     </div>
 </nav>
 
@@ -161,13 +266,32 @@
 </footer>
 
 <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/scripts.js') }}"></script> 
 <script>
+    function toggleSidebar() {
+        document.body.classList.toggle('sidebar-toggled');
+    }
+    
     document.addEventListener('DOMContentLoaded', function () {
         var toastElList = [].slice.call(document.querySelectorAll('.toast'));
         var toastList = toastElList.map(function (toastEl) {
             var toast = new bootstrap.Toast(toastEl, { delay: 5000 });
             toast.show();
             return toast;
+        });
+
+        // 1. Corrige o padding do main container para o navbar fixo
+        document.querySelector('main').style.paddingTop = 
+            document.querySelector('.navbar').offsetHeight + 20 + 'px';
+            
+        // 2. Fecha a sidebar ao clicar em qualquer link (mobile)
+        document.querySelectorAll('#sidebar .nav-link').forEach(link => {
+            link.addEventListener('click', function() {
+                if (window.innerWidth < 992 && document.body.classList.contains('sidebar-toggled')) {
+                    // Pequeno delay para permitir a navegação antes de fechar
+                    setTimeout(toggleSidebar, 150); 
+                }
+            });
         });
     });
 </script>

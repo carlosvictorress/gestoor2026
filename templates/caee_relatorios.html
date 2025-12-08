@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block title %}Relatórios - CAEE{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-file-earmark-bar-graph-fill"></i> Relatórios do CAEE</h2>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Filtros de Relatório</h5>
+        <form method="GET" action="{{ url_for('caee.relatorios') }}" id="filtroForm">
+            <div class="row g-3 align-items-end">
+                
+                <div class="col-md-3">
+                    <label for="status" class="form-label">Status do Aluno</label>
+                    <select name="status" id="status" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="Em Avaliação" {% if filtros_atuais.status == 'Em Avaliação' %}selected{% endif %}>Em Avaliação</option>
+                        <option value="Fila de Espera" {% if filtros_atuais.status == 'Fila de Espera' %}selected{% endif %}>Fila de Espera</option>
+                        <option value="Ativo" {% if filtros_atuais.status == 'Ativo' %}selected{% endif %}>Ativo</option>
+                        <option value="Desligado" {% if filtros_atuais.status == 'Desligado' %}selected{% endif %}>Desligado</option>
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label for="profissional_id" class="form-label">Profissional (PAI)</label>
+                    <select name="profissional_id" id="profissional_id" class="form-select">
+                        <option value="">Todos</option>
+                        {% for prof in profissionais %}
+                        <option value="{{ prof.id }}" {% if filtros_atuais.profissional_id == prof.id %}selected{% endif %}>
+                            {{ prof.nome_completo }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label for="necessidade" class="form-label">Necessidade (Contém)</label>
+                    <input type="text" name="necessidade" id="necessidade" class="form-control" 
+                           value="{{ filtros_atuais.necessidade }}" placeholder="Ex: TEA, TDAH">
+                </div>
+
+                <div class="col-md-3">
+                    <label for="escola_origem" class="form-label">Escola de Origem</label>
+                    <select name="escola_origem" id="escola_origem" class="form-select">
+                        <option value="">Todas</option>
+                        {% for escola in escolas_cadastradas %}
+                        <option value="{{ escola }}" {% if filtros_atuais.escola_origem == escola %}selected{% endif %}>
+                            {{ escola }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <hr>
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-filter"></i> Aplicar Filtros
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <button type="button" id="btnExportarExcel" class="btn btn-success w-100">
+                        <i class="bi bi-file-earmark-excel-fill"></i> Exportar Excel
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <button type="button" id="btnExportarPDF" class="btn btn-danger w-100">
+                        <i class="bi bi-file-earmark-pdf-fill"></i> Exportar PDF
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h5 class="mb-0">Resultados ({{ alunos | length }} alunos encontrados)</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Aluno</th>
+                        <th>Status</th>
+                        <th>Escola de Origem</th>
+                        <th>Necessidade Específica</th>
+                        <th>Profissional (PAI)</th>
+                        <th class="text-center">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for aluno in alunos %}
+                    <tr>
+                        <td>{{ aluno.nome_completo }}</td>
+                        <td>
+                            <span class="badge 
+                                {% if aluno.status == 'Ativo' %} bg-success
+                                {% elif aluno.status == 'Em Avaliação' %} bg-primary
+                                {% elif aluno.status == 'Fila de Espera' %} bg-warning
+                                {% else %} bg-secondary {% endif %}">
+                                {{ aluno.status }}
+                            </span>
+                        </td>
+                        <td>{{ aluno.escola_origem or 'N/A' }}</td>
+                        <td>{{ aluno.necessidade_especifica or 'N/A' }}</td>
+                        <td>
+                            {% if aluno.plano and aluno.plano.profissional %}
+                                {{ aluno.plano.profissional.nome_completo }}
+                            {% else %}
+                                <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <a href="{{ url_for('caee.prontuario_aluno', aluno_id=aluno.id) }}" class="btn btn-sm btn-secondary" title="Ver Prontuário">
+                                <i class="bi bi-search"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center">Nenhum aluno encontrado para os filtros selecionados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() if super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Pega os filtros do formulário
+    function getFiltrosParams() {
+        const form = document.getElementById('filtroForm');
+        const formData = new FormData(form);
+        return new URLSearchParams(formData).toString();
+    }
+
+    // Adiciona os cliques aos botões de exportação
+    document.getElementById('btnExportarExcel').addEventListener('click', function() {
+        const params = getFiltrosParams();
+        window.location.href = "{{ url_for('caee.exportar_relatorio_caee_excel') }}?" + params;
+    });
+
+    document.getElementById('btnExportarPDF').addEventListener('click', function() {
+        const params = getFiltrosParams();
+        window.location.href = "{{ url_for('caee.exportar_relatorio_caee_pdf') }}?" + params;
+    });
+});
+</script>
+{% endblock %}

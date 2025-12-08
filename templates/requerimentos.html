@@ -2,10 +2,22 @@
 
 {% block title %}Módulo de Requerimentos{% endblock %}
 
+{% block head_extra %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+{% endblock %}
+
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2>Requerimentos</h2>
-    <a href="{{ url_for('novo_requerimento') }}" class="btn btn-primary"><i class="bi bi-plus-circle-fill"></i> Novo Requerimento</a>
+    <div>
+        <h2>Requerimentos</h2>
+    </div>
+    <div>
+        <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalCalculadoraQGEX">
+            <i class="fas fa-calculator me-1"></i> Calculadora QGEX
+        </button>
+        <a href="{{ url_for('novo_requerimento') }}" class="btn btn-primary ms-2"><i class="bi bi-plus-circle-fill"></i> Novo Requerimento</a>
+    </div>
 </div>
 
 <div class="card shadow-sm">
@@ -45,12 +57,7 @@
                             {% endif %}
                         </td>
                         <td>
-                            <!-- <a href="{{ url_for('gerar_requerimento_pdf', req_id=req.id) }}" class="btn btn-sm btn-info" title="Imprimir" target="_blank"> -->
-    <!-- <i class="bi bi-printer-fill"></i> -->
-<!-- </a> -->
-                            <!-- <a href="#" class="btn btn-sm btn-secondary" title="Editar"><i class="bi bi-pencil-fill"></i></a> -->
-                            <!-- <a href="#" class="btn btn-sm btn-danger" title="Excluir" onclick="return confirm('Tem certeza?');"><i class="bi bi-trash-fill"></i></a> -->
-							<a href="{{ url_for('gerar_requerimento_pdf', req_id=req.id) }}" class="btn btn-sm btn-info" title="Imprimir" target="_blank"><i class="bi bi-printer-fill"></i></a>
+                            <a href="{{ url_for('gerar_requerimento_pdf', req_id=req.id) }}" class="btn btn-sm btn-info" title="Imprimir" target="_blank"><i class="bi bi-printer-fill"></i></a>
                            <a href="{{ url_for('editar_requerimento', req_id=req.id) }}" class="btn btn-sm btn-secondary" title="Editar"><i class="bi bi-pencil-fill"></i></a>	
                            <a href="#" class="btn btn-sm btn-danger" title="Excluir" onclick="return confirm('Tem certeza?');"><i class="bi bi-trash-fill"></i></a>
 							 <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#statusModal" 
@@ -75,6 +82,7 @@
         </div>
     </div>
 </div>
+
 <div class="modal fade" id="statusModal" tabindex="-1" aria-labelledby="statusModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -107,7 +115,58 @@
  </div>
 </div>
 
-<script>
+<div class="modal fade" id="modalCalculadoraQGEX" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalLabel">Calculadora de Efetivo Exercício (QGEX)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="cpf_servidor_qgex" class="form-label">Digite o CPF do Servidor:</label>
+                    <input type="text" class="form-control" id="cpf_servidor_qgex" placeholder="000.000.000-00">
+                </div>
+                <button type="button" class="btn btn-primary" id="btnBuscarCPF">
+                    <span id="spinnerBusca" class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
+                    Buscar Servidor
+                </button>
+                
+                <hr>
+
+                <div id="resultadoBusca" style="display: none;">
+                    <h4>Dados do Servidor</h4>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Nome:</strong> <span id="res_nome"></span></li>
+                        <li class="list-group-item"><strong>Função:</strong> <span id="res_funcao"></span></li>
+                        <li class="list-group-item"><strong>Data de Admissão:</strong> <span id="res_admissao"></span></li>
+                    </ul>
+
+                    <h4 class="mt-4">Cálculo de Efetivo Exercício</h4>
+                    <div class="alert alert-info">
+                        <h5 class="alert-heading">Tempo Total:</h5>
+                        <p class="mb-0 fs-5" id="res_tempo_total"></p>
+                    </div>
+
+                    <div id="res_afastamentos_lista" class="mt-3">
+                        </div>
+
+                    <a href="#" id="btnGerarCertidao" class="btn btn-success mt-3" target="_blank" style="display: none;">
+                        <i class="fas fa-file-pdf me-1"></i> Gerar Certidão de Efetivo Exercício
+                    </a>
+                </div>
+
+                <div id="erroBusca" class="alert alert-danger" style="display: none;">
+                    </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block scripts %}
+{{ super() }} <script>
 document.addEventListener('DOMContentLoaded', function () {
     var statusModal = document.getElementById('statusModal');
     statusModal.addEventListener('show.bs.modal', function (event) {
@@ -130,6 +189,111 @@ document.addEventListener('DOMContentLoaded', function () {
         modalReqIdInput.value = reqId;
         modalStatusSelect.value = currentStatus; // Pré-seleciona o status atual
     });
+
+
+    // ==========================================================
+    // PASSO 4: O JAVASCRIPT DA CALCULADORA QGEX
+    // ==========================================================
+    
+    // Pega as referências dos elementos do novo modal
+    const modalCalculadora = document.getElementById('modalCalculadoraQGEX');
+    const btnBuscar = document.getElementById('btnBuscarCPF');
+    const inputCPF = document.getElementById('cpf_servidor_qgex');
+    const spinner = document.getElementById('spinnerBusca');
+    const divResultado = document.getElementById('resultadoBusca');
+    const divErro = document.getElementById('erroBusca');
+    const btnGerarCertidao = document.getElementById('btnGerarCertidao');
+
+    // Função para limpar o modal da calculadora
+    function limparModalCalculadora() {
+        divResultado.style.display = 'none';
+        divErro.style.display = 'none';
+        divErro.innerText = '';
+        btnGerarCertidao.style.display = 'none';
+        btnGerarCertidao.href = '#';
+        document.getElementById('res_nome').innerText = '';
+        document.getElementById('res_funcao').innerText = '';
+        document.getElementById('res_admissao').innerText = '';
+        document.getElementById('res_tempo_total').innerText = '';
+        document.getElementById('res_afastamentos_lista').innerHTML = '';
+    }
+
+    // Limpa o modal da calculadora sempre que ele for fechado
+    modalCalculadora.addEventListener('hidden.bs.modal', function () {
+        limparModalCalculadora();
+        inputCPF.value = '';
+    });
+
+    // Ação do clique no botão "Buscar Servidor"
+    btnBuscar.addEventListener('click', function () {
+        const cpf = inputCPF.value;
+        if (!cpf) {
+            divErro.innerText = 'Por favor, digite um CPF.';
+            divErro.style.display = 'block';
+            return;
+        }
+        
+        limparModalCalculadora();
+        spinner.style.display = 'inline-block';
+        btnBuscar.disabled = true;
+
+        // Faz a chamada à API que criaremos no app.py
+        // O /api/calculo_efetivo_exercicio/ é a Rota 1 que vamos criar no app.py
+        fetch(`/api/calculo_efetivo_exercicio/${cpf}`)
+            .then(response => {
+                if (!response.ok) {
+                    // Se o Python der um erro (ex: 404 Not Found), ele entra aqui
+                    return response.json().then(err => { throw new Error(err.error); });
+                }
+                // Se der sucesso (200 OK), ele continua
+                return response.json();
+            })
+            .then(data => {
+                // Preenche os dados do servidor na "área de resultados"
+                document.getElementById('res_nome').innerText = data.servidor.nome;
+                document.getElementById('res_funcao').innerText = data.servidor.funcao;
+                document.getElementById('res_admissao').innerText = data.servidor.data_admissao;
+                
+                // Preenche o tempo total
+                document.getElementById('res_tempo_total').innerText = 
+                    `${data.tempo.anos} anos, ${data.tempo.meses} meses e ${data.tempo.dias} dias`;
+
+                // Lista os afastamentos (se houver)
+                const listaAfastamentos = document.getElementById('res_afastamentos_lista');
+                if (data.afastamentos.length > 0) {
+                    let html = '<h6>Afastamentos Considerados (Descontados):</h6><ul class="list-group">';
+                    data.afastamentos.forEach(af => {
+                        html += `<li class="list-group-item d-flex justify-content-between align-items-center">
+                                    ${af.natureza} (ID: ${af.id})
+                                    <span class="badge bg-warning rounded-pill">${af.dias} dias</span>
+                                 </li>`;
+                    });
+                    html += '</ul>';
+                    listaAfastamentos.innerHTML = html;
+                } else {
+                    listaAfastamentos.innerHTML = '<p>Nenhum afastamento (licença) descontável encontrado.</p>';
+                }
+
+                // Configura o botão de PDF
+                // O /certidao/efetivo_exercicio/ é a Rota 2 que vamos criar no app.py
+                btnGerarCertidao.href = `/certidao/efetivo_exercicio/${cpf}`;
+                btnGerarCertidao.style.display = 'block';
+
+                divResultado.style.display = 'block';
+            })
+            .catch(error => {
+                // Mostra a mensagem de erro (ex: "Servidor não encontrado")
+                divErro.innerText = `Erro: ${error.message}`;
+                divErro.style.display = 'block';
+            })
+            .finally(() => {
+                // Para o "loading" e reativa o botão
+                spinner.style.display = 'none';
+                btnBuscar.disabled = false;
+            });
+    });
+
+// Fecha o addEventListener 'DOMContentLoaded'
 });
 </script>
 {% endblock %}

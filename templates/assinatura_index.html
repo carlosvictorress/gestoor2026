@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Assinatura Digital{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-10 offset-md-1">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-patch-check-fill"></i> Assinatura Digital de Documentos (Selagem)</h2>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-upload"></i> Selecionar Documento para Assinar
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Faça o upload de um documento em formato PDF para carimbar com o selo de validação digital do sistema. **A assinatura será inserida na última página do documento.**</p>
+                
+               <form action="{{ url_for('assinatura.upload_documento_para_assinatura') }}" method="POST" enctype="multipart/form-data">
+    <div class="mb-3">
+        <label for="pdf_file" class="form-label fw-bold">Arquivo PDF</label>
+        <input class="form-control" type="file" id="pdf_file" name="pdf_file" accept=".pdf" required>
+    </div>
+    
+    <button type="submit" class="btn btn-success">
+        <i class="bi bi-arrow-right-circle"></i> Iniciar Assinatura
+    </button>
+</form>
+            </div>
+        </div>
+
+        <h3><i class="bi bi-clock-history"></i> Histórico de Documentos Assinados</h3>
+        <p class="text-muted">Últimos documentos processados por você.</p>
+        
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Documento</th>
+                        <th>Servidor Assinado</th>
+                        <th>Data</th>
+                        <th>Código de Validade</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in docs_assinados %}
+                    <tr>
+                        <td>{{ doc.nome_documento }}</td>
+                        <td>{{ doc.servidor.nome if doc.servidor else 'N/A' }}</td>
+                        <td>{{ doc.data_assinatura.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td>
+                            <span class="badge bg-info text-dark fw-bold">{{ doc.codigo_validade }}</span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('assinatura.download_documento_assinado', doc_id=doc.id) }}" class="btn btn-sm btn-primary" title="Baixar Prova de Selagem">
+                                <i class="bi bi-download"></i> Baixar Prova
+                            </a>
+                            <a href="{{ url_for('assinatura.validar_assinatura_publica', _external=True) }}?codigo={{ doc.codigo_validade }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Validar Publicamente">
+                                <i class="bi bi-link-45deg"></i> Validar
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center">Nenhum documento assinado encontrado.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

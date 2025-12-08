@@ -1,7 +1,7 @@
 # models.py
 
 # from .extensions import db
-from datetime import datetime, time
+from datetime import datetime, time, date
 from .extensions import db
 # --- SEUS MODELOS ---
 
@@ -17,19 +17,27 @@ class Log(db.Model):
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
-    # --- LINHA ADICIONADA E CORRIGIDA ---
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    # -----------------------------------
+
+    # --- ALTERAÇÃO AQUI ---
+    # Remova o 'unique=True' desta linha
+    email = db.Column(db.String(120), nullable=False) 
+    # --------------------
+
     password_hash = db.Column(db.String(120), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="operador")
-    
+
     # Relação com a Secretaria
-    secretaria_id = db.Column(db.Integer, db.ForeignKey('secretaria.id'), nullable=True) # Alterado para True temporariamente
+    secretaria_id = db.Column(db.Integer, db.ForeignKey('secretaria.id'), nullable=True) 
     secretaria = db.relationship('Secretaria', backref='usuarios')
 
     # Relação com as Notas
     notas = db.relationship(
         "Nota", backref="autor", lazy=True, cascade="all, delete-orphan"
+    )
+
+    # --- ADICIONE ESTE BLOCO NO FINAL DA CLASSE ---
+    __table_args__ = (
+        db.UniqueConstraint('email', name='uq_user_email'),
     )
 
 
@@ -60,10 +68,12 @@ class Servidor(db.Model):
     data_saida = db.Column(db.Date, nullable=True)
     observacoes = db.Column(db.Text, nullable=True)
     foto_filename = db.Column(db.String(100), nullable=True)
+    face_encoding = db.Column(db.Text, nullable=True) # Armazenará o encoding como um JSON string
     num_contrato_gerado = db.Column(db.String(10), unique=True, nullable=True)
     
     # Relação com a Secretaria
-    secretaria_id = db.Column(db.Integer, db.ForeignKey('secretaria.id'), nullable=True) # Alterado para True temporariamente
+    secretaria_id = db.Column(db.Integer, db.ForeignKey('secretaria.id'), nullable=True) 
+    secretaria = db.relationship('Secretaria', backref='servidores_vinculados')# Alterado para True temporariamente
 
     # Relações existentes
     documentos = db.relationship(
@@ -192,7 +202,7 @@ class Ponto(db.Model):
     longitude = db.Column(db.Float, nullable=True)
     ip_address = db.Column(db.String(45), nullable=True)
     foto_filename = db.Column(db.String(100), nullable=True)
-    escola_id = db.Column(db.Integer, db.ForeignKey("escolas.id"), nullable=True)
+    escola_id = db.Column(db.Integer, db.ForeignKey("escola.id"), nullable=True)
     # -------------------------------------------
 
     servidor_ponto = db.relationship(
@@ -247,6 +257,7 @@ class RotaTransporte(db.Model):
 
 
 class TrechoRota(db.Model):
+    """ Tabela de detalhes de quilometragem por trecho em uma rota. """
     __tablename__ = "trecho_rota"
     id = db.Column(db.Integer, primary_key=True)
     rota_id = db.Column(db.Integer, db.ForeignKey("rota_transporte.id"), nullable=False)
@@ -401,7 +412,7 @@ class MovimentacaoPatrimonio(db.Model):
 
 
 class Escola(db.Model):
-    __tablename__ = "escolas"
+    __tablename__ = "escola"
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(200), nullable=False, unique=True)
     codigo_inep = db.Column(db.String(8), unique=True, nullable=True, index=True) 
@@ -462,7 +473,7 @@ class EstoqueMovimento(db.Model):
 class SolicitacaoMerenda(db.Model):
     __tablename__ = "solicitacao_merenda"
     id = db.Column(db.Integer, primary_key=True)
-    escola_id = db.Column(db.Integer, db.ForeignKey("escolas.id"), nullable=False)
+    escola_id = db.Column(db.Integer, db.ForeignKey("escola.id"), nullable=False)
     data_solicitacao = db.Column(db.DateTime, default=datetime.utcnow)
     data_entrega = db.Column(db.DateTime)
     status = db.Column(
@@ -503,7 +514,7 @@ class SolicitacaoItem(db.Model):
 class Cardapio(db.Model):
     __tablename__ = "cardapio"
     id = db.Column(db.Integer, primary_key=True)
-    escola_id = db.Column(db.Integer, db.ForeignKey("escolas.id"), nullable=False)
+    escola_id = db.Column(db.Integer, db.ForeignKey("escola.id"), nullable=False)
     # --- ALTERAÇÃO APLICADA AQUI ---
     mes = db.Column(
         db.Integer, nullable=False
@@ -738,7 +749,7 @@ class AcadTurma(db.Model):
     modalidade = db.Column(db.String(100), nullable=False) # Regular, EJA, AEE
     vagas = db.Column(db.Integer, nullable=False, default=30)
     
-    escola_id = db.Column(db.Integer, db.ForeignKey('escolas.id'), nullable=False)
+    escola_id = db.Column(db.Integer, db.ForeignKey('escola.id'), nullable=False)
     escola = db.relationship('Escola', back_populates='turmas')
     
     matriculas = db.relationship('AcadMatricula', back_populates='turma', cascade="all, delete-orphan")
@@ -817,3 +828,532 @@ AcadTurma.disciplinas_professores = db.relationship('Servidor',
     lazy='dynamic'
 )
 
+# ==========================================================
+# MÓDULO DE ATENDIMENTO EDUCACIONAL ESPECIALIZADO (CAEE)
+# ==========================================================
+
+class CaeeAluno(db.Model):
+    """
+    Prontuário digital do aluno em atendimento no CAEE.
+    Este modelo é INDEPENDENTE do AcadAluno.
+    """
+    __tablename__ = 'caee_aluno'
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # --- Dados de Identificação ---
+    nome_completo = db.Column(db.String(200), nullable=False, index=True)
+    data_nascimento = db.Column(db.Date, nullable=False)
+    cpf = db.Column(db.String(14), unique=True, nullable=True, index=True)
+    escola_origem = db.Column(db.String(200), nullable=True) # "Dados Escolares"
+    cid_diagnostico = db.Column(db.String(20), nullable=True, index=True) # "CID / diagnóstico"
+    necessidade_especifica = db.Column(db.String(200), nullable=True) # "TEA, TDAH, etc."
+    
+    # --- Dados de Filiação / Contato ---
+    nome_responsavel = db.Column(db.String(200), nullable=False)
+    telefone_responsavel = db.Column(db.String(20), nullable=False)
+    endereco = db.Column(db.String(300))
+    
+    # --- Dados do Prontuário ---
+    status = db.Column(db.String(50), nullable=False, default='Em Avaliação') # Ex: Em Avaliação, Ativo, Fila de Espera, Desligado
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Formulário longo para a entrevista com a família
+    anamnese = db.Column(db.Text, nullable=True) 
+    
+    # Campo para a(s) hipótese(s) diagnóstica(s)
+    hipotese_diagnostica = db.Column(db.Text, nullable=True) 
+    
+    # Relacionamento com a Secretaria (para seu sistema multi-secretaria)
+    secretaria_id = db.Column(db.Integer, db.ForeignKey('secretaria.id'), nullable=False)
+    secretaria = db.relationship('Secretaria', backref='alunos_caee')
+    
+    planos = db.relationship('CaeePlanoAtendimento', backref='aluno', lazy=True, cascade="all, delete-orphan")
+    
+    # Req #3: Laudos, pareceres, relatórios anexados
+    laudos = db.relationship('CaeeLaudo', backref='aluno', lazy=True, cascade="all, delete-orphan")
+    # Req #6: Evolução pedagógica por período
+    relatorios_periodicos = db.relationship('CaeeRelatorioPeriodico', backref='aluno', lazy=True, cascade="all, delete-orphan")
+
+    # (Futuramente, adicionaremos laudos e planos aqui)
+    # laudos = db.relationship('CaeeLaudo', backref='aluno', lazy=True, cascade="all, delete-orphan")
+    # plano = db.relationship('CaeePlanoAtendimento', backref='aluno', uselist=False, cascade="all, delete-orphan")
+
+
+class CaeeProfissional(db.Model):
+    """
+    Cadastro da equipe multidisciplinar do CAEE.
+    Este modelo é INDEPENDENTE do Servidor.
+    """
+    __tablename__ = 'caee_profissional'
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # --- Dados Pessoais / Profissionais ---
+    nome_completo = db.Column(db.String(200), nullable=False)
+    cpf = db.Column(db.String(14), unique=True, nullable=False, index=True)
+    telefone = db.Column(db.String(20), nullable=True)
+    
+    especialidade = db.Column(db.String(100), nullable=False) # Ex: Psicopedagogo, Fonoaudiólogo, T.O.
+    registro_conselho = db.Column(db.String(50), nullable=True) # Ex: CREFONO 12345
+    
+    status = db.Column(db.String(50), nullable=False, default='Ativo') # Ex: Ativo, Inativo, Férias
+    
+    # Relacionamento com a Secretaria
+    secretaria_id = db.Column(db.Integer, db.ForeignKey('secretaria.id'), nullable=False)
+    secretaria_prof = db.relationship('Secretaria', backref='profissionais_caee')
+    
+    planos_atendimento = db.relationship('CaeePlanoAtendimento', backref='profissional', lazy=True)
+    
+    # (Futuramente, adicionaremos a agenda e os planos aqui)
+    # planos_atendimento = db.relationship('CaeePlanoAtendimento', backref='profissional', lazy=True)
+    
+class CaeePlanoAtendimento(db.Model):
+    """
+    O PAI - Plano de Atendimento Individual.
+    Esta é a tabela que LIGA um Aluno a um Profissional.
+    """
+    __tablename__ = 'caee_plano_atendimento'
+    id = db.Column(db.Integer, primary_key=True)
+
+    # --- Chaves Estrangeiras (As "LIGAÇÕES") ---
+    aluno_id = db.Column(db.Integer, db.ForeignKey('caee_aluno.id'), nullable=False) # SEM unique=True
+     # 'unique=True' garante 1 aluno por plano
+    profissional_id = db.Column(db.Integer, db.ForeignKey('caee_profissional.id'), nullable=False)
+
+    # --- Dados do Plano ---
+    status_plano = db.Column(db.String(50), nullable=False, default='Ativo') # Ex: Ativo, Pausado, Concluído
+    data_inicio = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+
+    frequencia_semanal = db.Column(db.Integer, default=1) # Ex: 1, 2, 3 vezes por semana
+    duracao_sessao_min = db.Column(db.Integer, default=50) # Ex: 50 minutos
+
+    objetivos_gerais = db.Column(db.Text, nullable=True)
+    objetivos_especificos = db.Column(db.Text, nullable=True)
+    metodologia = db.Column(db.Text, nullable=True)
+    
+    sessoes = db.relationship('CaeeSessao', backref='plano', lazy=True, cascade="all, delete-orphan")
+
+    # (Futuramente, adicionaremos as sessões aqui)
+    # sessoes = db.relationship('CaeeSessao', backref='plano', lazy=True, cascade="all, delete-orphan")
+    
+class CaeeSessao(db.Model):
+    """
+    Representa um único atendimento (sessão) do PAI.
+    Este é o "Diário de Bordo" do profissional.
+    """
+    __tablename__ = 'caee_sessao'
+    id = db.Column(db.Integer, primary_key=True)
+
+    # --- Chave Estrangeira (A "LIGAÇÃO") ---
+    plano_id = db.Column(db.Integer, db.ForeignKey('caee_plano_atendimento.id'), nullable=False)
+
+    # --- Dados da Sessão ---
+    data_sessao = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    presenca = db.Column(db.Boolean, nullable=False, default=True) # True = Presente, False = Falta
+
+    atividades_realizadas = db.Column(db.Text, nullable=True)
+    observacoes_evolucao = db.Column(db.Text, nullable=True)
+
+    # Guarda quem foi o profissional que registrou (para histórico)
+    profissional_nome = db.Column(db.String(200), nullable=False)
+    
+class CaeeLaudo(db.Model):
+    """
+    Req #3: Armazena os arquivos de laudo (PDFs, imagens) anexados
+    ao prontuário de um aluno do CAEE.
+    """
+    __tablename__ = 'caee_laudo'
+    id = db.Column(db.Integer, primary_key=True)
+    aluno_id = db.Column(db.Integer, db.ForeignKey('caee_aluno.id'), nullable=False)
+    
+    nome_original = db.Column(db.String(255), nullable=False) # Ex: "laudo_neuro.pdf"
+    filename_seguro = db.Column(db.String(255), nullable=False) # Ex: "caee/uuid-abc.pdf"
+    descricao = db.Column(db.String(300), nullable=True) # Ex: "Laudo neurológico Dr. João"
+    data_upload = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    uploader_nome = db.Column(db.String(200), nullable=False) # Nome de quem fez o upload
+
+class CaeeRelatorioPeriodico(db.Model):
+    """
+    Req #6: Armazena a Evolução Pedagógica Periódica (ex: Semestral).
+    É diferente do Diário de Bordo (CaeeSessao).
+    """
+    __tablename__ = 'caee_relatorio_periodico'
+    id = db.Column(db.Integer, primary_key=True)
+    aluno_id = db.Column(db.Integer, db.ForeignKey('caee_aluno.id'), nullable=False)
+    profissional_id = db.Column(db.Integer, db.ForeignKey('caee_profissional.id'), nullable=False)
+    
+    periodo = db.Column(db.String(50), nullable=False) # Ex: "1º Semestre 2025"
+    data_relatorio = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # O parecer/relatório pedagógico
+    relatorio_evolucao = db.Column(db.Text, nullable=False) 
+    
+    profissional = db.relationship('CaeeProfissional', backref='relatorios_periodicos')    
+    
+class CaeeLinhaTempo(db.Model):
+    """
+    Registra a evolução do aluno entre os profissionais (O Fluxo/Encaminhamento).
+    Representa cada 'círculo' no desenho do PDF.
+    """
+    __tablename__ = 'caee_linha_tempo'
+    id = db.Column(db.Integer, primary_key=True)
+    
+    aluno_id = db.Column(db.Integer, db.ForeignKey('caee_aluno.id'), nullable=False)
+    
+    # Quem encaminhou (Origem)
+    profissional_origem_id = db.Column(db.Integer, db.ForeignKey('caee_profissional.id'), nullable=True)
+    
+    # Para quem foi encaminhado ou quem atendeu (Destino/Atual)
+    profissional_destino_id = db.Column(db.Integer, db.ForeignKey('caee_profissional.id'), nullable=True)
+    
+    # Qual a especialidade/etapa (Ex: "Triagem Social", "Atendimento Psicológico")
+    etapa = db.Column(db.String(100), nullable=False)
+    
+    data_evento = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(50), default='Pendente') # Pendente, Em Andamento, Concluído
+    observacao = db.Column(db.Text, nullable=True) # Motivo do encaminhamento
+
+    # Relacionamentos
+    aluno = db.relationship('CaeeAluno', backref='linha_tempo')
+    profissional_origem = db.relationship('CaeeProfissional', foreign_keys=[profissional_origem_id])
+    profissional_destino = db.relationship('CaeeProfissional', foreign_keys=[profissional_destino_id])    
+
+
+class FiscalContrato(db.Model):
+    """ Tabela principal de cadastro e visão geral do contrato. """
+    __tablename__ = 'fiscal_contrato'
+    id = db.Column(db.Integer, primary_key=True)
+
+    # --- Dados de Identificação ---
+    num_contrato = db.Column(db.String(50), unique=True, nullable=False)
+    ano = db.Column(db.Integer, nullable=False)
+    tipo = db.Column(db.String(100), nullable=False) 
+    objeto = db.Column(db.Text, nullable=False)
+    processo_licitatorio = db.Column(db.String(150), nullable=True) 
+
+    # --- Dados da Contratada ---
+    empresa_contratada = db.Column(db.String(200), nullable=False)
+    cnpj = db.Column(db.String(20), nullable=False)
+    representante_empresa = db.Column(db.String(150), nullable=True)
+
+    # --- Valores e Vigência ---
+    valor_total = db.Column(db.Float, nullable=False)
+    valor_mensal_parcela = db.Column(db.Float, nullable=True)
+    vigencia_inicio = db.Column(db.Date, nullable=False)
+    vigencia_fim = db.Column(db.Date, nullable=False)
+
+    # --- Status e Vínculo ---
+    situacao = db.Column(db.String(50), default='Ativo', nullable=False)
+
+    secretaria_id = db.Column(db.Integer, db.ForeignKey('secretaria.id'), nullable=False)
+
+    # Relações:
+    anexos = db.relationship('FiscalAnexo', backref='contrato', lazy=True, cascade="all, delete-orphan")
+    atestos = db.relationship('FiscalAtestoMensal', backref='contrato', lazy=True, cascade="all, delete-orphan")
+    ocorrencias = db.relationship('FiscalOcorrencia', backref='contrato', lazy=True, cascade="all, delete-orphan")
+
+
+class FiscalAnexo(db.Model):
+    """ Documentos (Edital, Contrato PDF, etc.) anexados ao FiscalContrato. """
+    __tablename__ = 'fiscal_anexo'
+    id = db.Column(db.Integer, primary_key=True)
+
+    contrato_id = db.Column(db.Integer, db.ForeignKey('fiscal_contrato.id'), nullable=False)
+
+    tipo_documento = db.Column(db.String(100), nullable=False) 
+    nome_original = db.Column(db.String(255), nullable=False)
+    filename_seguro = db.Column(db.String(255), nullable=False) 
+
+    data_upload = db.Column(db.DateTime, default=datetime.utcnow)
+
+# Nota: As classes FiscalAtestoMensal e FiscalOcorrencia ainda não foram adicionadas, mas a FiscalContrato já faz referência a elas. Isso pode causar um erro.
+
+# --- A ÚLTIMA CORREÇÃO NECESSÁRIA ---
+# Para evitar um erro de NameError nas classes citadas acima, precisamos adicioná-las (vazias) agora.
+
+class FiscalAtestoMensal(db.Model):
+    """ Registro de Execução Mensal/Atesto (Req 133-147). """
+    __tablename__ = 'fiscal_atesto_mensal'
+    id = db.Column(db.Integer, primary_key=True)
+    
+    contrato_id = db.Column(db.Integer, db.ForeignKey('fiscal_contrato.id'), nullable=False)
+    
+    # --- Dados do Atesto ---
+    mes_competencia = db.Column(db.String(7), nullable=False) # Ex: 2025/01
+    data_atesto = db.Column(db.DateTime, default=datetime.utcnow)
+    descricao_servico = db.Column(db.Text, nullable=False)
+    
+    # Checklists e Conformidade
+    conformidade = db.Column(db.String(50), nullable=False) # Aprovado, Reprovado, Aprovado com Ressalvas
+    observacoes_fiscal = db.Column(db.Text, nullable=True)
+    
+    # Evidências e Localização
+    evidencia_filename = db.Column(db.String(255), nullable=True) # Upload de evidências (Req 140)
+    localizacao_gps = db.Column(db.String(100), nullable=True) # Coordenadas GPS opcionais (Req 141)
+    
+    # Status e Fiscal
+    assinatura_fiscal = db.Column(db.String(100), nullable=False) # Nome do fiscal (Req 142)
+    status_atesto = db.Column(db.String(50), default='Pendente', nullable=False) # (Req 143-147)
+    
+    checklist_respostas = db.relationship('FiscalChecklistResposta', backref='atesto', lazy=True, cascade="all, delete-orphan")
+
+
+class FiscalOcorrencia(db.Model):
+    """ Registro de falhas, problemas e não-conformidades (Req 148-166). """
+    __tablename__ = 'fiscal_ocorrencia'
+    id = db.Column(db.Integer, primary_key=True)
+    
+    contrato_id = db.Column(db.Integer, db.ForeignKey('fiscal_contrato.id'), nullable=False)
+    
+    # --- Dados da Ocorrência ---
+    tipo_ocorrencia = db.Column(db.String(100), nullable=False) 
+    data_hora = db.Column(db.DateTime, default=datetime.utcnow)
+    descricao_detalhada = db.Column(db.Text, nullable=False)
+    gravidade = db.Column(db.String(50), nullable=False) # Leve, Média, Grave (Req 162)
+    
+    evidencia_filename = db.Column(db.String(255), nullable=True) 
+    local_ocorrencia = db.Column(db.String(200), nullable=True)
+    
+    responsavel_registro = db.Column(db.String(100), nullable=False)
+    responsavel_analise = db.Column(db.String(100), nullable=True)
+    status = db.Column(db.String(50), default='Aberta', nullable=False) # Aberta, Resolvida, Encerrada
+
+
+class FiscalPenalidade(db.Model):
+    """ Aplicação de sanções à empresa (Req 196-205). """
+    __tablename__ = 'fiscal_penalidade'
+    id = db.Column(db.Integer, primary_key=True)
+    
+    ocorrencia_id = db.Column(db.Integer, db.ForeignKey('fiscal_ocorrencia.id'), nullable=False)
+    
+    # --- Dados da Penalidade ---
+    tipo = db.Column(db.String(100), nullable=False) # Advertência, Multa, Suspensão, Rescisão
+    base_legal = db.Column(db.String(200), nullable=True)
+    descricao_infracao = db.Column(db.Text, nullable=False)
+    valor_multa = db.Column(db.Float, nullable=True)
+    data_aplicacao = db.Column(db.Date, default=datetime.utcnow)
+    responsavel = db.Column(db.String(100), nullable=False)
+    documento_gerado = db.Column(db.String(255), nullable=True)
+    
+class FiscalChecklistModel(db.Model):
+    """ Tabela mestre para os modelos de checklist (Ex: Transporte Escolar). """
+    __tablename__ = 'fiscal_checklist_modelo'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(150), nullable=False) # Ex: Checklist Transporte Escolar
+    tipo_contrato_associado = db.Column(db.String(100), nullable=False) # Ex: Transporte, Merenda, Obra
+    
+    itens = db.relationship('FiscalChecklistItem', backref='modelo', lazy=True, cascade="all, delete-orphan")
+
+
+class FiscalChecklistItem(db.Model):
+    """ Item/Pergunta dentro de um modelo de Checklist (Ex: 'Pneus em bom estado?'). """
+    __tablename__ = 'fiscal_checklist_item'
+    id = db.Column(db.Integer, primary_key=True)
+    modelo_id = db.Column(db.Integer, db.ForeignKey('fiscal_checklist_modelo.id'), nullable=False)
+    
+    descricao = db.Column(db.String(255), nullable=False) # A pergunta em si
+    
+    # Tipo de Resposta: 'Sim/Não', 'Texto', 'Numérico'
+    tipo_resposta = db.Column(db.String(50), nullable=False, default='Sim/Não') 
+
+class FiscalChecklistResposta(db.Model):
+    """ Armazena a Resposta do Fiscal para um item específico durante um Atesto. """
+    __tablename__ = 'fiscal_checklist_resposta'
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Liga a Resposta ao Atesto mensal
+    atesto_id = db.Column(db.Integer, db.ForeignKey('fiscal_atesto_mensal.id'), nullable=False)
+    
+    # Liga a Resposta à Pergunta original (para rastreabilidade)
+    item_id = db.Column(db.Integer, db.ForeignKey('fiscal_checklist_item.id'), nullable=False)
+    
+    item = db.relationship('FiscalChecklistItem')
+    
+    # O Valor da Resposta (Sim/Não, ou texto, ou número)
+    valor_resposta = db.Column(db.String(255), nullable=False)    
+
+class FiscalNotaFiscal(db.Model):
+    """ Registro de Notas Fiscais para rastrear o valor gasto. """
+    __tablename__ = 'fiscal_nota_fiscal'
+    id = db.Column(db.Integer, primary_key=True)
+    
+    contrato_id = db.Column(db.Integer, db.ForeignKey('fiscal_contrato.id'), nullable=False)
+    
+    # Detalhes da Nota
+    numero_nf = db.Column(db.String(100), nullable=False)
+    data_emissao = db.Column(db.Date, nullable=False)
+    valor = db.Column(db.Float, nullable=False)
+    
+    # Referência (opcional, se quiser ligar ao Atesto Mensal)
+    atesto_id = db.Column(db.Integer, db.ForeignKey('fiscal_atesto_mensal.id'), nullable=True)
+
+    data_registro = db.Column(db.DateTime, default=datetime.utcnow)
+    usuario_registro = db.Column(db.String(100), nullable=False) 
+    
+class DocumentoAssinado(db.Model):
+    __tablename__ = "documento_assinado"
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Dados do Documento
+    nome_documento = db.Column(db.String(300), nullable=False)
+    codigo_validade = db.Column(db.String(100), unique=True, nullable=False) # Chave para validação
+    data_assinatura = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    filename_seguro = db.Column(db.String(300), nullable=True)
+    
+    # Relações com quem assinou (o sistema insere a assinatura do Servidor)
+    servidor_cpf = db.Column(db.String(14), db.ForeignKey("servidor.cpf"), nullable=False) # CPF do servidor que será inserido na assinatura
+    servidor = db.relationship("Servidor", backref="documentos_selados")
+    
+    # Relação com o usuário que operou o sistema para fazer a assinatura
+    usuario_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    assinante = db.relationship("User", backref="documentos_assinados_operados")
+    
+    # Posição da assinatura (Para futura expansão)
+    pos_x = db.Column(db.Float, nullable=True) 
+    pos_y = db.Column(db.Float, nullable=True)
+    pagina = db.Column(db.Integer, default=1)
+
+# --- IMPORTANTE ---
+# Você também precisa garantir que a classe FiscalContrato tenha esta relação.
+# Se FiscalContrato já estiver definida, adicione esta linha dentro dela:
+# FiscalContrato.notas_fiscais = db.relationship('FiscalNotaFiscal', backref='contrato', lazy=True, cascade="all, delete-orphan")
+    # Adicione esta relação na classe FiscalContrato (se ainda não estiver lá)
+    # FiscalContrato.notas_fiscais = db.relationship('FiscalNotaFiscal', backref='contrato', lazy=True, cascade="all, delete-orphan")    
+    
+class AgricultorFamiliar(db.Model):
+    __tablename__ = 'pnae_agricultor'
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # 1. Dados da Entidade/Fornecedor
+    tipo_fornecedor = db.Column(db.String(50), nullable=False) # Individual, Grupo Formal, Informal, etc.
+    razao_social = db.Column(db.String(200), nullable=False)
+    nome_fantasia = db.Column(db.String(200))
+    cpf_cnpj = db.Column(db.String(20), unique=True, nullable=False)
+    
+    # DAP/CAF
+    dap_caf_numero = db.Column(db.String(50))
+    dap_caf_tipo = db.Column(db.String(50))
+    dap_caf_validade = db.Column(db.Date)
+    
+    # Representante Legal (para grupos)
+    representante_nome = db.Column(db.String(200))
+    representante_rg = db.Column(db.String(20))
+    representante_rg_orgao = db.Column(db.String(20))
+    representante_rg_emissao = db.Column(db.Date)
+    
+    telefone = db.Column(db.String(20))
+    email = db.Column(db.String(120))
+    
+    # 2. Endereço / Local de Produção
+    endereco_completo = db.Column(db.String(300))
+    zona = db.Column(db.String(20)) # Urbana / Rural
+    comunidade = db.Column(db.String(150))
+    latitude = db.Column(db.String(20))
+    longitude = db.Column(db.String(20))
+    descricao_propriedade = db.Column(db.Text)
+    area_total_ha = db.Column(db.Float)
+    
+    # 5. Capacidade de Entrega (Resumo)
+    frequencia_entrega = db.Column(db.String(100)) # Ex: Semanal
+    dias_horarios = db.Column(db.String(200))
+    possui_transporte = db.Column(db.Boolean, default=False)
+    responsavel_entrega = db.Column(db.String(150))
+    local_entrega_preferencia = db.Column(db.String(50)) # Escola, Depósito, Ambos
+    
+    # Indicadores e Controle
+    status = db.Column(db.String(20), default='Ativo') # Ativo, Inadimplente, Pendente
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relacionamentos
+    documentos = db.relationship('DocumentoAgricultor', backref='agricultor', cascade="all, delete-orphan")
+    contratos = db.relationship('ContratoPNAE', backref='agricultor', cascade="all, delete-orphan")
+
+class DocumentoAgricultor(db.Model):
+    __tablename__ = 'pnae_documento'
+    id = db.Column(db.Integer, primary_key=True)
+    agricultor_id = db.Column(db.Integer, db.ForeignKey('pnae_agricultor.id'), nullable=False)
+    
+    tipo = db.Column(db.String(100), nullable=False) # CND Federal, Projeto Venda, Comprovante Residência
+    numero_ref = db.Column(db.String(50)) # Para número do projeto de venda ou certidão
+    filename = db.Column(db.String(255), nullable=False)
+    data_validade = db.Column(db.Date)
+    data_upload = db.Column(db.DateTime, default=datetime.utcnow)
+
+class ContratoPNAE(db.Model):
+    __tablename__ = 'pnae_contrato'
+    id = db.Column(db.Integer, primary_key=True)
+    agricultor_id = db.Column(db.Integer, db.ForeignKey('pnae_agricultor.id'), nullable=False)
+    
+    numero_contrato = db.Column(db.String(50), nullable=False)
+    chamada_publica = db.Column(db.String(100)) # Edital/Chamada
+    
+    data_inicio = db.Column(db.Date, nullable=False)
+    data_termino = db.Column(db.Date, nullable=False)
+    valor_total = db.Column(db.Float, nullable=False, default=0.0)
+    
+    observacoes = db.Column(db.Text)
+    
+    itens = db.relationship('ItemProjetoVenda', backref='contrato', cascade="all, delete-orphan")
+    entregas = db.relationship('EntregaPNAE', backref='contrato', cascade="all, delete-orphan")
+
+    @property
+    def valor_executado(self):
+        return sum(e.valor_total for e in self.entregas if e.status == 'Aprovado')
+
+    @property
+    def saldo(self):
+        return self.valor_total - self.valor_executado
+
+class ItemProjetoVenda(db.Model):
+    """ Produtos acordados no Projeto de Venda (O que ele vai vender) """
+    __tablename__ = 'pnae_item_projeto'
+    id = db.Column(db.Integer, primary_key=True)
+    contrato_id = db.Column(db.Integer, db.ForeignKey('pnae_contrato.id'), nullable=False)
+    
+    # 4. Produtos Disponíveis / Contratados
+    nome_produto = db.Column(db.String(150), nullable=False)
+    categoria = db.Column(db.String(50)) # Hortifruti, Proteína...
+    unidade_medida = db.Column(db.String(20))
+    
+    quantidade_total = db.Column(db.Float, nullable=False) # Volume ofertado
+    preco_unitario = db.Column(db.Float, nullable=False)
+    
+    tipo_producao = db.Column(db.String(50)) # Orgânica, Convencional
+    sazonalidade = db.Column(db.String(200)) # Ex: "Jan, Fev, Mar"
+    periodicidade = db.Column(db.String(50)) # Semanal, Quinzenal
+    
+class EntregaPNAE(db.Model):
+    """ 7. Histórico de Entregas (Execução do contrato) """
+    __tablename__ = 'pnae_entrega'
+    id = db.Column(db.Integer, primary_key=True)
+    contrato_id = db.Column(db.Integer, db.ForeignKey('pnae_contrato.id'), nullable=False)
+    
+    data_entrega = db.Column(db.Date, nullable=False)
+    numero_nota_fiscal = db.Column(db.String(50))
+    recibo_filename = db.Column(db.String(255)) # Upload
+    
+    responsavel_recebimento = db.Column(db.String(150))
+    status = db.Column(db.String(20), default='Pendente') # Pendente, Aprovado, Rejeitado
+    
+    valor_total = db.Column(db.Float, default=0.0)
+    observacoes = db.Column(db.Text)
+    
+    # Itens desta entrega específica (JSON ou tabela separada, simplificado aqui como texto detalhado ou JSON)
+    itens_json = db.Column(db.Text) # Ex: [{"produto": "Alface", "qtd": 10, "valor": 50.00}]
+    
+class ConfiguracaoPNAE(db.Model):
+    __tablename__ = 'pnae_configuracao'
+    id = db.Column(db.Integer, primary_key=True)
+    ano = db.Column(db.Integer, unique=True, nullable=False)
+    valor_total_repasse = db.Column(db.Float, nullable=False) # Valor total recebido do FNDE
+    
+    @property
+    def meta_percentual(self):
+        # Regra da Lei 15.226/2025
+        if self.ano >= 2026:
+            return 45.0
+        return 30.0
+        
+    @property
+    def valor_meta_minima(self):
+        return self.valor_total_repasse * (self.meta_percentual / 100)    

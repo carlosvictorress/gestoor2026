@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}Lançar Ocorrência{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-patch-exclamation-fill"></i> Lançar Ocorrência</h2>
+    <a href="{{ url_for('fiscal.detalhes_contrato', contrato_id=contrato.id) }}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Voltar aos Detalhes
+    </a>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-danger text-white">
+        <h5 class="mb-0">Contrato: {{ contrato.num_contrato }}/{{ contrato.ano }} - {{ contrato.empresa_contratada }}</h5>
+    </div>
+    <div class="card-body">
+        
+        <form method="POST" action="{{ url_for('fiscal.lancar_ocorrencia', contrato_id=contrato.id) }}" enctype="multipart/form-data">
+            
+            <h5 class="text-muted mb-3">1. Detalhes da Infração</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label for="tipo_ocorrencia" class="form-label">Tipo de Ocorrência*</label>
+                    <select class="form-select" name="tipo_ocorrencia" required>
+                        <option value="">-- Selecione --</option>
+                        <option value="Atraso">Atraso na Entrega/Execução</option>
+                        <option value="Falta de Item">Falta de Item/Material</option>
+                        <option value="Servico Mal Executado">Serviço Mal Executado</option>
+                        <option value="Ausencia de Funcionario">Ausência de Funcionário (Terceirizado)</option>
+                        <option value="Veiculo Irregular">Veículo Irregular/Danificado</option>
+                        <option value="Problema Tecnico">Problema Técnico/Equipamento</option>
+                        <option value="Outro">Outro</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="gravidade" class="form-label">Gravidade*</label>
+                    <select class="form-select" name="gravidade" required>
+                        <option value="Leve">Leve</option>
+                        <option value="Media">Média</option>
+                        <option value="Grave">Grave</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="local_ocorrencia" class="form-label">Local da Ocorrência</label>
+                    <input type="text" class="form-control" name="local_ocorrencia" placeholder="Ex: Escola X, Rota Y">
+                </div>
+                <div class="col-md-12">
+                    <label for="descricao_detalhada" class="form-label">Descrição Detalhada*</label>
+                    <textarea class="form-control" name="descricao_detalhada" rows="3" placeholder="Descreva o que ocorreu e o impacto no serviço..."></textarea>
+                </div>
+            </div>
+
+            <h5 class="text-muted mb-3">2. Evidências</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label for="evidencia_file" class="form-label">Evidência (Foto, Relatório, PDF)</label>
+                    <input type="file" class="form-control" name="evidencia_file">
+                    <small class="text-muted">Anexar provas do ocorrido.</small>
+                </div>
+                <div class="col-md-6">
+                    <label for="responsavel_analise" class="form-label">Responsável pela Análise (Opcional)</label>
+                    <input type="text" class="form-control" name="responsavel_analise" placeholder="Ex: Nome do Fiscal, Gestor de Contratos">
+                </div>
+            </div>
+
+            <hr>
+            <div class="d-flex justify-content-end">
+                <button type="submit" class="btn btn-danger btn-lg">
+                    <i class="bi bi-patch-exclamation"></i> Registrar Ocorrência
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <h5 class="mb-0">Histórico de Ocorrências Registradas</h5>
+    </div>
+    <ul class="list-group list-group-flush">
+        {% for ocorrencia in ocorrencias %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+                <strong>{{ ocorrencia.tipo_ocorrencia }}</strong> (Gravidade: {{ ocorrencia.gravidade }})
+                <br><small class="text-muted">{{ ocorrencia.descricao_detalhada | truncate(60) }}</small>
+            </div>
+            <div class="text-nowrap">
+                <a href="{{ url_for('fiscal.emitir_comprovante_ocorrencia', ocorrencia_id=ocorrencia.id) }}" class="btn btn-sm btn-info" target="_blank" title="Emitir Termo PDF">
+                    <i class="bi bi-file-earmark-pdf-fill"></i> PDF
+                </a>
+                <span class="badge bg-{{ 'danger' if ocorrencia.status == 'Aberta' else 'success' }} ms-2">{{ ocorrencia.status }}</span>
+            </div>
+        </li>
+        {% else %}
+        <li class="list-group-item text-center text-muted">Nenhuma ocorrência registrada para este contrato.</li>
+        {% endfor %}
+    </ul>
+</div>
+
+{% endblock %}

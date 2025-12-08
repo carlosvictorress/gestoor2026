@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestão do Contrato {{ contrato.numero_contrato }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="mb-0">Contrato PNAE: {{ contrato.numero_contrato }}</h4>
+        <small class="text-muted">{{ contrato.agricultor.razao_social }} ({{ contrato.agricultor.cpf_cnpj }})</small>
+    </div>
+    <div>
+        <a href="{{ url_for('merenda.pdf_contrato_pnae', contrato_id=contrato.id) }}" target="_blank" class="btn btn-outline-danger me-2">
+            <i class="bi bi-file-pdf"></i> Contrato PDF
+        </a>
+        
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalEntrega">
+            <i class="bi bi-box-seam"></i> Registrar Entrega
+        </button>
+        
+        <a href="{{ url_for('merenda.listar_agricultores') }}" class="btn btn-secondary">Voltar</a>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card bg-light border-primary shadow-sm">
+            <div class="card-body py-2">
+                <small class="text-muted">Valor Total Contratado</small>
+                <h4 class="text-primary">{{ contrato.valor_total | currency_br }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-light border-success shadow-sm">
+            <div class="card-body py-2">
+                <small class="text-muted">Valor Já Executado</small>
+                <h4 class="text-success">{{ contrato.valor_executado | currency_br }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-light border-warning shadow-sm">
+            <div class="card-body py-2">
+                <small class="text-muted">Saldo a Executar</small>
+                <h4 class="text-warning">{{ contrato.saldo | currency_br }}</h4>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white">
+        <h5 class="mb-0"><i class="bi bi-list-check"></i> Controle de Saldo de Produtos</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Produto</th>
+                        <th class="text-center">Qtd. Contratada</th>
+                        <th class="text-center">Qtd. Entregue</th>
+                        <th class="text-center">Saldo Restante</th>
+                        <th class="text-center" width="15%">Execução</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in contrato.itens %}
+                        {% set entregue = entregue_por_produto.get(item.nome_produto, 0.0) %}
+                        {% set saldo = item.quantidade_total - entregue %}
+                        {% set percentual = (entregue / item.quantidade_total * 100) if item.quantidade_total > 0 else 0 %}
+                    <tr>
+                        <td>
+                            <span class="fw-bold">{{ item.nome_produto }}</span> 
+                            <small class="text-muted">({{ item.unidade_medida }})</small>
+                        </td>
+                        <td class="text-center fw-bold">{{ item.quantidade_total }}</td>
+                        <td class="text-center text-success">{{ entregue }}</td>
+                        <td class="text-center {{ 'text-danger fw-bold' if saldo <= 0 else 'text-primary' }}">{{ saldo }}</td>
+                        <td class="text-center">
+                            <div class="progress" style="height: 20px;">
+                                <div class="progress-bar {{ 'bg-success' if percentual >= 100 else 'bg-info' }}" role="progressbar" style="width: {{ percentual }}%">
+                                    {{ "%.0f"|format(percentual) }}%
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <h5 class="mb-0"><i class="bi bi-clock-history"></i> Histórico de Entregas</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Data</th>
+                        <th>Nota Fiscal / Recibo</th>
+                        <th>Valor (R$)</th>
+                        <th>Responsável</th>
+                        <th>Status</th>
+                        <th class="text-center">Ações</th> </tr>
+                </thead>
+                <tbody>
+                    {% for entrega in contrato.entregas|sort(attribute='data_entrega', reverse=True) %}
+                    <tr>
+                        <td>{{ entrega.data_entrega.strftime('%d/%m/%Y') }}</td>
+                        <td>
+                            {{ entrega.numero_nota_fiscal or 'S/N' }}
+                            {% if entrega.recibo_filename %}
+                                <a href="{{ url_for('uploaded_file', filename='pnae_notas/' + entrega.recibo_filename) }}" target="_blank" class="text-danger ms-2 text-decoration-none" title="Ver Comprovante">
+                                    <i class="bi bi-file-earmark-pdf-fill"></i> Ver Anexo
+                                </a>
+                            {% endif %}
+                        </td>
+                        <td>{{ entrega.valor_total | currency_br }}</td>
+                        <td><small>{{ entrega.responsavel_recebimento }}</small></td>
+                        <td><span class="badge bg-success">{{ entrega.status }}</span></td>
+                        
+                        <td class="text-center">
+                            <a href="{{ url_for('merenda.pdf_termo_recebimento_pnae', entrega_id=entrega.id) }}" target="_blank" class="btn btn-sm btn-outline-dark" title="Imprimir Termo de Recebimento">
+                                <i class="bi bi-printer-fill"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-3">Nenhuma entrega registrada ainda.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalEntrega" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form method="POST" action="{{ url_for('merenda.registrar_entrega_pnae', contrato_id=contrato.id) }}" enctype="multipart/form-data">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="bi bi-truck"></i> Registrar Nova Entrega</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Data da Entrega</label>
+                            <input type="date" class="form-control" name="data_entrega" required> 
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Nº Nota Fiscal / Recibo</label>
+                            <input type="text" class="form-control" name="numero_nota_fiscal" placeholder="Ex: 00123">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Arquivo (Foto/PDF)</label>
+                            <input type="file" class="form-control" name="arquivo_nf" accept="image/*, .pdf">
+                        </div>
+                    </div>
+                    
+                    <h6 class="border-bottom pb-2 mb-3 mt-4 text-success">Itens Entregues Nesta Data</h6>
+                    
+                    <div class="table-responsive bg-light border rounded p-2">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Produto</th>
+                                    <th>Preço Un.</th>
+                                    <th width="150px">Qtd. Entregue</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in contrato.itens %}
+                                <tr>
+                                    <td class="align-middle">
+                                        <input type="hidden" name="item_id[]" value="{{ item.id }}">
+                                        {{ item.nome_produto }} ({{ item.unidade_medida }})
+                                    </td>
+                                    <td class="align-middle">{{ item.preco_unitario | currency_br }}</td>
+                                    <td>
+                                        <input type="number" step="0.01" class="form-control form-control-sm" name="qtd_entregue[]" placeholder="0" min="0">
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-check-circle"></i> Confirmar Entrega</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Script para pré-preencher a data de hoje no modal automaticamente
+    document.addEventListener('DOMContentLoaded', function() {
+        const dateInput = document.querySelector('input[name="data_entrega"]');
+        if(dateInput) {
+            dateInput.valueAsDate = new Date();
+        }
+    });
+</script>
+
+{% endblock %}

@@ -379,3 +379,51 @@ def diario_de_classe(turma_id):
                            disciplinas_turma=disciplinas_turma,
                            periodo_id_selecionado=periodo_id_selecionado,
                            notas_dict=notas_dict)
+    
+    
+    
+@academico_bp.route('/painel_principal')
+@role_required('admin', 'academico', 'RH', 'professor') # Adicionei 'professor' para exemplo
+def painel_principal():
+    total_alunos = AcadAluno.query.count()
+    # Pega o papel da sessão (definido no 'acesso_autorizado') para exibir o menu correto
+    papel_academico = session.get('papel_academico') 
+    
+    return render_template('academico/dashboard.html', 
+                           total_alunos=total_alunos, 
+                           papel_academico=papel_academico)
+
+@academico_bp.route('/', methods=['GET', 'POST'])
+@role_required('admin', 'academico', 'RH')
+def dashboard_acesso():
+    if request.method == 'POST':
+        # 1. Pega os dados do formulário do modal
+        papel_escolhido = request.form.get('papel')
+        codigo_acesso = request.form.get('codigo_acesso')
+        
+        # 2. Lógica de Validação (Ajuste esta lógica conforme seu BD)
+        # Exemplo: Validação pelo número do contrato (que é a matrícula)
+        servidor = Servidor.query.filter_by(num_contrato=codigo_acesso).first()
+        
+        # 3. VERIFICAÇÃO DE ACESSO
+        if not servidor:
+            flash('Código de acesso inválido.', 'danger')
+            return redirect(url_for('academico.dashboard_acesso'))
+
+        # Supondo que você use o num_contrato como código e que o servidor seja da Secretaria certa
+        # Aqui você adicionaria mais lógica, ex:
+        # if papel_escolhido == 'diretor' and servidor.funcao != 'Diretor':
+        #     flash('Função não compatível com o acesso.', 'danger')
+        #     return redirect(url_for('academico.dashboard_acesso'))
+
+        # 4. Concede o acesso e salva a permissão específica na sessão
+        session['papel_academico'] = papel_escolhido  # Salva o papel (diretor, professor, etc.)
+        session['servidor_academico_id'] = servidor.num_contrato # Salva a matrícula para usar nas rotas
+        
+        flash(f'Acesso concedido como {papel_escolhido.capitalize()}.', 'success')
+        
+        # 5. Redireciona para o painel principal (nova rota)
+        return redirect(url_for('academico.painel_principal'))
+    
+    # Se for GET (Acesso inicial), sempre redireciona para a modal de acesso
+    return redirect(url_for('academico.painel_principal')) # Redireciona para exibir o painel    

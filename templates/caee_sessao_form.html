@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Sessão - CAEE{% endblock %}
+
+{% block content %}
+<h2><i class="bi bi-journal-check"></i> Editar Registro da Sessão</h2>
+<p class="lead">
+    Aluno: <strong>{{ sessao.plano.aluno.nome_completo }}</strong> <br>
+    Profissional: <strong>{{ sessao.profissional_nome }}</strong>
+</p>
+<hr>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('caee.editar_sessao', sessao_id=sessao.id) }}">
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="data_sessao" class="form-label">Data da Sessão</label>
+                    <input type="date" class="form-control" id="data_sessao" name="data_sessao" 
+                           value="{{ sessao.data_sessao.strftime('%Y-%m-%d') }}" required>
+                </div>
+                <div class="col-md-8 d-flex align-items-end">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="presenca" name="presenca" 
+                               value="true" {% if sessao.presenca %}checked{% endif %}>
+                        <label class="form-check-label" for="presenca">Aluno Presente (Marque se SIM)</label>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <label for="atividades_realizadas" class="form-label mt-2">Atividades Realizadas</label>
+                    <textarea class="form-control" id="atividades_realizadas" name="atividades_realizadas" rows="4">{{ sessao.atividades_realizadas or '' }}</textarea>
+                </div>
+                <div class="col-12">
+                    <label for="observacoes_evolucao" class="form-label">Observações / Evolução do Aluno</label>
+                    <textarea class="form-control" id="observacoes_evolucao" name="observacoes_evolucao" rows="4">{{ sessao.observacoes_evolucao or '' }}</textarea>
+                </div>
+            </div>
+
+            <hr>
+            <div class="d-flex justify-content-end">
+                <a href="{{ url_for('caee.prontuario_aluno', aluno_id=aluno_id) }}" class="btn btn-secondary me-2">Cancelar</a>
+                <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+{% endblock %}

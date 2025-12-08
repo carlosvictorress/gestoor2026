@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% if relatorio %}Editar{% else %}Novo{% endif %} Relatório Periódico - CAEE
+{% endblock %}
+
+{% block content %}
+
+{% if relatorio %}
+    <h2><i class="bi bi-pencil-fill"></i> Editar Relatório Periódico</h2>
+{% else %}
+    <h2><i class="bi bi-file-earmark-plus"></i> Novo Relatório Pedagógico Periódico</h2>
+{% endif %}
+<p class="lead">Para o aluno: <strong>{{ aluno.nome_completo }}</strong></p>
+<hr>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+
+        <form method="POST" action="{% if relatorio %}{{ url_for('caee.gerenciar_relatorio_periodico', relatorio_id=relatorio.id) }}{% else %}{{ url_for('caee.gerenciar_relatorio_periodico', aluno_id=aluno.id) }}{% endif %}">
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label for="periodo" class="form-label">Período de Referência*</label>
+                    <input type="text" class="form-control" id="periodo" name="periodo" 
+                           value="{{ relatorio.periodo if relatorio }}" 
+                           placeholder="Ex: 1º Semestre 2025, Ano Letivo 2025" required>
+                </div>
+
+                <div class="col-md-6">
+                    <label for="profissional_id" class="form-label">Profissional Responsável*</label>
+                    <select id="profissional_id" name="profissional_id" class="form-select" required>
+                        <option value="">-- Selecione o profissional --</option>
+                        {% for prof in profissionais %}
+                            <option value="{{ prof.id }}" 
+                                    {% if relatorio and relatorio.profissional_id == prof.id %}selected{% endif %}>
+                                {{ prof.nome_completo }} ({{ prof.especialidade }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-12">
+                    <label for="relatorio_evolucao" class="form-label">Relatório de Evolução Pedagógica*</label>
+                    <textarea class="form-control" id="relatorio_evolucao" name="relatorio_evolucao" rows="15" 
+                              placeholder="Descreva aqui a evolução do aluno durante o período, os objetivos alcançados, as dificuldades persistentes e as recomendações para o próximo período..." 
+                              required>{{ relatorio.relatorio_evolucao if relatorio }}</textarea>
+                </div>
+            </div>
+
+            <hr>
+            <div class="d-flex justify-content-end">
+                <a href="{{ url_for('caee.prontuario_aluno', aluno_id=aluno.id) }}" class="btn btn-secondary me-2">Cancelar</a>
+                <button type="submit" class="btn btn-primary">Salvar Relatório</button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+{% endblock %}

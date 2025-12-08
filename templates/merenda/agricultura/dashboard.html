@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+
+{% block title %}Painel PNAE {{ ano_atual }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+    <div>
+        <h2><i class="bi bi-tree-fill text-success"></i> Agricultura Familiar (PNAE)</h2>
+        <span class="text-muted">Exercício: {{ ano_atual }} | Meta Legal: <strong>{{ meta_info.meta_lei }}%</strong></span>
+    </div>
+    <div>
+        <button class="btn btn-outline-secondary me-2" type="button" data-bs-toggle="collapse" data-bs-target="#configCollapse">
+            <i class="bi bi-gear"></i> Configurar Orçamento
+        </button>
+        <a href="{{ url_for('merenda.listar_agricultores') }}" class="btn btn-outline-primary me-2"><i class="bi bi-people"></i> Agricultores</a>
+        <a href="{{ url_for('merenda.novo_agricultor') }}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Novo Cadastro</a>
+    </div>
+</div>
+
+<div class="collapse mb-4" id="configCollapse">
+    <div class="card card-body bg-light border-warning">
+        <form method="POST" class="row align-items-end">
+            <div class="col-md-8">
+                <label class="form-label fw-bold">Valor Total do Repasse FNDE para {{ ano_atual }} (R$)</label>
+                <input type="text" class="form-control" name="valor_total_repasse" required 
+                       value="{{ '%.2f'|format(meta_info.total_repasse)|replace('.', ',') }}" placeholder="0,00">
+                <small class="text-muted">Informe o valor total recebido para calcularmos a meta de {{ meta_info.meta_lei }}%.</small>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-warning w-100">Salvar Orçamento</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-success shadow h-100">
+            <div class="card-body">
+                <h6 class="card-title">Agricultores</h6>
+                <h2 class="mb-0">{{ total_agricultores }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info shadow h-100">
+            <div class="card-body">
+                <h6 class="card-title">Contratos Ativos</h6>
+                <h2 class="mb-0">{{ contratos_ativos }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-primary shadow h-100">
+            <div class="card-body">
+                <h6 class="card-title">Total Contratado</h6>
+                <h3 class="mb-0">{{ total_contratado | currency_br }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-dark bg-light border-{{ 'success' if 'Atingida' in meta_info.status else 'warning' }} shadow h-100">
+            <div class="card-body">
+                <h6 class="card-title">Status da Meta</h6>
+                <h4 class="mb-0 {{ 'text-success' if 'Atingida' in meta_info.status else 'text-danger' }}">
+                    {{ "%.2f"|format(meta_info.percentual_atual) }}%
+                </h4>
+                <small>{{ meta_info.status }}</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white">
+        <h5 class="mb-0"><i class="bi bi-speedometer"></i> Monitoramento da Meta Legal (Lei nº 11.947/2009 e 15.226/2025)</h5>
+    </div>
+    <div class="card-body">
+        {% if meta_info.total_repasse > 0 %}
+            <p>
+                Do total de <strong>{{ meta_info.total_repasse | currency_br }}</strong> recebidos, 
+                o município deve aplicar no mínimo <strong>{{ (meta_info.total_repasse * (meta_info.meta_lei/100)) | currency_br }}</strong> 
+                na Agricultura Familiar.
+            </p>
+            
+            <div class="progress" style="height: 35px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated {{ 'bg-success' if meta_info.percentual_atual >= meta_info.meta_lei else 'bg-warning text-dark' }}" 
+                     role="progressbar" 
+                     style="width: {{ meta_info.percentual_atual }}%">
+                    {{ "%.2f"|format(meta_info.percentual_atual) }}% Atingido
+                </div>
+                <div class="position-absolute border-start border-danger border-3" 
+                     style="left: {{ meta_info.meta_lei }}%; height: 35px; top:0;" 
+                     title="Meta Mínima: {{ meta_info.meta_lei }}%">
+                </div>
+            </div>
+            <div class="d-flex justify-content-between mt-1 text-muted small">
+                <span>0%</span>
+                <span class="text-danger fw-bold" style="margin-left: -20px;">Meta: {{ meta_info.meta_lei }}%</span>
+                <span>100%</span>
+            </div>
+
+            {% if meta_info.falta_contratar > 0 %}
+            <div class="alert alert-warning mt-3">
+                <i class="bi bi-exclamation-triangle-fill"></i> Atenção! Ainda faltam contratar <strong>{{ meta_info.falta_contratar | currency_br }}</strong> para atingir o mínimo legal deste ano.
+            </div>
+            {% else %}
+            <div class="alert alert-success mt-3">
+                <i class="bi bi-check-circle-fill"></i> Parabéns! O município já cumpriu a exigência mínima de compra da Agricultura Familiar.
+            </div>
+            {% endif %}
+
+        {% else %}
+            <div class="text-center py-4">
+                <p class="text-muted">Por favor, configure o valor do repasse anual do FNDE clicando no botão "Configurar Orçamento" acima para visualizar o gráfico.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

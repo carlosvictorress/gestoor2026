@@ -1,8 +1,11 @@
+# FORÇANDO A ATUALIZAÇÃO DO CACHE
 # ===================================================================
 # PARTE 1: Importações de Bibliotecas
 # ===================================================================
 import os
 import io
+from dotenv import load_dotenv
+load_dotenv()
 import csv
 import uuid
 import locale
@@ -10,6 +13,18 @@ import qrcode
 import base64
 import re
 import math
+
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment
+from flask import make_response
+from reportlab.lib.pagesizes import A4, landscape
+
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer # (Você já deve ter)
+from reportlab.lib.styles import getSampleStyleSheet # (Você já deve ter)
+from reportlab.lib import colors # (Você já deve ter)
+from reportlab.lib.units import cm # (Você já deve ter)
+from .utils import cabecalho_e_rodape # (Você já deve ter)
+from .utils import currency_filter_br
 
 from flask_mail import Message # Adicione esta
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature # Adicione esta
@@ -41,6 +56,7 @@ from flask_bcrypt import Bcrypt
 from sqlalchemy import func, or_, and_
 from werkzeug.utils import secure_filename
 from num2words import num2words
+from .utils import gerar_encoding_facial, comparar_rostos, limpar_cpf
 
 # Importações para o gerador de PDF (ReportLab)
 from reportlab.lib.pagesizes import letter, landscape, A4
@@ -74,8 +90,11 @@ except locale.Error:
 # PARTE 2: Configuração da Aplicação e Inicialização das Extensões
 # ===================================================================
 
+
 app = Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__))
+
+app.jinja_env.filters['currency_br'] = currency_filter_br
 
 
 
@@ -92,12 +111,21 @@ else:
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SECRET_KEY"] = "uma-chave-secreta-muito-dificil-de-adivinhar"
 app.config["UPLOAD_FOLDER"] = "uploads"
-app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.googlemail.com') # Servidor SMTP
-app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587)) # Porta (587 para TLS)
-app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'true').lower() in ['true', 'on', '1'] # Usar TLS? (True para Gmail)
-app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME') # Seu endereço de e-mail completo
-app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD') # Sua senha (ou senha de app para Gmail)
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME') # O remetente padrão será seu e-mail
+
+#app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.googlemail.com') # Servidor SMTP
+#app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587)) # Porta (587 para TLS)
+#app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'true').lower() in ['true', 'on', '1'] # Usar TLS? (True para Gmail)
+#app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME') # Seu endereço de e-mail completo
+#app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD') # Sua senha (ou senha de app para Gmail)
+#app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME') # O remetente padrão será seu e-mail
+
+app.config['MAIL_SERVER'] = 'smtp.googlemail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'carlosvictor.pessoal@gmail.com'
+app.config['MAIL_PASSWORD'] = 'cphvgocxclcmzxqc'  # Sua Senha de App (sem espaços)
+app.config['MAIL_DEFAULT_SENDER'] = 'carlosvictor.pessoal@gmail.com'
+
 
 RAIO_PERMITIDO_METROS = 100
 
@@ -203,6 +231,10 @@ def create_admin_command():
         username = input("Digite o nome de usuário para o admin: ")
         password = input("Digite a senha para o admin: ")
 
+        # --- NOVO CAMPO ADICIONADO ---
+        email = input("Digite o E-MAIL para o admin: ")
+        # ---------------------------
+
         # Lista as secretarias disponíveis
         secretarias = Secretaria.query.all()
         if not secretarias:
@@ -224,17 +256,20 @@ def create_admin_command():
             except ValueError:
                 print("Por favor, digite um número.")
 
+        # Verifica se o usuário já existe
         user = User.query.filter_by(username=username).first()
         if user:
-            print(f"Usuário '{username}' já existe. Atualizando secretaria.")
+            print(f"Usuário '{username}' já existe. Atualizando secretaria e e-mail.")
             user.secretaria_id = secretaria_selecionada.id
+            user.email = email # <-- ATUALIZA O EMAIL
         else:
             hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
             new_user = User(
                 username=username, 
                 password_hash=hashed_password, 
                 role="admin",
-                secretaria_id=secretaria_selecionada.id
+                secretaria_id=secretaria_selecionada.id,
+                email=email # <-- CAMPO ADICIONADO AQUI
             )
             db.session.add(new_user)
 
@@ -282,6 +317,12 @@ def init_licence_command():
 def inject_year():
     return {"current_year": datetime.utcnow().year}
 
+@app.template_filter('today_date')
+def today_date_filter(s):
+    """Filtro Jinja para retornar a data de hoje no formato YYYY-MM-DD."""
+    # 'datetime' já deve estar importado no topo do seu app.py
+    return datetime.now().strftime('%Y-%m-%d')
+
 
 def registrar_log(action):
     try:
@@ -296,10 +337,7 @@ def registrar_log(action):
         db.session.rollback()
 
 
-def limpar_cpf(cpf):
-    if cpf:
-        return re.sub(r"\D", "", cpf)
-    return None
+
 
 
 def login_required(f):
@@ -362,6 +400,57 @@ def cabecalho_e_rodape(canvas, doc):
 # ===================================================================
 # PARTE 5: Definição das Rotas da Aplicação
 # ===================================================================
+
+@app.route("/documento/download/<int:documento_id>")
+@login_required
+@role_required("RH", "admin")
+def download_documento(documento_id):
+    # Nota: Assumimos que o modelo 'Documento' está definido em 'models.py'
+    doc = Documento.query.get_or_404(documento_id)
+    # Define o caminho para a pasta 'uploads/documentos'
+    upload_path = os.path.join(current_app.config["UPLOAD_FOLDER"], "documentos")
+
+    try:
+        from flask import current_app # Garante que a variável esteja disponível
+
+        # Usa send_from_directory para servir o arquivo
+        return send_from_directory(
+            upload_path, 
+            doc.filename, 
+            as_attachment=True, 
+            download_name=doc.description
+        )
+    except FileNotFoundError:
+        flash("Erro: Arquivo não encontrado no servidor.", "danger")
+        # Redireciona de volta para a edição do servidor
+        return redirect(url_for("editar_servidor", id=doc.servidor_id))
+
+@app.route("/documento/delete/<int:documento_id>")
+@login_required
+@admin_required
+@role_required("RH", "admin")
+def delete_documento(documento_id):
+    doc = Documento.query.get_or_404(documento_id)
+    servidor_id = doc.servidor_id # Pega o ID do servidor para o redirecionamento
+
+    try:
+        # 1. Remove o arquivo físico
+        doc_path = os.path.join(
+            current_app.config["UPLOAD_FOLDER"], "documentos", doc.filename
+        )
+        if os.path.exists(doc_path):
+            os.remove(doc_path)
+
+        # 2. Remove o registro do banco de dados
+        db.session.delete(doc)
+        db.session.commit()
+        registrar_log(f'Excluiu o documento "{doc.description}" do servidor {servidor_id}.')
+        flash("Documento excluído com sucesso!", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Erro ao excluir o documento: {e}", "danger")
+
+    return redirect(url_for("editar_servidor", id=servidor_id))
 
 
 @app.route("/reset_password", methods=["GET", "POST"])
@@ -2017,6 +2106,11 @@ def add_server():
         flash(f"Erro ao cadastrar servidor: {e}", "danger")
     return redirect(url_for("lista_servidores"))
 
+# Em app.py
+# (Lembre-se de ter 'from .utils import gerar_encoding_facial' no topo do app.py)
+
+# Em app.py
+# (Lembre-se de ter 'from .utils import gerar_encoding_facial' no topo do app.py)
 
 @app.route("/editar/<path:id>", methods=["GET", "POST"])
 @login_required
@@ -2028,15 +2122,44 @@ def editar_servidor(id):
 
     # --- Bloco POST Unificado ---
     if request.method == "POST":
+        # O 'try' começa AQUI (indentado com 4 espaços)
         try:
-            # Atualiza a secretaria
+            
+            ### INÍCIO DA NOVA LÓGICA DE FOTO E ENCODING ### (8 espaços)
+            
+            # Verifica se um novo arquivo de foto foi enviado no formulário
+            foto = request.files.get("foto") # (12 espaços)
+            if foto and foto.filename != "":
+                # 1. Salva a nova foto (como seu código já fazia)
+                foto_filename = secure_filename(foto.filename)
+                # Garante que a pasta de uploads exista
+                os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+                caminho_para_salvar = os.path.join(app.config["UPLOAD_FOLDER"], foto_filename)
+                foto.save(caminho_para_salvar)
+                
+                # 2. Gera o encoding a partir da foto recém-salva
+                encoding_str, msg = gerar_encoding_facial(caminho_para_salvar)
+                
+                if encoding_str:
+                    # 3. Atualiza o encoding e o nome do arquivo no servidor
+                    servidor.foto_filename = foto_filename
+                    servidor.face_encoding = encoding_str
+                    flash(f"Foto de perfil atualizada e rosto cadastrado com sucesso! {msg}", "success")
+                else:
+                    # Se não achou um rosto, salva a foto mas avisa o admin
+                    servidor.foto_filename = foto_filename
+                    servidor.face_encoding = None # Limpa o encoding antigo
+                    flash(f"Foto salva, mas não foi possível gerar o cadastro facial: {msg}. Tente uma foto melhor.", "warning")
+            
+            ### FIM DA NOVA LÓGICA DE FOTO E ENCODING ### (8 espaços)
+            
+            
+            # Atualiza a secretaria (12 espaços)
             servidor.secretaria_id = request.form.get("secretaria_id", type=int)
 
             # Atualiza TODOS os outros campos do servidor (lógica do seu código original)
             servidor.nome = request.form.get("nome")
-            servidor.cpf = limpar_cpf(
-                request.form.get("cpf")
-            )  # Garanta que a função limpar_cpf exista
+            servidor.cpf = limpar_cpf(request.form.get("cpf"))
             servidor.rg = request.form.get("rg")
             servidor.nome_mae = request.form.get("nome_mae")
             servidor.email = request.form.get("email")
@@ -2059,11 +2182,13 @@ def editar_servidor(id):
             remuneracao_str = (
                 request.form.get("remuneracao", "0").replace(".", "").replace(",", ".")
             )
-            servidor.remuneração = float(remuneracao_str) if remuneracao_str else 0.0
+            servidor.remuneracao = float(remuneracao_str) if remuneracao_str else 0.0
 
             # Converte e atualiza as datas
             data_inicio_str = request.form.get("data_inicio")
             data_saida_str = request.form.get("data_saida")
+            data_nascimento_str = request.form.get("data_nascimento") 
+
             servidor.data_inicio = (
                 datetime.strptime(data_inicio_str, "%Y-%m-%d").date()
                 if data_inicio_str
@@ -2074,23 +2199,32 @@ def editar_servidor(id):
                 if data_saida_str
                 else None
             )
+            servidor.data_nascimento = (
+                datetime.strptime(data_nascimento_str, "%Y-%m-%d").date()
+                if data_nascimento_str
+                else servidor.data_nascimento 
+            )
 
             # --- Salva tudo de uma vez ---
             db.session.commit()
 
-            flash("Dados do servidor atualizados com sucesso!", "success")
             return redirect(url_for("lista_servidores"))
 
+        # O 'except' fica no mesmo nível do 'try' (8 espaços)
         except Exception as e:
             db.session.rollback()
             flash(f"Erro ao atualizar servidor: {e}", "danger")
             # Redireciona de volta para a página de edição em caso de erro
             return redirect(url_for("editar_servidor", id=id))
 
-    # --- Lógica para carregar a página (GET) ---
-    # Envia o servidor e a lista de secretarias para o template
+    # --- Lógica para carregar a página (GET) --- (4 espaços)
     return render_template("editar.html", servidor=servidor, secretarias=secretarias)
 
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    """ Rota para servir os arquivos da pasta 'uploads' (como fotos de perfil). """
+    # 'send_from_directory' já está importado no topo do seu app.py
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route("/veiculos", methods=["GET", "POST"])
 @login_required
@@ -2304,7 +2438,303 @@ def gerar_requerimento_pdf(req_id):
     
     return response
 
+def converter_dias_para_texto(total_dias):
+    """
+    Função auxiliar para converter um número de dias em Anos, Meses e Dias.
+    Usa a lógica de (Ano=365 dias, Mês=30 dias).
+    """
+    if total_dias < 0:
+        total_dias = 0
+    anos = total_dias // 365
+    meses = (total_dias % 365) // 30
+    dias = (total_dias % 365) % 30
+    return f"{anos} anos, {meses} meses e {dias} dias"
 
+def calcular_efetivo_exercicio(cpf_servidor):
+    """
+    Função auxiliar para calcular o tempo de efetivo exercício.
+    VERSÃO 4.0: Usa a busca exata (filter_by) que sabemos que funciona.
+    """
+    
+    # cpf_servidor já chega aqui limpo (ex: "06184477331")
+    
+    # --- [ LINHA ATUALIZADA (v4.0) ] ---
+    # Voltando para a busca exata, que é usada em outras partes do seu app.
+    # Isso assume que os CPFs no banco de dados estão LIMPOS (sem pontos/traços).
+    servidor = Servidor.query.filter_by(cpf=cpf_servidor).first()
+    # --- [ FIM DA ATUALIZAÇÃO ] ---
+
+    if not servidor:
+        # Se esta busca falha, o CPF limpo não existe na coluna Servidor.cpf
+        raise Exception("Servidor não encontrado com este CPF.")
+        
+    if not servidor.data_inicio:
+        raise Exception("Servidor não possui data de admissão (data_inicio) cadastrada.")
+
+    data_admissao = servidor.data_inicio
+    data_hoje = datetime.now().date()
+    
+    # 1. TEMPO BRUTO
+    dias_totais_bruto = (data_hoje - data_admissao).days
+    
+    # --- [ LÓGICA CONDICIONAL DE DESCONTO ] ---
+    NATUREZAS_DESCONTO_SEMPRE = [
+        "Licença para Tratar de Interesse Particular",
+        "Licença por Motivo de Doença em Pessoa da Família"
+    ]
+    NATUREZAS_DESCONTO_PROFESSOR = [
+        "Licença Prêmio"
+    ]
+
+    funcao_servidor = (servidor.funcao or "").lower()
+    e_professor = "professor" in funcao_servidor or "professora" in funcao_servidor
+
+    lista_descontos_final = list(NATUREZAS_DESCONTO_SEMPRE)
+    
+    if e_professor:
+        lista_descontos_final.extend(NATUREZAS_DESCONTO_PROFESSOR)
+        print(f"DEBUG (v4.0): Servidor {servidor.nome} (Função: {servidor.funcao}) é PROFESSOR. Descontando Licença Prêmio.")
+    else:
+        print(f"DEBUG (v4.0): Servidor {servidor.nome} (Função: {servidor.funcao}) NÃO é professor. Licença Prêmio NÃO será descontada.")
+
+    # 2. TEMPO DE DESCONTO
+    # Esta busca também usa o CPF limpo (cpf_servidor)
+    afastamentos_requerimentos = Requerimento.query.filter(
+        Requerimento.servidor_cpf == cpf_servidor, 
+        Requerimento.status == 'Aprovado',
+        Requerimento.natureza.in_(lista_descontos_final) 
+    ).all()
+
+    dias_afastamento_total = 0
+    afastamentos_info = []
+    
+    for req in afastamentos_requerimentos: 
+        data_fim_req = req.data_retorno_trabalho or req.data_conclusao
+        if not data_fim_req:
+             data_fim_req = data_hoje
+             
+        if req.data_inicio_requerimento:
+             dias_descontados = (data_fim_req - req.data_inicio_requerimento).days
+             if dias_descontados > 0:
+                 dias_afastamento_total += dias_descontados
+                 afastamentos_info.append({
+                     "id": req.id,
+                     "natureza": req.natureza,
+                     "data_inicio": req.data_inicio_requerimento,
+                     "data_fim": data_fim_req,
+                     "dias": dias_descontados
+                 })
+
+    # 3. TEMPO LÍQUIDO
+    dias_efetivos = dias_totais_bruto - dias_afastamento_total
+    
+    return servidor, dias_totais_bruto, dias_afastamento_total, dias_efetivos, afastamentos_info
+
+@app.route("/api/calculo_efetivo_exercicio/<string:cpf>")
+@login_required
+@role_required("RH", "admin")
+def api_calculo_efetivo_exercicio(cpf):
+    """
+    (v4.0) Adiciona um log de erro detalhado.
+    """
+    try:
+        # A função limpar_cpf está no seu app.py e remove pontos/traços
+        cpf_limpo = limpar_cpf(cpf) 
+        if not cpf_limpo:
+             raise Exception("CPF inválido ou vazio.")
+
+        servidor, dias_bruto, dias_desconto, dias_liquido, afastamentos = calcular_efetivo_exercicio(cpf_limpo)
+        
+        tempo_liquido_texto = converter_dias_para_texto(dias_liquido)
+        
+        return jsonify({
+            "servidor": {
+                "nome": servidor.nome,
+                "cpf": servidor.cpf,
+                "funcao": servidor.funcao or "Não informada",
+                "data_admissao": servidor.data_inicio.strftime("%d/%m/%Y")
+            },
+            "tempo": {
+                 "anos": dias_liquido // 365,
+                 "meses": (dias_liquido % 365) // 30,
+                 "dias": (dias_liquido % 365) % 30
+            },
+            "afastamentos": afastamentos
+        })
+
+    except Exception as e:
+        # --- ATUALIZAÇÃO IMPORTANTE ---
+        # Isso vai imprimir o erro exato no seu console (ex: "Servidor não encontrado...")
+        print(f"ERRO 404 NA API da Calculadora: {e}") 
+        # --- FIM DA ATUALIZAÇÃO ---
+        
+        return jsonify({"error": str(e)}), 404
+
+
+@app.route("/certidao/efetivo_exercicio/<string:cpf>")
+@login_required
+@role_required("RH", "admin")
+def gerar_certidao_efetivo_exercicio(cpf):
+    """
+    Rota que gera o PDF da Certidão.
+    (VERSÃO v2.0 - Corrigida para receber 5 valores e gerar as tabelas)
+    """
+    try:
+        cpf_limpo = limpar_cpf(cpf)
+        
+        # --- [ ESTA É A CORREÇÃO ] ---
+        # Agora ela espera os 5 valores que a v4.0 envia:
+        servidor, dias_bruto, dias_desconto, dias_liquido, afastamentos = calcular_efetivo_exercicio(cpf_limpo)
+        # --- [ FIM DA CORREÇÃO ] ---
+
+    except Exception as e:
+        flash(f"Erro ao gerar certidão: {e}", "danger")
+        return redirect(url_for("listar_requerimentos"))
+
+    # 2. Prepara a geração do PDF
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+    story = []
+    
+    # --- ESTILOS DO PDF ---
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name='CenterBold', alignment=TA_CENTER, fontName='Helvetica-Bold', fontSize=14, spaceAfter=10))
+    styles.add(ParagraphStyle(name='JustifyBody', alignment=TA_JUSTIFY, fontSize=11, leading=15, spaceAfter=12))
+    styles.add(ParagraphStyle(name='CenterNormal', alignment=TA_CENTER, fontSize=10, leading=12))
+    styles.add(ParagraphStyle(name='RightNormal', alignment=TA_RIGHT, fontSize=11, leading=14))
+    styles.add(ParagraphStyle(name='TableHeader', alignment=TA_CENTER, fontName='Helvetica-Bold', fontSize=10, textColor=colors.black))
+    styles.add(ParagraphStyle(name='TableCell', alignment=TA_LEFT, fontSize=9))
+    styles.add(ParagraphStyle(name='TableCellCenter', alignment=TA_CENTER, fontSize=9))
+
+    # --- INÍCIO DA CONSTRUÇÃO DO PDF ---
+    
+    story.append(Paragraph("CERTIDÃO DE EFETIVO EXERCÍCIO DO MAGISTÉRIO", styles['CenterBold']))
+    story.append(Spacer(1, 0.5*cm))
+
+    # --- Corpo do Texto ---
+    texto_certidao = f"""
+        CERTIFICAMOS, PARA FINS DE DIREITO que, de acordo com os elementos constantes do presente processo e,
+        em especial, dos documentos e assentamentos de lavra da Secretaria Municipal de Educação que,
+        <b>{servidor.nome.upper()}</b>,
+        nascida em {servidor.data_nascimento.strftime('%d/%m/%Y') if servidor.data_nascimento else '[Data Nasc. não cadastrada]'},
+        portador(a) do RG nº {servidor.rg or '[RG não cadastrado]'} SSP-PI,
+        inscrita no CPF sob o nº {servidor.cpf},
+        servidor(a) público(a) municipal, admitido(a) em <b>{servidor.data_inicio.strftime('%d/%m/%Y')}</b>,
+        matrícula nº {servidor.num_contrato}, ocupante do cargo de <b>{servidor.funcao or '[Função não cadastrada]'}</b>,
+        atualmente lotado(a) na {servidor.lotacao or '[Lotação não cadastrada]'}.
+    """
+    story.append(Paragraph(texto_certidao, styles['JustifyBody']))
+    story.append(Spacer(1, 0.5*cm))
+
+    # --- Tabela 1: Tempo de Efetivo Exercício (Bruto) ---
+    data_tabela_bruto = [
+        [Paragraph("Tempo de Efetivo Exercício no Magistério", styles['TableHeader']), Paragraph("Quantidade de Dias", styles['TableHeader'])],
+        [
+            Paragraph(f"Magistério: {servidor.data_inicio.strftime('%d/%m/%Y')} a {datetime.now().date().strftime('%d/%m/%Y')}", styles['TableCell']),
+            [
+                Paragraph(f"{dias_bruto} dias", styles['TableCellCenter']),
+                Paragraph(converter_dias_para_texto(dias_bruto), styles['TableCellCenter']) # Usa a função auxiliar
+            ]
+        ],
+        [
+            Paragraph("Total", styles['TableHeader']),
+            [
+                Paragraph(f"{dias_bruto} dias", styles['TableCellCenter']),
+                Paragraph(converter_dias_para_texto(dias_bruto), styles['TableCellCenter'])
+            ]
+        ]
+    ]
+    tabela_bruto = Table(data_tabela_bruto, colWidths=[10*cm, 7*cm])
+    tabela_bruto.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#E0E0E0")), # Cabeçalho cinza
+        ('BACKGROUND', (0, 2), (0, 2), colors.HexColor("#E0E0E0")), # Total cinza
+    ]))
+    story.append(tabela_bruto)
+    story.append(Spacer(1, 0.5*cm))
+
+    # --- Tabela 2: Tempo Não Considerado (Descontos) ---
+    data_tabela_descontos = [
+        [Paragraph("Tempo não Considerado de Efetivo Exercício no Magistério", styles['TableHeader']), Paragraph("Quantidade de Dias", styles['TableHeader'])]
+    ]
+    
+    if not afastamentos:
+        data_tabela_descontos.append([Paragraph("Nenhum período de afastamento encontrado.", styles['TableCell']), Paragraph("0 dias", styles['TableCellCenter'])])
+    
+    for af in afastamentos:
+        data_tabela_descontos.append([
+            Paragraph(f"{af['data_inicio'].strftime('%d/%m/%Y')} a {af['data_fim'].strftime('%d/%m/%Y')} {af['natureza'].upper()}", styles['TableCell']),
+            [
+                Paragraph(f"{af['dias']} dias", styles['TableCellCenter']),
+                Paragraph(converter_dias_para_texto(af['dias']), styles['TableCellCenter'])
+            ]
+        ])
+
+    data_tabela_descontos.append([
+        Paragraph("Total", styles['TableHeader']),
+        [
+            Paragraph(f"{dias_desconto} dias", styles['TableCellCenter']),
+            Paragraph(converter_dias_para_texto(dias_desconto), styles['TableCellCenter'])
+        ]
+    ])
+    
+    tabela_descontos = Table(data_tabela_descontos, colWidths=[10*cm, 7*cm])
+    tabela_descontos.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#E0E0E0")), # Cabeçalho cinza
+        ('BACKGROUND', (0, -1), (0, -1), colors.HexColor("#E0E0E0")), # Total cinza
+    ]))
+    story.append(tabela_descontos)
+    story.append(Spacer(1, 0.5*cm))
+
+    # --- Tabela 3: Resumo (Líquido) ---
+    data_tabela_resumo = [
+        [
+            Paragraph("Total Bruto", styles['TableCell']), 
+            Paragraph(f"{dias_bruto} dias", styles['TableCellCenter']), 
+            Paragraph(converter_dias_para_texto(dias_bruto), styles['TableCellCenter'])
+        ],
+        [
+            Paragraph("Desconto", styles['TableCell']),
+            Paragraph(f"{dias_desconto} dias", styles['TableCellCenter']),
+            Paragraph(converter_dias_para_texto(dias_desconto), styles['TableCellCenter'])
+        ],
+        [
+            Paragraph("Líquido de Efetivo Exercício do Magistério", styles['TableHeader']),
+            Paragraph(f"{dias_liquido} dias", styles['TableCellCenter']),
+            Paragraph(converter_dias_para_texto(dias_liquido), styles['TableCellCenter'])
+        ]
+    ]
+    tabela_resumo = Table(data_tabela_resumo, colWidths=[7*cm, 3*cm, 7*cm])
+    tabela_resumo.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BACKGROUND', (0, 2), (0, 2), colors.HexColor("#E0E0E0")), # Linha do líquido cinza
+    ]))
+    story.append(tabela_resumo)
+    story.append(Spacer(1, 1*cm))
+
+    # --- Data e Assinatura ---
+    data_hoje_extenso = datetime.now().strftime("%d de %B de %Y")
+    story.append(Paragraph(f"Valença do Piauí, {data_hoje_extenso}", styles['RightNormal']))
+    story.append(Spacer(1, 2*cm))
+    
+    story.append(HRFlowable(width="70%", thickness=0.5, color=colors.black, hAlign="CENTER"))
+    story.append(Paragraph("Assinatura do Responsável", styles['CenterNormal']))
+    
+    # --- Fim da Construção ---
+    doc.build(story)
+    buffer.seek(0)
+    
+    registrar_log(f'Gerou Certidão de Efetivo Exercício (Layout .doc) para {servidor.nome}.')
+
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=Certidao_Efetivo_Exercicio_{servidor.nome.replace(" ", "_")}.pdf'
+    
+    return response
 
 @app.route("/combustivel", methods=["GET", "POST"])
 @login_required
@@ -2356,25 +2786,70 @@ def lancar_abastecimento():
     )
 
 
-@app.route("/ponto/frequencia")
-@login_required
-@admin_required
-@role_required("RH", "admin")
-def visualizar_frequencia():
-    page = request.args.get("page", 1, type=int)
-    registros = Ponto.query.order_by(Ponto.timestamp.desc()).paginate(
-        page=page, per_page=50
-    )
-    return render_template("frequencia.html", registros=registros)
 
 
 # Adicione também as outras rotas relacionadas se estiverem faltando, como a de registrar o ponto
 @app.route("/ponto/registrar", methods=["GET", "POST"])
 def registrar_ponto():
     if request.method == "POST":
-        # ... (Sua lógica para salvar o ponto) ...
-        return redirect(url_for("registrar_ponto"))
+        try:
+            # ... (seu código de CPF, foto, e verificação facial) ...
+            
+            # PARTE CRÍTICA: VALIDAÇÃO DE GEOLOCALIZAÇÃO
+            latitude_user_str = request.form.get("latitude")
+            longitude_user_str = request.form.get("longitude")
+            escola_id = request.form.get("escola_id", type=int)
 
+            # Lógica 1: Permite o registro se o usuário negou a localização (N/A)
+            if latitude_user_str == 'N/A' or longitude_user_str == 'N/A':
+                flash("Ponto registrado. A geolocalização foi negada ou falhou, mas o rosto foi verificado.", "warning")
+                # O registro prossegue, mas sem coordenadas
+                
+            else:
+                # Lógica 2: Se há coordenadas, verificar a distância
+                escola = Escola.query.get(escola_id)
+                
+                # Garante que a escola exista e tenha coordenadas cadastradas
+                if not escola or not escola.latitude or not escola.longitude:
+                    flash("Erro: Escola não encontrada ou sem coordenadas cadastradas para validação.", "danger")
+                    return redirect(url_for("registrar_ponto"))
+
+                # Converte coordenadas para float
+                lat_user = float(latitude_user_str)
+                lon_user = float(longitude_user_str)
+                lat_escola = float(escola.latitude)
+                lon_escola = float(escola.longitude)
+                
+                # Calcula a distância usando a função Haversine
+                distancia_metros = haversine(lat_user, lon_user, lat_escola, lon_escola)
+                
+                # Se a distância for MAIOR que o raio permitido, BLOQUEIA o ponto
+                if distancia_metros > app.config['RAIO_PERMITIDO_METROS']:
+                    flash(f"Falha na Geolocalização! Você está a {distancia_metros:.1f}m da escola ({escola.nome}). O ponto deve ser registrado dentro de {app.config['RAIO_PERMITIDO_METROS']}m.", "danger")
+                    return redirect(url_for("registrar_ponto"))
+                
+                # Se passou, registra com sucesso
+                flash(f"Ponto registrado! Distância da escola: {distancia_metros:.1f}m.", "success")
+
+
+            # 3. Finaliza o registro do ponto (este bloco salva os dados no BD)
+            # novo_ponto = Ponto(...)
+            # db.session.add(novo_ponto)
+            # db.session.commit()
+            
+            # ... (Resto da submissão do formulário no Python)
+            
+        except ValueError:
+            flash("Erro ao processar coordenadas. Verifique o formato.", "danger")
+            return redirect(url_for("registrar_ponto"))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Ocorreu um erro inesperado: {e}", "danger")
+            return redirect(url_for("registrar_ponto"))
+        # --- FIM DA LÓGICA DE VERIFICAÇÃO ---
+
+    # (Lógica GET - não muda)
     escolas = (
         Escola.query.filter(Escola.status == "Ativa", Escola.latitude.isnot(None))
         .order_by(Escola.nome)
@@ -2517,6 +2992,411 @@ def debug_sessao():
     return dict(session)
 
 
+@app.route("/debug/cpf/<string:cpf_busca>")
+@login_required
+def debug_cpf(cpf_busca):
+    try:
+        # Limpa o CPF da URL (como o JS faz)
+        cpf_limpo = re.sub(r"\D", "", cpf_busca)
+        
+        print(f"--- INICIANDO DEBUG DE CPF PARA: {cpf_limpo} ---")
+        
+        # Tenta a nossa query "inteligente" (v3.2)
+        servidor_encontrado = Servidor.query.filter(
+            func.replace(func.replace(func.replace(Servidor.cpf, '.', ''), '-', ''), ' ', '') == cpf_limpo
+        ).first()
+
+        if servidor_encontrado:
+            # Se encontrou, ótimo!
+            print(f"DEBUG (Debug Route): SUCESSO. Encontrou: {servidor_encontrado.nome}")
+            print(f"DEBUG (Debug Route): CPF no DB (entre aspas): '{servidor_encontrado.cpf}'")
+            return f"<h1>SUCESSO!</h1><p>Encontrou: {servidor_encontrado.nome}</p><p>CPF no DB (veja as aspas): '{servidor_encontrado.cpf}'</p>"
+        
+        # Se não encontrou, vamos tentar uma busca "suja" (LIKE)
+        print(f"DEBUG (Debug Route): FALHA na query v3.2. Tentando busca 'LIKE'...")
+        servidor_like = Servidor.query.filter(Servidor.cpf.ilike(f"%{cpf_limpo}%")).all()
+        
+        if servidor_like:
+            resultados = f"<h1>FALHA NA QUERY v3.2</h1><p>Mas uma busca 'LIKE' encontrou (veja os CPFs no banco):</p>"
+            for s in servidor_like:
+                # Mostra o CPF exatamente como está, com ' quotes para ver os espaços
+                resultados += f"<li>Nome: {s.nome}, CPF no DB: '{s.cpf}'</li>"
+                print(f"DEBUG (Debug Route): Encontrado com LIKE: Nome: {s.nome}, CPF no DB: '{s.cpf}'")
+            return resultados
+        
+        print(f"DEBUG (Debug Route): FALHA TOTAL. Nenhum servidor encontrado.")
+        return f"<h1>FALHA TOTAL</h1><p>Nenhum servidor encontrado com o CPF '{cpf_limpo}' ou algo parecido no banco de dados.</p>"
+        
+    except Exception as e:
+        return f"<h1>ERRO NO DEBUG</h1><p>{str(e)}</p>"
+    
+
+@app.route("/ponto/frequencia")
+@login_required
+@admin_required
+@role_required("RH", "admin")
+def visualizar_frequencia():
+    # --- LÓGICA DE FILTRO ---
+    page = request.args.get("page", 1, type=int)
+    
+    # Pega os filtros da URL (do formulário GET)
+    filtro_mes = request.args.get("mes", type=int)
+    filtro_ano = request.args.get("ano", type=int)
+    filtro_escola_id = request.args.get("escola_id", type=int)
+
+    # Começa a query base
+    query = Ponto.query.join(Servidor, Ponto.servidor_cpf == Servidor.cpf)\
+                       .join(Escola, Ponto.escola_id == Escola.id)\
+                       .order_by(Ponto.timestamp.desc())
+
+    # Aplica os filtros se eles existirem
+    if filtro_mes:
+        query = query.filter(db.extract('month', Ponto.timestamp) == filtro_mes)
+    if filtro_ano:
+        query = query.filter(db.extract('year', Ponto.timestamp) == filtro_ano)
+    if filtro_escola_id:
+        query = query.filter(Ponto.escola_id == filtro_escola_id)
+
+    # Executa a query com paginação
+    registros_paginados = query.paginate(page=page, per_page=50, error_out=False)
+    
+    # --- DADOS PARA OS FILTROS ---
+    # Busca todas as escolas para popular o dropdown
+    escolas = Escola.query.order_by(Escola.nome).all()
+    
+    # Gera uma lista de anos (do ano atual até 5 anos atrás)
+    ano_atual = datetime.now().year
+    anos_disponiveis = list(range(ano_atual, ano_atual - 6, -1))
+
+    return render_template(
+        "frequencia.html",
+        registros=registros_paginados,
+        escolas=escolas,
+        anos_disponiveis=anos_disponiveis,
+        # Passa os filtros atuais de volta para o template
+        filtros_atuais={
+            'mes': filtro_mes,
+            'ano': filtro_ano,
+            'escola_id': filtro_escola_id
+        }
+    )
+
+def _get_dados_frequencia_filtrados():
+    """Função auxiliar para evitar código duplicado nas rotas de exportação."""
+    
+    filtro_mes = request.args.get("mes", type=int)
+    filtro_ano = request.args.get("ano", type=int)
+    filtro_escola_id = request.args.get("escola_id", type=int)
+
+    query = Ponto.query.join(Servidor, Ponto.servidor_cpf == Servidor.cpf)\
+                       .join(Escola, Ponto.escola_id == Escola.id)\
+                       .order_by(Ponto.timestamp.asc()) # ASC para relatórios cronológicos
+
+    if filtro_mes:
+        query = query.filter(db.extract('month', Ponto.timestamp) == filtro_mes)
+    if filtro_ano:
+        query = query.filter(db.extract('year', Ponto.timestamp) == filtro_ano)
+    if filtro_escola_id:
+        query = query.filter(Ponto.escola_id == filtro_escola_id)
+        
+    return query.all()
+
+@app.route("/ponto/exportar/excel")
+@login_required
+@admin_required
+@role_required("RH", "admin")
+def exportar_frequencia_excel():
+    registros = _get_dados_frequencia_filtrados()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Frequência"
+
+    # --- Cabeçalho ---
+    headers = ["Servidor", "CPF", "Escola", "Data", "Hora", "Tipo"]
+    ws.append(headers)
+    for cell in ws[1]: # Itera sobre a primeira linha (cabeçalho)
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="center")
+
+    # --- Dados ---
+    for reg in registros:
+        ws.append([
+            reg.servidor_ponto.nome if reg.servidor_ponto else "N/A",
+            reg.servidor_cpf,
+            reg.escola.nome if reg.escola else "N/A",
+            reg.timestamp.strftime('%d/%m/%Y'),
+            reg.timestamp.strftime('%H:%M:%S'),
+            reg.tipo.capitalize()
+        ])
+        
+    # Ajusta a largura das colunas
+    for col in ['A', 'B', 'C', 'D', 'E', 'F']:
+        ws.column_dimensions[col].autosize = True
+
+    # --- Salva e Envia ---
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    response = make_response(output.getvalue())
+    response.headers["Content-Disposition"] = f"attachment; filename=relatorio_frequencia_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    response.headers["Content-Type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    
+    registrar_log("Gerou relatório de frequência em Excel.")
+    return response
+
+
+@app.route("/ponto/exportar/pdf")
+@login_required
+@admin_required
+@role_required("RH", "admin")
+def exportar_frequencia_pdf():
+    registros = _get_dados_frequencia_filtrados()
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), topMargin=2.5*cm, bottomMargin=2.5*cm)
+    styles = getSampleStyleSheet()
+    story = [
+        Paragraph("Relatório de Frequência", styles['h1']),
+        Spacer(1, 0.5*cm)
+    ]
+
+    # --- Cabeçalho da Tabela ---
+    header_style = ParagraphStyle(name='Header', fontSize=9, fontName='Helvetica-Bold', alignment=TA_CENTER)
+    data = [[
+        Paragraph("Servidor", header_style),
+        Paragraph("CPF", header_style),
+        Paragraph("Escola", header_style),
+        Paragraph("Data", header_style),
+        Paragraph("Hora", header_style),
+        Paragraph("Tipo", header_style)
+    ]]
+
+    # --- Dados da Tabela ---
+    cell_style = ParagraphStyle(name='Cell', fontSize=8, alignment=TA_CENTER)
+    for reg in registros:
+        data.append([
+            Paragraph(reg.servidor_ponto.nome if reg.servidor_ponto else "N/A", cell_style),
+            Paragraph(reg.servidor_cpf, cell_style),
+            Paragraph(reg.escola.nome if reg.escola else "N/A", cell_style),
+            Paragraph(reg.timestamp.strftime('%d/%m/%Y'), cell_style),
+            Paragraph(reg.timestamp.strftime('%H:%M:%S'), cell_style),
+            Paragraph(reg.tipo.capitalize(), cell_style)
+        ])
+    
+    table = Table(data, colWidths=[8*cm, 3*cm, 7*cm, 2.5*cm, 2.5*cm, 2*cm])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#004d40")), # Cor do seu cabeçalho
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    
+    story.append(table)
+    
+    # Adicionamos o cabeçalho e rodapé padrão
+    doc.build(story, onFirstPage=cabecalho_e_rodape, onLaterPages=cabecalho_e_rodape)
+    buffer.seek(0)
+    
+    response = make_response(buffer.getvalue())
+    response.headers["Content-Disposition"] = f"inline; filename=relatorio_frequencia_{datetime.now().strftime('%Y%m%d')}.pdf"
+    response.headers["Content-Type"] = "application/pdf"
+    
+    registrar_log("Gerou relatório de frequência em PDF.")
+    return response
+
+
+def _get_dados_frequencia_individual(cpf, mes=None, ano=None):
+    """
+    Função auxiliar que busca os dados de ponto para um CPF específico,
+    opcionalmente filtrando por mês e ano.
+    """
+    # 1. Encontra o servidor (precisamos do nome dele para o relatório)
+    #    (Assumindo que o CPF é único, 'first()' é seguro)
+    servidor = Servidor.query.filter_by(cpf=cpf).first()
+    
+    if not servidor:
+        # Se o CPF não corresponder a nenhum servidor
+        return None, None 
+
+    # 2. Constrói a query de Ponto
+    query = Ponto.query.filter_by(servidor_cpf=cpf)\
+                       .join(Escola, Ponto.escola_id == Escola.id, isouter=True)\
+                       .order_by(Ponto.timestamp.asc()) # Ordena do mais antigo para o mais novo
+
+    # 3. Aplica filtros de data, se existirem
+    if mes:
+        query = query.filter(db.extract('month', Ponto.timestamp) == mes)
+    if ano:
+        query = query.filter(db.extract('year', Ponto.timestamp) == ano)
+    
+    # 4. Retorna os registros encontrados E o objeto do servidor
+    return query.all(), servidor
+
+@app.route("/servidor/<string:cpf>/exportar/excel")
+@login_required
+@admin_required
+@role_required("RH", "admin")
+def exportar_frequencia_individual_excel(cpf):
+    # Pega os filtros opcionais de Mês e Ano da URL
+    filtro_mes = request.args.get("mes", type=int)
+    filtro_ano = request.args.get("ano", type=int)
+    
+    registros, servidor = _get_dados_frequencia_individual(cpf, filtro_mes, filtro_ano)
+
+    if not servidor:
+        flash(f"Servidor com CPF {cpf} não encontrado.", "danger")
+        return redirect(url_for("lista_servidores"))
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"Frequência - {servidor.nome[:30]}" # Limita o nome da aba
+
+    # --- Título do Relatório ---
+    ws.merge_cells('A1:E1')
+    titulo_cell = ws['A1']
+    titulo_cell.value = f"Relatório de Frequência Individual - {servidor.nome}"
+    titulo_cell.font = Font(bold=True, size=16)
+    titulo_cell.alignment = Alignment(horizontal="center")
+    
+    ws.merge_cells('A2:E2')
+    subtitulo_cell = ws['A2']
+    subtitulo_cell.value = f"CPF: {servidor.cpf} | Mês/Ano: {filtro_mes or 'Todos'}/{filtro_ano or 'Todos'}"
+    subtitulo_cell.font = Font(italic=True, size=12)
+    subtitulo_cell.alignment = Alignment(horizontal="center")
+    ws.append([]) # Linha em branco
+
+    # --- Cabeçalho da Tabela ---
+    headers = ["Local (Escola)", "Data", "Hora", "Tipo", "Auditoria"]
+    ws.append(headers)
+    for cell in ws[4]: # Cabeçalho está na linha 4
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="center")
+
+    # --- Dados ---
+    for reg in registros:
+        # Verifica se a auditoria de foto existe
+        auditoria_foto = "Sim" if (reg.servidor_ponto.foto_filename and reg.foto_filename) else "Não"
+        
+        ws.append([
+            reg.escola.nome if reg.escola else "N/A",
+            reg.timestamp.strftime('%d/%m/%Y'),
+            reg.timestamp.strftime('%H:%M:%S'),
+            reg.tipo.capitalize(),
+            auditoria_foto
+        ])
+        
+    # Ajusta a largura das colunas
+    for col in ['A', 'B', 'C', 'D', 'E']:
+        ws.column_dimensions[col].autosize = True
+
+    # --- Salva e Envia ---
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    response = make_response(output.getvalue())
+    filename = f"frequencia_{servidor.nome.replace(' ', '_')}.xlsx"
+    response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+    response.headers["Content-Type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    
+    registrar_log(f"Gerou relatório Excel de frequência para {servidor.nome}.")
+    return response
+
+
+@app.route("/servidor/<string:cpf>/exportar/pdf")
+@login_required
+@admin_required
+@role_required("RH", "admin")
+def exportar_frequencia_individual_pdf(cpf):
+    filtro_mes = request.args.get("mes", type=int)
+    filtro_ano = request.args.get("ano", type=int)
+
+    registros, servidor = _get_dados_frequencia_individual(cpf, filtro_mes, filtro_ano)
+
+    if not servidor:
+        flash(f"Servidor com CPF {cpf} não encontrado.", "danger")
+        return redirect(url_for("lista_servidores"))
+
+    buffer = io.BytesIO()
+    # Usamos A4 normal (retrato), não landscape
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=2.5*cm, bottomMargin=2.5*cm)
+    styles = getSampleStyleSheet()
+    story = [
+        Paragraph(f"Relatório de Frequência Individual", styles['h1']),
+        Paragraph(f"<b>Servidor:</b> {servidor.nome}", styles['h2']),
+        Paragraph(f"<b>CPF:</b> {servidor.cpf}", styles['Normal']),
+        Paragraph(f"<b>Período:</b> {filtro_mes or 'Todos os meses'}/{filtro_ano or 'Todos os anos'}", styles['Normal']),
+        Spacer(1, 1*cm)
+    ]
+
+    # --- Cabeçalho da Tabela ---
+    header_style = ParagraphStyle(name='Header', fontSize=9, fontName='Helvetica-Bold', alignment=TA_CENTER)
+    data = [[
+        Paragraph("Local (Escola)", header_style),
+        Paragraph("Data", header_style),
+        Paragraph("Hora", header_style),
+        Paragraph("Tipo", header_style)
+    ]]
+
+    # --- Dados da Tabela ---
+    cell_style = ParagraphStyle(name='Cell', fontSize=8, alignment=TA_CENTER)
+    for reg in registros:
+        data.append([
+            Paragraph(reg.escola.nome if reg.escola else "N/A", cell_style),
+            Paragraph(reg.timestamp.strftime('%d/%m/%Y'), cell_style),
+            Paragraph(reg.timestamp.strftime('%H:%M:%S'), cell_style),
+            Paragraph(reg.tipo.capitalize(), cell_style)
+        ])
+    
+    if not registros:
+        story.append(Paragraph("Nenhum registro de ponto encontrado para este período.", styles['Normal']))
+    else:
+        table = Table(data, colWidths=[8*cm, 3*cm, 3*cm, 3*cm]) # Ajustado para A4 retrato
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#004d40")),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        story.append(table)
+    
+    # Adicionamos o cabeçalho e rodapé padrão
+    doc.build(story, onFirstPage=cabecalho_e_rodape, onLaterPages=cabecalho_e_rodape)
+    buffer.seek(0)
+    
+    response = make_response(buffer.getvalue())
+    filename = f"frequencia_{servidor.nome.replace(' ', '_')}.pdf"
+    response.headers["Content-Disposition"] = f"inline; filename={filename}"
+    response.headers["Content-Type"] = "application/pdf"
+    
+    registrar_log(f"Gerou relatório PDF de frequência para {servidor.nome}.")
+    return response
+
+def haversine(lat1, lon1, lat2, lon2):
+    """
+    Calcula a distância do grande círculo entre dois pontos na Terra 
+    (especificados em graus decimais). Retorna a distância em metros.
+    """
+    R = 6371000  # Raio da Terra em metros
+    
+    # Converte graus para radianos
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    lon2_rad = math.radians(lon2)
+    
+    # Fórmula Haversine
+    dlon = lon2_rad - lon1_rad
+    dlat = lat2_rad - lat1_rad
+    
+    a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    
+    distance = R * c
+    return distance
+
 # ===================================================================
 # PARTE 6: Importação e Registro dos Blueprints
 # ===================================================================
@@ -2531,6 +3411,12 @@ from .frequencia_routes import frequencia_bp
 from .backup_routes import backup_bp
 from .almoxarifado_routes import almoxarifado_bp
 from .academico_routes import academico_bp
+from .caee_routes import caee_bp 
+from .contrato_fiscal_routes import contrato_fiscal_bp
+from .contas_routes import contas_bp
+from .whatsapp_routes import whatsapp_bp
+from .assinatura_routes import assinatura_bp
+
 
 app.register_blueprint(transporte_bp)
 app.register_blueprint(protocolo_bp)
@@ -2543,15 +3429,15 @@ app.register_blueprint(frequencia_bp)
 app.register_blueprint(backup_bp)
 app.register_blueprint(almoxarifado_bp)
 app.register_blueprint(academico_bp)
-
+app.register_blueprint(caee_bp)
+app.register_blueprint(contrato_fiscal_bp)
+app.register_blueprint(contas_bp)
+app.register_blueprint(whatsapp_bp)
+app.register_blueprint(assinatura_bp)
 
 # ===================================================================
 # PARTE 7: Bloco de Execução Principal
 # ===================================================================
-
-
-
-
 
 if __name__ == "__main__":
     app.run(debug=True)

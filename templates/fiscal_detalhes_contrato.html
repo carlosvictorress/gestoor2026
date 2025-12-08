@@ -1,0 +1,350 @@
+{% extends 'base.html' %}
+
+{% block title %}Detalhes do Contrato{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-file-earmark-text"></i> Contrato N° {{ contrato.num_contrato }}/{{ contrato.ano }}</h2>
+    <div>
+        <a href="{{ url_for('fiscal.editar_contrato', contrato_id=contrato.id) }}" class="btn btn-warning"><i class="bi bi-pencil-fill"></i> Editar</a>
+        
+        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalConfirmacao"
+                data-url="{{ url_for('fiscal.excluir_contrato', contrato_id=contrato.id) }}"
+                data-titulo="Excluir Contrato"
+                data-corpo="ATENÇÃO: A exclusão do contrato {{ contrato.num_contrato }}/{{ contrato.ano }} é irreversível e apagará permanentemente TODOS os atestos, notas fiscais, ocorrências e anexos associados. Deseja continuar?">
+            <i class="bi bi-trash-fill"></i> Excluir Contrato
+        </button>
+        
+        <a href="{{ url_for('fiscal.dashboard') }}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Voltar</a>
+    </div>
+</div>
+
+{% if dias_restantes > 0 and dias_restantes < 60 %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle-fill"></i> **ATENÇÃO:** O contrato vence em {{ dias_restantes }} dias!
+    </div>
+{% elif dias_restantes < 0 %}
+    <div class="alert alert-danger">
+        <i class="bi bi-x-octagon-fill"></i> **VENCIDO:** A vigência do contrato terminou em {{ contrato.vigencia_fim.strftime('%d/%m/%Y') }}.
+    </div>
+{% endif %}
+
+<div class="row">
+    <div class="col-md-6">
+        
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Controle Financeiro e Saldo</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-1"><strong>Valor Total do Contrato:</strong> <span class="fw-bold">R$ {{ "%.2f"|format(contrato.valor_total) }}</span></p>
+                
+                <p class="mb-4"><strong>TOTAL GASTO (NFs Lançadas):</strong> <span class="fw-bold text-danger">R$ {{ "%.2f"|format(total_gasto_contrato) }}</span></p>
+                
+                <p class="mb-4"><strong>SALDO DISPONÍVEL:</strong> <span class="fw-bold text-success fs-5">R$ {{ "%.2f"|format(saldo_atual_contrato) }}</span></p>
+
+                <h6 class="small text-muted border-bottom mb-2 pb-1">Registrar Nova Nota Fiscal</h6>
+<div class="row g-2 mb-3">
+    <div class="col-md-9">
+        <label for="chave_acesso" class="form-label">Chave de Acesso (44 dígitos)</label>
+        <input type="text" class="form-control form-control-sm" id="chave_acesso" placeholder="Digite ou cole a Chave de Acesso">
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+        <button type="button" class="btn btn-info btn-sm w-100" id="btn-buscar-nf">
+            <i class="bi bi-search"></i> Buscar NF
+        </button>
+    </div>
+    <div class="col-md-12" id="nf-status" style="display:none;">
+        <div class="alert alert-sm p-2 mb-0" role="alert"></div>
+    </div>
+</div>
+
+<form method="POST" action="{{ url_for('fiscal.lancar_nota_fiscal', contrato_id=contrato.id) }}" id="form-lancar-nf">
+    <div class="row g-2">
+        <div class="col-md-4">
+            <input type="text" class="form-control form-control-sm" id="numero_nf" name="numero_nf" placeholder="Nº NF*" required>
+        </div>
+        <div class="col-md-4">
+            <input type="date" class="form-control form-control-sm" id="data_emissao" name="data_emissao" required>
+        </div>
+        <div class="col-md-4">
+            <input type="text" class="form-control form-control-sm money" id="valor" name="valor" placeholder="Valor R$*" required>
+        </div>
+        <div class="col-md-12 text-end">
+            <button type="submit" class="btn btn-sm btn-success mt-2">Lançar NF</button>
+        </div>
+    </div>
+</form>
+
+                <h6 class="small text-muted border-bottom mt-4 mb-2 pb-1">Histórico de NFs Lançadas</h6>
+                <ul class="list-group list-group-flush small">
+                    {% for nf in notas_fiscais %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <div>
+                            <strong>NF: {{ nf.numero_nf }}</strong>
+                            <br><small class="text-muted">Emitida em {{ nf.data_emissao.strftime('%d/%m/%Y') }} | Registrada por: {{ nf.usuario_registro }}</small>
+                        </div>
+                        <div class="text-nowrap">
+                            <span class="badge bg-danger me-2">R$ {{ "%.2f"|format(nf.valor) }}</span>
+                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#modalConfirmacao" 
+                                    data-url="{{ url_for('fiscal.excluir_nota_fiscal', nf_id=nf.id) }}"
+                                    data-titulo="Excluir Nota Fiscal"
+                                    data-corpo="Deseja confirmar a exclusão da NF {{ nf.numero_nf }}? O saldo financeiro será reajustado.">
+                                <i class="bi bi-trash-fill"></i>
+                            </button>
+                        </div>
+                    </li>
+                    {% else %}
+                    <p class="text-center text-muted small my-2">Nenhuma nota fiscal lançada.</p>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Atesto / Execução Mensal</h5>
+                <a href="{{ url_for('fiscal.lancar_atesto', contrato_id=contrato.id) }}" class="btn btn-sm btn-success"><i class="bi bi-check2-circle"></i> Atestar</a>
+            </div>
+            <div class="card-body p-0">
+                {% if atestos %}
+                    <ul class="list-group list-group-flush small">
+                        {% for atesto in atestos %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Competência: {{ atesto.mes_competencia }}</strong>
+                                <small class="text-muted ms-3">Fiscal: {{ atesto.assinatura_fiscal }}</small>
+                            </div>
+                            <div class="text-nowrap">
+                                <span class="badge bg-{{ 'success' if 'Aprovado' in atesto.status_atesto else 'danger' }} me-2">{{ atesto.status_atesto }}</span>
+                                <a href="{{ url_for('fiscal.emitir_comprovante_atesto', atesto_id=atesto.id) }}" class="btn btn-sm btn-info" title="Comprovante PDF">
+                                    <i class="bi bi-file-earmark-pdf-fill"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#modalConfirmacao" 
+                                        data-url="{{ url_for('fiscal.excluir_atesto', atesto_id=atesto.id) }}"
+                                        data-titulo="Excluir Atesto"
+                                        data-corpo="Deseja confirmar a exclusão do atesto da competência {{ atesto.mes_competencia }}?">
+                                    <i class="bi bi-trash-fill"></i>
+                                </button>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-center text-muted small my-3">Nenhum atesto registrado.</p>
+                {% endif %}
+            </div>
+        </div>
+        
+    </div>
+    
+    <div class="col-md-6">
+        
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Informações Gerais</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-1"><strong>Objeto:</strong> {{ contrato.objeto }}</p>
+                <p class="mb-1"><strong>Tipo:</strong> {{ contrato.tipo }}</p>
+                <p class="mb-1"><strong>Processo Licitatório:</strong> {{ contrato.processo_licitatorio or 'N/A' }}</p>
+                <hr>
+                <p class="mb-1"><strong>Empresa Contratada:</strong> {{ contrato.empresa_contratada }}</p>
+                <p class="mb-1"><strong>Vigência:</strong> {{ contrato.vigencia_inicio.strftime('%d/%m/%Y') }} a {{ contrato.vigencia_fim.strftime('%d/%m/%Y') }}</p>
+                <p class="mb-1"><strong>Situação:</strong> <span class="badge bg-{{ 'success' if contrato.situacao == 'Ativo' else 'danger' }}">{{ contrato.situacao }}</span></p>
+            </div>
+        </div>
+        
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Documentos e Anexos (GED)</h5>
+            </div>
+            <div class="card-body">
+                <h6 class="small text-muted border-bottom mb-2 pb-1">Anexar Novo Documento</h6>
+                <form method="POST" action="{{ url_for('fiscal.upload_anexo', contrato_id=contrato.id) }}" enctype="multipart/form-data" class="mb-4">
+                    <div class="row g-2">
+                        <div class="col-md-5">
+                            <select class="form-select form-select-sm" name="tipo_documento" required>
+                                <option value="">-- Tipo --</option>
+                                <option value="Contrato PDF">Contrato PDF</option>
+                                <option value="Edital">Edital</option>
+                                <option value="Termo de Referência">Termo de Referência</option>
+                                <option value="Planilha de Custos">Planilha de Custos</option>
+                                <option value="Outros">Outros</option>
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <input type="file" class="form-control form-control-sm" name="anexo_file" required>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary btn-sm w-100">Anexar</button>
+                        </div>
+                    </div>
+                </form>
+                
+                <h6 class="small text-muted border-bottom mb-2 pb-1">Documentos Anexados ({{ anexos | length }})</h6>
+                <div class="list-group list-group-flush">
+                    {% for anexo in anexos %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div class="text-truncate">
+                                <span class="badge bg-secondary me-2">{{ anexo.tipo_documento }}</span>
+                                <small>{{ anexo.nome_original }}</small>
+                            </div>
+                            <div class="text-nowrap">
+                                <a href="{{ url_for('fiscal.download_anexo', anexo_id=anexo.id) }}" class="btn btn-sm btn-success" title="Baixar">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#modalConfirmacao" 
+                                        data-url="{{ url_for('fiscal.excluir_anexo', anexo_id=anexo.id) }}"
+                                        data-titulo="Excluir Anexo"
+                                        data-corpo="Deseja confirmar a exclusão do anexo {{ anexo.nome_original }}?">
+                                    <i class="bi bi-trash-fill"></i>
+                                </button>
+                            </div>
+                        </div>
+                    {% else %}
+                        <p class="text-center text-muted small mt-2">Nenhum documento anexado.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Ocorrências / Notificações</h5>
+                <a href="{{ url_for('fiscal.lancar_ocorrencia', contrato_id=contrato.id) }}" class="btn btn-sm btn-danger"><i class="bi bi-patch-exclamation"></i> Ocorrência</a>
+            </div>
+            <div class="card-body">
+                {% if ocorrencias %}
+                    <ul class="list-group list-group-flush">
+                    {% for ocorrencia in ocorrencias %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ ocorrencia.tipo_ocorrencia }}</strong>
+                                <br><small class="text-muted">{{ ocorrencia.descricao_detalhada | truncate(50) }}</small>
+                            </div>
+                            <div class="text-nowrap">
+                                <span class="badge bg-{{ 'danger' if ocorrencia.status == 'Aberta' else 'secondary' }} me-2">{{ ocorrencia.status }}</span>
+                                <a href="{{ url_for('fiscal.emitir_comprovante_ocorrencia', ocorrencia_id=ocorrencia.id) }}" class="btn btn-sm btn-info" title="Comprovante PDF">
+                                    <i class="bi bi-file-earmark-pdf-fill"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#modalConfirmacao" 
+                                        data-url="{{ url_for('fiscal.excluir_ocorrencia', ocorrencia_id=ocorrencia.id) }}"
+                                        data-titulo="Excluir Ocorrência"
+                                        data-corpo="Deseja confirmar a exclusão desta ocorrência (ID {{ ocorrencia.id }})?">
+                                    <i class="bi bi-trash-fill"></i>
+                                </button>
+                            </div>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted small my-3">Nenhuma ocorrência registrada.</p>
+                {% endif %}
+            </div>
+        </div>
+        
+    </div>
+</div>
+
+<div class="modal fade" id="modalConfirmacao" tabindex="-1" aria-labelledby="modalConfirmacaoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalConfirmacaoLabel"><i class="bi bi-exclamation-triangle-fill"></i> Confirmação Necessária</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="modalConfirmacaoCorpo" class="lead text-danger"></p>
+                <p class="small text-muted mt-3">Esta ação não poderá ser desfeita.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <a id="btnConfirmarExclusao" href="#" class="btn btn-danger">Sim, Excluir Permanentemente</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const modalConfirmacao = document.getElementById('modalConfirmacao');
+        const btnConfirmar = document.getElementById('btnConfirmarExclusao');
+        const modalTitulo = document.getElementById('modalConfirmacaoLabel');
+        const modalCorpo = document.getElementById('modalConfirmacaoCorpo');
+
+        // 3. Lógica JavaScript para preencher o modal com a URL e texto corretos
+        modalConfirmacao.addEventListener('show.bs.modal', function (event) {
+            // Botão que disparou o modal
+            const button = event.relatedTarget; 
+            
+            // Extrai as informações dos atributos data-* do botão
+            const urlExclusao = button.getAttribute('data-url');
+            const tituloModal = button.getAttribute('data-titulo');
+            const corpoModal = button.getAttribute('data-corpo');
+
+            // Atualiza o conteúdo do modal
+            modalTitulo.textContent = tituloModal;
+            modalCorpo.textContent = corpoModal;
+            
+            // Define o link de confirmação para a URL de exclusão
+            btnConfirmar.href = urlExclusao;
+
+            // Altera a classe do header para refletir a gravidade da ação (se necessário)
+            const modalHeader = this.querySelector('.modal-header');
+            modalHeader.className = 'modal-header bg-danger text-white'; 
+        });
+
+
+        // --- Lógica da NF (Mantida) ---
+        const btnBuscar = document.getElementById('btn-buscar-nf');
+        const inputChave = document.getElementById('chave_acesso');
+        const nfStatus = document.getElementById('nf-status');
+
+        btnBuscar.addEventListener('click', function() {
+            const chave = inputChave.value.replace(/\s/g, ''); 
+            nfStatus.style.display = 'none';
+
+            if (chave.length !== 44) {
+                nfStatus.querySelector('.alert').className = 'alert alert-danger p-2 mb-0';
+                nfStatus.querySelector('.alert').textContent = 'Chave inválida. Deve ter 44 dígitos.';
+                nfStatus.style.display = 'block';
+                return;
+            }
+            
+            nfStatus.querySelector('.alert').className = 'alert alert-info p-2 mb-0';
+            nfStatus.querySelector('.alert').textContent = 'Buscando dados da NF...';
+            nfStatus.style.display = 'block';
+            
+            // Simulação de Fetch (Substitua por sua lógica real de API)
+            fetch('/fiscal/api/consulta_nf?chave=' + chave)
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => { throw new Error(err.error || 'Falha na comunicação com o serviço da SEFAZ.') });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById('numero_nf').value = data.numero;
+                    document.getElementById('data_emissao').value = data.data_emissao;
+                    document.getElementById('valor').value = data.valor.replace('.', ','); 
+                    
+                    nfStatus.querySelector('.alert').className = 'alert alert-success p-2 mb-0';
+                    nfStatus.querySelector('.alert').textContent = `NF Nº ${data.numero} encontrada e preenchida!`;
+                })
+                .catch(error => {
+                    nfStatus.querySelector('.alert').className = 'alert alert-danger p-2 mb-0';
+                    nfStatus.querySelector('.alert').textContent = 'Erro: ' + error.message;
+                })
+                .finally(() => {
+                    nfStatus.style.display = 'block';
+                });
+        });
+        // --- Fim Lógica da NF ---
+    });
+</script>
+
+{% endblock %}
+
+{% endblock %}

@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+
+{% block title %}Cadastro de Agricultor Familiar{% endblock %}
+
+{% block content %}
+<h2><i class="bi bi-person-lines-fill"></i> Cadastro PNAE - Agricultura Familiar</h2>
+<hr>
+
+<form method="POST" enctype="multipart/form-data">
+    <ul class="nav nav-tabs mb-3" id="pnaeTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="dados-tab" data-bs-toggle="tab" data-bs-target="#dados" type="button">1. Dados Gerais</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="endereco-tab" data-bs-toggle="tab" data-bs-target="#endereco" type="button">2. Local de Produção</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="docs-tab" data-bs-toggle="tab" data-bs-target="#docs" type="button">3. Documentação</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="logistica-tab" data-bs-toggle="tab" data-bs-target="#logistica" type="button">4. Logística</button>
+        </li>
+    </ul>
+
+    <div class="tab-content card shadow-sm p-4" id="pnaeTabContent">
+        
+        <div class="tab-pane fade show active" id="dados" role="tabpanel">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Tipo de Fornecedor</label>
+                    <select class="form-select" name="tipo_fornecedor" required>
+                        <option value="Individual">Agricultor Individual</option>
+                        <option value="Grupo Formal">Grupo Formal (Associação/Cooperativa)</option>
+                        <option value="Grupo Informal">Grupo Informal</option>
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Nome Completo / Razão Social</label>
+                    <input type="text" class="form-control" name="razao_social" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">CPF ou CNPJ</label>
+                    <input type="text" class="form-control" name="cpf_cnpj" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">DAP / CAF (Número)</label>
+                    <input type="text" class="form-control" name="dap_caf_numero">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Validade DAP/CAF</label>
+                    <input type="date" class="form-control" name="dap_caf_validade">
+                </div>
+                
+                <h5 class="mt-4 border-bottom pb-2">Contato & Representante</h5>
+                <div class="col-md-6">
+                    <label class="form-label">Nome Representante Legal</label>
+                    <input type="text" class="form-control" name="representante_nome">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Telefone</label>
+                    <input type="text" class="form-control" name="telefone">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">E-mail</label>
+                    <input type="email" class="form-control" name="email">
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="endereco" role="tabpanel">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Zona</label>
+                    <select class="form-select" name="zona">
+                        <option value="Rural">Rural</option>
+                        <option value="Urbana">Urbana</option>
+                    </select>
+                </div>
+                <div class="col-md-9">
+                    <label class="form-label">Comunidade / Povoado</label>
+                    <input type="text" class="form-control" name="comunidade">
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Endereço Completo</label>
+                    <input type="text" class="form-control" name="endereco_completo">
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Descrição da Propriedade (Sítio, Fazenda...)</label>
+                    <textarea class="form-control" name="descricao_propriedade" rows="3"></textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Latitude</label>
+                    <input type="text" class="form-control" name="latitude">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Longitude</label>
+                    <input type="text" class="form-control" name="longitude">
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="docs" role="tabpanel">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> Os arquivos anexados serão salvos no prontuário digital do agricultor.
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Comprovante de Residência</label>
+                <input type="file" class="form-control" name="comprovante_residencia">
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Projeto de Venda (PVAF)</label>
+                <input type="file" class="form-control" name="projeto_venda">
+            </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">CND Federal</label>
+                    <input type="file" class="form-control" name="cnd_federal">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">CND Estadual</label>
+                    <input type="file" class="form-control" name="cnd_estadual">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">CND Municipal</label>
+                    <input type="file" class="form-control" name="cnd_municipal">
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="logistica" role="tabpanel">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Frequência de Entrega Possível</label>
+                    <input type="text" class="form-control" name="frequencia_entrega" placeholder="Ex: Semanal, Toda Terça-feira">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Possui Transporte Próprio?</label>
+                    <select class="form-select" name="possui_transporte">
+                        <option value="1">Sim</option>
+                        <option value="0">Não</option>
+                    </select>
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label">Preferência de Local de Entrega</label>
+                    <select class="form-select" name="local_entrega_preferencia">
+                        <option value="Depósito Central">Depósito Central da Merenda</option>
+                        <option value="Escolas Diretamente">Diretamente nas Escolas</option>
+                        <option value="Ambos">Ambos</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="d-grid gap-2 mt-4 d-md-flex justify-content-md-end">
+        <button class="btn btn-secondary me-md-2" type="button" onclick="history.back()">Cancelar</button>
+        <button class="btn btn-primary" type="submit">Salvar Cadastro</button>
+    </div>
+</form>
+{% endblock %}

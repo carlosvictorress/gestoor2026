@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ 'Editar Contrato' if contrato else 'Cadastro de Contrato' }}{% endblock %}
+
+{% block content %}
+<h2><i class="bi bi-file-earmark-plus-fill"></i> {{ 'Editar Contrato' if contrato else 'Novo Contrato para Fiscalização' }}</h2>
+<hr>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('fiscal.editar_contrato', contrato_id=contrato.id) if contrato else url_for('fiscal.novo_contrato') }}">
+
+            <h5 class="text-muted mb-3">1. Dados de Identificação e Objeto</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <label for="num_contrato" class="form-label">Nº do Contrato*</label>
+                    <input type="text" class="form-control" name="num_contrato" required value="{{ contrato.num_contrato if contrato else '' }}">
+                </div>
+                <div class="col-md-2">
+                    <label for="ano" class="form-label">Ano*</label>
+                    <input type="number" class="form-control" name="ano" value="{{ contrato.ano if contrato else now().strftime('%Y') }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label for="tipo" class="form-label">Tipo*</label>
+                    <select class="form-select" name="tipo" required>
+                        <option value="">-- Selecione --</option>
+                        <option value="Prestação de Serviço" {{ 'selected' if contrato and contrato.tipo == 'Prestação de Serviço' else '' }}>Prestação de Serviço</option>
+                        <option value="Fornecimento" {{ 'selected' if contrato and contrato.tipo == 'Fornecimento' else '' }}>Fornecimento</option>
+                        <option value="Obra" {{ 'selected' if contrato and contrato.tipo == 'Obra' else '' }}>Obra</option>
+                        <option value="Outros" {{ 'selected' if contrato and contrato.tipo == 'Outros' else '' }}>Outros</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="processo_licitatorio" class="form-label">Processo Licitatório (Modalidade + Nº)</label>
+                    <input type="text" class="form-control" name="processo_licitatorio" placeholder="Ex: TP 001/2025" value="{{ contrato.processo_licitatorio if contrato else '' }}">
+                </div>
+                <div class="col-md-12">
+                    <label for="objeto" class="form-label">Objeto do Contrato*</label>
+                    <textarea class="form-control" name="objeto" rows="2" required>{{ contrato.objeto if contrato else '' }}</textarea>
+                </div>
+            </div>
+
+            <h5 class="text-muted mb-3">2. Dados da Empresa Contratada</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label for="empresa_contratada" class="form-label">Empresa Contratada*</label>
+                    <input type="text" class="form-control" name="empresa_contratada" required value="{{ contrato.empresa_contratada if contrato else '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="cnpj" class="form-label">CNPJ*</label>
+                    <input type="text" class="form-control" name="cnpj" required value="{{ contrato.cnpj if contrato else '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="representante_empresa" class="form-label">Representante</label>
+                    <input type="text" class="form-control" name="representante_empresa" value="{{ contrato.representante_empresa if contrato else '' }}">
+                </div>
+            </div>
+
+            <h5 class="text-muted mb-3">3. Vigência e Valores</h5>
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <label for="valor_total" class="form-label">Valor Total do Contrato (R$)*</label>
+                    <input type="text" class="form-control money" name="valor_total" required placeholder="0,00" value="{{ '%.2f'|format(contrato.valor_total)|replace('.', ',') if contrato else '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="valor_mensal_parcela" class="form-label">Valor Mensal / Parcela (R$)</label>
+                    <input type="text" class="form-control money" name="valor_mensal_parcela" placeholder="0,00" value="{{ '%.2f'|format(contrato.valor_mensal_parcela)|replace('.', ',') if contrato else '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="vigencia_inicio" class="form-label">Vigência Início*</label>
+                    <input type="date" class="form-control" name="vigencia_inicio" required value="{{ contrato.vigencia_inicio.strftime('%Y-%m-%d') if contrato else '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="vigencia_fim" class="form-label">Vigência Fim*</label>
+                    <input type="date" class="form-control" name="vigencia_fim" required value="{{ contrato.vigencia_fim.strftime('%Y-%m-%d') if contrato else '' }}">
+                </div>
+
+                <div class="col-md-3">
+                    <label for="situacao" class="form-label">Situação</label>
+                    <select class="form-select" name="situacao">
+                        <option value="Ativo" {{ 'selected' if contrato and contrato.situacao == 'Ativo' else '' }}>Ativo</option>
+                        <option value="Suspenso" {{ 'selected' if contrato and contrato.situacao == 'Suspenso' else '' }}>Suspenso</option>
+                        <option value="Encerrado" {{ 'selected' if contrato and contrato.situacao == 'Encerrado' else '' }}>Encerrado</option>
+                        <option value="Rescindido" {{ 'selected' if contrato and contrato.situacao == 'Rescindido' else '' }}>Rescindido</option>
+                    </select>
+                </div>
+
+                <input type="hidden" name="secretaria_id" value="{{ session.get('secretaria_id') }}"> 
+
+            </div>
+
+            <div class="d-flex justify-content-end">
+                <a href="{{ url_for('fiscal.detalhes_contrato', contrato_id=contrato.id) if contrato else url_for('fiscal.dashboard') }}" class="btn btn-secondary me-2">Cancelar</a>
+                <button type="submit" class="btn btn-primary">{{ 'Salvar Alterações' if contrato else 'Cadastrar Contrato' }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% block scripts %}
+{{ super() }}
+<script>
+    $(document).ready(function() {
+        // Aplica máscara de moeda se você usa jQuery Mask Plugin
+        $('.money').mask('000.000.000.000.000,00', {reverse: true});
+    });
+    // NOTA: Se você não estiver usando jQuery, este script irá falhar. 
+</script>
+{% endblock %}
+
+{% endblock %}

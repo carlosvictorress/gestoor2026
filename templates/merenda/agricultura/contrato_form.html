@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+
+{% block title %}Novo Contrato PNAE{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="bi bi-file-earmark-text"></i> Novo Contrato PNAE</h2>
+        <h5 class="text-muted">Fornecedor: <span class="text-dark">{{ agricultor.razao_social }}</span> ({{ agricultor.tipo_fornecedor }})</h5>
+    </div>
+    <a href="{{ url_for('merenda.listar_agricultores') }}" class="btn btn-secondary">Voltar</a>
+</div>
+<hr>
+
+<form method="POST">
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">1. Dados do Contrato / Chamada Pública</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Nº do Contrato*</label>
+                    <input type="text" class="form-control" name="numero_contrato" required placeholder="Ex: 123/2025">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Chamada Pública (Edital)</label>
+                    <input type="text" class="form-control" name="chamada_publica" placeholder="Ex: CP 001/2025">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Início Vigência*</label>
+                    <input type="date" class="form-control" name="data_inicio" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Fim Vigência*</label>
+                    <input type="date" class="form-control" name="data_termino" required>
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label fw-bold">Valor Total</label>
+                    <input type="text" class="form-control bg-light fw-bold" name="valor_total" id="valor_total_contrato" readonly value="0.00">
+                </div>
+            </div>
+            <div class="mt-3">
+                <label class="form-label">Observações</label>
+                <textarea class="form-control" name="observacoes" rows="2"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">2. Projeto de Venda (Produtos)</h5>
+            <button type="button" class="btn btn-light btn-sm text-success fw-bold" id="btnAddItem">
+                <i class="bi bi-plus-circle-fill"></i> Adicionar Produto
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-bordered mb-0" id="tabelaItens">
+                    <thead class="table-light text-center">
+                        <tr>
+                            <th width="20%">Produto</th>
+                            <th width="12%">Categoria</th>
+                            <th width="10%">Unidade</th>
+                            <th width="10%">Periodicidade</th>
+                            <th width="10%">Sazonalidade</th>
+                            <th width="10%">Qtd. Total</th>
+                            <th width="10%">Preço Unit. (R$)</th>
+                            <th width="10%">Subtotal</th>
+                            <th width="5%">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itensContainer">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer text-muted small">
+            * O valor total do contrato será atualizado automaticamente com base nos itens.
+        </div>
+    </div>
+
+    <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-5">
+        <button type="submit" class="btn btn-success btn-lg"><i class="bi bi-check-lg"></i> Salvar Contrato</button>
+    </div>
+</form>
+
+<template id="rowTemplate">
+    <tr class="item-row">
+        <td>
+            <input type="text" class="form-control form-control-sm" name="produto_nome[]" required placeholder="Ex: Alface Crespa">
+        </td>
+        <td>
+            <select class="form-select form-select-sm" name="produto_categoria[]">
+                <option value="Hortifruti">Hortifrúti</option>
+                <option value="Grãos">Grãos</option>
+                <option value="Proteína">Proteína</option>
+                <option value="Polpas">Polpas/Sucos</option>
+                <option value="Panificados">Panificados</option>
+            </select>
+        </td>
+        <td>
+            <select class="form-select form-select-sm" name="produto_unidade[]">
+                <option value="KG">KG</option>
+                <option value="Maço">Maço</option>
+                <option value="Unidade">Unidade</option>
+                <option value="Litro">Litro</option>
+                <option value="Saco">Saco</option>
+            </select>
+        </td>
+        <td>
+            <select class="form-select form-select-sm" name="produto_periodicidade[]">
+                <option value="Semanal">Semanal</option>
+                <option value="Quinzenal">Quinzenal</option>
+                <option value="Mensal">Mensal</option>
+                <option value="Entrega Única">Única</option>
+            </select>
+        </td>
+        <td>
+            <input type="text" class="form-control form-control-sm" name="produto_sazonalidade[]" placeholder="Ex: Jan-Jun">
+        </td>
+        <td>
+            <input type="number" step="0.01" class="form-control form-control-sm qtd-input" name="produto_qtd[]" required oninput="calcularLinha(this)">
+        </td>
+        <td>
+            <input type="number" step="0.01" class="form-control form-control-sm price-input" name="produto_preco[]" required oninput="calcularLinha(this)">
+        </td>
+        <td>
+            <input type="text" class="form-control form-control-sm bg-light subtotal-display" readonly value="0.00">
+        </td>
+        <td class="text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removerLinha(this)"><i class="bi bi-trash"></i></button>
+        </td>
+    </tr>
+</template>
+
+<script>
+    // Função para Adicionar Linha
+    document.getElementById('btnAddItem').addEventListener('click', function() {
+        const container = document.getElementById('itensContainer');
+        const template = document.getElementById('rowTemplate');
+        const clone = template.content.cloneNode(true);
+        container.appendChild(clone);
+    });
+
+    // Função para Calcular Subtotal da Linha e Total Geral
+    function calcularLinha(element) {
+        const row = element.closest('tr');
+        const qtd = parseFloat(row.querySelector('.qtd-input').value) || 0;
+        const preco = parseFloat(row.querySelector('.price-input').value) || 0;
+        const subtotal = qtd * preco;
+
+        row.querySelector('.subtotal-display').value = subtotal.toFixed(2);
+        
+        atualizarTotalGeral();
+    }
+
+    // Função para Atualizar Total Geral do Contrato
+    function atualizarTotalGeral() {
+        let total = 0;
+        document.querySelectorAll('.subtotal-display').forEach(input => {
+            total += parseFloat(input.value) || 0;
+        });
+        document.getElementById('valor_total_contrato').value = total.toFixed(2);
+    }
+
+    // Função para Remover Linha
+    function removerLinha(btn) {
+        btn.closest('tr').remove();
+        atualizarTotalGeral();
+    }
+
+    // Adiciona uma linha inicial ao carregar
+    window.onload = function() {
+        document.getElementById('btnAddItem').click();
+    }
+</script>
+
+{% endblock %}

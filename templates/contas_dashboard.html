@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+
+{% block title %}Prestação de Contas | Relatórios{% endblock %}
+
+{% block content %}
+<div id="loading-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255, 255, 255, 0.95); z-index: 1050; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+    
+    <div class="spinner-border text-primary" role="status" style="width: 5rem; height: 5rem; margin-bottom: 20px;">
+        <span class="visually-hidden">Carregando...</span>
+    </div>
+    
+    <i class="bi bi-file-earmark-arrow-down" style="font-size: 5rem; color: var(--bs-primary);"></i>
+    
+    <h3 class="mt-3 text-primary">Preparando Módulo de Prestação de Contas...</h3>
+    <p class="text-muted">Isso pode levar até 20 segundos para centralizar e processar todos os dados dos relatórios.</p>
+</div>
+
+<div id="report-content" style="display: none;">
+    <h2><i class="bi bi-folder-check"></i> Central de Prestação de Contas</h2>
+    <p class="lead text-muted">Acesse todos os relatórios gerenciais do sistema a partir desta página.</p>
+    <hr>
+
+    <div class="row g-4">
+        
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Relatórios de Servidores</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Gerencie os relatórios de frequência, folha de ponto e dados cadastrais dos servidores.</p>
+                    
+                    <a href="{{ url_for('visualizar_frequencia') }}" class="btn btn-sm btn-outline-primary mt-2"><i class="bi bi-file-earmark-person"></i> Registros de Ponto</a>
+                    
+                    <a href="{{ url_for('pagina_relatorio_mensal') }}" class="btn btn-sm btn-outline-primary mt-2"><i class="bi bi-calendar-check"></i> Folha de Ponto Mensal</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Merenda Escolar</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Visualização de estoque, consumo e prestação de contas dos insumos da merenda.</p>
+                    
+                    <a href="{{ url_for('merenda.entrada_estoque') }}" class="btn btn-sm btn-outline-success mt-2"><i class="bi bi-cart4"></i> Estoque Atual</a>
+                    
+                    <a href="{{ url_for('merenda.relatorio_saidas') }}" class="btn btn-sm btn-outline-success mt-2"><i class="bi bi-graph-up"></i> Consumo por Escola</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">Patrimônio</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Listagem de bens, termos de responsabilidade e relatórios de inventário.</p>
+                    
+                    <a href="{{ url_for('patrimonio.listar_itens') }}" class="btn btn-sm btn-outline-warning mt-2"><i class="bi bi-box-seam"></i> Inventário de Bens</a>
+                    
+                    <a href="{{ url_for('patrimonio.listar_termos_responsabilidade') }}" class="btn btn-sm btn-outline-warning mt-2"><i class="bi bi-file-earmark-text"></i> Termos de Responsabilidade</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Transporte Escolar</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Rotas, veículos, motoristas e relatórios de quilometragem percorrida.</p>
+                    
+                    <a href="{{ url_for('transporte.listar_rotas') }}" class="btn btn-sm btn-outline-info mt-2"><i class="bi bi-geo-alt"></i> Rotas e Km</a>
+                    
+                    <a href="{{ url_for('gerenciar_veiculos') }}" class="btn btn-sm btn-outline-info mt-2"><i class="bi bi-truck"></i> Veículos</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">Combustível</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Controle de abastecimento, consumo médio e prestação de contas de gastos.</p>
+                    
+                    <a href="{{ url_for('relatorio_combustivel') }}" class="btn btn-sm btn-outline-secondary mt-2"><i class="bi bi-fuel-pump"></i> Abastecimentos</a>
+                    
+                    <a href="{{ url_for('selecionar_relatorio_veiculos') }}" class="btn btn-sm btn-outline-secondary mt-2"><i class="bi bi-speedometer2"></i> Consumo por Veículo</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">Fiscalização de Contratos</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Resumo financeiro, atestos mensais e ocorrências por contrato.</p>
+                    
+                    <a href="{{ url_for('fiscal.dashboard') }}" class="btn btn-sm btn-outline-dark mt-2"><i class="bi bi-currency-dollar"></i> Resumo Financeiro</a>
+                    
+                    <a href="{{ url_for('fiscal.dashboard') }}" class="btn btn-sm btn-outline-dark mt-2"><i class="bi bi-check-circle"></i> Atestos e Ocorrências</a>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const reportContent = document.getElementById('report-content');
+        
+        // Tempo de espera solicitado: 20 segundos = 20000 milissegundos
+        const tempoDeEspera = 20000; 
+
+        setTimeout(() => {
+            loadingOverlay.style.opacity = 0; // Inicia o fade out
+            loadingOverlay.style.transition = 'opacity 1s ease-out';
+            
+            // Espera a transição do fade out (1s) e esconde completamente
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+                reportContent.style.display = 'block';
+            }, 1000); 
+
+        }, tempoDeEspera);
+    });
+</script>
+{% endblock %}

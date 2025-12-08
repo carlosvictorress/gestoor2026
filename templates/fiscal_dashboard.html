@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard Contratos{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-file-earmark-lock2-fill"></i> Módulo Fiscalização de Contratos</h2>
+    <a href="{{ url_for('fiscal.novo_contrato') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Novo Contrato
+    </a>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-white bg-dark shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title text-uppercase"><i class="bi bi-wallet2"></i> Total em Contratos</h5>
+                <p class="card-text fs-2 fw-bold">R$: {{ totais.total_em_contratos | currency_br }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-danger shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title text-uppercase"><i class="bi bi-receipt"></i> Total Gasto (Atestado)</h5>
+                <p class="card-text fs-2 fw-bold">R$: {{ totais.total_gasto | currency_br }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-success shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title text-uppercase"><i class="bi bi-cash-stack"></i> Saldo Restante</h5>
+                <p class="card-text fs-2 fw-bold">R$: {{ totais.total_restante | currency_br }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <h5 class="mb-0">Contratos Ativos</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Fornecedor</th>
+                        <th>CNPJ</th>
+                        <th>Vigência (Início)</th>
+                        <th>Situação</th>
+                        <th class="text-center">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for contrato in contratos %}
+                    <tr>
+                        <td>{{ contrato.empresa_contratada }}</td>
+                        <td>{{ contrato.cnpj }}</td>
+                        <td>{{ contrato.vigencia_inicio.strftime('%d/%m/%Y') }} - {{ contrato.vigencia_fim.strftime('%d/%m/%Y') }}</td>
+                        <td><span class="badge bg-{{ 'success' if contrato.situacao == 'Ativo' else 'secondary' }}">{{ contrato.situacao }}</span></td>
+                        <td class="text-center text-nowrap">
+                            <a href="{{ url_for('fiscal.detalhes_contrato', contrato_id=contrato.id) }}" class="btn btn-sm btn-secondary" title="Ver Detalhes/Atesto">
+                                <i class="bi bi-search"></i>
+                            </a>
+                            </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center">Nenhum contrato cadastrado ou ativo para sua secretaria.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

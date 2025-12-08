@@ -2,37 +2,242 @@
 
 {% block title %}Módulo Académico{% endblock %}
 
-{% block content %}
-<h1 class="mb-4">Painel de Gestão Académica</h1>
-<p class="lead">Bem-vindo ao centro de gestão de escolas, turmas e alunos.</p>
 
-<div class="row">
-    <div class="col-md-4">
-        <div class="card text-white bg-info mb-3">
-            <div class="card-header">Alunos Matriculados</div>
-            <div class="card-body">
-                <h5 class="card-title">{{ total_alunos }}</h5>
-                <p class="card-text">Total de alunos na rede.</p>
-            </div>
+{% block content %}
+
+<style>
+    /* Reset básico e fonte */
+    .acad-container * {
+        box-sizing: border-box;
+    }
+
+    .acad-container {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        /* Removido max-width e margin para ocupar o espaço do seu 'base.html' */
+        padding: 24px;
+        color: #333;
+    }
+
+    /* Tipografia */
+    .acad-h1 {
+        font-size: 2.25rem; /* 36px */
+        font-weight: 700;
+        color: #1a202c;
+        margin-bottom: 8px;
+    }
+
+    .acad-p {
+        font-size: 1.125rem; /* 18px */
+        color: #718096;
+        margin-bottom: 24px;
+    }
+    
+    .acad-h3 {
+        font-size: 1.5rem; /* 24px */
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 16px;
+    }
+
+    /* Divisor */
+    .acad-hr {
+        border: 0;
+        border-top: 1px solid #e2e8f0;
+        margin: 32px 0;
+    }
+
+    /* --------------------------------
+    CARDS DE ESTATÍSTICAS
+    --------------------------------
+    */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+    }
+
+    .stat-card {
+        background: linear-gradient(135deg, #007bff, #0056b3); /* Gradiente azul */
+        color: white;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 15px rgba(0, 123, 255, 0.2);
+    }
+
+    .stat-card-header {
+        font-size: 0.875rem; /* 14px */
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        opacity: 0.8;
+    }
+
+    .stat-card-title {
+        font-size: 2.5rem; /* 40px */
+        font-weight: 700;
+        margin: 8px 0;
+    }
+
+    .stat-card-text {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+
+    /* --------------------------------
+    CARDS DE NAVEGAÇÃO (Horizontal como na sua 1ª imagem)
+    --------------------------------
+    */
+    .nav-box {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .nav-box-links {
+        display: flex;
+        flex-wrap: wrap; /* Permite que os links quebrem a linha em telas pequenas */
+        align-items: center;
+        gap: 24px; /* Espaço entre os links */
+    }
+
+    .nav-link {
+        display: flex;
+        align-items: center;
+        text-decoration: none;
+        color: #0056b3; /* Cor azul mais escura */
+        font-weight: 500;
+        font-size: 1rem;
+        transition: color 0.2s ease, text-decoration 0.2s ease;
+    }
+    
+    .nav-link:hover {
+        color: #007bff; /* Cor azul mais clara */
+        text-decoration: underline;
+    }
+
+    .nav-link svg {
+        flex-shrink: 0;
+        width: 20px; /* Ícones um pouco menores */
+        height: 20px;
+        margin-right: 8px;
+        color: currentColor; /* O ícone pega a cor do link */
+    }
+
+    /* --------------------------------
+    ANIMAÇÕES (usado pelo JS)
+    --------------------------------
+    */
+    .animated-card {
+        opacity: 0;
+        transform: translateY(30px);
+        transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+    }
+    
+    .animated-card.is-visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    
+    /* Rodapé */
+    .acad-footer {
+        text-align: center;
+        margin-top: 40px;
+        color: #a0aec0;
+        font-size: 0.875rem;
+    }
+</style>
+<div class="acad-container">
+
+    <h1 class="acad-h1">Painel de Gestão Acadêmica</h1>
+    <p class="acad-p">Bem-vindo ao centro de gestão de escolas, turmas e alunos.</p>
+
+    <div class="stats-grid">
+        <div class="stat-card animated-card">
+            <div class="stat-card-header">Alunos Matriculados</div>
+            <h5 class="stat-card-title">{{ total_alunos }}</h5>
+            <p class="stat-card-text">Total de alunos na rede.</p>
+        </div>
+        
+        </div>
+
+    <hr class="acad-hr">
+
+    <h3 class="acad-h3">Navegação Rápida</h3>
+    <div class="nav-box animated-card">
+        <div class="nav-box-links">
+            <a href="{{ url_for('academico.configuracoes_academicas') }}" class="nav-link">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.12-.86-.81-1.5-1.64-1.5H10c-.83 0-1.52.64-1.64 1.5l-.21 1.48c-.5.3-1.01.62-1.5.97l-1.31-.55c-.75-.32-1.59.08-1.9 1.07l-1.5 2.59c-.3.51-.1 1.15.41 1.5l1.1.84c-.03.26-.05.52-.05.79s.02.53.05.79l-1.1.84c-.51.36-.71.99-.41 1.5l1.5 2.59c.31.99 1.15 1.39 1.9 1.07l1.31-.55c.49.35 1.01.67 1.5.97l.21 1.48c.12.86.81 1.5 1.64 1.5h.01c.83 0 1.52-.64 1.64-1.5l.21-1.48c.5-.3 1.01-.62 1.5-.97l1.31.55c.75.32 1.59-.08 1.9-1.07l1.5-2.59c.3-.51.1-1.15-.41-1.5l-1.1-.84c.03-.26.05-.52.05-.79s-.02-.53-.05-.79l1.1-.84c.51-.36.71-.99.41-1.5l-1.5-2.59c-.31-.99-1.15-1.39-1.9-1.07l-1.31.55c-.49-.35-1.01-.67-1.5-.97l-.21-1.48zM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" clip-rule="evenodd" /></svg>
+                <span>Configurações (Disciplinas e Períodos)</span>
+            </a>
+
+            <a href="{{ url_for('academico.gerenciar_alunos') }}" class="nav-link">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3.465 14.493a1.23 1.23 0 0 0 .41 1.412A9.957 9.957 0 0 0 10 18c2.31 0 4.438-.784 6.126-2.095a1.23 1.23 0 0 0 .41-1.412A9.957 9.957 0 0 0 10 12c-2.31 0-4.438.784-6.126 2.095a1.23 1.23 0 0 0-.41 1.412z" /></svg>
+                <span>Gerenciar Alunos</span>
+            </a>
+
+            <a href="{{ url_for('escola.listar_escolas') }}" class="nav-link">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 4.25A2.25 2.25 0 0 1 4.25 2h11.5A2.25 2.25 0 0 1 18 4.25v8.5A2.25 2.25 0 0 1 15.75 15h-3.19l-1.1-1.64a.75.75 0 0 0-1.29-.01L8.94 15H4.25A2.25 2.25 0 0 1 2 12.75v-8.5zm2.25.75a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5H4.25zm0 3a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5H4.25zm0 3a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5H4.25zm3-6a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5a.75.75 0 0 1 .75-.75h.008zm1.5 3a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5H9zm0 3a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5H9zm3-6a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75V5a.75.75 0 0 1 .75-.75h.008zm1.5 3a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5h-.75zm0 3a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5h-.75zm3-6a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75V5a.75.75 0 0 1 .75-.75h.008zm1.5 3a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5h-.75z" clip-rule="evenodd" /></svg>
+                <span>Gerenciar Escolas</span>
+            </a>
+
+            <a href="{{ url_for('academico.gerenciar_turmas') }}" class="nav-link">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M5.5 4.5a.5.5 0 0 1 .5.5v2h3v-2a.5.5 0 0 1 1 0v2h3v-2a.5.5 0 0 1 1 0v2h3a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5h-3v3a.5.5 0 0 1-1 0v-3h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1-.5-.5v-3a.5.5 0 0 1 .5-.5h3v-2a.5.5 0 0 1 .5-.5z" /></svg>
+                <span>Gerenciar Turmas</span>
+            </a>
         </div>
     </div>
-</div>
+    
+    <footer class="acad-footer">
+        © 2025 - Sistema para gerenciamento de secretarias
+    </footer>
 
-<hr class="my-4">
-
-<h3>Navegação Rápida</h3>
-<div class="list-group">
-<a href="{{ url_for('academico.configuracoes_academicas') }}" class="list-group-item list-group-item-action">
-        <i class="bi bi-gear-fill"></i> Configurações (Disciplinas e Períodos)
-    </a>
-    <a href="{{ url_for('academico.gerenciar_alunos') }}" class="list-group-item list-group-item-action">
-        <i class="bi bi-people-fill"></i> Gerenciar Alunos
-    </a>
-    <a href="{{ url_for('escola.listar_escolas') }}" class="list-group-item list-group-item-action">
-        <i class="bi bi-building"></i> Gerenciar Escolas
-    </a>
-	<a href="{{ url_for('academico.gerenciar_turmas') }}" class="list-group-item list-group-item-action">
-        <i class="bi bi-person-video3"></i> Gerenciar Turmas
-    </a>
 </div>
+<script>
+    // Este script é executado quando o DOM estiver pronto
+    document.addEventListener("DOMContentLoaded", function() {
+        
+        // Seleciona todos os cards que queremos animar
+        const animatedCards = document.querySelectorAll('.animated-card');
+
+        // Configurações do "Observer"
+        const options = {
+            root: null, 
+            rootMargin: '0px',
+            threshold: 0.05 // 5% visível
+        };
+
+        // Cria o "Observer"
+        const observer = new IntersectionObserver((entries, observer) => {
+            entries.forEach((entry, index) => {
+                // Quando o card entrar na tela
+                if (entry.isIntersecting) {
+                    // Adiciona um pequeno atraso (delay) em cada card
+                    entry.target.style.transitionDelay = (index * 100) + 'ms';
+                    
+                    // Adiciona a classe que o CSS usa para torná-lo visível
+                    entry.target.classList.add('is-visible');
+                    
+                    // Para de observar este card (a animação só acontece 1 vez)
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, options);
+
+        // Diz ao "Observer" para observar cada card
+        animatedCards.forEach(card => {
+            if (card) { // Verifica se o card existe antes de observar
+                observer.observe(card);
+            }
+        });
+    });
+</script>
+
 {% endblock %}

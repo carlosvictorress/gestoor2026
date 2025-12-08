@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% if plano %}Editar PAI{% else %}Criar PAI{% endif %} - {{ aluno.nome_completo }}
+{% endblock %}
+
+{% block content %}
+
+{% if plano %}
+    <h2><i class="bi bi-pencil-fill"></i> Editar Plano de Atendimento Individual (PAI)</h2>
+{% else %}
+    <h2><i class="bi bi-plus-circle-fill"></i> Criar Plano de Atendimento Individual (PAI)</h2>
+{% endif %}
+<p class="lead">Para o aluno: <strong>{{ aluno.nome_completo }}</strong></p>
+<hr>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+       <form method="POST" action="{% if plano %}{{ url_for('caee.editar_plano', plano_id=plano.id) }}{% else %}{{ url_for('caee.novo_plano', aluno_id=aluno.id) }}{% endif %}">
+
+            <h5 class="text-muted mb-3">1. Profissional Responsável</h5>
+            <div class="row g-3 mb-3">
+                <div class="col-md-8">
+                    <label for="profissional_id" class="form-label">Profissional Responsável*</label>
+                    <select id="profissional_id" name="profissional_id" class="form-select" required>
+                        <option value="">-- Selecione um profissional --</option>
+                        {% for prof in profissionais %}
+                            <option value="{{ prof.id }}" {% if plano and plano.profissional_id == prof.id %}selected{% endif %}>
+                                {{ prof.nome_completo }} ({{ prof.especialidade }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <h5 class="text-muted mb-3">2. Detalhes do Atendimento</h5>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label for="frequencia_semanal" class="form-label">Frequência Semanal (nº de vezes)</label>
+                    <input type="number" class="form-control" id="frequencia_semanal" name="frequencia_semanal" min="1" max="5" 
+                           value="{{ plano.frequencia_semanal if plano else '1' }}">
+                </div>
+                <div class="col-md-6">
+                    <label for="duracao_sessao_min" class="form-label">Duração da Sessão (em minutos)</label>
+                    <input type="number" class="form-control" id="duracao_sessao_min" name="duracao_sessao_min" min="30" step="10" 
+                           value="{{ plano.duracao_sessao_min if plano else '50' }}">
+                </div>
+            </div>
+
+            <h5 class="text-muted mb-3">3. Plano Pedagógico</h5>
+            <div class="row g-3 mb-3">
+                <div class="col-md-12">
+                    <label for="objetivos_gerais" class="form-label">Objetivos Gerais</label>
+                    <textarea class="form-control" id="objetivos_gerais" name="objetivos_gerais" rows="4" 
+                              placeholder="Ex: Desenvolver a comunicação oral, melhorar a coordenação motora...">{{ plano.objetivos_gerais if plano }}</textarea>
+                </div>
+                <div class="col-md-12">
+                    <label for="objetivos_especificos" class="form-label">Objetivos Específicos</label>
+                    <textarea class="form-control" id="objetivos_especificos" name="objetivos_especificos" rows="4" 
+                              placeholder="Ex: Produzir o fonema /r/, segurar o lápis corretamente...">{{ plano.objetivos_especificos if plano }}</textarea>
+                </div>
+                <div class="col-md-12">
+                    <label for="metodologia" class="form-label">Metodologia / Atividades Propostas</label>
+                    <textarea class="form-control" id="metodologia" name="metodologia" rows="4" 
+                              placeholder="Ex: Atividades lúdicas, uso de software de comunicação alternativa, exercícios de repetição...">{{ plano.metodologia if plano }}</textarea>
+                </div>
+            </div>
+
+            <hr>
+            <div class="d-flex justify-content-end">
+                <a href="{{ url_for('caee.prontuario_aluno', aluno_id=aluno.id) }}" class="btn btn-secondary me-2">Cancelar</a>
+                <button type="submit" class="btn btn-primary">Salvar Plano (PAI)</button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+{% endblock %}

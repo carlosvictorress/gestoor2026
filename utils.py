@@ -12,6 +12,44 @@ from .models import Log
 from functools import wraps
 from flask import session, flash, redirect, url_for
 
+import face_recognition
+import json
+import numpy as np
+import locale
+import uuid
+import re
+from flask import Flask
+
+
+
+
+def limpar_cpf(cpf):
+    if cpf:
+        # re.sub é importado no topo do utils.py
+        return re.sub(r"\D", "", cpf)
+    return None
+
+
+
+def gerar_codigo_validade(cpf_servidor, num_vinculo, nome_secretaria):
+    # ... (código da função conforme proposto acima) ...
+    # Exemplo: a1b2-012025-seme-2025
+    cpf_limpo = limpar_cpf(cpf_servidor)
+    vinculo_simples = limpar_cpf(num_vinculo)
+    sec_simples = nome_secretaria.replace(' ', '').lower()[:4]
+    ano = datetime.now().year
+    return f"{str(uuid.uuid4().hex)[:4]}-{vinculo_simples}-{sec_simples}-{ano}"
+
+
+
+def currency_filter_br(value):
+    """Formata um valor float para a moeda brasileira (R$ 1.000.000,00)."""
+    if value is None:
+        return "0,00"
+    # Usa a formatação de moeda do locale
+    # O False no final significa que não deve incluir o símbolo da moeda (R$)
+    return locale.currency(value, grouping=True, symbol=False).strip()
+
 def registrar_log(action):
     """Registra uma ação no banco de dados."""
     try:
@@ -132,3 +170,87 @@ def role_required(*roles_permitidos):
             return redirect(url_for('dashboard'))
         return decorated_function
     return decorator
+
+class NumpyArrayEncoder(json.JSONEncoder):
+    """ Classe especial para converter o 'encoding' (que é um array Numpy) em um JSON. """
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
+
+def gerar_encoding_facial(caminho_completo_imagem):
+    """
+    Carrega uma imagem, encontra o rosto e gera o 'encoding' facial.
+    Retorna o encoding como uma string JSON para salvar no banco de dados.
+    """
+    try:
+        # 1. Carrega a imagem
+        imagem = face_recognition.load_image_file(caminho_completo_imagem)
+
+        # 2. Tenta encontrar rostos. Pega apenas o primeiro rosto encontrado.
+        encodings = face_recognition.face_encodings(imagem)
+
+        if not encodings:
+            # Se nenhum rosto for encontrado na imagem
+            return None, "Nenhum rosto detectado na imagem."
+
+        # 3. Pega o primeiro encoding (array numpy)
+        encoding_numpy = encodings[0]
+
+        # 4. Converte o array numpy para uma string JSON
+        encoding_str = json.dumps(encoding_numpy, cls=NumpyArrayEncoder)
+
+        return encoding_str, "Encoding gerado com sucesso."
+
+    except Exception as e:
+        return None, f"Erro ao processar imagem: {str(e)}"
+
+def comparar_rostos(encoding_referencia_str, foto_ao_vivo):
+    """
+    Compara um encoding de referência (do banco) com uma foto tirada ao vivo.
+
+    :param encoding_referencia_str: A string JSON do banco de dados (Servidor.face_encoding)
+    :param foto_ao_vivo: A imagem (em bytes) vinda do formulário de ponto
+    :return: True se for a mesma pessoa, False caso contrário
+    """
+    try:
+        # 1. Converte o JSON string (do banco) de volta para uma lista/array
+        encoding_referencia = json.loads(encoding_referencia_str)
+
+        # 2. Carrega a foto ao vivo (que vem do request)
+        #    O 'foto_ao_vivo' é um DataURL (string base64) vindo do registrar_ponto_com_foto.html
+        #    Precisamos decodificar
+        import base64
+
+        # Remove o cabeçalho "data:image/jpeg;base64,"
+        if "base64," in foto_ao_vivo:
+            foto_ao_vivo = foto_ao_vivo.split("base64,", 1)[1]
+
+        img_bytes = base64.b64decode(foto_ao_vivo)
+
+        # Converte os bytes em um arquivo temporário para o face_recognition ler
+        import io
+        imagem_ao_vivo_stream = io.BytesIO(img_bytes)
+        imagem_ao_vivo = face_recognition.load_image_file(imagem_ao_vivo_stream)
+
+        # 3. Gera o encoding da foto ao vivo
+        encodings_ao_vivo = face_recognition.face_encodings(imagem_ao_vivo)
+
+        if not encodings_ao_vivo:
+            # Não achou rosto na foto ao vivo
+            return False
+
+        encoding_ao_vivo = encodings_ao_vivo[0]
+
+        # 4. Compara os dois rostos
+        #    compare_faces espera uma LISTA de encodings conhecidos
+        resultado = face_recognition.compare_faces([encoding_referencia], encoding_ao_vivo, tolerance=0.6)
+
+        # 5. Retorna o resultado (True ou False)
+        return resultado[0]
+
+    except Exception as e:
+        print(f"Erro ao comparar rostos: {e}")
+        return False
+    
+    

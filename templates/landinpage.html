@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="pt-br" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grupo CV Empreendimentos - O Futuro da Gestão Pública</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+
+    <script src="https://unpkg.com/typed.js@2.1.0/dist/typed.umd.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.globe.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'cv-dark-green': '#008B00',
+                        'cv-orange': '#FFA500',
+                        'cv-medium-green': '#00CD66',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        .typed-cursor {
+            color: #FFA500; /* Cor laranja no cursor */
+            animation: typedjsBlink 0.7s infinite;
+        }
+        @keyframes typedjsBlink {
+            50% { opacity: 0.0; }
+        }
+        
+        /* Efeito de "glow" (brilho) para tema claro */
+        .card-glow {
+            border: 1px solid transparent;
+            transition: border 0.3s, box-shadow 0.3s, transform 0.3s;
+        }
+        .card-glow:hover {
+            transform: translateY(-8px); /* Animação de "levantar" */
+            border-color: #00CD66;
+            box-shadow: 0 10px 30px rgba(0, 205, 102, 0.15); /* Sombra verde sutil */
+        }
+    </style>
+</head>
+
+<body class="bg-white text-gray-700 font-sans antialiased">
+
+    <header class="bg-white/90 backdrop-blur-md shadow-sm fixed w-full z-50">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="text-2xl font-bold text-cv-dark-green">
+                <i class="bi bi-buildings-fill mr-2"></i>
+                Grupo CV Empreendimentos
+            </div>
+            
+            <div class="hidden md:flex space-x-8">
+                <a href="#modulos" class="text-gray-600 hover:text-cv-dark-green transition duration-300">Ecossistema</a>
+                <a href="#comparativo" class="text-gray-600 hover:text-cv-dark-green transition duration-300">Com vs. Sem</a>
+                <a href="#diferenciais" class="text-gray-600 hover:text-cv-dark-green transition duration-300">Diferenciais</a>
+                <a href="#contato" class="text-gray-600 hover:text-cv-dark-green transition duration-300">Contato</a>
+            </div>
+            
+            <a href="#contato" class="bg-cv-orange text-white font-semibold px-5 py-2 rounded-full hover:bg-opacity-90 transition duration-300 shadow-lg shadow-cv-orange/30 transform hover:scale-105">
+                Solicitar Demonstração
+            </a>
+        </nav>
+    </header>
+
+    <main>
+        <section id="vanta-hero" class="relative min-h-screen flex items-center justify-center text-center overflow-hidden bg-gray-100">
+            <div class="relative z-10 p-6">
+                <h1 class="text-4xl md:text-6xl font-extrabold text-gray-900 mb-6 leading-tight" data-aos="fade-up">
+                    O Fim da Burocracia. <br> O Início da
+                    <span id="typed-hero" class="text-cv-orange"></span>
+                </h1>
+                <p class="text-lg md:text-xl text-gray-600 mb-10 max-w-3xl mx-auto" data-aos="fade-up" data-aos-delay="200">
+                    O Gestor 360 é o sistema operacional da gestão pública. Unificamos todos os seus setores em uma plataforma inteligente, ágil e 100% digital.
+                </p>
+                <div data-aos="fade-up" data-aos-delay="400">
+                    <a href="#modulos" class="bg-cv-dark-green text-white text-lg font-bold px-10 py-4 rounded-full hover:bg-cv-medium-green hover:text-black transition duration-300 shadow-2xl shadow-cv-dark-green/30 transform hover:scale-105">
+                        Conheça o Ecossistema
+                    </a>
+                </div>
+            </div>
+        </section>
+        
+        <section id="modulos" class="py-24 bg-white">
+            <div class="container mx-auto px-6">
+                <h2 class="text-4xl font-bold text-center text-gray-900 mb-4" data-aos="fade-up">
+                    O Ecossistema Gestor 360
+                </h2>
+                <p class="text-lg text-center text-gray-600 mb-16 max-w-3xl mx-auto" data-aos="fade-up" data-aos-delay="100">
+                    Cada módulo foi desenhado com base na sua rotina, integrando perfeitamente todos os setores da administração.
+                </p>
+
+                <div class="mb-20">
+                    <h3 class="text-3xl font-semibold text-cv-dark-green mb-10" data-aos="fade-right">
+                        <i class="bi bi-people-fill mr-3"></i>Núcleo de Pessoal (RH)
+                    </h3>
+                    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        
+                        <div class="bg-white p-8 rounded-xl shadow-xl card-glow" data-aos="fade-up">
+                            <i class="bi bi-person-badge text-5xl text-cv-dark-green mb-4"></i>
+                            <h4 class="text-2xl font-bold text-gray-900 mb-3">Cadastro de Servidores</h4>
+                            <p class="text-gray-600">
+                                Dossiê digital completo, ficha funcional, histórico, gestão de documentos e emissão de contratos.
+                            </p>
+                        </div>
+                        
+                        <div class="bg-white p-8 rounded-xl shadow-xl card-glow" data-aos="fade-up" data-aos-delay="100">
+                            <i class="bi bi-camera-video-fill text-5xl text-cv-dark-green mb-4"></i>
+                            <h4 class="text-2xl font-bold text-gray-900 mb-3">Ponto por Reconhecimento Facial</h4>
+                            <p class="text-gray-600">
+                                Controle de frequência via QR Code com validação biométrica (rosto), GPS e auditoria anti-fraude em tempo real.
+                            </p>
+                        </div>
+
+                        <div class="bg-white p-8 rounded-xl shadow-xl card-glow" data-aos="fade-up" data-aos-delay="200">
+                            <i class="bi bi-file-earmark-text text-5xl text-cv-dark-green mb-4"></i>
+                            <h4 class="text-2xl font-bold text-gray-900 mb-3">Requerimentos Digitais</h4>
+                            <p class="text-gray-600">
+                                Servidor solicita férias, licenças e outros benefícios online. Gestor aprova e sistema atualiza a ficha funcional.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-20">
+                    <h3 class="text-3xl font-semibold text-cv-dark-green mb-10" data-aos="fade-right">
+                        <i class="bi bi-book-half mr-3"></i>Núcleo Educacional (SEMED)
+                    </h3>
+                    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        
+                        <div class="bg-white p-8 rounded-xl shadow-xl card-glow" data-aos="fade-up">
+                            <i class="bi bi-journal-bookmark-fill text-5xl text-cv-dark-green mb-4"></i>
+                            <h4 class="text-2xl font-bold text-gray-900 mb-3">Acadêmico (Censo Escolar)</h4>
+                            <p class="text-gray-600">
+                                Gestão de alunos, turmas, matrículas e notas. 100% alinhado com os requisitos do Censo Escolar (INEP).
+                            </p>
+                        </div>
+                        
+                        <div class="bg-white p-8 rounded-xl shadow-xl card-glow" data-aos="fade-up" data-aos-delay="100">
+                            <i class="bi bi-truck text-5xl text-cv-dark-green mb-4"></i>
+                            <h4 class="text-2xl font-bold text-gray-900 mb-3">Transporte Escolar</h4>
+                            <p class="text-gray-600">
+                                Mapeamento de rotas, controle de veículos, motoristas, monitores e listagem de alunos por rota.
+                            </p>
+                        </div>
+
+                        <div class="bg-white p-8 rounded-xl shadow-xl card-glow" data-aos="fade-up" data-aos-delay="200">
+                            <i class="bi bi-basket3-fill text-5xl text-cv-dark-green mb-4"></i>
+                            <h4 class="text-2xl font-bold text-gray-900 mb-3">Gestão da Merenda</h4>
+                            <p class="text-gray-600">
+                                Controle de estoque de alimentos, solicitações de merenda por escola e montagem de cardápios.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <h3 class="text-3xl font-semibold text-cv-dark-green mb-10" data-aos="fade-right">
+                        <i class="bi bi-archive-fill mr-3"></i>Núcleo Administrativo e Logística
+                    </h3>
+                    <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                        
+                        <div class="bg-white p-8 rounded-xl shadow-xl card-glow" data-aos="fade-up">
+                            <i class="bi bi-shuffle text-5xl text-cv-dark-green mb-4"></i>
+                            <h4 class="text-2xl font-bold text-gray-900 mb-3">Protocolo Digital</h4>
+                            <p class="text-gray-600">
+                                Rastreamento completo de processos físicos e digitais com histórico de tramitação entre setores.
+                            </p>
+                        </div>
+                        
+                        <div class="bg-white p-8 rounded-xl shadow-xl card-glow" data-aos="fade-up" data-aos-delay="100">
+                            <i class="bi bi-boxes text-5xl text-cv-dark-green mb-4"></i>
+                            <h4 class="text-2xl font-bold text-gray-900 mb-3">Almoxarifado</h4>
+                            <p class="text-gray-600">
+                                Controle de entrada, saída, estoque mínimo e requisições de materiais do almoxarifado central.
+                            </p>
+                        </div>
+
+                        <div class="bg-white p-8 rounded-xl shadow-xl card-glow" data-aos="fade-up" data-aos-delay="200">
+                            <i class="bi bi-fuel-pump-fill text-5xl text-cv-dark-green mb-4"></i>
+                            <h4 class="text-2xl font-bold text-gray-900 mb-3">Controle de Frota</h4>
+                            <p class="text-gray-600">
+                                Gestão de veículos, abastecimentos, manutenções, consumo médio (KM/L) e relatórios de custos.
+                            </p>
+                        </div>
+                        
+                        <div class="bg-white p-8 rounded-xl shadow-xl card-glow" data-aos="fade-up" data-aos-delay="300">
+                            <i class="bi bi-pc-display text-5xl text-cv-dark-green mb-4"></i>
+                            <h4 class="text-2xl font-bold text-gray-900 mb-3">Patrimônio</h4>
+                            <p class="text-gray-600">
+                                Cadastro, localização, movimentação e baixa de bens, com emissão de termos de responsabilidade.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <section id="comparativo" class="py-24 bg-gray-50">
+            <div class="container mx-auto px-6">
+                <h2 class="text-4xl font-bold text-center text-gray-900 mb-16" data-aos="fade-up">
+                    Pare de <span class="text-red-600">apagar incêndios</span>. <br class="hidden md:block"> Comece a <span class="text-cv-dark-green">gerenciar de verdade</span>.
+                </h2>
+                
+                <div class="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto">
+                    
+                    <div class="bg-white p-8 rounded-xl shadow-lg border-t-4 border-red-400" data-aos="fade-right" data-aos-delay="200">
+                        <h3 class="text-3xl font-bold text-gray-900 mb-8 flex items-center">
+                            <i class="bi bi-x-circle-fill text-red-500 mr-4"></i>
+                            Gestão Manual (O Passado)
+                        </h3>
+                        
+                        <ul class="space-y-5">
+                            <li class="flex items-start">
+                                <i class="bi bi-folder-minus text-red-500 mr-3 mt-1 text-xl"></i>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 text-lg">Processos em Papel</h4>
+                                    <p class="text-gray-600">Pilhas de processos de protocolo e requerimentos de RH que demoram dias para tramitar e podem ser perdidos.</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="bi bi-journal-text text-red-500 mr-3 mt-1 text-xl"></i>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 text-lg">Controle de Ponto Frágil</h4>
+                                    <p class="text-gray-600">Folha de ponto manual ou sistemas antigos sujeitos a fraudes ("buddy punching" - um colega bate o ponto pelo outro).</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="bi bi-fuel-pump text-red-500 mr-3 mt-1 text-xl"></i>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 text-lg">Descontrole de Custos</h4>
+                                    <p class="text-gray-600">Controle de frota e merenda em planilhas. Sem dados em tempo real sobre custos, consumo ou estoque.</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="bi bi-patch-question text-red-500 mr-3 mt-1 text-xl"></i>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 text-lg">"Caixa Preta"</h4>
+                                    <p class="text-gray-600">Gestores não têm dados para tomar decisões. Gerar um relatório para o TCE ou MP leva semanas de trabalho manual.</p>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="bg-green-50 p-8 rounded-xl shadow-2xl border-t-4 border-cv-medium-green transform md:scale-105" data-aos="fade-left">
+                        <h3 class="text-3xl font-bold text-gray-900 mb-8 flex items-center">
+                            <i class="bi bi-check-circle-fill text-cv-dark-green mr-4"></i>
+                            Gestão com Gestor 360 (O Futuro)
+                        </h3>
+                        
+                        <ul class="space-y-5">
+                            <li class="flex items-start">
+                                <i class="bi bi-file-earmark-zip-fill text-cv-dark-green mr-3 mt-1 text-xl"></i>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 text-lg">Processos 100% Digitais</h4>
+                                    <p class="text-gray-600">Processos tramitados em segundos. Dossiê digital do servidor acessível com um clique, de qualquer lugar.</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="bi bi-shield-check text-cv-dark-green mr-3 mt-1 text-xl"></i>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 text-lg">Ponto Biométrico e Seguro</h4>
+                                    <p class="text-gray-600">Ponto eletrônico com **Reconhecimento Facial** e GPS. Fraudes são impossíveis. Relatórios de auditoria instantâneos.</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="bi bi-speedometer2 text-cv-dark-green mr-3 mt-1 text-xl"></i>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 text-lg">Controle em Tempo Real</h4>
+                                    <p class="text-gray-600">Saiba o custo exato por KM de cada veículo e o nível de estoque da merenda escolar agora, não no fim do mês.</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="bi bi-bar-chart-fill text-cv-dark-green mr-3 mt-1 text-xl"></i>
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 text-lg">Dashboards Inteligentes</h4>
+                                    <p class="text-gray-600">Visualize dados complexos em gráficos simples. Exporte relatórios para órgãos de controle em segundos.</p>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="diferenciais" class="py-24 bg-white">
+            <div class="container mx-auto px-6">
+                <h2 class="text-4xl font-bold text-center text-gray-900 mb-16" data-aos="fade-up">
+                    A plataforma <span class="text-cv-orange">definitiva</span> para a gestão pública
+                </h2>
+                <div class="grid md:grid-cols-3 gap-10 max-w-6xl mx-auto">
+                    
+                    <div class="text-center" data-aos="zoom-in-up">
+                        <div class="flex items-center justify-center w-20 h-20 rounded-full bg-cv-dark-green/10 border-2 border-cv-dark-green/20 shadow-lg shadow-cv-dark-green/10 mx-auto mb-6">
+                            <i class="bi bi-braces text-4xl text-cv-dark-green"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-900 mb-3">Ecossistema Integrado</h3>
+                        <p class="text-gray-600">
+                            Chega de planilhas e sistemas separados. RH, Educação, Frota e Almoxarifado finalmente conversam entre si.
+                        </p>
+                    </div>
+
+                    <div class="text-center" data-aos="zoom-in-up" data-aos-delay="200">
+                        <div class="flex items-center justify-center w-20 h-20 rounded-full bg-cv-dark-green/10 border-2 border-cv-dark-green/20 shadow-lg shadow-cv-dark-green/10 mx-auto mb-6">
+                            <i class="bi bi-cloud-arrow-up-fill text-4xl text-cv-dark-green"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-900 mb-3">100% em Nuvem</h3>
+                        <p class="text-gray-600">
+                            Acesse seu município de qualquer lugar. Dados seguros, com backup automático e sem custos de infraestrutura.
+                        </p>
+                    </div>
+
+                    <div class="text-center" data-aos="zoom-in-up" data-aos-delay="400">
+                        <div class="flex items-center justify-center w-20 h-20 rounded-full bg-cv-dark-green/10 border-2 border-cv-dark-green/20 shadow-lg shadow-cv-dark-green/10 mx-auto mb-6">
+                            <i class="bi bi-headset text-4xl text-cv-dark-green"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-900 mb-3">Suporte Humanizado</h3>
+                        <p class="text-gray-600">
+                            Nossa equipe de especialistas em gestão pública está pronta para ajudar seu município na implantação e no dia a dia.
+                        </p>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <section id="contato" class="py-24 bg-gray-100">
+            <div class="container mx-auto px-6">
+                <div class="max-w-3xl mx-auto text-center">
+                    <h2 class="text-4xl font-extrabold text-gray-900 mb-4" data-aos="fade-up">
+                        Transforme a gestão do seu município.
+                    </h2>
+                    <p class="text-xl text-gray-700 mb-10" data-aos="fade-up" data-aos-delay="100">
+                        Preencha o formulário e agende uma demonstração gratuita. Nossa equipe está pronta para mostrar como o Gestor 360 funciona na prática.
+                    </p>
+                </div>
+
+                <form id="contactForm" class="max-w-2xl mx-auto bg-white p-8 md:p-10 rounded-2xl shadow-2xl border border-gray-200" data-aos="fade-up" data-aos-delay="200">
+                    
+                    <div id="formSuccess" class="hidden bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6 text-center" role="alert">
+                        <strong class="font-bold">Mensagem enviada com sucesso!</strong>
+                        <span class="block sm:inline">Em breve entraremos em contato.</span>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="md:col-span-2">
+                            <label for="municipio" class="block text-sm font-medium text-gray-700 mb-2">Nome do Município*</col-span-2>
+                            <input type="text" id="municipio" name="municipio" required
+                                   class="w-full px-4 py-3 bg-white border border-gray-300 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-cv-orange focus:border-cv-orange">
+                        </div>
+                        
+                        <div>
+                            <label for="nome" class="block text-sm font-medium text-gray-700 mb-2">Seu Nome*</label>
+                            <input type="text" id="nome" name="nome" required
+                                   class="w-full px-4 py-3 bg-white border border-gray-300 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-cv-orange focus:border-cv-orange">
+                        </div>
+
+                        <div>
+                            <label for="telefone" class="block text-sm font-medium text-gray-700 mb-2">Telefone / WhatsApp*</label>
+                            <input type="tel" id="telefone" name="telefone" required
+                                   class="w-full px-4 py-3 bg-white border border-gray-300 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-cv-orange focus:border-cv-orange">
+                        </div>
+                        
+                        <div class="md:col-span-2">
+                            <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Seu E-mail*</label>
+                            <input type="email" id="email" name="email" required
+                                   class="w-full px-4 py-3 bg-white border border-gray-300 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-cv-orange focus:border-cv-orange">
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label for="mensagem" class="block text-sm font-medium text-gray-700 mb-2">Áreas de Interesse (Opcional)</label>
+                            <textarea id="mensagem" name="mensagem" rows="4" placeholder="Ex: Tenho interesse no Ponto Eletrônico e Gestão da Frota..."
+                                      class="w-full px-4 py-3 bg-white border border-gray-300 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-cv-orange focus:border-cv-orange"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="mt-8">
+                        <button type="submit"
+                                class="w-full bg-cv-orange text-white text-lg font-bold px-8 py-4 rounded-lg hover:bg-opacity-90 transition duration-300 shadow-lg shadow-cv-orange/30 transform hover:scale-105 animate-pulse">
+                            Quero minha demonstração agora!
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-gray-800 text-gray-400 py-10">
+        <div class="container mx-auto px-6 text-center">
+            <p class="text-lg font-bold text-white mb-2">Grupo CV Empreendimentos</p>
+            <p>&copy; 2025. Todos os direitos reservados.</p>
+            <p class="text-sm">Software para Automação da Gestão Pública.</p>
+        </div>
+    </footer>
+
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            // --- 1. Inicializa o AOS (Animate On Scroll) ---
+            AOS.init({
+                duration: 800, // Duração da animação
+                once: true,    // Animar apenas uma vez
+                offset: 100,   // Inicia a animação um pouco antes de chegar no elemento
+            });
+
+            // --- 2. Inicializa o Vanta.js (Globo 3D) ---
+            // Tenta inicializar. Se falhar (ex: mobile), tudo bem.
+            if (window.VANTA) {
+                VANTA.GLOBE({
+                    el: "#vanta-hero", // O ID da sua seção Hero
+                    mouseControls: true,
+                    touchControls: true,
+                    gyroControls: false,
+                    minHeight: 200.00,
+                    minWidth: 200.00,
+                    scale: 1.00,
+                    scaleMobile: 1.00,
+                    color: 0x008B00,      // Sua cor 'cv-dark-green'
+                    color2: 0x00CD66,     // Sua cor 'cv-medium-green'
+                    backgroundColor: 0xf3f4f6, // Cor de fundo (gray-100)
+                    size: 1.2 // Tamanho do globo (um pouco maior)
+                });
+            }
+
+            // --- 3. Inicializa o Typed.js (Efeito de Digitação) ---
+            new Typed('#typed-hero', {
+                strings: [
+                    'Gestão de Pessoas.',
+                    'Gestão Educacional.',
+                    'Gestão da Frota.',
+                    'Gestão do Almoxarifado.',
+                    'Gestão do Patrimônio.',
+                    'Gestão Pública Digital.'
+                ],
+                typeSpeed: 50,  // Velocidade de digitação
+                backSpeed: 30,  // Velocidade de "apagar"
+                backDelay: 1500, // Tempo antes de apagar
+                loop: true,
+                smartBackspace: true,
+            });
+
+            // --- 4. Simulação de Envio de Formulário ---
+            const contactForm = document.getElementById('contactForm');
+            const formSuccessMessage = document.getElementById('formSuccess');
+
+            contactForm.addEventListener('submit', function(e) {
+                e.preventDefault(); // Impede o envio real do formulário
+
+                // Exibe a mensagem de sucesso
+                formSuccessMessage.classList.remove('hidden');
+                
+                // Limpa o formulário
+                contactForm.reset();
+
+                // Oculta a mensagem após 5 segundos
+                setTimeout(() => {
+                    formSuccessMessage.classList.add('hidden');
+                }, 5000);
+                
+                // Rola para o topo do formulário para ver a mensagem
+                document.getElementById('contato').scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            });
+
+            // --- 5. Rolagem Suave (para links do menu) ---
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                });
+            });
+
+        });
+    </script>
+
+</body>
+</html>

@@ -1,8 +1,8 @@
-"""Migracao Inicial Completa
+"""Inicio Supabase
 
-Revision ID: 0016f7e3468b
+Revision ID: 3ab070b74889
 Revises: 
-Create Date: 2025-12-03 17:30:07.489261
+Create Date: 2025-12-08 20:09:35.785899
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '0016f7e3468b'
+revision = '3ab070b74889'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -143,6 +143,13 @@ def upgrade():
     sa.Column('data_cadastro', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('cpf_cnpj')
+    )
+    op.create_table('pnae_configuracao',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('ano', sa.Integer(), nullable=False),
+    sa.Column('valor_total_repasse', sa.Float(), nullable=False),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('ano')
     )
     op.create_table('produto_merenda',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -981,6 +988,7 @@ def downgrade():
     op.drop_table('secretaria')
     op.drop_table('protocolo')
     op.drop_table('produto_merenda')
+    op.drop_table('pnae_configuracao')
     op.drop_table('pnae_agricultor')
     op.drop_table('motorista')
     op.drop_table('log')

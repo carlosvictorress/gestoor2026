@@ -132,7 +132,7 @@ RAIO_PERMITIDO_METROS = 100
 s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
 # --- Inicialização das Extensões ---
-from .extensions import db, bcrypt
+from extensions import db, bcrypt
 
 from flask_mail import Mail
 mail = Mail(app)
@@ -144,7 +144,7 @@ migrate = Migrate(app, db)
 # ===================================================================
 # PARTE 3: Importação dos Modelos
 # ===================================================================
-from .models import *
+from models import *
 
 
 

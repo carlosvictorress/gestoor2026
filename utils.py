@@ -254,5 +254,59 @@ def comparar_rostos(encoding_referencia_str, foto_ao_vivo):
     except Exception as e:
         print(f"Erro ao comparar rostos: {e}")
         return False
-    
+
+# --- Adicione esta configuração e função no FINAL do utils.py ---
+
+# Configura o cliente do Supabase usando as variáveis do Railway
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+
+# Só cria o cliente se as chaves existirem (evita erro local se não tiver configurado)
+supabase_client = None
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        print(f"Erro ao conectar Supabase Storage: {e}")
+
+def upload_arquivo_para_nuvem(file, pasta="geral"):
+    """
+    Recebe um arquivo do Flask (request.files), envia para o Supabase
+    e retorna a URL pública para salvar no banco.
+    """
+    if not file or file.filename == '':
+        return None
+        
+    if not supabase_client:
+        print("Supabase Storage não configurado!")
+        return None
+
+    try:
+        # Gera um nome único para não substituir arquivos iguais
+        extensao = file.filename.rsplit('.', 1)[1].lower()
+        nome_arquivo = f"{uuid.uuid4().hex}.{extensao}"
+        caminho_completo = f"{pasta}/{nome_arquivo}"
+
+        # Lê o arquivo em bytes
+        file_bytes = file.read()
+        
+        # Faz o upload
+        # 'gestoor-arquivos' é o nome do bucket que criamos no passo 1
+        supabase_client.storage.from_("gestoor-arquivos").upload(
+            path=caminho_completo,
+            file=file_bytes,
+            file_options={"content-type": file.content_type}
+        )
+        
+        # Pega a URL pública para salvar no banco
+        public_url = supabase_client.storage.from_("gestoor-arquivos").get_public_url(caminho_completo)
+        
+        # Volta o ponteiro do arquivo para o início (caso precise usar de novo)
+        file.seek(0)
+        
+        return public_url
+
+    except Exception as e:
+        print(f"Erro no upload para Supabase: {e}")
+        return None    
     

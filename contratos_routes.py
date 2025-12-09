@@ -1,4 +1,4 @@
-# contratos_routes.py
+# contratos_routes.py (CORRIGIDO PARA SUPABASE)
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, make_response
 from functools import wraps
@@ -7,16 +7,17 @@ from models import Servidor, Contrato
 from datetime import datetime
 import io
 import locale
-import os # <-- Adicionar import
+import os
 from flask import current_app
-from werkzeug.utils import secure_filename # <-- Adicionar import
+from werkzeug.utils import secure_filename
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, BaseDocTemplate, Frame, PageTemplate, Image, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER, TA_LEFT
 from num2words import num2words
-from utils import role_required
+# IMPORTANTE: Importar a função de upload
+from utils import role_required, upload_arquivo_para_nuvem
 
 try:
     locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
@@ -180,7 +181,6 @@ def gerar_contrato():
     flash(f'Contrato {novo_contrato.numero} gerado com sucesso!', 'success')
     return redirect(url_for('contratos.gerenciar_contratos'))
 
-# --- INÍCIO DA ROTA ADICIONADA ---
 @contratos_bp.route('/assinatura/<int:contrato_id>', methods=['POST'])
 @login_required
 @role_required('RH', 'admin')
@@ -193,21 +193,17 @@ def definir_assinatura(contrato_id):
     if tipo_assinatura == 'imagem':
         ficheiro = request.files.get('assinatura_imagem')
         if ficheiro and ficheiro.filename != '':
-            # Garante que a pasta de uploads exista
-            # A pasta 'assinaturas' ficará dentro da pasta 'uploads' principal
-            pasta_assinaturas = os.path.join(current_app.config['UPLOAD_FOLDER'], 'assinaturas')
-            os.makedirs(pasta_assinaturas, exist_ok=True)
+            # --- UPLOAD PARA SUPABASE (NOVO) ---
+            url_assinatura = upload_arquivo_para_nuvem(ficheiro, pasta="assinaturas")
             
-            nome_seguro = secure_filename(ficheiro.filename)
-            # Cria um nome de arquivo único para evitar sobreposições
-            nome_unico = f"contrato_{contrato_id}_{nome_seguro}"
-            caminho_salvar = os.path.join(pasta_assinaturas, nome_unico)
-            ficheiro.save(caminho_salvar)
-            
-            # Salva o nome do arquivo no banco de dados
-            contrato.assinatura_secretaria_dados = nome_unico
+            if url_assinatura:
+                # Salva o LINK COMPLETO da nuvem
+                contrato.assinatura_secretaria_dados = url_assinatura
+            else:
+                flash('Erro ao enviar imagem para a nuvem.', 'danger')
+                return redirect(url_for('contratos.gerenciar_contratos'))
+
         elif not contrato.assinatura_secretaria_dados:
-            # Se o usuário selecionou 'imagem' mas não enviou um arquivo (e não havia um antes)
             flash('Para o tipo "Imagem", é necessário carregar um ficheiro de assinatura.', 'warning')
             return redirect(url_for('contratos.gerenciar_contratos'))
 
@@ -215,18 +211,16 @@ def definir_assinatura(contrato_id):
         contrato.assinatura_secretaria_dados = None
         
     db.session.commit()
-    flash('Opção de assinatura atualizada com sucesso!', 'success')
+    flash('Opção de assinatura atualizada na nuvem com sucesso!', 'success')
     return redirect(url_for('contratos.gerenciar_contratos'))
-# --- FIM DA ROTA ADICIONADA ---
 
 def cabecalho_rodape(canvas, doc):
     canvas.saveState()
+    # Tenta usar logo local (se existir no container) ou imagem estática
     logo_path = os.path.join(current_app.static_folder, 'img_contrato.jpg')
     if os.path.exists(logo_path):
         canvas.drawImage(logo_path, x=2*cm, y=A4[1] - 2.5*cm, width=17*cm, height=2*cm, preserveAspectRatio=True, mask='auto')
-    else:
-        canvas.setFont('Helvetica-Bold', 10)
-        canvas.drawCentredString(A4[0] / 2, A4[1] - 1.5*cm, "Logótipo não encontrado em /static/img_contrato.jpg")
+    
     canvas.setFont('Helvetica', 9)
     canvas.drawString(2*cm, 1.5*cm, f"Contrato Nº {doc.contrato_numero}")
     canvas.drawRightString(A4[0] - 2*cm, 1.5*cm, f"Página {doc.page}")
@@ -289,17 +283,29 @@ def visualizar_contrato_pdf(contrato_id):
 
     story.append(Spacer(1, 1*cm))
 
-    # --- LÓGICA PARA ADICIONAR A IMAGEM DA ASSINATURA ---
+    # --- LÓGICA PARA ADICIONAR A IMAGEM DA ASSINATURA (HÍBRIDA) ---
     if contrato.assinatura_secretaria_tipo == 'imagem' and contrato.assinatura_secretaria_dados:
-        caminho_assinatura = os.path.join(current_app.config['UPLOAD_FOLDER'], 'assinaturas', contrato.assinatura_secretaria_dados)
-        if os.path.exists(caminho_assinatura):
-            # Adiciona a imagem da assinatura centralizada
-            img = Image(caminho_assinatura, width=5*cm, height=2.5*cm, hAlign='CENTER')
-            story.append(img)
-            # Adiciona um espaçamento negativo para a linha ficar mais próxima
-            story.append(Spacer(1, -0.5*cm)) 
-        else:
-            story.append(Paragraph("<i>[Imagem da assinatura não encontrada]</i>", style_signature))
+        dados_img = contrato.assinatura_secretaria_dados
+        
+        try:
+            # Verifica se é um link (http/https) do Supabase
+            if dados_img.startswith('http'):
+                # ReportLab consegue carregar imagem de URL
+                img = Image(dados_img, width=5*cm, height=2.5*cm, hAlign='CENTER')
+                story.append(img)
+                story.append(Spacer(1, -0.5*cm))
+            else:
+                # Fallback para arquivos locais antigos
+                caminho_assinatura = os.path.join(current_app.config['UPLOAD_FOLDER'], 'assinaturas', dados_img)
+                if os.path.exists(caminho_assinatura):
+                    img = Image(caminho_assinatura, width=5*cm, height=2.5*cm, hAlign='CENTER')
+                    story.append(img)
+                    story.append(Spacer(1, -0.5*cm))
+                else:
+                    story.append(Paragraph("<i>[Assinatura não encontrada]</i>", style_signature))
+        except Exception as e:
+            print(f"Erro ao carregar imagem no PDF: {e}")
+            story.append(Paragraph("<i>[Erro ao carregar assinatura]</i>", style_signature))
             
     story.append(Paragraph("_" * 60, style_signature))
     story.append(Paragraph("Município de Valença do Piauí – SECRETÁRIA DE EDUCAÇÃO", style_signature))
@@ -320,48 +326,30 @@ def visualizar_contrato_pdf(contrato_id):
 @login_required
 @role_required('RH', 'admin')
 def excluir_contrato(contrato_id):
-    # Procura o contrato pelo ID ou retorna um erro 404 se não encontrar
     contrato_para_excluir = Contrato.query.get_or_404(contrato_id)
-    
     try:
-        # Guarda o número para a mensagem de log
         numero_contrato = contrato_para_excluir.numero
-        
         db.session.delete(contrato_para_excluir)
         db.session.commit()
-        
-        # Você pode querer registrar essa ação no seu sistema de logs, se tiver um
-        # registrar_log(f'Excluiu o contrato nº {numero_contrato}.')
-        
         flash(f'Contrato nº {numero_contrato} excluído com sucesso!', 'success')
-        
     except Exception as e:
         db.session.rollback()
         flash(f'Erro ao excluir o contrato: {e}', 'danger')
-
     return redirect(url_for('contratos.gerenciar_contratos'))
-    
     
 @contratos_bp.route('/editar/<int:contrato_id>', methods=['GET', 'POST'])
 @login_required
 @role_required('RH', 'admin')
 def editar_contrato(contrato_id):
     contrato = Contrato.query.get_or_404(contrato_id)
-    
     if request.method == 'POST':
         try:
-            # Pega o conteúdo do textarea do formulário
             contrato.conteudo = request.form.get('conteudo')
-            
             db.session.commit()
-            
             flash(f'Contrato nº {contrato.numero} atualizado com sucesso!', 'success')
             return redirect(url_for('contratos.gerenciar_contratos'))
-            
         except Exception as e:
             db.session.rollback()
             flash(f'Erro ao atualizar o contrato: {e}', 'danger')
             return redirect(url_for('contratos.editar_contrato', contrato_id=contrato_id))
-
-    # Se for um GET, apenas exibe a página de edição
     return render_template('editar_contrato.html', contrato=contrato)

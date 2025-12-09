@@ -56,7 +56,7 @@ from flask_bcrypt import Bcrypt
 from sqlalchemy import func, or_, and_
 from werkzeug.utils import secure_filename
 from num2words import num2words
-from .utils import gerar_encoding_facial, comparar_rostos, limpar_cpf
+from utils import gerar_encoding_facial, comparar_rostos, limpar_cpf
 
 # Importações para o gerador de PDF (ReportLab)
 from reportlab.lib.pagesizes import letter, landscape, A4

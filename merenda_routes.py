@@ -13,7 +13,7 @@ from extensions import db, bcrypt
 # Importe todos os novos modelos aqui
 from werkzeug.utils import secure_filename
 from models import Escola, ProdutoMerenda, EstoqueMovimento, SolicitacaoMerenda, SolicitacaoItem, Cardapio, PratoDiario, HistoricoCardapio, Servidor
-from utils import login_required, registrar_log, limpar_cpf, cabecalho_e_rodape, currency_filter_br, cabecalho_e_rodape_moderno
+from utils import login_required, registrar_log, limpar_cpf, cabecalho_e_rodape, currency_filter_br, cabecalho_e_rodape_moderno, upload_arquivo_para_nuvem
     
 from sqlalchemy import or_, func
 from datetime import datetime
@@ -912,24 +912,22 @@ def registrar_entrega_pnae(contrato_id):
         data_entrega = datetime.strptime(request.form.get('data_entrega'), '%Y-%m-%d').date()
         nota_fiscal = request.form.get('numero_nota_fiscal')
         
-        # --- LÓGICA DE UPLOAD DA NOTA FISCAL (NOVO) ---
-        filename_nf = None
+        # --- Lógica de Upload para o Supabase (NOVO) ---
+        link_nf = None
         if 'arquivo_nf' in request.files:
             file = request.files['arquivo_nf']
+            # Se o arquivo existe, envia para a nuvem
             if file and file.filename != '':
-                # Cria nome seguro: ID_CONTRATO_DATA_NOMEO.pdf
-                ext = file.filename.rsplit('.', 1)[1].lower()
-                nome_arquivo = f"NF_Contrato{contrato.id}_{data_entrega.strftime('%Y%m%d')}_{uuid.uuid4().hex[:6]}.{ext}"
+                # Envia para a pasta 'pnae_notas' dentro do seu bucket
+                url_gerada = upload_arquivo_para_nuvem(file, pasta="pnae_notas")
                 
-                # Garante que a pasta existe
-                caminho_pasta = os.path.join(current_app.config['UPLOAD_FOLDER'], 'pnae_notas')
-                os.makedirs(caminho_pasta, exist_ok=True)
-                
-                file.save(os.path.join(caminho_pasta, nome_arquivo))
-                filename_nf = nome_arquivo
-        # -----------------------------------------------
+                if url_gerada:
+                    link_nf = url_gerada # Salva o link completo (https://...)
+                else:
+                    # Se falhar o upload, avisa mas não trava o sistema (opcional)
+                    flash('Atenção: Não foi possível salvar o anexo da Nota Fiscal na nuvem.', 'warning')
 
-        # Processar os itens (igual ao anterior)
+        # Processar itens
         item_ids = request.form.getlist('item_id[]')
         qtds = request.form.getlist('qtd_entregue[]')
         
@@ -938,6 +936,7 @@ def registrar_entrega_pnae(contrato_id):
         
         for i, item_id in enumerate(item_ids):
             qtd = float(qtds[i].replace(',', '.')) if qtds[i] else 0.0
+            
             if qtd > 0:
                 item_contrato = ItemProjetoVenda.query.get(item_id)
                 valor_item = qtd * item_contrato.preco_unitario
@@ -950,7 +949,33 @@ def registrar_entrega_pnae(contrato_id):
                     'valor_total': valor_item
                 })
                 valor_total_entrega += valor_item
-        
+
+                # --- INTEGRAÇÃO AUTOMÁTICA COM ESTOQUE ---
+                produto_estoque = ProdutoMerenda.query.filter_by(nome=item_contrato.nome_produto).first()
+                
+                if not produto_estoque:
+                    produto_estoque = ProdutoMerenda(
+                        nome=item_contrato.nome_produto,
+                        unidade_medida=item_contrato.unidade_medida,
+                        categoria=item_contrato.categoria,
+                        estoque_atual=0.0
+                    )
+                    db.session.add(produto_estoque)
+                    db.session.flush()
+
+                produto_estoque.estoque_atual += qtd
+                
+                movimento = EstoqueMovimento(
+                    produto_id=produto_estoque.id,
+                    tipo='Entrada',
+                    quantidade=qtd,
+                    data_movimento=datetime.combine(data_entrega, datetime.min.time()),
+                    fornecedor=f"PNAE: {contrato.agricultor.razao_social}",
+                    lote=f"CONT-{contrato.numero_contrato}",
+                    usuario_responsavel=session.get('username')
+                )
+                db.session.add(movimento)
+
         if not lista_itens_entrega:
             flash('Informe a quantidade de pelo menos um item.', 'warning')
             return redirect(url_for('merenda.gerenciar_contrato_pnae', contrato_id=contrato.id))
@@ -959,7 +984,7 @@ def registrar_entrega_pnae(contrato_id):
             contrato_id=contrato.id,
             data_entrega=data_entrega,
             numero_nota_fiscal=nota_fiscal,
-            recibo_filename=filename_nf, # Salva o nome do arquivo aqui
+            recibo_filename=link_nf, # Agora salva o LINK do Supabase aqui
             responsavel_recebimento=session.get('username'),
             status='Aprovado',
             valor_total=valor_total_entrega,
@@ -969,7 +994,7 @@ def registrar_entrega_pnae(contrato_id):
         db.session.add(nova_entrega)
         db.session.commit()
         
-        flash('Entrega registrada com sucesso!', 'success')
+        flash('Entrega registrada e arquivo salvo na nuvem com sucesso!', 'success')
         
     except Exception as e:
         db.session.rollback()

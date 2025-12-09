@@ -106,7 +106,8 @@
                         <th>Valor (R$)</th>
                         <th>Responsável</th>
                         <th>Status</th>
-                        <th class="text-center">Ações</th> </tr>
+                        <th class="text-center">Ações</th>
+                    </tr>
                 </thead>
                 <tbody>
                     {% for entrega in contrato.entregas|sort(attribute='data_entrega', reverse=True) %}
@@ -114,10 +115,17 @@
                         <td>{{ entrega.data_entrega.strftime('%d/%m/%Y') }}</td>
                         <td>
                             {{ entrega.numero_nota_fiscal or 'S/N' }}
+                            
                             {% if entrega.recibo_filename %}
-                                <a href="{{ url_for('uploaded_file', filename='pnae_notas/' + entrega.recibo_filename) }}" target="_blank" class="text-danger ms-2 text-decoration-none" title="Ver Comprovante">
-                                    <i class="bi bi-file-earmark-pdf-fill"></i> Ver Anexo
-                                </a>
+                                {% if 'http' in entrega.recibo_filename %}
+                                    <a href="{{ entrega.recibo_filename }}" target="_blank" class="text-success ms-2 text-decoration-none fw-bold" title="Ver Comprovante na Nuvem">
+                                        <i class="bi bi-cloud-arrow-down-fill"></i> Ver Anexo
+                                    </a>
+                                {% else %}
+                                    <a href="{{ url_for('uploaded_file', filename='pnae_notas/' + entrega.recibo_filename) }}" target="_blank" class="text-muted ms-2 text-decoration-none" title="Arquivo Local (Pode não estar disponível)">
+                                        <i class="bi bi-file-earmark"></i> Anexo Local
+                                    </a>
+                                {% endif %}
                             {% endif %}
                         </td>
                         <td>{{ entrega.valor_total | currency_br }}</td>

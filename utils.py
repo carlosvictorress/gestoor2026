@@ -43,12 +43,14 @@ def gerar_codigo_validade(cpf_servidor, num_vinculo, nome_secretaria):
 
 
 def currency_filter_br(value):
-    """Formata um valor float para a moeda brasileira (R$ 1.000.000,00)."""
+    """Formata valor float para moeda brasileira R$ 1.234,56 sem depender do locale do SO."""
     if value is None:
-        return "0,00"
-    # Usa a formatação de moeda do locale
-    # O False no final significa que não deve incluir o símbolo da moeda (R$)
-    return locale.currency(value, grouping=True, symbol=False).strip()
+        value = 0.0
+    try:
+        # Formata com 2 casas decimais, troca ponto por vírgula e milhar por ponto
+        return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except:
+        return f"{value}"
 
 def registrar_log(action):
     """Registra uma ação no banco de dados."""

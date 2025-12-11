@@ -24,7 +24,7 @@ from reportlab.lib.styles import getSampleStyleSheet # (Você já deve ter)
 from reportlab.lib import colors # (Você já deve ter)
 from reportlab.lib.units import cm # (Você já deve ter)
 from utils import cabecalho_e_rodape # (Você já deve ter)
-from utils import currency_filter_br
+from utils import currency_filter_br, upload_arquivo_para_nuvem
 
 from flask_mail import Message # Adicione esta
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature # Adicione esta
@@ -1479,21 +1479,25 @@ def upload_documento(servidor_id):
 
     if file:
         try:
-            filename = str(uuid.uuid4().hex) + "_" + secure_filename(file.filename)
-            upload_path = os.path.join(app.config["UPLOAD_FOLDER"], "documentos")
-            os.makedirs(upload_path, exist_ok=True)
-            file.save(os.path.join(upload_path, filename))
+            # --- UPLOAD PARA SUPABASE ---
+            # Envia para a pasta 'documentos_servidores' no Supabase
+            url_doc = upload_arquivo_para_nuvem(file, pasta="documentos_servidores")
+            
+            if url_doc:
+                # Salva o LINK DA NUVEM no banco, em vez do nome do arquivo
+                novo_documento = Documento(
+                    filename=url_doc, 
+                    description=description, 
+                    servidor_id=servidor_id
+                )
+                db.session.add(novo_documento)
+                db.session.commit()
 
-            novo_documento = Documento(
-                filename=filename, description=description, servidor_id=servidor_id
-            )
-            db.session.add(novo_documento)
-            db.session.commit()
+                registrar_log(f'Anexou o documento "{description}" para o servidor "{servidor.nome}".')
+                flash("Documento anexado na nuvem com sucesso!", "success")
+            else:
+                flash("Erro ao enviar documento para a nuvem.", "danger")
 
-            registrar_log(
-                f'Anexou o documento "{description}" para o servidor "{servidor.nome}".'
-            )
-            flash("Documento anexado com sucesso!", "success")
         except Exception as e:
             db.session.rollback()
             flash(f"Erro ao anexar documento: {e}", "danger")
@@ -2021,50 +2025,32 @@ def detalhes_veiculo(placa):
 @role_required("RH", "admin")
 def add_server():
     try:
-        # --- A LÓGICA CRUCIAL ADICIONADA AQUI ---
-        # Pega o ID da secretaria do usuário que está logado na sessão
         secretaria_id_do_usuario = session.get("secretaria_id")
-
-        # Se por algum motivo não encontrar o ID na sessão, impede o cadastro
         if not secretaria_id_do_usuario:
-            flash(
-                "Erro de sessão. Não foi possível identificar sua secretaria. Por favor, faça login novamente.",
-                "danger",
-            )
+            flash("Erro de sessão. Não foi possível identificar sua secretaria. Por favor, faça login novamente.", "danger")
             return redirect(url_for("lista_servidores"))
 
-        # (O resto do seu código para pegar foto, datas, etc., continua igual)
+        # --- Lógica de Foto (Supabase) ---
         foto = request.files.get("foto")
         foto_filename = None
+        
         if foto and foto.filename != "":
-            foto_filename = secure_filename(foto.filename)
-            foto.save(os.path.join(app.config["UPLOAD_FOLDER"], foto_filename))
+            # Envia para a pasta 'fotos_servidores'
+            url_foto = upload_arquivo_para_nuvem(foto, pasta="fotos_servidores")
+            if url_foto:
+                foto_filename = url_foto # Salva o link completo
 
+        # --- Restante dos dados (Igual ao original) ---
         data_inicio_str = request.form.get("data_inicio")
         data_saida_str = request.form.get("data_saida")
         data_nascimento_str = request.form.get("data_nascimento")
-        data_inicio_obj = (
-            datetime.strptime(data_inicio_str, "%Y-%m-%d").date()
-            if data_inicio_str
-            else None
-        )
-        data_saida_obj = (
-            datetime.strptime(data_saida_str, "%Y-%m-%d").date()
-            if data_saida_str
-            else None
-        )
-        data_nascimento_obj = (
-            datetime.strptime(data_nascimento_str, "%Y-%m-%d").date()
-            if data_nascimento_str
-            else None
-        )
-
+        data_inicio_obj = (datetime.strptime(data_inicio_str, "%Y-%m-%d").date() if data_inicio_str else None)
+        data_saida_obj = (datetime.strptime(data_saida_str, "%Y-%m-%d").date() if data_saida_str else None)
+        data_nascimento_obj = (datetime.strptime(data_nascimento_str, "%Y-%m-%d").date() if data_nascimento_str else None)
         cpf_limpo = limpar_cpf(request.form.get("cpf"))
-        remuneracao_str = (
-            request.form.get("remuneracao", "0").replace(".", "").replace(",", ".")
-        )
+        remuneracao_str = (request.form.get("remuneracao", "0").replace(".", "").replace(",", "."))
         remuneracao_val = float(remuneracao_str) if remuneracao_str else 0.0
-
+        
         novo_servidor = Servidor(
             num_contrato=request.form.get("num_contrato"),
             nome=request.form.get("nome"),
@@ -2090,15 +2076,12 @@ def add_server():
             data_inicio=data_inicio_obj,
             data_saida=data_saida_obj,
             observacoes=request.form.get("observacoes"),
-            foto_filename=foto_filename,
-            # Vincula o novo servidor à secretaria do usuário que o cadastrou
+            foto_filename=foto_filename, # Aqui vai o link do Supabase
             secretaria_id=secretaria_id_do_usuario,
         )
         db.session.add(novo_servidor)
         db.session.commit()
-        registrar_log(
-            f'Cadastrou o servidor: "{novo_servidor.nome}" (Vínculo: {novo_servidor.num_contrato}).'
-        )
+        registrar_log(f'Cadastrou o servidor: "{novo_servidor.nome}" (Vínculo: {novo_servidor.num_contrato}).')
         flash("Servidor cadastrado com sucesso!", "success")
     except Exception as e:
         db.session.rollback()
@@ -2106,58 +2089,51 @@ def add_server():
         flash(f"Erro ao cadastrar servidor: {e}", "danger")
     return redirect(url_for("lista_servidores"))
 
-# Em app.py
-# (Lembre-se de ter 'from .utils import gerar_encoding_facial' no topo do app.py)
-
-# Em app.py
-# (Lembre-se de ter 'from .utils import gerar_encoding_facial' no topo do app.py)
-
 @app.route("/editar/<path:id>", methods=["GET", "POST"])
 @login_required
 @role_required("RH", "admin")
 def editar_servidor(id):
     servidor = Servidor.query.get_or_404(id)
-    # Busca todas as secretarias para popular o dropdown
     secretarias = Secretaria.query.order_by(Secretaria.nome).all()
-
-    # --- Bloco POST Unificado ---
+    
     if request.method == "POST":
-        # O 'try' começa AQUI (indentado com 4 espaços)
         try:
+            # --- NOVA LÓGICA HÍBRIDA (Nuvem + Local Temp para Reconhecimento) ---
+            foto = request.files.get("foto")
             
-            ### INÍCIO DA NOVA LÓGICA DE FOTO E ENCODING ### (8 espaços)
-            
-            # Verifica se um novo arquivo de foto foi enviado no formulário
-            foto = request.files.get("foto") # (12 espaços)
             if foto and foto.filename != "":
-                # 1. Salva a nova foto (como seu código já fazia)
-                foto_filename = secure_filename(foto.filename)
-                # Garante que a pasta de uploads exista
-                os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
-                caminho_para_salvar = os.path.join(app.config["UPLOAD_FOLDER"], foto_filename)
-                foto.save(caminho_para_salvar)
+                # 1. Envia a foto oficial para a NUVEM (Supabase)
+                url_foto = upload_arquivo_para_nuvem(foto, pasta="fotos_servidores")
                 
-                # 2. Gera o encoding a partir da foto recém-salva
-                encoding_str, msg = gerar_encoding_facial(caminho_para_salvar)
+                # 2. Salva uma cópia temporária LOCAL apenas para ler o rosto
+                # (A biblioteca face_recognition precisa ler do disco)
+                foto_temp_name = secure_filename(foto.filename)
+                caminho_temp = os.path.join(app.config["UPLOAD_FOLDER"], foto_temp_name)
+                
+                # Reseta o ponteiro do arquivo para o início para salvar de novo
+                foto.seek(0) 
+                foto.save(caminho_temp)
+                
+                # 3. Gera o código facial (encoding) usando o arquivo temporário
+                encoding_str, msg = gerar_encoding_facial(caminho_temp)
+                
+                # 4. Apaga o arquivo temporário local (limpa o servidor)
+                if os.path.exists(caminho_temp):
+                    os.remove(caminho_temp)
+                
+                # 5. Atualiza o banco
+                if url_foto:
+                    servidor.foto_filename = url_foto # Salva o Link
                 
                 if encoding_str:
-                    # 3. Atualiza o encoding e o nome do arquivo no servidor
-                    servidor.foto_filename = foto_filename
                     servidor.face_encoding = encoding_str
-                    flash(f"Foto de perfil atualizada e rosto cadastrado com sucesso! {msg}", "success")
+                    flash(f"Foto atualizada na nuvem e rosto cadastrado! {msg}", "success")
                 else:
-                    # Se não achou um rosto, salva a foto mas avisa o admin
-                    servidor.foto_filename = foto_filename
-                    servidor.face_encoding = None # Limpa o encoding antigo
-                    flash(f"Foto salva, mas não foi possível gerar o cadastro facial: {msg}. Tente uma foto melhor.", "warning")
-            
-            ### FIM DA NOVA LÓGICA DE FOTO E ENCODING ### (8 espaços)
-            
-            
-            # Atualiza a secretaria (12 espaços)
-            servidor.secretaria_id = request.form.get("secretaria_id", type=int)
+                    servidor.face_encoding = None 
+                    flash(f"Foto salva na nuvem, mas falha no reconhecimento facial: {msg}", "warning")
 
-            # Atualiza TODOS os outros campos do servidor (lógica do seu código original)
+            # --- Atualiza o resto dos dados (Normal) ---
+            servidor.secretaria_id = request.form.get("secretaria_id", type=int)
             servidor.nome = request.form.get("nome")
             servidor.cpf = limpar_cpf(request.form.get("cpf"))
             servidor.rg = request.form.get("rg")
@@ -2177,47 +2153,26 @@ def editar_servidor(id):
             servidor.carga_horaria = request.form.get("carga_horaria")
             servidor.dados_bancarios = request.form.get("dados_bancarios")
             servidor.observacoes = request.form.get("observacoes")
-
-            # Converte e atualiza a remuneração
-            remuneracao_str = (
-                request.form.get("remuneracao", "0").replace(".", "").replace(",", ".")
-            )
+            
+            remuneracao_str = (request.form.get("remuneracao", "0").replace(".", "").replace(",", "."))
             servidor.remuneracao = float(remuneracao_str) if remuneracao_str else 0.0
-
-            # Converte e atualiza as datas
+            
             data_inicio_str = request.form.get("data_inicio")
             data_saida_str = request.form.get("data_saida")
             data_nascimento_str = request.form.get("data_nascimento") 
-
-            servidor.data_inicio = (
-                datetime.strptime(data_inicio_str, "%Y-%m-%d").date()
-                if data_inicio_str
-                else None
-            )
-            servidor.data_saida = (
-                datetime.strptime(data_saida_str, "%Y-%m-%d").date()
-                if data_saida_str
-                else None
-            )
-            servidor.data_nascimento = (
-                datetime.strptime(data_nascimento_str, "%Y-%m-%d").date()
-                if data_nascimento_str
-                else servidor.data_nascimento 
-            )
-
-            # --- Salva tudo de uma vez ---
+            
+            servidor.data_inicio = (datetime.strptime(data_inicio_str, "%Y-%m-%d").date() if data_inicio_str else None)
+            servidor.data_saida = (datetime.strptime(data_saida_str, "%Y-%m-%d").date() if data_saida_str else None)
+            servidor.data_nascimento = (datetime.strptime(data_nascimento_str, "%Y-%m-%d").date() if data_nascimento_str else servidor.data_nascimento)
+            
             db.session.commit()
-
             return redirect(url_for("lista_servidores"))
-
-        # O 'except' fica no mesmo nível do 'try' (8 espaços)
+            
         except Exception as e:
             db.session.rollback()
             flash(f"Erro ao atualizar servidor: {e}", "danger")
-            # Redireciona de volta para a página de edição em caso de erro
             return redirect(url_for("editar_servidor", id=id))
-
-    # --- Lógica para carregar a página (GET) --- (4 espaços)
+            
     return render_template("editar.html", servidor=servidor, secretarias=secretarias)
 
 @app.route('/uploads/<path:filename>')

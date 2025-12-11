@@ -1,4 +1,4 @@
-# Arquivo: caee_routes.py (VERSÃO FINAL COMPLETA)
+# Arquivo: caee_routes.py (ATUALIZADO PARA SUPABASE)
 
 import os 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, send_from_directory, make_response
@@ -7,7 +7,8 @@ from models import (
     CaeeSessao, CaeeLaudo, CaeeRelatorioPeriodico, CaeeLinhaTempo
 )
 from extensions import db
-from utils import login_required, role_required
+# --- IMPORTANTE: Adicionado upload_arquivo_para_nuvem ---
+from utils import login_required, role_required, cabecalho_e_rodape, upload_arquivo_para_nuvem
 from datetime import datetime
 from werkzeug.utils import secure_filename
 import io
@@ -18,7 +19,6 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import cm
-from utils import cabecalho_e_rodape
 from sqlalchemy import or_
 
 caee_bp = Blueprint('caee', __name__, url_prefix='/caee')
@@ -32,17 +32,12 @@ caee_bp = Blueprint('caee', __name__, url_prefix='/caee')
 @role_required('admin', 'RH', 'CAEE')
 def dashboard():
     secretaria_id_logada = session.get('secretaria_id')
-    
-    # --- ESTATÍSTICAS (Mantém igual) ---
     alunos_ativos = CaeeAluno.query.filter_by(secretaria_id=secretaria_id_logada, status='Ativo').count()
     alunos_em_espera = CaeeAluno.query.filter_by(secretaria_id=secretaria_id_logada, status='Fila de Espera').count()
     profissionais_ativos = CaeeProfissional.query.filter_by(secretaria_id=secretaria_id_logada, status='Ativo').count()
     
-    # --- LÓGICA DE BUSCA (NOVA) ---
     termo = request.args.get('termo')
-    
     if termo:
-        # Se tem busca, procura por Nome OU CPF
         alunos_listados = CaeeAluno.query.filter(
             CaeeAluno.secretaria_id == secretaria_id_logada,
             or_(
@@ -50,14 +45,11 @@ def dashboard():
                 CaeeAluno.cpf.ilike(f"%{termo}%")
             )
         ).order_by(CaeeAluno.nome_completo).all()
-        
         titulo_tabela = f"Resultados da busca por: '{termo}'"
     else:
-        # Se NÃO tem busca, mostra os últimos 5 (padrão)
         alunos_listados = CaeeAluno.query.filter_by(secretaria_id=secretaria_id_logada)\
             .order_by(CaeeAluno.data_cadastro.desc())\
             .limit(5).all()
-            
         titulo_tabela = "Últimos Alunos Cadastrados"
 
     return render_template(
@@ -65,8 +57,8 @@ def dashboard():
         alunos_ativos=alunos_ativos,
         alunos_em_espera=alunos_em_espera,
         profissionais_ativos=profissionais_ativos,
-        ultimos_alunos=alunos_listados, # Enviamos a lista (seja busca ou últimos 5) nesta variável
-        titulo_tabela=titulo_tabela     # Enviamos o título dinâmico
+        ultimos_alunos=alunos_listados,
+        titulo_tabela=titulo_tabela
     )
 
 @caee_bp.route('/aluno/novo', methods=['GET', 'POST'])
@@ -94,9 +86,8 @@ def adicionar_aluno():
                 necessidade_especifica=request.form.get('necessidade_especifica')
             )
             db.session.add(novo_aluno)
-            db.session.flush() # Gera o ID
+            db.session.flush() 
             
-            # Evento inicial na Linha do Tempo
             evento = CaeeLinhaTempo(
                 aluno_id=novo_aluno.id,
                 etapa="Cadastro Inicial",
@@ -150,13 +141,9 @@ def editar_aluno(aluno_id):
 @role_required('admin', 'RH', 'CAEE')
 def prontuario_aluno(aluno_id):
     aluno = CaeeAluno.query.get_or_404(aluno_id)
-    
-    # Busca lista de planos, linha do tempo e sessões
     planos = aluno.planos 
     linha_tempo = CaeeLinhaTempo.query.filter_by(aluno_id=aluno.id).order_by(CaeeLinhaTempo.data_evento.desc()).all()
     sessoes = CaeeSessao.query.join(CaeePlanoAtendimento).filter(CaeePlanoAtendimento.aluno_id == aluno.id).order_by(CaeeSessao.data_sessao.desc()).all()
-
-    # Para o modal de encaminhamento
     secretaria_id_logada = session.get('secretaria_id')
     profissionais = CaeeProfissional.query.filter_by(secretaria_id=secretaria_id_logada, status='Ativo').all()
 
@@ -177,7 +164,6 @@ def novo_plano(aluno_id):
         try:
             pid = request.form.get('profissional_id', type=int)
             plano_existente = CaeePlanoAtendimento.query.filter_by(aluno_id=aluno_id, profissional_id=pid, status_plano='Ativo').first()
-            
             if plano_existente:
                 flash('Já existe um plano ativo para este profissional.', 'warning')
                 return redirect(url_for('caee.prontuario_aluno', aluno_id=aluno_id))
@@ -194,7 +180,6 @@ def novo_plano(aluno_id):
             )
             db.session.add(novo)
             
-            # Registra na Linha do Tempo
             prof = CaeeProfissional.query.get(pid)
             evento = CaeeLinhaTempo(
                 aluno_id=aluno_id,
@@ -204,7 +189,6 @@ def novo_plano(aluno_id):
                 observacao=f"Plano criado para {prof.nome_completo}"
             )
             db.session.add(evento)
-            
             db.session.commit()
             flash('Novo Plano (PAI) criado!', 'success')
             return redirect(url_for('caee.prontuario_aluno', aluno_id=aluno_id))
@@ -249,7 +233,6 @@ def encaminhar_aluno(aluno_id):
         dest_id = request.form.get('profissional_destino_id', type=int)
         etapa = request.form.get('etapa')
         obs = request.form.get('observacao')
-        
         novo = CaeeLinhaTempo(
             aluno_id=aluno_id,
             etapa=etapa,
@@ -324,7 +307,7 @@ def editar_profissional(profissional_id):
     return render_template('caee_profissional_form.html', profissional=profissional)
 
 # ==========================================================
-# 4. SESSÕES E LAUDOS
+# 4. SESSÕES E LAUDOS (COM UPLOAD SUPABASE)
 # ==========================================================
 
 @caee_bp.route('/plano/<int:plano_id>/sessao/nova', methods=['POST'])
@@ -387,39 +370,56 @@ def excluir_sessao(sessao_id):
     return redirect(url_for('caee.prontuario_aluno', aluno_id=aid))
 
 def _get_laudos_path():
+    """Retorna caminho local apenas para fallback de arquivos antigos"""
     return os.path.join(current_app.config['UPLOAD_FOLDER'], 'caee_laudos')
 
 @caee_bp.route('/aluno/<int:aluno_id>/laudo/upload', methods=['POST'])
 @login_required
 @role_required('admin', 'RH', 'CAEE')
 def upload_laudo(aluno_id):
-    if 'laudo_file' not in request.files: return redirect(url_for('caee.prontuario_aluno', aluno_id=aluno_id))
+    if 'laudo_file' not in request.files:
+        return redirect(url_for('caee.prontuario_aluno', aluno_id=aluno_id))
+    
     file = request.files['laudo_file']
-    if file.filename == '': return redirect(url_for('caee.prontuario_aluno', aluno_id=aluno_id))
+    if file.filename == '':
+        return redirect(url_for('caee.prontuario_aluno', aluno_id=aluno_id))
+        
     if file:
         try:
-            fname = secure_filename(file.filename)
-            ext = fname.rsplit('.', 1)[-1].lower() if '.' in fname else ''
-            fsecure = f"{aluno_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.{ext}"
-            path = _get_laudos_path()
-            os.makedirs(path, exist_ok=True)
-            file.save(os.path.join(path, fsecure))
-            novo = CaeeLaudo(
-                aluno_id=aluno_id, nome_original=fname, filename_seguro=fsecure,
-                descricao=request.form.get('descricao', 'Sem descrição'),
-                uploader_nome=session.get('username', 'Sistema')
-            )
-            db.session.add(novo)
-            db.session.commit()
-            flash('Laudo anexado!', 'success')
+            # --- UPLOAD PARA SUPABASE ---
+            url_laudo = upload_arquivo_para_nuvem(file, pasta="caee_laudos")
+            
+            if url_laudo:
+                fname = secure_filename(file.filename)
+                
+                novo = CaeeLaudo(
+                    aluno_id=aluno_id, 
+                    nome_original=fname, 
+                    filename_seguro=url_laudo, # Salva o Link
+                    descricao=request.form.get('descricao', 'Sem descrição'),
+                    uploader_nome=session.get('username', 'Sistema')
+                )
+                db.session.add(novo)
+                db.session.commit()
+                flash('Laudo anexado na nuvem!', 'success')
+            else:
+                flash('Erro ao enviar laudo para a nuvem.', 'danger')
+                
         except Exception as e:
             flash(f'Erro: {e}', 'danger')
+            
     return redirect(url_for('caee.prontuario_aluno', aluno_id=aluno_id))
 
 @caee_bp.route('/laudo/<int:laudo_id>/download')
 @login_required
 def download_laudo(laudo_id):
     laudo = CaeeLaudo.query.get_or_404(laudo_id)
+    
+    # 1. Verifica se é link da nuvem
+    if laudo.filename_seguro and laudo.filename_seguro.startswith('http'):
+        return redirect(laudo.filename_seguro)
+        
+    # 2. Fallback para arquivos locais
     return send_from_directory(_get_laudos_path(), laudo.filename_seguro, as_attachment=True, download_name=laudo.nome_original)
 
 @caee_bp.route('/laudo/<int:laudo_id>/excluir')
@@ -429,8 +429,11 @@ def excluir_laudo(laudo_id):
     laudo = CaeeLaudo.query.get_or_404(laudo_id)
     aid = laudo.aluno_id
     try:
-        path = os.path.join(_get_laudos_path(), laudo.filename_seguro)
-        if os.path.exists(path): os.remove(path)
+        # Só apaga do disco se for arquivo local
+        if laudo.filename_seguro and not laudo.filename_seguro.startswith('http'):
+            path = os.path.join(_get_laudos_path(), laudo.filename_seguro)
+            if os.path.exists(path): os.remove(path)
+            
         db.session.delete(laudo)
         db.session.commit()
         flash('Laudo excluído.', 'success')
@@ -439,7 +442,7 @@ def excluir_laudo(laudo_id):
     return redirect(url_for('caee.prontuario_aluno', aluno_id=aid))
 
 # ==========================================================
-# 5. RELATÓRIOS PERIÓDICOS E OFICIAIS (REQ #2 e #6)
+# 5. RELATÓRIOS E OUTRAS ROTAS (MANTIDAS IGUAIS)
 # ==========================================================
 
 @caee_bp.route('/aluno/<int:aluno_id>/relatorio/novo', methods=['GET', 'POST'])
@@ -608,7 +611,6 @@ def editar_evento_linha_tempo(evento_id):
         evento.observacao = request.form.get('observacao')
         evento.status = request.form.get('status')
         
-        # Se quiser mudar o profissional (opcional)
         dest_id = request.form.get('profissional_destino_id', type=int)
         if dest_id:
             evento.profissional_destino_id = dest_id

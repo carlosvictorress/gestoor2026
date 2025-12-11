@@ -809,28 +809,42 @@ def listar_agricultores():
 def novo_agricultor():
     if request.method == 'POST':
         try:
-            # Captura dados básicos (resumo)
+            # 1. Cria o objeto Agricultor com os dados do formulário
             novo = AgricultorFamiliar(
                 tipo_fornecedor=request.form.get('tipo_fornecedor'),
                 razao_social=request.form.get('razao_social'),
                 cpf_cnpj=limpar_cpf(request.form.get('cpf_cnpj')),
                 dap_caf_numero=request.form.get('dap_caf_numero'),
                 zona=request.form.get('zona'),
-                # ... (Preencher todos os outros campos do form)
+                # Adicionei campos comuns que geralmente existem no form
+                telefone=request.form.get('telefone'),
+                endereco_completo=request.form.get('endereco') 
             )
             
-            # Tratamento de Uploads de Documentos (Exemplo simplificado)
+            db.session.add(novo)
+            db.session.flush() # Importante: Gera o ID do agricultor antes de salvar os documentos
+
+            # 2. Tratamento de Uploads para o Supabase (CORRIGIDO)
             if 'comprovante_residencia' in request.files:
                 file = request.files['comprovante_residencia']
-                if file.filename != '':
-                    filename = secure_filename(file.filename)
-                    file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], 'pnae', filename))
-                    # Criar registro em DocumentoAgricultor...
+                if file and file.filename != '':
+                    # Envia para o Supabase
+                    url_doc = upload_arquivo_para_nuvem(file, pasta="pnae_documentos")
+                    
+                    if url_doc:
+                        # Cria o registro na tabela de documentos
+                        # Nota: Certifique-se que o modelo DocumentoAgricultor tem esses campos
+                        novo_doc = DocumentoAgricultor(
+                            agricultor_id=novo.id,
+                            tipo_documento="Comprovante de Residência",
+                            filename=url_doc  # Salva o Link da Nuvem
+                        )
+                        db.session.add(novo_doc)
 
-            db.session.add(novo)
             db.session.commit()
             flash('Agricultor cadastrado com sucesso!', 'success')
             return redirect(url_for('merenda.agricultura_dashboard'))
+            
         except Exception as e:
             db.session.rollback()
             flash(f'Erro ao cadastrar: {e}', 'danger')

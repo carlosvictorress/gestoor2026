@@ -5,14 +5,11 @@ from werkzeug.utils import secure_filename
 import os
 import uuid
 from datetime import datetime
-from utils import role_required
-
 from extensions import db, bcrypt
-# IMPORTAÇÃO CORRIGIDA
 from models import Motorista, DocumentoMotorista
-from utils import login_required, registrar_log, fleet_required
+# --- IMPORTANTE: Adicionado upload_arquivo_para_nuvem ---
+from utils import login_required, registrar_log, fleet_required, role_required, upload_arquivo_para_nuvem
 
-# BLUEPRINT CORRIGIDO
 motoristas_bp = Blueprint('motoristas', __name__, url_prefix='/motoristas')
 
 @motoristas_bp.route('/')
@@ -21,7 +18,6 @@ motoristas_bp = Blueprint('motoristas', __name__, url_prefix='/motoristas')
 @role_required('RH', 'admin', 'Combustivel')
 def listar():
     motoristas = Motorista.query.order_by(Motorista.nome).all()
-    # Template folder corrigido
     return render_template('motoristas/lista.html', motoristas=motoristas, hoje=datetime.now().date())
 
 @motoristas_bp.route('/novo', methods=['GET', 'POST'])
@@ -71,11 +67,9 @@ def detalhes(motorista_id):
     
     if request.method == 'POST':
         try:
-            # Pega a data e converte para o formato de objeto Date
             validade_str = request.form.get('cnh_validade')
             motorista.cnh_validade = datetime.strptime(validade_str, '%Y-%m-%d').date() if validade_str else None
             
-            # Atualiza todos os outros campos
             motorista.tipo_vinculo = request.form.get('tipo_vinculo')
             motorista.secretaria = request.form.get('secretaria')
             motorista.nome = request.form.get('nome')
@@ -88,25 +82,21 @@ def detalhes(motorista_id):
             motorista.rota_descricao = request.form.get('rota_descricao')
             motorista.turno = request.form.get('turno')
             motorista.veiculo_modelo = request.form.get('veiculo_modelo')
-            # Garante que o ano seja um número ou None
+            
             ano_veiculo = request.form.get('veiculo_ano')
             motorista.veiculo_ano = int(ano_veiculo) if ano_veiculo else None
             motorista.veiculo_placa = request.form.get('veiculo_placa')
 
-            # Confirma a transação no banco de dados
             db.session.commit()
             
             registrar_log(f'Editou os dados do motorista: "{motorista.nome}".')
             flash('Dados atualizados com sucesso!', 'success')
-            
-            # Redireciona para a mesma página para ver as alterações
             return redirect(url_for('motoristas.detalhes', motorista_id=motorista.id))
             
         except Exception as e:
-            db.session.rollback() # Desfaz a transação em caso de erro
+            db.session.rollback()
             flash(f'Erro ao atualizar dados: {e}', 'danger')
             
-    # Para o método GET, apenas renderiza a página
     return render_template('motoristas/detalhes.html', motorista=motorista)
 
 
@@ -118,26 +108,34 @@ def upload_documento(motorista_id):
     motorista = Motorista.query.get_or_404(motorista_id)
     file = request.files.get('documento')
     tipo_documento = request.form.get('tipo_documento')
+    
     if not file or file.filename == '' or not tipo_documento:
         flash('O tipo de documento e o arquivo são obrigatórios.', 'warning')
         return redirect(url_for('motoristas.detalhes', motorista_id=motorista.id))
+    
     try:
-        filename = str(uuid.uuid4().hex) + '_' + secure_filename(file.filename)
-        upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'documentos_terceirizados')
-        os.makedirs(upload_path, exist_ok=True)
-        file.save(os.path.join(upload_path, filename))
-        novo_doc = DocumentoMotorista(
-            motorista_id=motorista_id,
-            tipo_documento=tipo_documento,
-            filename=filename
-        )
-        db.session.add(novo_doc)
-        db.session.commit()
-        registrar_log(f'Anexou o documento "{tipo_documento}" para o motorista "{motorista.nome}".')
-        flash(f'Documento "{tipo_documento}" anexado com sucesso!', 'success')
+        # --- UPLOAD PARA SUPABASE ---
+        # Envia para a pasta 'documentos_terceirizados'
+        url_doc = upload_arquivo_para_nuvem(file, pasta="documentos_terceirizados")
+        
+        if url_doc:
+            novo_doc = DocumentoMotorista(
+                motorista_id=motorista_id,
+                tipo_documento=tipo_documento,
+                filename=url_doc # Salva o LINK COMPLETO
+            )
+            db.session.add(novo_doc)
+            db.session.commit()
+            
+            registrar_log(f'Anexou o documento "{tipo_documento}" para o motorista "{motorista.nome}".')
+            flash(f'Documento "{tipo_documento}" anexado na nuvem com sucesso!', 'success')
+        else:
+            flash('Erro ao enviar documento para a nuvem (Supabase).', 'danger')
+            
     except Exception as e:
         db.session.rollback()
         flash(f'Erro ao anexar documento: {e}', 'danger')
+        
     return redirect(url_for('motoristas.detalhes', motorista_id=motorista.id))
 
 
@@ -147,8 +145,18 @@ def upload_documento(motorista_id):
 @role_required('RH', 'admin', 'Combustivel')
 def download_documento(doc_id):
     documento = DocumentoMotorista.query.get_or_404(doc_id)
-    docs_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'documentos_terceirizados')
-    return send_from_directory(docs_folder, documento.filename, as_attachment=True)
+    
+    # 1. Se for link do Supabase, redireciona
+    if documento.filename and documento.filename.startswith('http'):
+        return redirect(documento.filename)
+    
+    # 2. Fallback para arquivos locais antigos
+    try:
+        docs_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'documentos_terceirizados')
+        return send_from_directory(docs_folder, documento.filename, as_attachment=True)
+    except FileNotFoundError:
+        flash('Arquivo não encontrado.', 'danger')
+        return redirect(url_for('motoristas.detalhes', motorista_id=documento.motorista_id))
 
 
 @motoristas_bp.route('/documento/excluir/<int:doc_id>')
@@ -159,9 +167,12 @@ def excluir_documento(doc_id):
     documento = DocumentoMotorista.query.get_or_404(doc_id)
     motorista_id = documento.motorista_id
     try:
-        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'documentos_terceirizados', documento.filename)
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        # Só tenta excluir do disco local se NÃO for link da nuvem
+        if documento.filename and not documento.filename.startswith('http'):
+            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'documentos_terceirizados', documento.filename)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                
         db.session.delete(documento)
         db.session.commit()
         flash('Documento excluído com sucesso!', 'success')
@@ -178,16 +189,18 @@ def excluir_documento(doc_id):
 def excluir(motorista_id):
     motorista = Motorista.query.get_or_404(motorista_id)
     try:
-        # Exclui todos os documentos associados primeiro
+        # Exclui todos os documentos associados
         for doc in motorista.documentos:
             try:
-                file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'documentos_terceirizados', doc.filename)
-                if os.path.exists(file_path):
-                    os.remove(file_path)
+                # Remove arquivo local se existir e não for link
+                if doc.filename and not doc.filename.startswith('http'):
+                    file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'documentos_terceirizados', doc.filename)
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
             except Exception as e:
                 print(f"Erro ao remover arquivo físico do documento {doc.id}: {e}")
 
-        # Exclui o motorista (os documentos são excluídos em cascata)
+        # Exclui o motorista (os documentos são excluídos em cascata pelo banco)
         nome_motorista = motorista.nome
         db.session.delete(motorista)
         db.session.commit()
@@ -199,4 +212,4 @@ def excluir(motorista_id):
     except Exception as e:
         db.session.rollback()
         flash(f'Erro ao excluir motorista: {e}', 'danger')
-        return redirect(url_for('motoristas.detalhes', motorista_id=motorista_id))    
+        return redirect(url_for('motoristas.detalhes', motorista_id=motorista_id))

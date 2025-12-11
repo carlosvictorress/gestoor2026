@@ -771,17 +771,30 @@ def excluir_contrato(contrato_id):
 @login_required
 @role_required('admin', 'RH', 'Fiscal')
 def excluir_nota_fiscal(nf_id):
-    # (Mantido igual)
+    # Rastreamento no Log do Railway
+    print(f"--- TENTATIVA DE EXCLUIR NF ID: {nf_id} ---")
+    
     nf = FiscalNotaFiscal.query.get_or_404(nf_id)
-    cid = nf.contrato_id
+    contrato_id = nf.contrato_id
+    numero_nf = nf.numero_nf
+    
     try:
+        # Remove do banco
         db.session.delete(nf)
+        
+        # Força a gravação imediata
         db.session.commit()
-        flash('Nota Fiscal excluída.', 'success')
+        
+        print(f"--- SUCESSO: NF {numero_nf} EXCLUÍDA NO BANCO ---")
+        flash(f'Nota Fiscal {numero_nf} excluída definitivamente.', 'success')
+        
     except Exception as e:
+        # Se der erro, desfaz tudo e mostra no log
         db.session.rollback()
-        flash(f'Erro: {e}', 'danger')
-    return redirect(url_for('fiscal.detalhes_contrato', contrato_id=cid))
+        print(f"--- ERRO CRÍTICO AO EXCLUIR NF: {e} ---")
+        flash(f'Erro ao excluir Nota Fiscal: {e}', 'danger')
+        
+    return redirect(url_for('fiscal.detalhes_contrato', contrato_id=contrato_id))
 
 @contrato_fiscal_bp.route('/atesto/<int:atesto_id>/excluir', methods=['POST', 'GET'])
 @login_required

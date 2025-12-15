@@ -796,6 +796,103 @@ def agricultura_dashboard():
                            total_contratado=total_contratado,
                            meta_info=meta_info,
                            ano_atual=ano_atual)
+    
+@merenda_bp.route('/agricultura/fornecedores/editar/<int:agricultor_id>', methods=['GET', 'POST'])
+@login_required
+def editar_agricultor(agricultor_id):
+    agricultor = AgricultorFamiliar.query.get_or_404(agricultor_id)
+    
+    if request.method == 'POST':
+        try:
+            # Atualiza dados básicos
+            agricultor.tipo_fornecedor = request.form.get('tipo_fornecedor')
+            agricultor.razao_social = request.form.get('razao_social')
+            agricultor.cpf_cnpj = limpar_cpf(request.form.get('cpf_cnpj'))
+            agricultor.dap_caf_numero = request.form.get('dap_caf_numero')
+            agricultor.dap_caf_validade = datetime.strptime(request.form.get('dap_caf_validade'), '%Y-%m-%d').date() if request.form.get('dap_caf_validade') else None
+            agricultor.representante_nome = request.form.get('representante_nome')
+            agricultor.telefone = request.form.get('telefone')
+            agricultor.email = request.form.get('email')
+            
+            # Atualiza endereço
+            agricultor.zona = request.form.get('zona')
+            agricultor.comunidade = request.form.get('comunidade')
+            agricultor.endereco_completo = request.form.get('endereco_completo')
+            agricultor.descricao_propriedade = request.form.get('descricao_propriedade')
+            agricultor.latitude = request.form.get('latitude')
+            agricultor.longitude = request.form.get('longitude')
+            
+            # Atualiza Logística
+            agricultor.frequencia_entrega = request.form.get('frequencia_entrega')
+            agricultor.possui_transporte = True if request.form.get('possui_transporte') == '1' else False
+            agricultor.local_entrega_preferencia = request.form.get('local_entrega_preferencia')
+
+            # --- Tratamento de Uploads (Substituição ou Adição) ---
+            # Dicionário mapeando o nome do input HTML para o Tipo de Documento no banco
+            mapa_arquivos = {
+                'comprovante_residencia': 'Comprovante de Residência',
+                'projeto_venda': 'Projeto de Venda (PVAF)',
+                'cnd_federal': 'CND Federal',
+                'cnd_estadual': 'CND Estadual',
+                'cnd_municipal': 'CND Municipal'
+            }
+
+            for input_name, tipo_doc in mapa_arquivos.items():
+                file = request.files.get(input_name)
+                if file and file.filename != '':
+                    # Envia para o Supabase
+                    url_doc = upload_arquivo_para_nuvem(file, pasta="pnae_documentos")
+                    
+                    if url_doc:
+                        # Verifica se já existe esse tipo de documento para atualizar, ou cria novo
+                        doc_existente = DocumentoAgricultor.query.filter_by(agricultor_id=agricultor.id, tipo_documento=tipo_doc).first()
+                        
+                        if doc_existente:
+                            doc_existente.filename = url_doc # Atualiza o link
+                            doc_existente.data_upload = datetime.utcnow()
+                        else:
+                            novo_doc = DocumentoAgricultor(
+                                agricultor_id=agricultor.id,
+                                tipo_documento=tipo_doc,
+                                filename=url_doc
+                            )
+                            db.session.add(novo_doc)
+
+            db.session.commit()
+            flash('Dados do agricultor atualizados com sucesso!', 'success')
+            return redirect(url_for('merenda.listar_agricultores'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao atualizar: {e}', 'danger')
+            
+    # GET: Prepara dicionário de documentos existentes para mostrar no template
+    docs_existentes = {doc.tipo_documento: doc.filename for doc in agricultor.documentos}
+    
+    return render_template('merenda/agricultura/fornecedor_form.html', agricultor=agricultor, docs=docs_existentes)
+
+@merenda_bp.route('/agricultura/fornecedores/excluir/<int:agricultor_id>')
+@login_required
+def excluir_agricultor(agricultor_id):
+    agricultor = AgricultorFamiliar.query.get_or_404(agricultor_id)
+    
+    # Validação de Segurança: Não excluir se tiver contratos
+    if agricultor.contratos:
+        flash(f'Não é possível excluir o agricultor "{agricultor.razao_social}" pois ele possui contratos cadastrados. Exclua os contratos primeiro.', 'warning')
+        return redirect(url_for('merenda.listar_agricultores'))
+        
+    try:
+        # Excluir documentos do banco (os arquivos no Supabase permanecem por segurança ou podem ser excluídos via API se desejar)
+        DocumentoAgricultor.query.filter_by(agricultor_id=agricultor.id).delete()
+        
+        db.session.delete(agricultor)
+        db.session.commit()
+        flash('Agricultor excluído com sucesso.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao excluir agricultor: {e}', 'danger')
+        
+    return redirect(url_for('merenda.listar_agricultores'))    
 
 @merenda_bp.route('/agricultura/fornecedores')
 @login_required

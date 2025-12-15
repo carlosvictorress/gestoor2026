@@ -1,12 +1,17 @@
 {% extends 'base.html' %}
 
-{% block title %}Cadastro de Agricultor Familiar{% endblock %}
+{% block title %}{{ 'Editar' if agricultor else 'Cadastro de' }} Agricultor Familiar{% endblock %}
 
 {% block content %}
-<h2><i class="bi bi-person-lines-fill"></i> Cadastro PNAE - Agricultura Familiar</h2>
+<h2>
+    <i class="bi bi-person-lines-fill"></i> 
+    {{ 'Editar' if agricultor else 'Novo' }} Agricultor Familiar
+</h2>
 <hr>
 
-<form method="POST" enctype="multipart/form-data">
+<form method="POST" enctype="multipart/form-data" 
+      action="{{ url_for('merenda.editar_agricultor', agricultor_id=agricultor.id) if agricultor else url_for('merenda.novo_agricultor') }}">
+    
     <ul class="nav nav-tabs mb-3" id="pnaeTab" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="dados-tab" data-bs-toggle="tab" data-bs-target="#dados" type="button">1. Dados Gerais</button>
@@ -29,40 +34,40 @@
                 <div class="col-md-4">
                     <label class="form-label">Tipo de Fornecedor</label>
                     <select class="form-select" name="tipo_fornecedor" required>
-                        <option value="Individual">Agricultor Individual</option>
-                        <option value="Grupo Formal">Grupo Formal (Associação/Cooperativa)</option>
-                        <option value="Grupo Informal">Grupo Informal</option>
+                        <option value="Individual" {{ 'selected' if agricultor and agricultor.tipo_fornecedor == 'Individual' }}>Agricultor Individual</option>
+                        <option value="Grupo Formal" {{ 'selected' if agricultor and agricultor.tipo_fornecedor == 'Grupo Formal' }}>Grupo Formal (Associação/Cooperativa)</option>
+                        <option value="Grupo Informal" {{ 'selected' if agricultor and agricultor.tipo_fornecedor == 'Grupo Informal' }}>Grupo Informal</option>
                     </select>
                 </div>
                 <div class="col-md-8">
                     <label class="form-label">Nome Completo / Razão Social</label>
-                    <input type="text" class="form-control" name="razao_social" required>
+                    <input type="text" class="form-control" name="razao_social" required value="{{ agricultor.razao_social if agricultor else '' }}">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">CPF ou CNPJ</label>
-                    <input type="text" class="form-control" name="cpf_cnpj" required>
+                    <input type="text" class="form-control" name="cpf_cnpj" required value="{{ agricultor.cpf_cnpj if agricultor else '' }}">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">DAP / CAF (Número)</label>
-                    <input type="text" class="form-control" name="dap_caf_numero">
+                    <input type="text" class="form-control" name="dap_caf_numero" value="{{ agricultor.dap_caf_numero if agricultor else '' }}">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Validade DAP/CAF</label>
-                    <input type="date" class="form-control" name="dap_caf_validade">
+                    <input type="date" class="form-control" name="dap_caf_validade" value="{{ agricultor.dap_caf_validade.strftime('%Y-%m-%d') if agricultor and agricultor.dap_caf_validade else '' }}">
                 </div>
                 
                 <h5 class="mt-4 border-bottom pb-2">Contato & Representante</h5>
                 <div class="col-md-6">
                     <label class="form-label">Nome Representante Legal</label>
-                    <input type="text" class="form-control" name="representante_nome">
+                    <input type="text" class="form-control" name="representante_nome" value="{{ agricultor.representante_nome if agricultor else '' }}">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Telefone</label>
-                    <input type="text" class="form-control" name="telefone">
+                    <input type="text" class="form-control" name="telefone" value="{{ agricultor.telefone if agricultor else '' }}">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">E-mail</label>
-                    <input type="email" class="form-control" name="email">
+                    <input type="email" class="form-control" name="email" value="{{ agricultor.email if agricultor else '' }}">
                 </div>
             </div>
         </div>
@@ -72,60 +77,64 @@
                 <div class="col-md-3">
                     <label class="form-label">Zona</label>
                     <select class="form-select" name="zona">
-                        <option value="Rural">Rural</option>
-                        <option value="Urbana">Urbana</option>
+                        <option value="Rural" {{ 'selected' if agricultor and agricultor.zona == 'Rural' }}>Rural</option>
+                        <option value="Urbana" {{ 'selected' if agricultor and agricultor.zona == 'Urbana' }}>Urbana</option>
                     </select>
                 </div>
                 <div class="col-md-9">
                     <label class="form-label">Comunidade / Povoado</label>
-                    <input type="text" class="form-control" name="comunidade">
+                    <input type="text" class="form-control" name="comunidade" value="{{ agricultor.comunidade if agricultor else '' }}">
                 </div>
                 <div class="col-12">
                     <label class="form-label">Endereço Completo</label>
-                    <input type="text" class="form-control" name="endereco_completo">
+                    <input type="text" class="form-control" name="endereco_completo" value="{{ agricultor.endereco_completo if agricultor else '' }}">
                 </div>
                 <div class="col-12">
                     <label class="form-label">Descrição da Propriedade (Sítio, Fazenda...)</label>
-                    <textarea class="form-control" name="descricao_propriedade" rows="3"></textarea>
+                    <textarea class="form-control" name="descricao_propriedade" rows="3">{{ agricultor.descricao_propriedade if agricultor else '' }}</textarea>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Latitude</label>
-                    <input type="text" class="form-control" name="latitude">
+                    <input type="text" class="form-control" name="latitude" value="{{ agricultor.latitude if agricultor else '' }}">
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Longitude</label>
-                    <input type="text" class="form-control" name="longitude">
+                    <input type="text" class="form-control" name="longitude" value="{{ agricultor.longitude if agricultor else '' }}">
                 </div>
             </div>
         </div>
 
         <div class="tab-pane fade" id="docs" role="tabpanel">
             <div class="alert alert-info">
-                <i class="bi bi-info-circle"></i> Os arquivos anexados serão salvos no prontuário digital do agricultor.
+                <i class="bi bi-info-circle"></i> Os arquivos anexados serão salvos no prontuário digital (Supabase). Se reenviar, o arquivo anterior será substituído.
             </div>
             
+            {% macro doc_input(label, name, doc_type) %}
             <div class="mb-3">
-                <label class="form-label">Comprovante de Residência</label>
-                <input type="file" class="form-control" name="comprovante_residencia">
+                <label class="form-label">{{ label }}</label>
+                <div class="input-group">
+                    <input type="file" class="form-control" name="{{ name }}">
+                    {% if docs and docs.get(doc_type) %}
+                        <a href="{{ docs.get(doc_type) }}" target="_blank" class="btn btn-outline-success">
+                            <i class="bi bi-eye"></i> Ver Atual
+                        </a>
+                    {% endif %}
+                </div>
             </div>
-            
-            <div class="mb-3">
-                <label class="form-label">Projeto de Venda (PVAF)</label>
-                <input type="file" class="form-control" name="projeto_venda">
-            </div>
+            {% endmacro %}
+
+            {{ doc_input('Comprovante de Residência', 'comprovante_residencia', 'Comprovante de Residência') }}
+            {{ doc_input('Projeto de Venda (PVAF)', 'projeto_venda', 'Projeto de Venda (PVAF)') }}
 
             <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">CND Federal</label>
-                    <input type="file" class="form-control" name="cnd_federal">
+                <div class="col-md-4">
+                    {{ doc_input('CND Federal', 'cnd_federal', 'CND Federal') }}
                 </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">CND Estadual</label>
-                    <input type="file" class="form-control" name="cnd_estadual">
+                <div class="col-md-4">
+                    {{ doc_input('CND Estadual', 'cnd_estadual', 'CND Estadual') }}
                 </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">CND Municipal</label>
-                    <input type="file" class="form-control" name="cnd_municipal">
+                <div class="col-md-4">
+                    {{ doc_input('CND Municipal', 'cnd_municipal', 'CND Municipal') }}
                 </div>
             </div>
         </div>
@@ -134,21 +143,21 @@
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label">Frequência de Entrega Possível</label>
-                    <input type="text" class="form-control" name="frequencia_entrega" placeholder="Ex: Semanal, Toda Terça-feira">
+                    <input type="text" class="form-control" name="frequencia_entrega" value="{{ agricultor.frequencia_entrega if agricultor else '' }}" placeholder="Ex: Semanal, Toda Terça-feira">
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Possui Transporte Próprio?</label>
                     <select class="form-select" name="possui_transporte">
-                        <option value="1">Sim</option>
-                        <option value="0">Não</option>
+                        <option value="1" {{ 'selected' if agricultor and agricultor.possui_transporte else '' }}>Sim</option>
+                        <option value="0" {{ 'selected' if agricultor and not agricultor.possui_transporte else '' }}>Não</option>
                     </select>
                 </div>
                 <div class="col-md-12">
                     <label class="form-label">Preferência de Local de Entrega</label>
                     <select class="form-select" name="local_entrega_preferencia">
-                        <option value="Depósito Central">Depósito Central da Merenda</option>
-                        <option value="Escolas Diretamente">Diretamente nas Escolas</option>
-                        <option value="Ambos">Ambos</option>
+                        <option value="Depósito Central" {{ 'selected' if agricultor and agricultor.local_entrega_preferencia == 'Depósito Central' }}>Depósito Central da Merenda</option>
+                        <option value="Escolas Diretamente" {{ 'selected' if agricultor and agricultor.local_entrega_preferencia == 'Escolas Diretamente' }}>Diretamente nas Escolas</option>
+                        <option value="Ambos" {{ 'selected' if agricultor and agricultor.local_entrega_preferencia == 'Ambos' }}>Ambos</option>
                     </select>
                 </div>
             </div>
@@ -157,8 +166,8 @@
     </div>
 
     <div class="d-grid gap-2 mt-4 d-md-flex justify-content-md-end">
-        <button class="btn btn-secondary me-md-2" type="button" onclick="history.back()">Cancelar</button>
-        <button class="btn btn-primary" type="submit">Salvar Cadastro</button>
+        <a href="{{ url_for('merenda.listar_agricultores') }}" class="btn btn-secondary me-md-2">Cancelar</a>
+        <button class="btn btn-primary" type="submit"><i class="bi bi-save"></i> Salvar Cadastro</button>
     </div>
 </form>
 {% endblock %}

@@ -40,20 +40,29 @@
                             <span class="badge {{ 'bg-success' if a.status == 'Ativo' else 'bg-secondary' }}">{{ a.status }}</span>
                         </td>
                         
-                        <td class="text-center">
-                            {% if a.contratos %}
-                                {% set ultimo_contrato = a.contratos[-1] %}
-                                <a href="{{ url_for('merenda.gerenciar_contrato_pnae', contrato_id=ultimo_contrato.id) }}" class="btn btn-sm btn-outline-success" title="Gerenciar Execução">
-                                    <i class="bi bi-gear-fill"></i> Gerenciar
-                                </a>
-                            {% else %}
-                                <a href="{{ url_for('merenda.novo_contrato_pnae', agricultor_id=a.id) }}" class="btn btn-sm btn-outline-info" title="Novo Contrato">
-                                    <i class="bi bi-file-earmark-plus"></i> Contratar
-                                </a>
-                            {% endif %}
-                            
-                            <a href="#" class="btn btn-sm btn-outline-secondary" title="Editar"><i class="bi bi-pencil"></i></a>
-                        </td>
+                       <td class="text-center">
+    {% if a.contratos %}
+        {% set ultimo_contrato = a.contratos[-1] %}
+        <a href="{{ url_for('merenda.gerenciar_contrato_pnae', contrato_id=ultimo_contrato.id) }}" class="btn btn-sm btn-outline-success" title="Gerenciar Execução">
+            <i class="bi bi-gear-fill"></i> Gerenciar
+        </a>
+    {% else %}
+        <a href="{{ url_for('merenda.novo_contrato_pnae', agricultor_id=a.id) }}" class="btn btn-sm btn-outline-info" title="Novo Contrato">
+            <i class="bi bi-file-earmark-plus"></i> Contratar
+        </a>
+    {% endif %}
+    
+    <a href="{{ url_for('merenda.editar_agricultor', agricultor_id=a.id) }}" class="btn btn-sm btn-outline-secondary" title="Editar">
+        <i class="bi bi-pencil"></i>
+    </a>
+
+    <a href="{{ url_for('merenda.excluir_agricultor', agricultor_id=a.id) }}" 
+       class="btn btn-sm btn-outline-danger" 
+       title="Excluir"
+       onclick="return confirm('Tem certeza que deseja excluir este agricultor? Esta ação não pode ser desfeita.');">
+        <i class="bi bi-trash"></i>
+    </a>
+</td>
                     </tr>
                     {% else %}
                     <tr>

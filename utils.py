@@ -309,4 +309,58 @@ def upload_arquivo_para_nuvem(file, pasta="geral"):
     except Exception as e:
         print(f"Erro no upload para Supabase: {e}")
         return None    
+
+def identificar_servidor_por_rosto(foto_b64, servidores_ativos):
+    """
+    Recebe a foto em base64 e uma lista de objetos Servidor.
+    Retorna o objeto Servidor se encontrar correspondência, ou None.
+    """
+    import face_recognition
+    import json
+    import base64
+    import io
+    import numpy as np
+
+    try:
+        # 1. Decodifica a imagem recebida
+        if "base64," in foto_b64:
+            foto_b64 = foto_b64.split("base64,", 1)[1]
+        
+        img_bytes = base64.b64decode(foto_b64)
+        imagem_stream = io.BytesIO(img_bytes)
+        
+        # 2. Carrega a imagem e detecta o rosto
+        imagem = face_recognition.load_image_file(imagem_stream)
+        encodings_na_foto = face_recognition.face_encodings(imagem)
+        
+        if not encodings_na_foto:
+            return None, "Nenhum rosto detectado na câmera. Tente novamente."
+            
+        encoding_desconhecido = encodings_na_foto[0]
+        
+        # 3. Compara com a lista de servidores
+        # Otimização: Preparar arrays para comparação em lote seria mais rápido,
+        # mas faremos iterativo para manter a compatibilidade com seu código atual.
+        
+        for servidor in servidores_ativos:
+            if not servidor.face_encoding:
+                continue # Pula quem não tem biometria cadastrada
+                
+            try:
+                # Converte string JSON do banco para numpy array
+                encoding_conhecido = np.array(json.loads(servidor.face_encoding))
+                
+                # Compara (tolerance=0.5 é mais rigoroso que o padrão 0.6)
+                match = face_recognition.compare_faces([encoding_conhecido], encoding_desconhecido, tolerance=0.5)
+                
+                if match[0]:
+                    return servidor, "Sucesso"
+            except Exception as e:
+                print(f"Erro ao processar encoding do servidor {servidor.nome}: {e}")
+                continue
+
+        return None, "Rosto não reconhecido no sistema."
+
+    except Exception as e:
+        return None, f"Erro técnico na identificação: {str(e)}"    
     

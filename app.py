@@ -32,6 +32,7 @@ from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignat
 from functools import wraps
 from datetime import datetime, timedelta
 from flask import session, flash, redirect, url_for
+from flask_talisman import Talisman
 
 from flask import (
     Flask,

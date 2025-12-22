@@ -1773,24 +1773,23 @@ def get_servidor_details(num_contrato):
 @login_required
 @role_required("RH", "admin")
 def lista_servidores():
-    # Pega a permissão e a secretaria do usuário logado na sessão
     user_role = session.get("role")
     secretaria_id_logada = session.get("secretaria_id")
 
-    # --- LÓGICA CORRIGIDA ---
-    # Verifica se o usuário é admin. Se for, mostra todos. Se não, filtra.
+    # 1. Filtro base de permissão (Admin vê tudo, RH vê só sua secretaria)
     if user_role == 'admin':
         query = Servidor.query
     else:
         query = Servidor.query.filter_by(secretaria_id=secretaria_id_logada)
-    # --- FIM DA CORREÇÃO ---
 
-    # O resto da lógica de filtro e busca continua a mesma
+    # 2. Captura os filtros da URL (busca, função, lotação)
     termo_busca = request.args.get("termo")
     funcao_filtro = request.args.get("funcao")
     lotacao_filtro = request.args.get("lotacao")
 
+    # 3. Aplica os filtros na Query
     if termo_busca:
+        # Cria padrão de busca parcial (ilike)
         search_pattern = f"%{termo_busca}%"
         query = query.filter(
             or_(
@@ -1806,28 +1805,17 @@ def lista_servidores():
     if lotacao_filtro:
         query = query.filter(Servidor.lotacao == lotacao_filtro)
 
+    # 4. Executa a busca final
     servidores = query.order_by(Servidor.nome).all()
-    
-    escolas = Escola.query.order_by(Escola.nome).all()
 
-    # A lógica para preencher os filtros de dropdown continua a mesma
-    funcoes_disponiveis = [
-        r[0]
-        for r in db.session.query(Servidor.funcao)
-        .distinct()
-        .order_by(Servidor.funcao)
-        .all()
-        if r[0]
-    ]
-    lotacoes_disponiveis = [
-        r[0]
-        for r in db.session.query(Servidor.lotacao)
-        .distinct()
-        .order_by(Servidor.lotacao)
-        .all()
-        if r[0]
-    ]
+    # 5. Prepara listas para os dropdowns de filtro
+    funcoes_disponiveis = [r[0] for r in db.session.query(Servidor.funcao).distinct().order_by(Servidor.funcao).all() if r[0]]
+    lotacoes_disponiveis = [r[0] for r in db.session.query(Servidor.lotacao).distinct().order_by(Servidor.lotacao).all() if r[0]]
 
+    # 6. IMPORTANTE: Busca escolas para o modal de cadastro novo
+    escolas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
+
+    # 7. Verifica status (férias/licença)
     hoje = datetime.now().date()
     status_servidores = {}
     requerimentos_ativos = Requerimento.query.filter(
@@ -1838,12 +1826,14 @@ def lista_servidores():
         if not req.data_retorno_trabalho or req.data_retorno_trabalho > hoje:
             status_servidores[req.servidor_cpf] = req.natureza
 
+    # 8. Renderiza o template enviando TUDO
     return render_template(
         "index.html",
         servidores=servidores,
         funcoes_disponiveis=funcoes_disponiveis,
         lotacoes_disponiveis=lotacoes_disponiveis,
         status_servidores=status_servidores,
+        escolas=escolas  # <--- Essencial para o cadastro funcionar
     )
 
 
@@ -2032,30 +2022,53 @@ def add_server():
     try:
         secretaria_id_do_usuario = session.get("secretaria_id")
         if not secretaria_id_do_usuario:
-            flash("Erro de sessão. Não foi possível identificar sua secretaria. Por favor, faça login novamente.", "danger")
+            flash("Erro de sessão. Faça login novamente.", "danger")
             return redirect(url_for("lista_servidores"))
 
-        # --- Lógica de Foto (Supabase) ---
+        # 1. Upload da Foto e Biometria
         foto = request.files.get("foto")
         foto_filename = None
+        face_encoding_blob = None
         
         if foto and foto.filename != "":
-            # Envia para a pasta 'fotos_servidores'
-            url_foto = upload_arquivo_para_nuvem(foto, pasta="fotos_servidores")
-            if url_foto:
-                foto_filename = url_foto # Salva o link completo
+            # Tenta gerar o encoding facial antes de salvar na nuvem
+            try:
+                # Carrega a imagem para o face_recognition
+                image_file = face_recognition.load_image_file(foto)
+                encodings = face_recognition.face_encodings(image_file)
+                
+                if len(encodings) > 0:
+                    face_encoding_blob = json.dumps(encodings[0].tolist())
+                
+                # Volta o ponteiro do arquivo para o início para fazer o upload
+                foto.seek(0)
+                
+                # Envia para o Supabase
+                url_foto = upload_arquivo_para_nuvem(foto, pasta="fotos_servidores")
+                if url_foto:
+                    foto_filename = url_foto
+            except Exception as e:
+                print(f"Erro ao processar biometria no cadastro: {e}")
+                # Não impede o cadastro, mas avisa no log
 
-        # --- Restante dos dados (Igual ao original) ---
+        # 2. Tratamento de Datas
         data_inicio_str = request.form.get("data_inicio")
         data_saida_str = request.form.get("data_saida")
         data_nascimento_str = request.form.get("data_nascimento")
-        data_inicio_obj = (datetime.strptime(data_inicio_str, "%Y-%m-%d").date() if data_inicio_str else None)
-        data_saida_obj = (datetime.strptime(data_saida_str, "%Y-%m-%d").date() if data_saida_str else None)
-        data_nascimento_obj = (datetime.strptime(data_nascimento_str, "%Y-%m-%d").date() if data_nascimento_str else None)
-        cpf_limpo = limpar_cpf(request.form.get("cpf"))
-        remuneracao_str = (request.form.get("remuneracao", "0").replace(".", "").replace(",", "."))
-        remuneracao_val = float(remuneracao_str) if remuneracao_str else 0.0
         
+        data_inicio_obj = datetime.strptime(data_inicio_str, "%Y-%m-%d").date() if data_inicio_str else None
+        data_saida_obj = datetime.strptime(data_saida_str, "%Y-%m-%d").date() if data_saida_str else None
+        data_nascimento_obj = datetime.strptime(data_nascimento_str, "%Y-%m-%d").date() if data_nascimento_str else None
+        
+        # 3. Limpeza de Dados
+        cpf_limpo = limpar_cpf(request.form.get("cpf"))
+        remuneracao_str = request.form.get("remuneracao", "0").replace(".", "").replace(",", ".")
+        try:
+            remuneracao_val = float(remuneracao_str)
+        except:
+            remuneracao_val = 0.0
+        
+        # 4. Criação do Objeto Servidor
         novo_servidor = Servidor(
             num_contrato=request.form.get("num_contrato"),
             nome=request.form.get("nome"),
@@ -2067,6 +2080,7 @@ def add_server():
             pis_pasep=request.form.get("pis_pasep"),
             tipo_vinculo=request.form.get("tipo_vinculo"),
             local_trabalho=request.form.get("local_trabalho"),
+            escola_id=request.form.get("escola_id_vinculo", type=int),  # <--- VINCULO SALVO AQUI
             classe_nivel=request.form.get("classe_nivel"),
             num_contra_cheque=request.form.get("num_contra_cheque"),
             nacionalidade=request.form.get("nacionalidade"),
@@ -2081,17 +2095,20 @@ def add_server():
             data_inicio=data_inicio_obj,
             data_saida=data_saida_obj,
             observacoes=request.form.get("observacoes"),
-            foto_filename=foto_filename, # Aqui vai o link do Supabase
-            secretaria_id=secretaria_id_do_usuario,
+            foto_filename=foto_filename,
+            face_encoding=face_encoding_blob, # Salva a biometria calculada
+            secretaria_id=secretaria_id_do_usuario
         )
+
         db.session.add(novo_servidor)
         db.session.commit()
-        registrar_log(f'Cadastrou o servidor: "{novo_servidor.nome}" (Vínculo: {novo_servidor.num_contrato}).')
         flash("Servidor cadastrado com sucesso!", "success")
+
     except Exception as e:
         db.session.rollback()
-        registrar_log(f"Falha ao tentar cadastrar servidor. Erro: {e}")
-        flash(f"Erro ao cadastrar servidor: {e}", "danger")
+        print(f"Erro no cadastro: {e}")
+        flash(f"Erro ao cadastrar: {e}", "danger")
+
     return redirect(url_for("lista_servidores"))
 
 @app.route("/editar/<path:id>", methods=["GET", "POST"])
@@ -2100,88 +2117,83 @@ def add_server():
 def editar_servidor(id):
     servidor = Servidor.query.get_or_404(id)
     secretarias = Secretaria.query.order_by(Secretaria.nome).all()
-    escolas = Escola.query.order_by(Escola.nome).all()
+    
+    # 1. IMPORTANTE: Carrega escolas para o dropdown de edição
+    escolas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
     
     if request.method == "POST":
         try:
-            # --- NOVA LÓGICA HÍBRIDA (Nuvem + Local Temp para Reconhecimento) ---
+            # --- Lógica de Foto e Biometria ---
             foto = request.files.get("foto")
-            
-            servidor.escola_id = request.form.get("escola_id_vinculo", type=int)
-            
             if foto and foto.filename != "":
-                # 1. Envia a foto oficial para a NUVEM (Supabase)
+                # 1. Calcula biometria nova
+                try:
+                    image_file = face_recognition.load_image_file(foto)
+                    encodings = face_recognition.face_encodings(image_file)
+                    if len(encodings) > 0:
+                        servidor.face_encoding = json.dumps(encodings[0].tolist())
+                        flash("Biometria facial atualizada com sucesso!", "info")
+                    
+                    foto.seek(0) # Reseta ponteiro para upload
+                except Exception as e:
+                    print(f"Erro ao processar face na edição: {e}")
+                
+                # 2. Faz upload
                 url_foto = upload_arquivo_para_nuvem(foto, pasta="fotos_servidores")
-                
-                # 2. Salva uma cópia temporária LOCAL apenas para ler o rosto
-                # (A biblioteca face_recognition precisa ler do disco)
-                foto_temp_name = secure_filename(foto.filename)
-                caminho_temp = os.path.join(app.config["UPLOAD_FOLDER"], foto_temp_name)
-                
-                # Reseta o ponteiro do arquivo para o início para salvar de novo
-                foto.seek(0) 
-                foto.save(caminho_temp)
-                
-                # 3. Gera o código facial (encoding) usando o arquivo temporário
-                encoding_str, msg = gerar_encoding_facial(caminho_temp)
-                
-                # 4. Apaga o arquivo temporário local (limpa o servidor)
-                if os.path.exists(caminho_temp):
-                    os.remove(caminho_temp)
-                
-                # 5. Atualiza o banco
                 if url_foto:
-                    servidor.foto_filename = url_foto # Salva o Link
-                
-                if encoding_str:
-                    servidor.face_encoding = encoding_str
-                    flash(f"Foto atualizada na nuvem e rosto cadastrado! {msg}", "success")
-                else:
-                    servidor.face_encoding = None 
-                    flash(f"Foto salva na nuvem, mas falha no reconhecimento facial: {msg}", "warning")
+                    servidor.foto_filename = url_foto
 
-            # --- Atualiza o resto dos dados (Normal) ---
-            servidor.secretaria_id = request.form.get("secretaria_id", type=int)
+            # --- Atualização de Dados Cadastrais ---
             servidor.nome = request.form.get("nome")
             servidor.cpf = limpar_cpf(request.form.get("cpf"))
             servidor.rg = request.form.get("rg")
-            servidor.nome_mae = request.form.get("nome_mae")
             servidor.email = request.form.get("email")
-            servidor.pis_pasep = request.form.get("pis_pasep")
-            servidor.tipo_vinculo = request.form.get("tipo_vinculo")
-            servidor.local_trabalho = request.form.get("local_trabalho")
-            servidor.classe_nivel = request.form.get("classe_nivel")
-            servidor.num_contra_cheque = request.form.get("num_contra_cheque")
-            servidor.nacionalidade = request.form.get("nacionalidade")
-            servidor.estado_civil = request.form.get("estado_civil")
             servidor.telefone = request.form.get("telefone")
             servidor.endereco = request.form.get("endereco")
             servidor.funcao = request.form.get("funcao")
             servidor.lotacao = request.form.get("lotacao")
+            
+            # ATUALIZA O VÍNCULO DA ESCOLA
+            servidor.escola_id = request.form.get("escola_id_vinculo", type=int)
+
+            servidor.tipo_vinculo = request.form.get("tipo_vinculo")
             servidor.carga_horaria = request.form.get("carga_horaria")
             servidor.dados_bancarios = request.form.get("dados_bancarios")
             servidor.observacoes = request.form.get("observacoes")
-            
-            remuneracao_str = (request.form.get("remuneracao", "0").replace(".", "").replace(",", "."))
-            servidor.remuneracao = float(remuneracao_str) if remuneracao_str else 0.0
-            
-            data_inicio_str = request.form.get("data_inicio")
-            data_saida_str = request.form.get("data_saida")
-            data_nascimento_str = request.form.get("data_nascimento") 
-            
-            servidor.data_inicio = (datetime.strptime(data_inicio_str, "%Y-%m-%d").date() if data_inicio_str else None)
-            servidor.data_saida = (datetime.strptime(data_saida_str, "%Y-%m-%d").date() if data_saida_str else None)
-            servidor.data_nascimento = (datetime.strptime(data_nascimento_str, "%Y-%m-%d").date() if data_nascimento_str else servidor.data_nascimento)
-            
+
+            # --- Tratamento de Valores ---
+            remuneracao_str = request.form.get("remuneracao", "0").replace(".", "").replace(",", ".")
+            try:
+                servidor.remuneracao = float(remuneracao_str)
+            except:
+                pass # Mantém o valor antigo se der erro
+
+            # --- Tratamento de Datas ---
+            data_nasc = request.form.get("data_nascimento")
+            data_ini = request.form.get("data_inicio")
+            data_sai = request.form.get("data_saida")
+
+            if data_nasc:
+                servidor.data_nascimento = datetime.strptime(data_nasc, "%Y-%m-%d").date()
+            if data_ini:
+                servidor.data_inicio = datetime.strptime(data_ini, "%Y-%m-%d").date()
+            if data_sai:
+                servidor.data_saida = datetime.strptime(data_sai, "%Y-%m-%d").date()
+            else:
+                servidor.data_saida = None # Permite limpar a data de saída
+
             db.session.commit()
+            flash("Servidor atualizado com sucesso!", "success")
             return redirect(url_for("lista_servidores"))
             
         except Exception as e:
             db.session.rollback()
+            print(f"Erro na edição: {e}")
             flash(f"Erro ao atualizar servidor: {e}", "danger")
             return redirect(url_for("editar_servidor", id=id))
-            
-    return render_template("editar.html", servidor=servidor, secretarias=secretarias)
+
+    # --- Renderiza enviando 'escolas' ---
+    return render_template("editar.html", servidor=servidor, secretarias=secretarias, escolas=escolas)
 
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):

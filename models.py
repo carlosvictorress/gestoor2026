@@ -69,7 +69,7 @@ class Servidor(db.Model):
     data_inicio = db.Column(db.Date, nullable=True)
     data_saida = db.Column(db.Date, nullable=True)
     observacoes = db.Column(db.Text, nullable=True)
-    foto_filename = db.Column(db.String(100), nullable=True)
+    foto_filename = db.Column(db.String(500), nullable=True)
     face_encoding = db.Column(db.Text, nullable=True) # Armazenará o encoding como um JSON string
     num_contrato_gerado = db.Column(db.String(10), unique=True, nullable=True)
     

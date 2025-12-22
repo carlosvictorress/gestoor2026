@@ -13,6 +13,9 @@ import qrcode
 import base64
 import re
 import math
+import face_recognition
+import json
+from sqlalchemy import or_
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment

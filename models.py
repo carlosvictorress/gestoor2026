@@ -417,7 +417,7 @@ class Escola(db.Model):
     __tablename__ = "escola"
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(200), nullable=False, unique=True)
-    codigo_inep = db.Column(db.String(8), unique=True, nullable=True, index=True) 
+    codigo_inep = db.Column(db.String(20), unique=True, nullable=True, index=True)
     endereco = db.Column(db.String(300))
     telefone = db.Column(db.String(20))
 

@@ -1807,6 +1807,8 @@ def lista_servidores():
         query = query.filter(Servidor.lotacao == lotacao_filtro)
 
     servidores = query.order_by(Servidor.nome).all()
+    
+    escolas = Escola.query.order_by(Escola.nome).all()
 
     # A lógica para preencher os filtros de dropdown continua a mesma
     funcoes_disponiveis = [
@@ -2098,6 +2100,7 @@ def add_server():
 def editar_servidor(id):
     servidor = Servidor.query.get_or_404(id)
     secretarias = Secretaria.query.order_by(Secretaria.nome).all()
+    escolas = Escola.query.order_by(Escola.nome).all()
     
     if request.method == "POST":
         try:

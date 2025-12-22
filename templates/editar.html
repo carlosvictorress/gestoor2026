@@ -76,6 +76,17 @@
             <label for="local_trabalho" class="form-label">Local de Trabalho</label>
             <input type="text" class="form-control" id="local_trabalho" name="local_trabalho" value="{{ servidor.local_trabalho or '' }}">
         </div>
+        <div class="mb-3">
+    <label class="form-label">Vincular a uma Escola Específica (Ponto Eletrônico)</label>
+    <select class="form-select" name="escola_id_vinculo">
+        <option value="">-- Sem vínculo fixo (Pode bater em qualquer escola) --</option>
+        {% for escola in escolas %}
+            <option value="{{ escola.id }}" {% if servidor.escola_id == escola.id %}selected{% endif %}>
+                {{ escola.nome }}
+            </option>
+        {% endfor %}
+    </select>
+</div>
         <div class="col-md-6">
             <label for="tipo_vinculo" class="form-label">Vínculo do Servidor</label>
             <select class="form-select" id="tipo_vinculo" name="tipo_vinculo">

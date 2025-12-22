@@ -53,6 +53,8 @@ class Servidor(db.Model):
     pis_pasep = db.Column(db.String(20), nullable=True)
     tipo_vinculo = db.Column(db.String(50), nullable=True)
     local_trabalho = db.Column(db.String(150), nullable=True)
+    escola_id = db.Column(db.Integer, db.ForeignKey('escola.id'), nullable=True)
+    escola_vinculada = db.relationship('Escola', foreign_keys=[escola_id])
     classe_nivel = db.Column(db.String(50), nullable=True)
     num_contra_cheque = db.Column(db.String(50), nullable=True)
     nacionalidade = db.Column(db.String(50), default="brasileira")

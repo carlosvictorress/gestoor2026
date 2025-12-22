@@ -2104,6 +2104,8 @@ def editar_servidor(id):
             # --- NOVA LÓGICA HÍBRIDA (Nuvem + Local Temp para Reconhecimento) ---
             foto = request.files.get("foto")
             
+            servidor.escola_id = request.form.get("escola_id_vinculo", type=int)
+            
             if foto and foto.filename != "":
                 # 1. Envia a foto oficial para a NUVEM (Supabase)
                 url_foto = upload_arquivo_para_nuvem(foto, pasta="fotos_servidores")
@@ -2751,18 +2753,17 @@ def lancar_abastecimento():
 def registrar_ponto():
     if request.method == "POST":
         try:
-            # 1. Dados do Formulário
             foto_b64 = request.form.get("foto_b64")
             tipo_registro = request.form.get("tipo")
-            escola_id = request.form.get("escola_id", type=int)
+            escola_id_form = request.form.get("escola_id", type=int) # Escola onde ele ESTÁ tentando bater
             lat_user_str = request.form.get("latitude")
             lon_user_str = request.form.get("longitude")
 
-            if not foto_b64 or not escola_id:
+            if not foto_b64 or not escola_id_form:
                 flash("Foto ou local de trabalho não detectados.", "danger")
                 return redirect(url_for("registrar_ponto"))
 
-            # 2. Identificação Facial
+            # 1. Identificação Facial
             todos_servidores = Servidor.query.filter(Servidor.face_encoding.isnot(None)).all()
             servidor_identificado, msg_identificacao = identificar_servidor_por_rosto(foto_b64, todos_servidores)
 
@@ -2770,47 +2771,44 @@ def registrar_ponto():
                 flash(f"Falha na identificação: {msg_identificacao}", "danger")
                 return redirect(url_for("registrar_ponto"))
 
-            # 3. Validação de Geolocalização (ATIVA)
-            escola = Escola.query.get(escola_id)
+            # --- NOVO BLOQUEIO: VÍNCULO DE ESCOLA ---
+            # Se o servidor tem uma escola vinculada E a escola selecionada é diferente
+            if servidor_identificado.escola_id and servidor_identificado.escola_id != escola_id_form:
+                escola_correta = servidor_identificado.escola_vinculada.nome if servidor_identificado.escola_vinculada else "outra unidade"
+                flash(f"ACESSO NEGADO: Você está lotado na '{escola_correta}'. Não é permitido registrar ponto nesta localização.", "danger")
+                return redirect(url_for("registrar_ponto"))
+            # ----------------------------------------
+
+            # 2. Validação de Geolocalização (GPS)
+            escola_local = Escola.query.get(escola_id_form)
             
-            # Verifica se o GPS do usuário chegou corretamente
             if lat_user_str == 'N/A' or lon_user_str == 'N/A':
-                flash("Erro: GPS não detectado. Ative a localização do seu celular e tente novamente.", "warning")
+                flash("Erro: GPS não detectado. Ative a localização.", "warning")
                 return redirect(url_for("registrar_ponto"))
 
-            if escola and escola.latitude:
+            if escola_local and escola_local.latitude:
                 try:
                     lat_user = float(lat_user_str)
                     lon_user = float(lon_user_str)
-                    
-                    # Calcula a distância
-                    distancia = haversine(lat_user, lon_user, escola.latitude, escola.longitude)
-                    
-                    # Pega o limite configurado (100m)
+                    distancia = haversine(lat_user, lon_user, escola_local.latitude, escola_local.longitude)
                     limite_metros = app.config.get('RAIO_PERMITIDO_METROS', 100)
 
-                    # --- O BLOQUEIO REAL ---
                     if distancia > limite_metros:
-                        flash(f"Fora do perímetro! Você está a {distancia:.0f}m da escola. O limite é {limite_metros}m.", "danger")
+                        flash(f"Fora do perímetro! Distância: {distancia:.0f}m. Limite: {limite_metros}m.", "danger")
                         return redirect(url_for("registrar_ponto"))
-                    # -----------------------
 
                 except Exception as e:
-                    print(f"Erro de cálculo GPS: {e}")
-                    flash("Erro ao validar sua localização. Tente novamente.", "danger")
+                    print(f"Erro GPS: {e}")
+                    flash("Erro ao validar localização.", "danger")
                     return redirect(url_for("registrar_ponto"))
-            else:
-                # Se a escola não tem GPS cadastrado, bloqueia ou avisa
-                flash("Esta escola não possui localização cadastrada no sistema. Contate o suporte.", "warning")
-                return redirect(url_for("registrar_ponto"))
 
-            # 4. Salvar o Ponto (Só chega aqui se passou pelo GPS e pela Face)
+            # 3. Salvar o Ponto
             filename_ponto = f"ponto_{servidor_identificado.num_contrato}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
             
             novo_ponto = Ponto(
                 servidor_cpf=servidor_identificado.cpf,
                 tipo=tipo_registro,
-                escola_id=escola_id,
+                escola_id=escola_id_form,
                 latitude=float(lat_user_str),
                 longitude=float(lon_user_str),
                 foto_filename=filename_ponto
@@ -2819,9 +2817,9 @@ def registrar_ponto():
             db.session.add(novo_ponto)
             db.session.commit()
 
-            hora_atual = datetime.now().strftime('%H:%M')
-            primeiro_nome = servidor_identificado.nome.split()[0]
-            flash(f"Sucesso, {primeiro_nome}! {tipo_registro.capitalize()} registrada às {hora_atual}.", "success")
+            hora = datetime.now().strftime('%H:%M')
+            nome = servidor_identificado.nome.split()[0]
+            flash(f"Sucesso, {nome}! {tipo_registro.capitalize()} registrada às {hora}.", "success")
             
         except Exception as e:
             db.session.rollback()

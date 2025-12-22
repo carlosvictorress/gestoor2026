@@ -130,7 +130,7 @@ app.config['MAIL_DEFAULT_SENDER'] = 'carlosvictor.pessoal@gmail.com'
 
 
 #RAIO_PERMITIDO_METROS = 100
-app.config['RAIO_PERMITIDO_METROS'] = 500
+app.config['RAIO_PERMITIDO_METROS'] = 100
 
 s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
@@ -2753,7 +2753,7 @@ def registrar_ponto():
         try:
             # 1. Dados do Formulário
             foto_b64 = request.form.get("foto_b64")
-            tipo_registro = request.form.get("tipo") # entrada ou saida
+            tipo_registro = request.form.get("tipo")
             escola_id = request.form.get("escola_id", type=int)
             lat_user_str = request.form.get("latitude")
             lon_user_str = request.form.get("longitude")
@@ -2763,74 +2763,74 @@ def registrar_ponto():
                 return redirect(url_for("registrar_ponto"))
 
             # 2. Identificação Facial
-            # Carrega apenas servidores que têm biometria cadastrada para otimizar
             todos_servidores = Servidor.query.filter(Servidor.face_encoding.isnot(None)).all()
-            
             servidor_identificado, msg_identificacao = identificar_servidor_por_rosto(foto_b64, todos_servidores)
 
             if not servidor_identificado:
                 flash(f"Falha na identificação: {msg_identificacao}", "danger")
                 return redirect(url_for("registrar_ponto"))
 
-            # 3. Validação de Geolocalização (TRAVA DESATIVADA TEMPORARIAMENTE)
+            # 3. Validação de Geolocalização (ATIVA)
             escola = Escola.query.get(escola_id)
-            distancia = 0 # Valor padrão caso o GPS falhe
             
-            if lat_user_str != 'N/A' and lon_user_str != 'N/A' and escola and escola.latitude:
+            # Verifica se o GPS do usuário chegou corretamente
+            if lat_user_str == 'N/A' or lon_user_str == 'N/A':
+                flash("Erro: GPS não detectado. Ative a localização do seu celular e tente novamente.", "warning")
+                return redirect(url_for("registrar_ponto"))
+
+            if escola and escola.latitude:
                 try:
                     lat_user = float(lat_user_str)
                     lon_user = float(lon_user_str)
+                    
+                    # Calcula a distância
                     distancia = haversine(lat_user, lon_user, escola.latitude, escola.longitude)
                     
-                    print(f"DEBUG: Distância calculada: {distancia:.2f} metros")
+                    # Pega o limite configurado (100m)
+                    limite_metros = app.config.get('RAIO_PERMITIDO_METROS', 100)
 
-                    # --- BLOCÃO COMENTADO PARA EVITAR ERRO DE LOCALIZAÇÃO ---
-                    # limite_metros = app.config.get('RAIO_PERMITIDO_METROS', 500)
-                    # if distancia > limite_metros:
-                    #     flash(f"Erro de Localização: Você está a {distancia:.0f}m da escola. Limite: {limite_metros}m.", "danger")
-                    #     return redirect(url_for("registrar_ponto"))
-                    # --------------------------------------------------------
+                    # --- O BLOQUEIO REAL ---
+                    if distancia > limite_metros:
+                        flash(f"Fora do perímetro! Você está a {distancia:.0f}m da escola. O limite é {limite_metros}m.", "danger")
+                        return redirect(url_for("registrar_ponto"))
+                    # -----------------------
 
                 except Exception as e:
-                    print(f"Erro ao calcular distância: {e}")
-                    # pass # Se der erro de cálculo, deixamos passar pois o GPS está desativado
+                    print(f"Erro de cálculo GPS: {e}")
+                    flash("Erro ao validar sua localização. Tente novamente.", "danger")
+                    return redirect(url_for("registrar_ponto"))
+            else:
+                # Se a escola não tem GPS cadastrado, bloqueia ou avisa
+                flash("Esta escola não possui localização cadastrada no sistema. Contate o suporte.", "warning")
+                return redirect(url_for("registrar_ponto"))
 
-            # 4. Salvar o Ponto
-            # Gera um nome de arquivo para referência (se futuramente quiser salvar a imagem do ponto)
+            # 4. Salvar o Ponto (Só chega aqui se passou pelo GPS e pela Face)
             filename_ponto = f"ponto_{servidor_identificado.num_contrato}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
             
-            # Converte latitude/longitude com segurança para salvar no banco
-            lat_final = float(lat_user_str) if lat_user_str and lat_user_str != 'N/A' else None
-            lon_final = float(lon_user_str) if lon_user_str and lon_user_str != 'N/A' else None
-
             novo_ponto = Ponto(
                 servidor_cpf=servidor_identificado.cpf,
                 tipo=tipo_registro,
                 escola_id=escola_id,
-                latitude=lat_final,
-                longitude=lon_final,
+                latitude=float(lat_user_str),
+                longitude=float(lon_user_str),
                 foto_filename=filename_ponto
             )
             
             db.session.add(novo_ponto)
             db.session.commit()
 
-            # Mensagem de Sucesso
             hora_atual = datetime.now().strftime('%H:%M')
             primeiro_nome = servidor_identificado.nome.split()[0]
-            flash(f"Olá, {primeiro_nome}! {tipo_registro.capitalize()} registrada às {hora_atual}.", "success")
+            flash(f"Sucesso, {primeiro_nome}! {tipo_registro.capitalize()} registrada às {hora_atual}.", "success")
             
         except Exception as e:
             db.session.rollback()
-            print(f"ERRO CRÍTICO NO PONTO: {e}")
             flash(f"Erro no sistema: {e}", "danger")
 
         return redirect(url_for("registrar_ponto"))
 
-    # Lógica GET (Carregar a página)
     escolas = Escola.query.filter_by(status="Ativa").order_by(Escola.nome).all()
     return render_template("registrar_ponto.html", escolas=escolas)
-
 
 @app.route("/bloco_de_notas")
 @login_required

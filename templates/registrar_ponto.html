@@ -2,50 +2,236 @@
 <html lang="pt-br">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Registro de Ponto - SysEduca Web</title>
-    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Ponto Facial</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <style>
+        body {
+            background-color: #f0f2f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Evita rolagem para parecer App */
+        }
+        .header-app {
+            background: white;
+            padding: 15px;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            z-index: 10;
+        }
+        .camera-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding: 20px;
+        }
+        .video-wrapper {
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 3/4; /* Formato retrato */
+            border-radius: 25px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border: 4px solid #fff;
+        }
+        video, canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        /* Mira facial para orientar o usuário */
+        .face-overlay {
+            position: absolute;
+            top: 20%;
+            left: 15%;
+            width: 70%;
+            height: 45%;
+            border: 2px dashed rgba(255,255,255,0.6);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .buttons-container {
+            padding: 20px;
+            background: white;
+            border-top-left-radius: 25px;
+            border-top-right-radius: 25px;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .btn-ponto {
+            height: 70px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-transform: uppercase;
+        }
+        .loading-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        /* Ajuste para mensagens flash flutuantes */
+        .alert-floating {
+            position: absolute;
+            top: 80px;
+            left: 5%;
+            width: 90%;
+            z-index: 999;
+            border-radius: 15px;
+        }
+    </style>
 </head>
-<body class="bg-light">
+<body>
 
-<div class="container">
-    <div class="row justify-content-center" style="margin-top: 10vh;">
-        <div class="col-md-5">
-            
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-floating shadow-sm alert-dismissible fade show" role="alert">
+                    <i class="bi bi-info-circle-fill me-2"></i> {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form id="pontoForm" method="POST" action="{{ url_for('registrar_ponto') }}" class="h-100 d-flex flex-column">
+        
+        <div class="header-app text-center">
+            <h5 class="mb-2 text-primary fw-bold">Ponto Facial</h5>
+            <div class="form-floating">
+                <select class="form-select border-0 bg-light" id="escola_id" name="escola_id" required>
+                    <option value="" selected disabled>Onde você está trabalhando hoje?</option>
+                    {% for escola in escolas %}
+                        <option value="{{ escola.id }}" data-lat="{{ escola.latitude }}" data-lon="{{ escola.longitude }}">
+                            📍 {{ escola.nome }}
+                        </option>
                     {% endfor %}
-                {% endif %}
-            {% endwith %}
+                </select>
+                <label for="escola_id">Selecione o Local</label>
+            </div>
+        </div>
 
-            <div class="card shadow">
-                <div class="card-body p-4">
-                    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logomarca" class="img-fluid d-block mx-auto mb-3" style="max-width: 120px;">
-                    <h4 class="card-title text-center mb-4">Registro de Ponto Eletrônico</h4>
-                    
-                    <form method="POST" action="{{ url_for('registrar_ponto') }}">
-                        <div class="mb-3">
-                            <label for="cpf" class="form-label">Digite seu CPF:</label>
-                            <input type="text" class="form-control form-control-lg" id="cpf" name="cpf" required placeholder="000.000.000-00" autofocus>
-                        </div>
-                        <div class="d-grid gap-2">
-                            <button type="submit" name="tipo" value="entrada" class="btn btn-success btn-lg"><i class="bi bi-box-arrow-in-right"></i> INÍCIO DE EXPEDIENTE</button>
-                            <button type="submit" name="tipo" value="saida" class="btn btn-danger btn-lg"><i class="bi bi-box-arrow-left"></i> FIM DE EXPEDIENTE</button>
-                        </div>
-                    </form>
+        <div class="camera-container">
+            <div class="video-wrapper">
+                <video id="video" autoplay playsinline muted></video>
+                <canvas id="canvas" style="display:none;"></canvas>
+                <div class="face-overlay"></div> <div class="loading-overlay" id="loading">
+                    <div class="spinner-border text-light mb-3" role="status"></div>
+                    <span>Reconhecendo...</span>
                 </div>
             </div>
-            <p class="text-center text-muted mt-3">&copy; {{ current_year }} - Secretaria Municipal de Educação</p>
         </div>
-    </div>
-</div>
 
-<script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+        <input type="hidden" id="latitude" name="latitude">
+        <input type="hidden" id="longitude" name="longitude">
+        <input type="hidden" id="foto_b64" name="foto_b64">
+        <input type="hidden" id="tipo" name="tipo">
+
+        <div class="buttons-container">
+            <button type="button" class="btn btn-success btn-ponto shadow-sm" onclick="submitPonto('entrada')">
+                <i class="bi bi-box-arrow-in-right fs-4 mb-1"></i>
+                Entrada
+            </button>
+            <button type="button" class="btn btn-danger btn-ponto shadow-sm" onclick="submitPonto('saida')">
+                <i class="bi bi-box-arrow-left fs-4 mb-1"></i>
+                Saída
+            </button>
+        </div>
+
+    </form>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const loading = document.getElementById('loading');
+        
+        // 1. Iniciar Câmera
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, 
+                    audio: false 
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                alert("Erro ao acessar câmera: " + err);
+            }
+        }
+
+        // 2. Pegar Localização GPS
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        document.getElementById('latitude').value = position.coords.latitude;
+                        document.getElementById('longitude').value = position.coords.longitude;
+                    },
+                    (error) => {
+                        console.warn("Geolocalização falhou ou foi negada.");
+                        document.getElementById('latitude').value = "N/A";
+                        document.getElementById('longitude').value = "N/A";
+                    },
+                    { enableHighAccuracy: true, timeout: 5000 }
+                );
+            } else {
+                document.getElementById('latitude').value = "N/A";
+                document.getElementById('longitude').value = "N/A";
+            }
+        }
+
+        // 3. Função chamada ao clicar nos botões
+        function submitPonto(tipo) {
+            const escolaSelect = document.getElementById('escola_id');
+            if (!escolaSelect.value) {
+                alert("Por favor, selecione o local de trabalho primeiro.");
+                escolaSelect.focus();
+                return;
+            }
+
+            // Mostra loading
+            loading.style.display = 'flex';
+
+            // Captura frame do vídeo
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            // Converte para Base64
+            const dataURL = canvas.toDataURL('image/jpeg', 0.8); // 0.8 qualidade
+            document.getElementById('foto_b64').value = dataURL;
+            document.getElementById('tipo').value = tipo;
+
+            // Envia formulário
+            document.getElementById('pontoForm').submit();
+        }
+
+        // Inicializa ao carregar
+        window.onload = () => {
+            startCamera();
+            getLocation();
+            // Atualiza GPS a cada 1 minuto para manter precisão
+            setInterval(getLocation, 60000); 
+        };
+    </script>
 </body>
 </html>

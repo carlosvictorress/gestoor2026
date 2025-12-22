@@ -14,10 +14,11 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.platypus import Image
+from reportlab.lib.utils import ImageReader
 from extensions import db
 from models import Log
 
-# --- CORREÇÃO 1: Importar o cliente do Supabase ---
+# Importação do Supabase
 from supabase import create_client
 
 def limpar_cpf(cpf):
@@ -75,6 +76,44 @@ def cabecalho_e_rodape(canvas, doc):
             canvas.drawImage(image_path, 2*cm, A4[1] - 2.5*cm, width=17*cm, height=2.2*cm, preserveAspectRatio=True, mask='auto')
     
     canvas.restoreState()
+
+# --- FUNÇÃO REINSERIDA ---
+def cabecalho_e_rodape_moderno(canvas, doc, titulo_doc="Relatório"):
+    canvas.saveState()
+    cor_principal = colors.HexColor('#004d40')
+    
+    # --- Cabeçalho ---
+    basedir = current_app.root_path
+    image_path = os.path.join(basedir, 'static', 'timbre.jpg')
+
+    logo_width = 0
+    if os.path.exists(image_path):
+        img_reader = ImageReader(image_path)
+        img_width, img_height = img_reader.getSize()
+        aspect = img_height / float(img_width)
+        
+        logo_width = 5*cm 
+        logo_height = logo_width * aspect 
+        
+        logo = Image(image_path, width=logo_width, height=logo_height)
+        logo.drawOn(canvas, doc.leftMargin, A4[1] - doc.topMargin + 1.2*cm - logo_height)
+
+    canvas.setFont('Helvetica-Bold', 18)
+    canvas.setFillColor(colors.black)
+    # Ajusta posição do título baseado na logo
+    pos_x_titulo = doc.leftMargin + logo_width + 0.5*cm if logo_width > 0 else doc.leftMargin
+    canvas.drawString(pos_x_titulo, A4[1] - doc.topMargin + 0.8*cm, titulo_doc)
+
+    # --- Rodapé ---
+    canvas.setFillColor(cor_principal)
+    canvas.rect(doc.leftMargin, doc.bottomMargin - 0.5*cm, doc.width, 0.3*cm, fill=1, stroke=0)
+    canvas.setFont('Helvetica', 8)
+    canvas.setFillColor(colors.grey)
+    canvas.drawString(doc.leftMargin, doc.bottomMargin - 0.4*cm, f"SysEduca | Emitido em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    canvas.drawRightString(doc.width + doc.leftMargin, doc.bottomMargin - 0.4*cm, f"Página {doc.page}")
+
+    canvas.restoreState()
+# -------------------------
 
 def admin_required(f):
      @wraps(f)
@@ -148,7 +187,7 @@ def comparar_rostos(encoding_referencia_str, foto_ao_vivo):
 
 def identificar_servidor_por_rosto(foto_b64, servidores_ativos):
     """
-    Nova função para identificar qual servidor é baseado na foto da câmera.
+    Função para identificar qual servidor é baseado na foto da câmera.
     """
     try:
         if "base64," in foto_b64:
@@ -170,7 +209,6 @@ def identificar_servidor_por_rosto(foto_b64, servidores_ativos):
                 continue
             try:
                 encoding_conhecido = np.array(json.loads(servidor.face_encoding))
-                # Tolerance ajustada para 0.5 para maior precisão
                 match = face_recognition.compare_faces([encoding_conhecido], encoding_desconhecido, tolerance=0.5)
                 if match[0]:
                     return servidor, "Sucesso"
@@ -182,7 +220,6 @@ def identificar_servidor_por_rosto(foto_b64, servidores_ativos):
     except Exception as e:
         return None, f"Erro técnico na identificação: {str(e)}"
 
-# --- CORREÇÃO 2: Adicionar a função Haversine no Utils ---
 def haversine(lat1, lon1, lat2, lon2):
     """
     Calcula a distância em metros entre dois pontos (latitude/longitude).

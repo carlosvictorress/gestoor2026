@@ -129,7 +129,8 @@ app.config['MAIL_PASSWORD'] = 'cphvgocxclcmzxqc'  # Sua Senha de App (sem espaç
 app.config['MAIL_DEFAULT_SENDER'] = 'carlosvictor.pessoal@gmail.com'
 
 
-RAIO_PERMITIDO_METROS = 100
+#RAIO_PERMITIDO_METROS = 100
+app.config['RAIO_PERMITIDO_METROS'] = 500
 
 s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
@@ -2761,11 +2762,8 @@ def registrar_ponto():
                 flash("Foto ou local de trabalho não detectados.", "danger")
                 return redirect(url_for("registrar_ponto"))
 
-            # 2. Identificação Facial (O Grande Truque)
-            # Para otimizar, carregamos apenas servidores que têm biometria cadastrada
-            # Se quiser otimizar MAIS, filtre apenas servidores lotados naquela escola
-            # Ex: Servidor.query.filter(Servidor.face_encoding.isnot(None)).all()
-            
+            # 2. Identificação Facial
+            # Carrega apenas servidores que têm biometria cadastrada para otimizar
             todos_servidores = Servidor.query.filter(Servidor.face_encoding.isnot(None)).all()
             
             servidor_identificado, msg_identificacao = identificar_servidor_por_rosto(foto_b64, todos_servidores)
@@ -2774,55 +2772,62 @@ def registrar_ponto():
                 flash(f"Falha na identificação: {msg_identificacao}", "danger")
                 return redirect(url_for("registrar_ponto"))
 
-            # 3. Validação de Geolocalização (Mantida a lógica anterior)
+            # 3. Validação de Geolocalização (TRAVA DESATIVADA TEMPORARIAMENTE)
             escola = Escola.query.get(escola_id)
+            distancia = 0 # Valor padrão caso o GPS falhe
+            
             if lat_user_str != 'N/A' and lon_user_str != 'N/A' and escola and escola.latitude:
                 try:
                     lat_user = float(lat_user_str)
                     lon_user = float(lon_user_str)
                     distancia = haversine(lat_user, lon_user, escola.latitude, escola.longitude)
                     
-                    if distancia > app.config.get('RAIO_PERMITIDO_METROS', 200):
-                        flash(f"Erro de Localização: Você está a {distancia:.0f}m da escola. Limite: {app.config.get('RAIO_PERMITIDO_METROS')}m.", "danger")
-                        return redirect(url_for("registrar_ponto"))
-                except:
-                    pass # Se der erro de conversão, ignora e confia no facial (ou bloqueia, conforme sua regra)
+                    print(f"DEBUG: Distância calculada: {distancia:.2f} metros")
+
+                    # --- BLOCÃO COMENTADO PARA EVITAR ERRO DE LOCALIZAÇÃO ---
+                    # limite_metros = app.config.get('RAIO_PERMITIDO_METROS', 500)
+                    # if distancia > limite_metros:
+                    #     flash(f"Erro de Localização: Você está a {distancia:.0f}m da escola. Limite: {limite_metros}m.", "danger")
+                    #     return redirect(url_for("registrar_ponto"))
+                    # --------------------------------------------------------
+
+                except Exception as e:
+                    print(f"Erro ao calcular distância: {e}")
+                    # pass # Se der erro de cálculo, deixamos passar pois o GPS está desativado
 
             # 4. Salvar o Ponto
-            # Salva a imagem do ponto na nuvem (opcional) ou gera nome temporário
-            # Como você já tem upload configurado, pode usar ou salvar localmente
-            # Aqui vamos salvar apenas o nome para referência
-            
-            # --- SALVAR FOTO DO PONTO (Opcional, mas recomendado para auditoria) ---
-            # Decodifica e salva arquivo se quiser manter registro visual do ponto
-            # ... (código de upload similar ao que você já tem) ...
+            # Gera um nome de arquivo para referência (se futuramente quiser salvar a imagem do ponto)
             filename_ponto = f"ponto_{servidor_identificado.num_contrato}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
-            # (Adicione a lógica de salvar o arquivo físico/nuvem aqui se desejar)
+            
+            # Converte latitude/longitude com segurança para salvar no banco
+            lat_final = float(lat_user_str) if lat_user_str and lat_user_str != 'N/A' else None
+            lon_final = float(lon_user_str) if lon_user_str and lon_user_str != 'N/A' else None
 
             novo_ponto = Ponto(
                 servidor_cpf=servidor_identificado.cpf,
                 tipo=tipo_registro,
                 escola_id=escola_id,
-                latitude=float(lat_user_str) if lat_user_str != 'N/A' else None,
-                longitude=float(lon_user_str) if lon_user_str != 'N/A' else None,
-                foto_filename=filename_ponto # Se salvou o arquivo
+                latitude=lat_final,
+                longitude=lon_final,
+                foto_filename=filename_ponto
             )
             
             db.session.add(novo_ponto)
             db.session.commit()
 
-            # Mensagem de Sucesso Personalizada
+            # Mensagem de Sucesso
             hora_atual = datetime.now().strftime('%H:%M')
-            flash(f"Olá, {servidor_identificado.nome.split()[0]}! {tipo_registro.capitalize()} registrada às {hora_atual}.", "success")
+            primeiro_nome = servidor_identificado.nome.split()[0]
+            flash(f"Olá, {primeiro_nome}! {tipo_registro.capitalize()} registrada às {hora_atual}.", "success")
             
         except Exception as e:
             db.session.rollback()
-            print(e)
+            print(f"ERRO CRÍTICO NO PONTO: {e}")
             flash(f"Erro no sistema: {e}", "danger")
 
         return redirect(url_for("registrar_ponto"))
 
-    # Lógica GET
+    # Lógica GET (Carregar a página)
     escolas = Escola.query.filter_by(status="Ativa").order_by(Escola.nome).all()
     return render_template("registrar_ponto.html", escolas=escolas)
 

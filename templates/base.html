@@ -143,7 +143,7 @@
                 </ul>
             </div>
         </li>
-
+{% if session.get('role') in ['admin', 'Merenda Escolar', 'CAEE'] %}
         <li class="nav-item">
             <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('merenda.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}active{% endif %}" 
                data-bs-toggle="collapse" 
@@ -153,6 +153,7 @@
                aria-controls="modulosCollapse">
                 <i class="bi bi-grid-fill"></i> Módulos
             </a>
+             {% endif %}
             <div class="collapse {% if request.endpoint.startswith(('merenda.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}show{% endif %}" id="modulosCollapse">
                 <ul class="dropdown-menu">
                     {% if session.get('role') in ['admin', 'RH', 'CAEE'] %}

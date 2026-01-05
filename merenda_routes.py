@@ -31,6 +31,7 @@ merenda_bp = Blueprint('merenda', __name__, url_prefix='/merenda')
 # Rota principal do módulo
 @merenda_bp.route('/dashboard')
 @login_required
+@role_required("RH", "admin", "Merenda Escolar")
 def dashboard():
     # --- Indicadores Rápidos (KPIs) ---
     total_escolas_ativas = Escola.query.filter_by(status='Ativa').count()

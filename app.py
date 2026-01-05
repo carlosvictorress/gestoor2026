@@ -2363,56 +2363,198 @@ def gerar_requerimento_pdf(req_id):
     requerimento = Requerimento.query.get_or_404(req_id)
     servidor = requerimento.servidor
 
-    buffer = io.BytesIO()
-    # Ajuste as margens para corresponder ao seu modelo
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=1*cm, bottomMargin=1*cm)
+    # Formatação de Datas e Campos para evitar erros de None
+    def fmt_data(data):
+        return data.strftime('%d/%m/%Y') if data else ""
+
+    data_hoje = datetime.now().strftime('%d de %B de %Y')
     
+    # Tratamento da Natureza (caso seja "Outro")
+    natureza_texto = requerimento.natureza
+    if requerimento.natureza == 'Outro' and requerimento.natureza_outro:
+        natureza_texto = f"{requerimento.natureza} ({requerimento.natureza_outro})"
+
+    buffer = io.BytesIO()
+    
+    # Configuração do Documento
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4, 
+        rightMargin=1.5*cm, 
+        leftMargin=1.5*cm, 
+        topMargin=2*cm, 
+        bottomMargin=2*cm
+    )
+    
+    # Estilos
     styles = getSampleStyleSheet()
-    # Crie os estilos necessários com os nomes corretos
-    styles.add(ParagraphStyle(name='Justify', alignment=TA_JUSTIFY, fontSize=12, leading=14))
-    styles.add(ParagraphStyle(name='Center', alignment=TA_CENTER, fontSize=12, leading=14))
-    styles.add(ParagraphStyle(name='Right', alignment=TA_RIGHT, fontSize=10))
-    styles.add(ParagraphStyle(name='BoldCenter', parent=styles['Center'], fontName='Helvetica-Bold'))
+    style_normal = ParagraphStyle('Normal_Custom', parent=styles['Normal'], fontSize=9, leading=11)
+    style_bold = ParagraphStyle('Bold_Custom', parent=styles['Normal'], fontSize=9, leading=11, fontName='Helvetica-Bold')
+    style_center = ParagraphStyle('Center_Custom', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)
+    style_center_bold = ParagraphStyle('Center_Bold', parent=styles['Normal'], fontSize=10, alignment=TA_CENTER, fontName='Helvetica-Bold')
+    style_title = ParagraphStyle('Title_Custom', parent=styles['Normal'], fontSize=14, alignment=TA_CENTER, fontName='Helvetica-Bold', spaceAfter=10)
+    
+    # Estilo para os Labels dos campos (negrito pequeno)
+    def label(texto):
+        return Paragraph(f"<b>{texto}</b>", style_normal)
+    
+    def content(texto):
+        return Paragraph(str(texto or ""), style_normal)
 
     story = []
 
-    # Cabeçalho
-    story.append(Paragraph("<u>REQUERIMENTO</u>", styles['BoldCenter']))
-    story.append(Spacer(1, 1*cm))
+    # --- TÍTULO ---
+    story.append(Paragraph("REQUERIMENTO PADRÃO", style_title))
+    story.append(Spacer(1, 0.5*cm))
 
-    # Autoridade
-    story.append(Paragraph(f"EXMO(A). SR(A). {requerimento.autoridade_dirigida}", styles['Normal']))
-    story.append(Paragraph("Secretário(a) Municipal de Educação", styles['Normal']))
-    story.append(Spacer(1, 1*cm))
+    # --- DESTINATÁRIO ---
+    # Tabela simples para a autoridade
+    tbl_destinatario_data = [
+        [label("AUTORIDADE A QUEM É DIRIGIDA:"), content(requerimento.autoridade_dirigida or "Sr(a). Secretário(a)")]
+    ]
+    tbl_destinatario = Table(tbl_destinatario_data, colWidths=[6*cm, 12*cm])
+    tbl_destinatario.setStyle(TableStyle([
+        ('LINEBELOW', (0, 0), (-1, -1), 1, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+    ]))
+    story.append(tbl_destinatario)
+    story.append(Spacer(1, 0.5*cm))
 
-    # Corpo do texto
-    texto_requerimento = f"""
-        {servidor.nome}, brasileiro(a), servidor(a) público(a) municipal, portador(a) do CPF nº {servidor.cpf},
-        lotado(a) na Secretaria Municipal de Educação, na função de {servidor.funcao}, vem, respeitosamente,
-        à presença de Vossa Excelência, requerer a concessão de <b>{requerimento.natureza}</b>, a partir do dia
-        {requerimento.data_inicio_requerimento.strftime('%d/%m/%Y') if requerimento.data_inicio_requerimento else ''}.
-    """
-    story.append(Paragraph(texto_requerimento, styles['Justify']))
+    # --- BLOCO 1: IDENTIFICAÇÃO DO SERVIDOR ---
+    # Cabeçalho da Seção
+    story.append(Paragraph("1. IDENTIFICAÇÃO DO SERVIDOR", style_bold))
+    
+    dados_servidor = [
+        # Linha 1
+        [label("NOME COMPLETO:"), content(servidor.nome), label("Nº CONTRA-CHEQUE:"), content(servidor.num_contra_cheque)],
+        # Linha 2
+        [label("CARGO/FUNÇÃO:"), content(servidor.funcao), label("CLASSE/NÍVEL:"), content(servidor.classe_nivel)],
+        # Linha 3
+        [label("DATA NASCIMENTO:"), content(fmt_data(servidor.data_nascimento)), label("DATA ADMISSÃO:"), content(fmt_data(servidor.data_inicio))],
+        # Linha 4
+        [label("LOTAÇÃO:"), content(servidor.lotacao), label("TELEFONE:"), content(servidor.telefone)],
+        # Linha 5
+        [label("LOCAL DE TRABALHO:"), content(servidor.local_trabalho), label(""), content("")], # Célula vazia para ajuste
+        # Linha 6
+        [label("ENDEREÇO RESIDENCIAL:"), content(servidor.endereco), label(""), content("")] # Span
+    ]
+
+    t_servidor = Table(dados_servidor, colWidths=[3.5*cm, 8.5*cm, 3*cm, 3*cm])
+    t_servidor.setStyle(TableStyle([
+        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('SPAN', (1, 5), (3, 5)), # Mescla colunas do endereço
+        ('SPAN', (1, 4), (3, 4)), # Mescla colunas do local de trabalho
+        ('BACKGROUND', (0,0), (0,-1), colors.whitesmoke), # Coluna de labels cinza claro
+        ('BACKGROUND', (2,0), (2,3), colors.whitesmoke), # Coluna de labels cinza claro
+    ]))
+    story.append(t_servidor)
+    story.append(Spacer(1, 0.5*cm))
+
+    # --- BLOCO 2: DADOS DO REQUERIMENTO ---
+    story.append(Paragraph("2. DADOS DO REQUERIMENTO", style_bold))
+
+    dados_req = [
+        [label("NATUREZA:"), content(natureza_texto), label("DATA INÍCIO:"), content(fmt_data(requerimento.data_inicio_requerimento))],
+        [label("PERÍODO AQUISITIVO:"), content(requerimento.periodo_aquisitivo), label("DURAÇÃO (DIAS):"), content(requerimento.duracao)],
+        [label("INFORMAÇÕES COMPLEMENTARES:"), content(requerimento.informacoes_complementares), label(""), content("")]
+    ]
+
+    t_req = Table(dados_req, colWidths=[3.5*cm, 8.5*cm, 3*cm, 3*cm])
+    t_req.setStyle(TableStyle([
+        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('SPAN', (1, 2), (3, 2)), # Mescla informações complementares
+        ('BACKGROUND', (0,0), (0,-1), colors.whitesmoke),
+        ('BACKGROUND', (2,0), (2,1), colors.whitesmoke),
+        ('MINROWHEIGHT', (0, 2), 1.5*cm), # Altura mínima para infos complementares
+        ('VALIGN', (0, 2), (-1, 2), 'TOP'), # Alinha texto ao topo nas infos
+    ]))
+    story.append(t_req)
+    story.append(Spacer(1, 0.5*cm))
+
+    # --- BLOCO 3: PARECER JURÍDICO ---
+    story.append(Paragraph("3. PARECER JURÍDICO / ADMINISTRATIVO", style_bold))
+    
+    tbl_parecer_data = [[content(requerimento.parecer_juridico or " ")]]
+    t_parecer = Table(tbl_parecer_data, colWidths=[18*cm])
+    t_parecer.setStyle(TableStyle([
+        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('MINROWHEIGHT', (0, 0), 2*cm),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    story.append(t_parecer)
+    story.append(Spacer(1, 0.5*cm))
+
+    # --- ASSINATURA DO REQUERENTE ---
+    story.append(Spacer(1, 0.5*cm))
+    story.append(Paragraph(f"Valença do Piauí, {data_hoje}", style_center))
     story.append(Spacer(1, 1*cm))
     
-    story.append(Paragraph("Nestes termos, pede deferimento.", styles['Normal']))
-    story.append(Spacer(1, 2*cm))
-
-    # Data
-    story.append(Paragraph(f"Valença do Piauí, {datetime.now().strftime('%d de %B de %Y')}", styles['Center']))
-    story.append(Spacer(1, 2*cm))
+    line = "________________________________________________________"
+    story.append(Paragraph(line, style_center))
+    story.append(Paragraph(f"<b>{servidor.nome.upper()}</b>", style_center))
+    story.append(Paragraph("ASSINATURA DO REQUERENTE", style_center))
     
-    # Assinatura
-    story.append(Paragraph("____________________________________________", styles['Center']))
-    story.append(Paragraph(servidor.nome, styles['Center']))
-    story.append(Paragraph("Requerente", styles['Center']))
+    story.append(Spacer(1, 1*cm))
+    
+    # --- LINHA SEPARADORA ---
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.black, dash=(5, 2)))
+    story.append(Spacer(1, 0.5*cm))
 
-    doc.build(story)
+    # --- BLOCO 4: DESPACHO DA CHEFIA IMEDIATA ---
+    story.append(Paragraph("4. DESPACHO DA CHEFIA IMEDIATA", style_bold))
+    
+    # Checkbox visual simulado
+    check_box = " (   ) LIBERADO      (   ) NÃO LIBERADO"
+    
+    tbl_chefia_data = [
+        [Paragraph(check_box, style_normal)],
+        [Spacer(1, 1*cm)], # Espaço para assinatura
+        [Paragraph("_____________________________________________", style_center)],
+        [Paragraph("ASSINATURA E CARIMBO DO CHEFE IMEDIATO", style_center)]
+    ]
+    
+    t_chefia = Table(tbl_chefia_data, colWidths=[18*cm])
+    t_chefia.setStyle(TableStyle([
+        ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+        ('TOPPADDING', (0,0), (-1,-1), 10),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 10),
+    ]))
+    story.append(t_chefia)
+    story.append(Spacer(1, 0.5*cm))
+
+    # --- TEXTO DE ENCAMINHAMENTO ---
+    story.append(Paragraph("Encaminhe-se ao setor competente para as providências necessárias, observadas as disposições legais e regulamentares pertinentes.", style_normal))
+    story.append(Spacer(1, 0.5*cm))
+
+    # --- BLOCO 5: ASSINATURAS FINAIS (2 CAMPOS) ---
+    tbl_assinaturas_finais = [
+        [
+            Paragraph("__________________________________", style_center),
+            Paragraph("__________________________________", style_center)
+        ],
+        [
+            Paragraph("SECRETÁRIO(A) MUNICIPAL", style_center_bold),
+            Paragraph("SETOR DE RH / PESSOAL", style_center_bold)
+        ]
+    ]
+    
+    t_final = Table(tbl_assinaturas_finais, colWidths=[9*cm, 9*cm])
+    t_final.setStyle(TableStyle([
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('TOPPADDING', (0,0), (-1,-1), 20),
+    ]))
+    story.append(t_final)
+
+    # Construir PDF usando o cabeçalho padrão definido no app.py (cabecalho_e_rodape)
+    doc.build(story, onFirstPage=cabecalho_e_rodape, onLaterPages=cabecalho_e_rodape)
     buffer.seek(0)
 
     response = make_response(buffer.getvalue())
     response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = f'inline; filename=requerimento_{req_id}.pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=requerimento_{servidor.nome}_{req_id}.pdf'
     
     return response
 

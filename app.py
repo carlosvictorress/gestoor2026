@@ -2376,23 +2376,25 @@ def gerar_requerimento_pdf(req_id):
 
     buffer = io.BytesIO()
     
-    # --- CORREÇÃO DAS MARGENS ---
-    # Topo 3cm (para livrar o cabeçalho) e Baixo 2cm (para livrar o rodapé)
+    # --- CONFIGURAÇÃO DA PÁGINA ---
+    # Mantivemos Top=3cm para não bater no cabeçalho
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=A4, 
         rightMargin=1.0*cm,
         leftMargin=1.0*cm,
-        topMargin=3.0*cm,    # Aumentado para não sobrepor o cabeçalho
-        bottomMargin=2.0*cm  # Aumentado para não sobrepor o rodapé
+        topMargin=3.0*cm,    
+        bottomMargin=2.0*cm  
     )
     
-    # Estilos Compactos
+    # --- ESTILOS (Ajustados para leitura confortável) ---
     styles = getSampleStyleSheet()
-    # Fonte reduzida para 8pt para economizar espaço vertical
-    style_normal = ParagraphStyle('Normal_Custom', parent=styles['Normal'], fontSize=8, leading=9)
-    style_center = ParagraphStyle('Center_Custom', parent=styles['Normal'], fontSize=8, alignment=TA_CENTER, leading=9)
-    style_center_bold = ParagraphStyle('Center_Bold', parent=styles['Normal'], fontSize=8, alignment=TA_CENTER, fontName='Helvetica-Bold', leading=9)
+    
+    # Aumentei o leading (entrelinha) para 10 para o texto não ficar "encavalado"
+    # Fonte 8.5 é um bom equilíbrio entre tamanho e economia de espaço
+    style_normal = ParagraphStyle('Normal_Custom', parent=styles['Normal'], fontSize=8.5, leading=10)
+    style_center = ParagraphStyle('Center_Custom', parent=styles['Normal'], fontSize=8.5, alignment=TA_CENTER, leading=10)
+    style_center_bold = ParagraphStyle('Center_Bold', parent=styles['Normal'], fontSize=8.5, alignment=TA_CENTER, fontName='Helvetica-Bold', leading=10)
     style_title = ParagraphStyle('Title_Custom', parent=styles['Normal'], fontSize=11, alignment=TA_CENTER, fontName='Helvetica-Bold', spaceAfter=2)
     
     def label(texto):
@@ -2405,24 +2407,25 @@ def gerar_requerimento_pdf(req_id):
 
     # --- TÍTULO ---
     story.append(Paragraph("REQUERIMENTO PADRÃO", style_title))
-    # Spacer mínimo
     story.append(Spacer(1, 0.1*cm))
 
     # --- DESTINATÁRIO ---
     tbl_destinatario_data = [
         [label("AUTORIDADE A QUEM É DIRIGIDA:"), content(requerimento.autoridade_dirigida or "Sr(a). Secretário(a)")]
     ]
-    tbl_destinatario = Table(tbl_destinatario_data, colWidths=[6*cm, 13*cm])
+    tbl_destinatario = Table(tbl_destinatario_data, colWidths=[6.5*cm, 12.5*cm])
     tbl_destinatario.setStyle(TableStyle([
         ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.black),
         ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        # Padding aumentado para 3 (antes era 1)
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
     ]))
     story.append(tbl_destinatario)
-    story.append(Spacer(1, 0.2*cm))
+    story.append(Spacer(1, 0.3*cm))
 
     # --- BLOCO 1: IDENTIFICAÇÃO ---
     story.append(Paragraph("<b>1. IDENTIFICAÇÃO DO SERVIDOR</b>", style_normal))
+    story.append(Spacer(1, 0.1*cm))
     
     dados_servidor = [
         [label("NOME COMPLETO:"), content(servidor.nome), label("Nº CONTRA-CHEQUE:"), content(servidor.num_contra_cheque)],
@@ -2441,16 +2444,20 @@ def gerar_requerimento_pdf(req_id):
         ('SPAN', (1, 4), (3, 4)), 
         ('BACKGROUND', (0,0), (0,-1), colors.whitesmoke),
         ('BACKGROUND', (2,0), (2,3), colors.whitesmoke),
-        ('TOPPADDING', (0,0), (-1,-1), 0),   # Padding zero para compactar
-        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-        ('LEFTPADDING', (0,0), (-1,-1), 2),
-        ('RIGHTPADDING', (0,0), (-1,-1), 2),
+        
+        # --- AQUI ESTÁ A MUDANÇA PRINCIPAL ---
+        # Aumentamos o padding para 2.5 (era 0). Isso dá respiro ao texto.
+        ('TOPPADDING', (0,0), (-1,-1), 2.5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
+        ('LEFTPADDING', (0,0), (-1,-1), 3),
+        ('RIGHTPADDING', (0,0), (-1,-1), 3),
     ]))
     story.append(t_servidor)
-    story.append(Spacer(1, 0.2*cm))
+    story.append(Spacer(1, 0.3*cm))
 
     # --- BLOCO 2: DADOS DO REQUERIMENTO ---
     story.append(Paragraph("<b>2. DADOS DO REQUERIMENTO</b>", style_normal))
+    story.append(Spacer(1, 0.1*cm))
 
     dados_req = [
         [label("NATUREZA:"), content(natureza_texto), label("DATA INÍCIO:"), content(fmt_data(requerimento.data_inicio_requerimento))],
@@ -2458,8 +2465,8 @@ def gerar_requerimento_pdf(req_id):
         [label("INFORMAÇÕES COMPLEMENTARES:"), content(requerimento.informacoes_complementares), label(""), content("")]
     ]
 
-    # Reduzimos a altura fixa da última linha para 1.2 cm
-    t_req = Table(dados_req, colWidths=[3.5*cm, 9.5*cm, 3*cm, 3*cm], rowHeights=[None, None, 1.2*cm])
+    # Altura da última linha ajustada para acomodar o padding
+    t_req = Table(dados_req, colWidths=[3.5*cm, 9.5*cm, 3*cm, 3*cm], rowHeights=[None, None, 1.4*cm])
     t_req.setStyle(TableStyle([
         ('GRID', (0,0), (-1,-1), 0.5, colors.black),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
@@ -2467,48 +2474,53 @@ def gerar_requerimento_pdf(req_id):
         ('BACKGROUND', (0,0), (0,-1), colors.whitesmoke),
         ('BACKGROUND', (2,0), (2,1), colors.whitesmoke),
         ('VALIGN', (0, 2), (-1, 2), 'TOP'),
-        ('TOPPADDING', (0,0), (-1,-1), 0),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-        ('LEFTPADDING', (0,0), (-1,-1), 2),
+        
+        # Padding confortável
+        ('TOPPADDING', (0,0), (-1,-1), 2.5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
+        ('LEFTPADDING', (0,0), (-1,-1), 3),
     ]))
     story.append(t_req)
-    story.append(Spacer(1, 0.2*cm))
+    story.append(Spacer(1, 0.3*cm))
 
     # --- BLOCO 3: PARECER JURÍDICO ---
     story.append(Paragraph("<b>3. PARECER JURÍDICO / ADMINISTRATIVO</b>", style_normal))
+    story.append(Spacer(1, 0.1*cm))
     
     tbl_parecer_data = [[content(requerimento.parecer_juridico or " ")]]
-    # Altura reduzida para 1.5 cm
-    t_parecer = Table(tbl_parecer_data, colWidths=[19*cm], rowHeights=[1.5*cm])
+    
+    t_parecer = Table(tbl_parecer_data, colWidths=[19*cm], rowHeights=[1.6*cm])
     t_parecer.setStyle(TableStyle([
         ('GRID', (0,0), (-1,-1), 0.5, colors.black),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0,0), (-1,-1), 2),
+        ('TOPPADDING', (0,0), (-1,-1), 3),
+        ('LEFTPADDING', (0,0), (-1,-1), 3),
     ]))
     story.append(t_parecer)
     story.append(Spacer(1, 0.3*cm))
 
     # --- ASSINATURA REQUERENTE ---
     story.append(Paragraph(f"Valença do Piauí, {data_hoje}", style_center))
-    story.append(Spacer(1, 0.4*cm)) # Espaço bem pequeno para assinatura
+    story.append(Spacer(1, 0.6*cm)) # Espaço razoável para assinar
     
     line = "________________________________________________________"
     story.append(Paragraph(line, style_center))
     story.append(Paragraph(f"<b>{servidor.nome.upper()}</b>", style_center))
     story.append(Paragraph("ASSINATURA DO REQUERENTE", style_center))
     
-    story.append(Spacer(1, 0.2*cm))
+    story.append(Spacer(1, 0.3*cm))
     story.append(HRFlowable(width="100%", thickness=0.5, color=colors.black, dash=(3, 2)))
-    story.append(Spacer(1, 0.2*cm))
+    story.append(Spacer(1, 0.3*cm))
 
     # --- BLOCO 4: CHEFIA ---
     story.append(Paragraph("<b>4. DESPACHO DA CHEFIA IMEDIATA</b>", style_normal))
+    story.append(Spacer(1, 0.1*cm))
     
     check_box = " (   ) LIBERADO      (   ) NÃO LIBERADO"
     
     tbl_chefia_data = [
         [Paragraph(check_box, style_normal)],
-        [Spacer(1, 0.3*cm)], # Espaço para assinatura reduzido
+        [Spacer(1, 0.4*cm)], 
         [Paragraph("_____________________________________________", style_center)],
         [Paragraph("ASSINATURA E CARIMBO DO CHEFE IMEDIATO", style_center)]
     ]
@@ -2516,15 +2528,15 @@ def gerar_requerimento_pdf(req_id):
     t_chefia = Table(tbl_chefia_data, colWidths=[19*cm])
     t_chefia.setStyle(TableStyle([
         ('BOX', (0,0), (-1,-1), 0.5, colors.black),
-        ('TOPPADDING', (0,0), (-1,-1), 2),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
     ]))
     story.append(t_chefia)
-    story.append(Spacer(1, 0.2*cm))
+    story.append(Spacer(1, 0.3*cm))
 
     # --- TEXTO ENCAMINHAMENTO ---
     story.append(Paragraph("Encaminhe-se ao setor competente para as providências necessárias.", style_normal))
-    story.append(Spacer(1, 0.4*cm))
+    story.append(Spacer(1, 0.5*cm))
 
     # --- ASSINATURAS FINAIS ---
     tbl_assinaturas_finais = [

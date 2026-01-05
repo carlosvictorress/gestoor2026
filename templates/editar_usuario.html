@@ -30,6 +30,10 @@
                         <option value="Merenda Escolar" {% if user.role == 'Merenda Escolar' %}selected{% endif %}>Merenda Escolar</option>
                         <option value="Patrimonio" {% if user.role == 'Patrimonio' %}selected{% endif %}>Patrimônio</option>
                         <option value="operador" {% if user.role == 'operador' %}selected{% endif %}>Operador (Básico)</option>
+                        <option value="almoxarifado" {% if user.role == 'almoxarifado' %}selected{% endif %}>Almoxarifado</option>
+                        <option value="academico" {% if user.role == 'academico' %}selected{% endif %}>Acadêmico</option>
+                        <option value="CAEE" {% if user.role == 'CAEE' %}selected{% endif %}>CAEE</option>
+                        <option value="Fiscal" {% if user.role == 'Fiscal' %}selected{% endif %}>Fiscal de Contratos</option>
                     </select>
                 </div>
                 <div class="col-md-6 mb-3">

@@ -145,7 +145,7 @@
                 </ul>
             </div>
         </li>
-{% if session.get('role') in ['admin', 'Merenda Escolar', 'CAEE'] %}
+{% if session.get('role') in ['admin', 'Merenda Escolar', 'CAEE', 'RH', 'Fiscal'] %}
         <li class="nav-item">
             <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('merenda.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}active{% endif %}" 
                data-bs-toggle="collapse" 
@@ -155,7 +155,6 @@
                aria-controls="modulosCollapse">
                 <i class="bi bi-grid-fill"></i> Módulos
             </a>
-            {% endif %}
             <div class="collapse {% if request.endpoint.startswith(('merenda.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}show{% endif %}" id="modulosCollapse">
                 <ul class="dropdown-menu">
                     {% if session.get('role') in ['admin', 'CAEE'] %}
@@ -185,14 +184,14 @@
                     <li><a class="dropdown-item" href="{{ url_for('escola.listar_escolas') }}"><i class="bi bi-building"></i> Escolas</a></li>
                     {% endif %}
                 </ul>
-                <li class="nav-item">
+            </div>
+        </li>
+{% endif %}
+        <li class="nav-item">
     <a class="nav-link" href="{{ url_for('contas.dashboard') }}">
         <i class="bi bi-file-earmark-bar-graph-fill"></i> Prestação de Contas
     </a>
 </li>
-            </div>
-        </li>
-                
         <li class="nav-item">
             <a class="nav-link" href="{{ url_for('bloco_de_notas') }}"><i class="bi bi-journal-richtext"></i> Bloco de Notas</a>
         </li>

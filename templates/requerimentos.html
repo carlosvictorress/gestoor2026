@@ -59,7 +59,7 @@
                         <td>
                             <a href="{{ url_for('gerar_requerimento_pdf', req_id=req.id) }}" class="btn btn-sm btn-info" title="Imprimir" target="_blank"><i class="bi bi-printer-fill"></i></a>
                            <a href="{{ url_for('editar_requerimento', req_id=req.id) }}" class="btn btn-sm btn-secondary" title="Editar"><i class="bi bi-pencil-fill"></i></a>	
-                           <a href="#" class="btn btn-sm btn-danger" title="Excluir" onclick="return confirm('Tem certeza?');"><i class="bi bi-trash-fill"></i></a>
+                           <a href="{{ url_for('excluir_requerimento', req_id=req.id) }}" class="btn btn-sm btn-danger" title="Excluir" onclick="return confirm('Tem certeza que deseja excluir este requerimento?');"><i class="bi bi-trash-fill"></i></a>
 							 <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#statusModal" 
                                    data-req-id="{{ req.id }}" 
                                    data-req-nome="{{ req.servidor.nome }}" 

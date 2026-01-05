@@ -2354,6 +2354,23 @@ def novo_requerimento():
             flash(f"Erro ao criar requerimento: {e}", "danger")
     return render_template("requerimento_form.html")
 
+@app.route("/requerimentos/excluir/<int:req_id>")
+@login_required
+@role_required("RH", "admin")
+def excluir_requerimento(req_id):
+    requerimento = Requerimento.query.get_or_404(req_id)
+    try:
+        # Registra quem excluiu para segurança
+        registrar_log(f'Excluiu o requerimento #{requerimento.id} do servidor {requerimento.servidor.nome}.')
+        
+        db.session.delete(requerimento)
+        db.session.commit()
+        flash("Requerimento excluído com sucesso!", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Erro ao excluir requerimento: {e}", "danger")
+
+    return redirect(url_for("listar_requerimentos"))
 
 
 @app.route("/requerimento/pdf/<int:req_id>")

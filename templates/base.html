@@ -163,10 +163,12 @@
                     <li><a class="dropdown-item" href="{{ url_for('fiscal.dashboard') }}"><i class="bi bi-file-earmark-lock2-fill"></i> Fiscal de Contratos</a></li>
                     {% endif %}
                     
-                    {% if session.get('role') in ['admin', 'RH'] %}
+                    {% if session.get('role') in ['admin', 'RH', 'Merenda Escolar'] %}
                     <li><hr class="dropdown-divider"></li>
                     <li><a class="dropdown-item" href="{{ url_for('merenda.dashboard') }}"><i class="bi bi-cart4"></i> Merenda Escolar</a></li>
                     <li><a class="dropdown-item" href="{{ url_for('merenda.agricultura_dashboard') }}"><i class="bi bi-tree-fill"></i> Agricultura Familiar (PNAE)</a></li>
+                    {% endif %}
+                    {% if session.get('role') in ['admin', 'RH'] %}
                     <li><a class="dropdown-item" href="{{ url_for('listar_gams') }}"><i class="bi bi-heart-pulse"></i> GAM (Guia Médica)</a></li>
                     <li><hr class="dropdown-divider"></li>
                     <li><a class="dropdown-item" href="{{ url_for('protocolo.dashboard') }}"><i class="bi bi-folder2-open"></i> Protocolo</a></li>

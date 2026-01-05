@@ -125,7 +125,7 @@
             </a>
             <div class="collapse {% if request.endpoint.startswith(('lista_servidores', 'gerenciar_veiculos', 'motoristas.listar', 'transporte.', 'lancar_abastecimento', 'almoxarifado.', 'academico.')) %}show{% endif %}" id="cadastrosCollapse">
                 <ul class="dropdown-menu">
-                    {% if session.get('role') in ['admin', 'RH'] %}
+                    {% if session.get('role') in ['admin', 'RH', 'Fiscal'] %}
                     <li><a class="dropdown-item" href="{{ url_for('lista_servidores') }}"><i class="bi bi-people-fill"></i> Servidores</a></li>
                     {% endif %}
                     {% if session.get('role') in ['admin', 'Combustivel'] %}

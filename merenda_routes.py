@@ -1365,14 +1365,13 @@ def download_anexo(anexo_id):
 def imprimir_relatorio(id):
     doc = RelatorioTecnico.query.get_or_404(id)
     
-    # Lógica para data por extenso em Português
+    # Formatação da Data por Extenso
     meses = {
         1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho',
         7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
     }
     data_extenso = f"{doc.data_emissao.day} de {meses[doc.data_emissao.month]} de {doc.data_emissao.year}"
     
-    # Renderiza o template passando a data formatada
     return render_template('merenda/relatorio_print.html', doc=doc, data_extenso=data_extenso)
 
 

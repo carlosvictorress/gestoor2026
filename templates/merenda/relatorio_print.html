@@ -4,188 +4,217 @@
     <meta charset="UTF-8">
     <title>{{ doc.tipo_documento }} {{ doc.numero_documento }}</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Carlito:wght@400;700&display=swap');
-
-        /* Configurações da Página para Impressão (PDF) */
+        /* --- CONFIGURAÇÕES DE PÁGINA (ABNT) --- */
         @page {
             size: A4;
-            margin: 2cm 2cm 2cm 3cm; /* Margens: Sup, Dir, Inf, Esq (Padrão ABNT) */
+            /* Margens: Superior 3cm, Direita 2cm, Inferior 2cm, Esquerda 3cm */
+            margin: 0; 
         }
 
         body {
-            font-family: "Times New Roman", Times, serif; /* Ou 'Carlito', sans-serif */
+            font-family: "Times New Roman", Times, serif;
             font-size: 12pt;
-            line-height: 1.5;
+            line-height: 1.5; /* Espaçamento 1.5 */
             color: #000;
-            background: #fff;
+            background: #525659; /* Fundo cinza na tela para destacar a folha */
             margin: 0;
             padding: 0;
+            -webkit-print-color-adjust: exact;
         }
 
-        /* Estilos do Cabeçalho */
+        /* --- SIMULAÇÃO DA FOLHA DE PAPEL --- */
+        .page {
+            background: white;
+            width: 21cm;
+            min-height: 29.7cm;
+            display: block;
+            margin: 0 auto;
+            margin-bottom: 0.5cm;
+            box-shadow: 0 0 0.5cm rgba(0,0,0,0.5);
+            
+            /* Área útil de impressão (descontando as margens) */
+            padding-top: 3cm;
+            padding-right: 2cm;
+            padding-bottom: 2cm;
+            padding-left: 3cm;
+            
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* --- ESTILOS DE IMPRESSÃO --- */
+        @media print {
+            body {
+                background: none;
+            }
+            .page {
+                margin: 0;
+                box-shadow: none;
+                width: auto;
+                height: auto;
+            }
+            .no-print {
+                display: none !important;
+            }
+            /* Força a remoção de cabeçalhos/rodapés do navegador */
+            @page {
+                margin: 0; 
+            }
+        }
+
+        /* --- CABEÇALHO --- */
         .header {
             text-align: center;
-            margin-bottom: 1.5cm;
-            border-bottom: 2px solid #000;
-            padding-bottom: 10px;
+            margin-bottom: 2cm;
         }
         
         .header img {
-            height: 75px; /* Tamanho do Brasão */
-            margin-bottom: 5px;
+            height: 2.5cm; /* Ajuste a altura do timbre aqui */
             display: block;
-            margin-left: auto;
-            margin-right: auto;
+            margin: 0 auto 10px auto;
         }
 
-        .header h1 {
-            margin: 0;
-            font-size: 14pt;
+        /* --- CORPO DO DOCUMENTO --- */
+        .document-title {
             font-weight: bold;
             text-transform: uppercase;
-        }
-        
-        .header h2 {
-            margin: 0;
-            font-size: 12pt;
-            font-weight: bold;
+            text-align: center;
+            margin-bottom: 1.5cm;
+            font-size: 14pt;
+            text-decoration: underline;
         }
 
-        /* Corpo do Documento */
-        .content {
-            margin-top: 1cm;
-        }
-
-        .numero-doc {
-            font-weight: bold;
+        .info-block {
             margin-bottom: 1cm;
         }
 
-        .local-data {
-            text-align: right;
-            margin-bottom: 1.5cm;
+        .info-row {
+            margin-bottom: 5px;
         }
 
-        .destinatario {
-            margin-bottom: 1.5cm;
+        .label {
+            font-weight: bold;
+            min-width: 80px;
+            display: inline-block;
         }
 
         .assunto {
             font-weight: bold;
+            margin-top: 1cm;
             margin-bottom: 1cm;
-            text-align: left;
+            text-transform: uppercase;
         }
 
-        .texto-principal {
+        .texto-conteudo {
             text-align: justify;
             text-justify: inter-word;
-            margin-bottom: 1.5cm;
-            white-space: pre-wrap; /* Mantém os parágrafos digitados */
+            margin-bottom: 2cm;
+            white-space: pre-wrap; /* Respeita as quebras de linha do formulário */
+        }
+        
+        /* Recuo de parágrafo ABNT */
+        .texto-conteudo p {
+            text-indent: 2.5cm;
+            margin-top: 0;
+            margin-bottom: 10px;
         }
 
-        .fecho {
+        /* Data alinhada à direita */
+        .data-local {
+            text-align: right;
             margin-bottom: 2cm;
         }
 
-        /* Assinatura */
-        .assinatura {
+        /* --- ASSINATURA --- */
+        .assinatura-box {
+            margin-top: 3cm;
             text-align: center;
-            margin-top: 2cm;
-            page-break-inside: avoid; /* Evita quebrar a assinatura para outra página */
+            page-break-inside: avoid;
         }
 
-        .assinatura-linha {
+        .linha-assinatura {
             border-top: 1px solid #000;
-            width: 50%;
+            width: 60%;
             margin: 0 auto 10px auto;
         }
 
-        /* Botão de Imprimir (Só aparece na tela) */
-        .no-print {
+        .cargo {
+            font-size: 10pt;
+            font-style: italic;
+        }
+
+        /* Botão Flutuante */
+        .btn-print {
             position: fixed;
             top: 20px;
             right: 20px;
-            background-color: #dc3545;
+            background-color: #0d6efd;
             color: white;
-            padding: 10px 20px;
+            padding: 12px 24px;
             border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-family: Arial, sans-serif;
+            border-radius: 50px;
+            font-family: sans-serif;
             font-weight: bold;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: background 0.2s;
             z-index: 9999;
         }
-
-        .no-print:hover {
-            background-color: #c82333;
-        }
-
-        @media print {
-            .no-print {
-                display: none !important;
-            }
-            body {
-                -webkit-print-color-adjust: exact;
-            }
-        }
+        .btn-print:hover { background-color: #0b5ed7; }
     </style>
 </head>
 <body>
 
-    <button class="no-print" onclick="window.print()">
-        🖨️ IMPRIMIR / SALVAR PDF
+    <button class="btn-print no-print" onclick="window.print()">
+        🖨️ IMPRIMIR DOCUMENTO
     </button>
 
-    <div class="header">
-        <img src="{{ url_for('static', filename='img/brasao.png') }}" alt="Brasão" onerror="this.style.display='none'">
-        
-        <h1>PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ</h1>
-        <h2>SECRETARIA MUNICIPAL DE EDUCAÇÃO</h2>
-        <h2>SETOR DE ALIMENTAÇÃO ESCOLAR - PNAE</h2>
-    </div>
-
-    <div class="content">
-        <div class="local-data">
-            {{ doc.local_emissao }}, {{ data_extenso }}.
+    <div class="page">
+        <div class="header">
+            <img src="{{ url_for('static', filename='img/timbre.JPG') }}" alt="Brasão Oficial">
         </div>
 
-        <div class="numero-doc">
+        <div class="document-title">
             {{ doc.tipo_documento.upper() }} Nº {{ doc.numero_documento }}
         </div>
 
-        <div class="destinatario">
-            Ao(À) Sr(a).<br>
-            <strong>{{ doc.destinatario_nome }}</strong><br>
-            {{ doc.destinatario_cargo if doc.destinatario_cargo else '' }}
+        <div class="info-block">
+            <div class="info-row">
+                <span class="label">A Sua Senhoria o(a) Senhor(a)</span>
+            </div>
+            <div class="info-row" style="font-weight: bold; font-size: 13pt; margin-top: 5px;">
+                {{ doc.destinatario_nome.upper() }}
+            </div>
+            {% if doc.destinatario_cargo %}
+            <div class="info-row">
+                {{ doc.destinatario_cargo }}
+            </div>
+            {% endif %}
         </div>
 
         <div class="assunto">
-            <strong>Assunto:</strong> {{ doc.assunto }}
+            ASSUNTO: {{ doc.assunto }}
         </div>
 
-        <div class="texto-principal">
+        <div class="texto-conteudo">
             {{ doc.vocativo if doc.vocativo else 'Prezado(a) Senhor(a),' }}
             <br><br>
             {{ doc.corpo_texto }}
         </div>
 
-        <div class="fecho">
+        <div class="data-local">
             {{ doc.fecho if doc.fecho else 'Atenciosamente,' }}
+            <br><br>
+            {{ doc.local_emissao }}, {{ data_extenso }}.
         </div>
 
-        <div class="assinatura">
-            <div class="assinatura-linha"></div>
-            <strong>{{ doc.responsavel_assinatura }}</strong><br>
-            Responsável Técnico / PNAE
+        <div class="assinatura-box">
+            <div class="linha-assinatura"></div>
+            <strong>{{ doc.responsavel_assinatura.upper() }}</strong><br>
+            <span class="cargo">Responsável Técnico / PNAE</span><br>
+            <span class="cargo">Secretaria Municipal de Educação</span>
         </div>
     </div>
 
-    <script>
-        window.onload = function() {
-            // Descomente a linha abaixo se quiser que abra a janela de impressão direto ao carregar
-            // window.print();
-        };
-    </script>
 </body>
 </html>

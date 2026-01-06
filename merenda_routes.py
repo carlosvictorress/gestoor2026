@@ -1345,6 +1345,20 @@ def relatorios_tecnicos():
     return render_template('merenda/relatorios_tecnicos.html', documentos=documentos)
 
 
+@merenda_bp.route('/relatorios/anexo/<int:anexo_id>/download')
+@login_required
+def download_anexo(anexo_id):
+    anexo = RelatorioAnexo.query.get_or_404(anexo_id)
+    
+    # 1. Verifica se é um link do Supabase (nuvem)
+    if anexo.filename and anexo.filename.startswith('http'):
+        return redirect(anexo.filename)
+        
+    # 2. Fallback: Se por acaso não for link (muito difícil agora), exibe erro
+    flash('Arquivo não encontrado ou link inválido.', 'danger')
+    return redirect(url_for('merenda.relatorios_tecnicos'))
+
+
 @merenda_bp.route('/relatorios/tecnicos/<int:id>/imprimir')
 @login_required
 @role_required('Merenda Escolar', 'admin')

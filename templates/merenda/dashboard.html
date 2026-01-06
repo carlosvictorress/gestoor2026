@@ -6,20 +6,38 @@
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 border-bottom pb-3">
     <div class="d-flex align-items-center">
         <h3 class="me-4 mb-0"><i class="bi bi-egg-fried"></i> Merenda Escolar</h3>
-        <a href="{{ url_for('merenda.painel_solicitacoes') }}" class="btn btn-outline-secondary me-2"><i class="bi bi-clipboard-check"></i> Solicitações</a>
-        <a href="{{ url_for('merenda.gerenciar_cardapio') }}" class="btn btn-outline-secondary me-2"><i class="bi bi-calendar-week"></i> Cardápios</a>
-        <a href="{{ url_for('merenda.listar_escolas') }}" class="btn btn-outline-secondary me-2"><i class="bi bi-building"></i> Escolas</a>
-        <a href="{{ url_for('merenda.listar_produtos') }}" class="btn btn-outline-secondary me-2"><i class="bi bi-box-seam"></i> Produtos</a>
+        
+        <a href="{{ url_for('merenda.painel_solicitacoes') }}" class="btn btn-outline-secondary me-2">
+            <i class="bi bi-clipboard-check"></i> Solicitações
+        </a>
+        
+        <a href="{{ url_for('merenda.gerenciar_cardapio') }}" class="btn btn-outline-secondary me-2">
+            <i class="bi bi-calendar-week"></i> Cardápios
+        </a>
+        
+        <a href="{{ url_for('merenda.listar_escolas') }}" class="btn btn-outline-secondary me-2">
+            <i class="bi bi-building"></i> Escolas
+        </a>
+        
+        <a href="{{ url_for('merenda.listar_produtos') }}" class="btn btn-outline-secondary me-2">
+            <i class="bi bi-box-seam"></i> Produtos
+        </a>
+        
         <div class="btn-group">
             <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="bi bi-file-earmark-text"></i> Relatórios
             </button>
             <ul class="dropdown-menu">
                 <li><a class="dropdown-item" href="{{ url_for('merenda.relatorios_tecnicos') }}">Técnicos e Ofícios</a></li>
+                <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item" href="{{ url_for('merenda.relatorio_saidas') }}">Saídas de Estoque</a></li>
                 <li><a class="dropdown-item" href="{{ url_for('merenda.relatorio_consolidado_mensal') }}">Consumo Mensal</a></li>
             </ul>
         </div>
+        
+        <a href="{{ url_for('merenda.agricultura_dashboard') }}" class="btn btn-outline-success ms-2">
+            <i class="bi bi-tree"></i> Agricultura Familiar
+        </a>
     </div>
 </div>
 
@@ -54,7 +72,7 @@
     <div class="col-lg-6">
         <div class="card shadow-sm">
             <div class="card-body" style="height: 400px;">
-                <h5 class="card-title">Top 5 Escolas por Consumo (Soma das Quantidades)</h5>
+                <h5 class="card-title">Top 5 Escolas por Consumo</h5>
                 <canvas id="topEscolasChart"></canvas>
             </div>
         </div>
@@ -62,92 +80,127 @@
     <div class="col-lg-6">
         <div class="card shadow-sm">
             <div class="card-body" style="height: 400px;">
-                <h5 class="card-title">Top 5 Produtos Mais Solicitados (em quantidade)</h5>
+                <h5 class="card-title">Top 5 Produtos Mais Solicitados</h5>
                 <canvas id="topProdutosChart"></canvas>
             </div>
         </div>
     </div>
 </div>
 
-<div class="card shadow-sm">
-    <div class="card-header">
-        <h5>Alerta de Estoque Baixo</h5>
+<div class="card shadow-sm mb-5">
+    <div class="card-header bg-danger text-white">
+        <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Alerta de Estoque Baixo</h5>
     </div>
     <div class="card-body">
         {% if produtos_estoque_baixo %}
         <div class="table-responsive">
-            <table class="table table-sm table-hover">
-                <thead>
-                    <tr><th>Produto</th><th>Estoque Atual</th></tr>
+            <table class="table table-sm table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Produto</th>
+                        <th>Estoque Atual</th>
+                        <th>Ação</th>
+                    </tr>
                 </thead>
                 <tbody>
                     {% for p in produtos_estoque_baixo %}
-                    <tr class="table-danger">
-                        <td>{{ p.nome }}</td>
+                    <tr>
+                        <td class="fw-bold text-danger">{{ p.nome }}</td>
                         <td>{{ p.estoque_atual }} {{ p.unidade_medida }}</td>
+                        <td>
+                            <a href="{{ url_for('merenda.entrada_estoque') }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-plus-lg"></i> Repor
+                            </a>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         {% else %}
-        <p class="text-muted">Nenhum produto com estoque baixo no momento.</p>
+        <div class="text-center py-3 text-success">
+            <i class="bi bi-check-circle-fill fs-4"></i><br>
+            Nenhum produto com estoque crítico no momento.
+        </div>
         {% endif %}
     </div>
 </div>
 
-
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // Gráfico de Top Escolas
+    // 1. Gráfico de Top Escolas (Barras Horizontais)
     const ctxEscolas = document.getElementById('topEscolasChart').getContext('2d');
-    new Chart(ctxEscolas, {
-        type: 'bar',
-        data: {
-            labels: {{ escolas_labels|tojson }},
-            datasets: [{
-                label: 'Quantidade Total Consumida',
-                data: {{ escolas_data|tojson }},
-                backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            scales: {
-                x: { 
-                    beginAtZero: true 
-                }
-            },
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false
-        }
-    });
+    
+    // Verifica se há dados antes de renderizar
+    const escolasData = {{ escolas_data|tojson }};
+    const escolasLabels = {{ escolas_labels|tojson }};
 
-    // Gráfico de Top Produtos
+    if (escolasData.length > 0) {
+        new Chart(ctxEscolas, {
+            type: 'bar',
+            data: {
+                labels: escolasLabels,
+                datasets: [{
+                    label: 'Qtd. Total Consumida',
+                    data: escolasData,
+                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y', // Barra horizontal para ler melhor os nomes das escolas
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { beginAtZero: true }
+                }
+            }
+        });
+    } else {
+        // Exibe mensagem se não houver dados
+        ctxEscolas.font = "14px Arial";
+        ctxEscolas.fillText("Sem dados de consumo ainda.", 10, 50);
+    }
+
+    // 2. Gráfico de Top Produtos (Pizza)
     const ctxProdutos = document.getElementById('topProdutosChart').getContext('2d');
-    new Chart(ctxProdutos, {
-        type: 'pie',
-        data: {
-            labels: {{ produtos_labels|tojson }},
-            datasets: [{
-                label: 'Quantidade Solicitada',
-                data: {{ produtos_data|tojson }},
-                backgroundColor: [
-                    'rgba(255, 99, 132, 0.6)',
-                    'rgba(75, 192, 192, 0.6)',
-                    'rgba(255, 206, 86, 0.6)',
-                    'rgba(153, 102, 255, 0.6)',
-                    'rgba(255, 159, 64, 0.6)'
-                ],
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false
-        }
-    });
+    const produtosData = {{ produtos_data|tojson }};
+    const produtosLabels = {{ produtos_labels|tojson }};
+
+    if (produtosData.length > 0) {
+        new Chart(ctxProdutos, {
+            type: 'doughnut', // Doughnut fica mais moderno que Pie
+            data: {
+                labels: produtosLabels,
+                datasets: [{
+                    label: 'Quantidade Solicitada',
+                    data: produtosData,
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(75, 192, 192, 0.7)',
+                        'rgba(255, 206, 86, 0.7)',
+                        'rgba(153, 102, 255, 0.7)',
+                        'rgba(255, 159, 64, 0.7)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    } else {
+        ctxProdutos.font = "14px Arial";
+        ctxProdutos.fillText("Sem solicitações ainda.", 10, 50);
+    }
 });
 </script>
 {% endblock %}

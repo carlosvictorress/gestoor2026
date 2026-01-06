@@ -4,143 +4,188 @@
     <meta charset="UTF-8">
     <title>{{ doc.tipo_documento }} {{ doc.numero_documento }}</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Carlito:wght@400;700&display=swap');
+
+        /* Configurações da Página para Impressão (PDF) */
         @page {
             size: A4;
-            margin: 2.5cm 2cm 2cm 2cm; /* Margens ABNT/Oficial */
+            margin: 2cm 2cm 2cm 3cm; /* Margens: Sup, Dir, Inf, Esq (Padrão ABNT) */
         }
+
         body {
-            font-family: "Times New Roman", Times, serif;
+            font-family: "Times New Roman", Times, serif; /* Ou 'Carlito', sans-serif */
             font-size: 12pt;
             line-height: 1.5;
             color: #000;
             background: #fff;
+            margin: 0;
+            padding: 0;
         }
+
+        /* Estilos do Cabeçalho */
         .header {
             text-align: center;
-            margin-bottom: 3cm;
+            margin-bottom: 1.5cm;
+            border-bottom: 2px solid #000;
+            padding-bottom: 10px;
         }
+        
         .header img {
-            height: 80px;
-            margin-bottom: 10px;
+            height: 75px; /* Tamanho do Brasão */
+            margin-bottom: 5px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
         }
-        .header h1, .header h2, .header h3 {
+
+        .header h1 {
             margin: 0;
+            font-size: 14pt;
             font-weight: bold;
             text-transform: uppercase;
+        }
+        
+        .header h2 {
+            margin: 0;
             font-size: 12pt;
+            font-weight: bold;
         }
-        .document-info {
-            margin-bottom: 2cm;
+
+        /* Corpo do Documento */
+        .content {
+            margin-top: 1cm;
         }
-        .document-number {
+
+        .numero-doc {
             font-weight: bold;
             margin-bottom: 1cm;
         }
+
+        .local-data {
+            text-align: right;
+            margin-bottom: 1.5cm;
+        }
+
         .destinatario {
             margin-bottom: 1.5cm;
         }
+
         .assunto {
             font-weight: bold;
+            margin-bottom: 1cm;
+            text-align: left;
+        }
+
+        .texto-principal {
+            text-align: justify;
+            text-justify: inter-word;
             margin-bottom: 1.5cm;
-            text-align: justify;
+            white-space: pre-wrap; /* Mantém os parágrafos digitados */
         }
-        .corpo-texto {
-            text-align: justify;
-            text-indent: 2.5cm; /* Parágrafo */
-            margin-bottom: 2cm;
-            white-space: pre-wrap; /* Mantém quebras de linha do textarea */
-        }
+
         .fecho {
-            margin-bottom: 3cm;
-            text-indent: 2.5cm;
+            margin-bottom: 2cm;
         }
+
+        /* Assinatura */
         .assinatura {
             text-align: center;
             margin-top: 2cm;
+            page-break-inside: avoid; /* Evita quebrar a assinatura para outra página */
         }
+
         .assinatura-linha {
             border-top: 1px solid #000;
-            width: 60%;
+            width: 50%;
             margin: 0 auto 10px auto;
         }
-        .rodape {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            text-align: center;
-            font-size: 9pt;
-            color: #666;
-            border-top: 1px solid #ccc;
-            padding-top: 10px;
-        }
-        /* Botão de imprimir que some na impressão */
+
+        /* Botão de Imprimir (Só aparece na tela) */
         .no-print {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: #0d6efd;
+            background-color: #dc3545;
             color: white;
             padding: 10px 20px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            font-family: sans-serif;
+            font-family: Arial, sans-serif;
             font-weight: bold;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 9999;
         }
+
+        .no-print:hover {
+            background-color: #c82333;
+        }
+
         @media print {
-            .no-print { display: none; }
+            .no-print {
+                display: none !important;
+            }
+            body {
+                -webkit-print-color-adjust: exact;
+            }
         }
     </style>
 </head>
 <body>
 
-    <button class="no-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+    <button class="no-print" onclick="window.print()">
+        🖨️ IMPRIMIR / SALVAR PDF
+    </button>
 
     <div class="header">
-        <!-- Substitua pelo caminho do brasão da sua prefeitura -->
         <img src="{{ url_for('static', filename='img/brasao.png') }}" alt="Brasão" onerror="this.style.display='none'">
-        <h2>Prefeitura Municipal</h2>
-        <h3>Secretaria Municipal de Educação</h3>
-        <h3>Setor de Alimentação Escolar</h3>
+        
+        <h1>PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ</h1>
+        <h2>SECRETARIA MUNICIPAL DE EDUCAÇÃO</h2>
+        <h2>SETOR DE ALIMENTAÇÃO ESCOLAR - PNAE</h2>
     </div>
 
-    <div class="document-info">
-        <div class="document-number">
-            {{ doc.local_emissao }}, {{ doc.data_emissao.strftime('%d de %B de %Y') }}.<br><br>
+    <div class="content">
+        <div class="local-data">
+            {{ doc.local_emissao }}, {{ data_extenso }}.
+        </div>
+
+        <div class="numero-doc">
             {{ doc.tipo_documento.upper() }} Nº {{ doc.numero_documento }}
         </div>
 
         <div class="destinatario">
-            {{ doc.vocativo }}<br>
+            Ao(À) Sr(a).<br>
             <strong>{{ doc.destinatario_nome }}</strong><br>
-            {% if doc.destinatario_cargo %}{{ doc.destinatario_cargo }}{% endif %}
+            {{ doc.destinatario_cargo if doc.destinatario_cargo else '' }}
         </div>
 
         <div class="assunto">
-            Assunto: {{ doc.assunto }}
+            <strong>Assunto:</strong> {{ doc.assunto }}
+        </div>
+
+        <div class="texto-principal">
+            {{ doc.vocativo if doc.vocativo else 'Prezado(a) Senhor(a),' }}
+            <br><br>
+            {{ doc.corpo_texto }}
+        </div>
+
+        <div class="fecho">
+            {{ doc.fecho if doc.fecho else 'Atenciosamente,' }}
+        </div>
+
+        <div class="assinatura">
+            <div class="assinatura-linha"></div>
+            <strong>{{ doc.responsavel_assinatura }}</strong><br>
+            Responsável Técnico / PNAE
         </div>
     </div>
 
-    <div class="corpo-texto">
-        {{ doc.corpo_texto }}
-    </div>
-
-    <div class="fecho">
-        {{ doc.fecho }}
-    </div>
-
-    <div class="assinatura">
-        <div class="assinatura-linha"></div>
-        <strong>{{ doc.responsavel_assinatura }}</strong><br>
-        Nutricionista Responsável<br>
-        CRN: 0000/UF
-    </div>
-
-    <div class="rodape">
-        Sistema de Gestão Escolar - Documento gerado em {{ doc.created_at.strftime('%d/%m/%Y às %H:%M') }}
-    </div>
-
+    <script>
+        window.onload = function() {
+            // Descomente a linha abaixo se quiser que abra a janela de impressão direto ao carregar
+            // window.print();
+        };
+    </script>
 </body>
 </html>

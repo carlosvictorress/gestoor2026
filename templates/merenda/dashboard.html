@@ -10,6 +10,16 @@
         <a href="{{ url_for('merenda.gerenciar_cardapio') }}" class="btn btn-outline-secondary me-2"><i class="bi bi-calendar-week"></i> Cardápios</a>
         <a href="{{ url_for('merenda.listar_escolas') }}" class="btn btn-outline-secondary me-2"><i class="bi bi-building"></i> Escolas</a>
         <a href="{{ url_for('merenda.listar_produtos') }}" class="btn btn-outline-secondary me-2"><i class="bi bi-box-seam"></i> Produtos</a>
+        <div class="btn-group">
+            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-file-earmark-text"></i> Relatórios
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="{{ url_for('merenda.relatorios_tecnicos') }}">Técnicos e Ofícios</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('merenda.relatorio_saidas') }}">Saídas de Estoque</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('merenda.relatorio_consolidado_mensal') }}">Consumo Mensal</a></li>
+            </ul>
+        </div>
     </div>
 </div>
 

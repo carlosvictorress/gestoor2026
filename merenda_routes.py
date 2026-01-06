@@ -4,6 +4,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
 from reportlab.lib import colors
 from reportlab.lib.units import cm
+import os
 import base64
 import io
 import json
@@ -1388,8 +1389,7 @@ def imprimir_relatorio(id):
             encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
         return encoded_string
 
-    # 3. Carrega as imagens (ATENÇÃO AOS NOMES EXATOS AQUI)
-    # Se o arquivo no seu projeto for .jpg minúsculo, mude aqui. Se for .JPG, mantenha.
+    # 3. Carrega as imagens
     timbre_b64 = get_image_b64('timbre.JPG') 
     marcadagua_b64 = get_image_b64('marcadagua.png')
     
@@ -1398,15 +1398,6 @@ def imprimir_relatorio(id):
                            data_extenso=data_extenso,
                            timbre_b64=timbre_b64,
                            marcadagua_b64=marcadagua_b64)
-    
-    # Formatação da Data por Extenso
-    meses = {
-        1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho',
-        7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
-    }
-    data_extenso = f"{doc.data_emissao.day} de {meses[doc.data_emissao.month]} de {doc.data_emissao.year}"
-    
-    return render_template('merenda/relatorio_print.html', doc=doc, data_extenso=data_extenso)
 
 
 @merenda_bp.route('/relatorios/tecnicos/<int:id>/excluir')

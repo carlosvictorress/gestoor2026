@@ -6,52 +6,45 @@
     <style>
         @page {
             size: A4;
-            /* Margens Oficiais (Superior 3cm, Esquerda 3cm, Direita 2cm, Inferior 2cm) */
-            margin: 3cm 2cm 2cm 3cm; 
+            /* Margens Reduzidas para caber em 1 página */
+            margin: 1.5cm 2cm 1.5cm 2cm; 
         }
 
         body {
             font-family: "Times New Roman", Times, serif;
             font-size: 12pt;
-            line-height: 1.5;
+            line-height: 1.3; /* Espaçamento levemente reduzido */
             color: #000;
             margin: 0;
             padding: 0;
-            -webkit-print-color-adjust: exact; /* Força impressão de cores/fundo */
+            -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
             
-            /* MARCA D'ÁGUA CENTRALIZADA (Fixa via Base64) */
+            /* MARCA D'ÁGUA */
             {% if marcadagua_b64 %}
             background-image: url("data:image/png;base64,{{ marcadagua_b64 }}");
             background-repeat: no-repeat;
             background-position: center center;
-            background-size: 80%; /* Tamanho da marca d'água na página */
+            background-size: 70%;
             {% endif %}
         }
 
-        /* Botão de Imprimir (Apenas Tela) */
         .no-print {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background-color: #333;
-            color: #fff;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            border: none;
-            font-weight: bold;
-            z-index: 9999;
+            position: fixed; top: 10px; right: 10px;
+            background: #333; color: #fff; padding: 8px 15px;
+            border-radius: 5px; cursor: pointer; border: none; z-index: 9999;
         }
         @media print { .no-print { display: none; } }
 
+        /* CABEÇALHO COMPACTO */
         .header {
             text-align: center;
-            margin-bottom: 2cm;
+            margin-bottom: 1cm; /* Margem reduzida */
         }
         
         .header img {
-            height: 2.5cm; /* Altura do Timbre */
+            max-height: 2.5cm; /* Controla altura do timbre */
+            width: auto;
             display: block;
             margin: 0 auto;
         }
@@ -61,51 +54,52 @@
             font-weight: bold;
             text-transform: uppercase;
             font-size: 14pt;
-            margin-bottom: 1.5cm;
+            margin-bottom: 1cm;
             text-decoration: underline;
         }
 
+        /* CONTEÚDO */
         .content-block {
-            text-align: justify;
-            text-justify: inter-word;
-            margin-bottom: 1cm;
+            margin-bottom: 0.5cm;
         }
 
-        /* Recuo de parágrafo oficial */
         .paragraph {
-            text-indent: 2.5cm;
-            margin-bottom: 10px;
-            white-space: pre-wrap; /* Respeita quebras de linha do banco */
+            text-align: justify;
+            text-indent: 2cm;
+            margin-bottom: 0.5cm;
+            white-space: pre-wrap;
         }
 
+        /* DATA E FECHO */
         .date-right {
             text-align: right;
-            margin-top: 2cm;
-            margin-bottom: 3cm;
+            margin-top: 1cm;
+            margin-bottom: 2cm; /* Espaço para assinatura */
         }
 
+        /* ASSINATURA - Evita quebra de página */
         .signature {
             text-align: center;
-            page-break-inside: avoid;
+            page-break-inside: avoid; 
         }
         
         .signature-line {
             border-top: 1px solid #000;
-            width: 60%;
+            width: 50%;
             margin: 0 auto 5px auto;
         }
     </style>
 </head>
 <body>
 
-    <button class="no-print" onclick="window.print()">🖨️ IMPRIMIR OFICIAL</button>
+    <button class="no-print" onclick="window.print()">🖨️ IMPRIMIR</button>
 
     <div class="header">
         {% if timbre_b64 %}
-            <img src="data:image/jpeg;base64,{{ timbre_b64 }}" alt="Timbre Oficial">
+            <img src="data:image/jpeg;base64,{{ timbre_b64 }}" alt="Timbre">
         {% else %}
-            <h2 style="margin:0;">PREFEITURA MUNICIPAL</h2>
-            <h3 style="margin:0;">SECRETARIA DE EDUCAÇÃO</h3>
+            <h3>PREFEITURA MUNICIPAL</h3>
+            <h4>SECRETARIA DE EDUCAÇÃO</h4>
         {% endif %}
     </div>
 
@@ -115,17 +109,17 @@
 
     <div class="content-block">
         <div><strong>A Sua Senhoria o(a) Senhor(a)</strong></div>
-        <div style="font-size: 1.1em; font-weight: bold; margin: 5px 0;">{{ doc.destinatario_nome|upper }}</div>
+        <div style="font-size: 1.1em; font-weight: bold; margin: 3px 0;">{{ doc.destinatario_nome|upper }}</div>
         {% if doc.destinatario_cargo %}
         <div>{{ doc.destinatario_cargo }}</div>
         {% endif %}
     </div>
 
-    <div class="content-block" style="font-weight: bold;">
+    <div class="content-block" style="font-weight: bold; margin-top: 0.8cm;">
         ASSUNTO: {{ doc.assunto }}
     </div>
 
-    <div class="content-block">
+    <div class="content-block" style="margin-top: 0.8cm;">
         <div class="paragraph">
             {{ doc.vocativo if doc.vocativo else 'Prezado(a) Senhor(a),' }}
         </div>
@@ -136,8 +130,7 @@
     </div>
 
     <div class="date-right">
-        <p>{{ doc.fecho if doc.fecho else 'Atenciosamente,' }}</p>
-        <br>
+        <p style="margin-bottom: 0.5cm;">{{ doc.fecho if doc.fecho else 'Atenciosamente,' }}</p>
         {{ doc.local_emissao }}, {{ data_extenso }}.
     </div>
 

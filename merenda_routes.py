@@ -12,7 +12,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from extensions import db, bcrypt
 # Importe todos os novos modelos aqui
 from werkzeug.utils import secure_filename
-from models import Escola, ProdutoMerenda, EstoqueMovimento, SolicitacaoMerenda, SolicitacaoItem, Cardapio, PratoDiario, HistoricoCardapio, Servidor
+from models import Escola, ProdutoMerenda, EstoqueMovimento, SolicitacaoMerenda, SolicitacaoItem, Cardapio, PratoDiario, HistoricoCardapio, Servidor, RelatorioTecnico, RelatorioAnexo
 from utils import login_required, registrar_log, limpar_cpf, cabecalho_e_rodape, currency_filter_br, cabecalho_e_rodape_moderno, upload_arquivo_para_nuvem
     
 from sqlalchemy import or_, func
@@ -1289,3 +1289,84 @@ def pdf_termo_recebimento_pnae(entrega_id):
     response.headers['Content-Disposition'] = f'inline; filename=Termo_Recebimento_{entrega.id}.pdf'
     
     return response
+
+# --- GESTÃO DE RELATÓRIOS TÉCNICOS E OFÍCIOS ---
+
+@merenda_bp.route('/relatorios/tecnicos', methods=['GET', 'POST'])
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def relatorios_tecnicos():
+    if request.method == 'POST':
+        try:
+            # 1. Cria o objeto do Relatório
+            novo_doc = RelatorioTecnico(
+                tipo_documento=request.form.get('tipo_documento'),
+                numero_documento=request.form.get('numero_documento'),
+                data_emissao=datetime.strptime(request.form.get('data_emissao'), '%Y-%m-%d').date(),
+                local_emissao=request.form.get('local_emissao'),
+                vocativo=request.form.get('vocativo'),
+                destinatario_nome=request.form.get('destinatario_nome'),
+                destinatario_cargo=request.form.get('destinatario_cargo'),
+                assunto=request.form.get('assunto'),
+                corpo_texto=request.form.get('corpo_texto'),
+                fecho=request.form.get('fecho'),
+                responsavel_assinatura=request.form.get('responsavel_assinatura')
+            )
+            
+            db.session.add(novo_doc)
+            db.session.flush() # Gera o ID para usar nos anexos
+
+            # 2. Upload de Anexos para o Supabase
+            arquivos = request.files.getlist('anexos')
+            for file in arquivos:
+                if file and file.filename != '':
+                    # Envia para a pasta 'merenda_documentos' no Supabase
+                    url_anexo = upload_arquivo_para_nuvem(file, pasta="merenda_documentos")
+                    
+                    if url_anexo:
+                        anexo = RelatorioAnexo(
+                            relatorio_id=novo_doc.id,
+                            filename=url_anexo, # Salva o link da nuvem
+                            nome_original=secure_filename(file.filename),
+                            descricao="Anexo do Documento"
+                        )
+                        db.session.add(anexo)
+
+            db.session.commit()
+            flash(f'{novo_doc.tipo_documento} registrado com sucesso!', 'success')
+            return redirect(url_for('merenda.relatorios_tecnicos'))
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao salvar documento: {e}', 'danger')
+
+    # Listagem para o GET
+    documentos = RelatorioTecnico.query.order_by(RelatorioTecnico.data_emissao.desc()).all()
+    return render_template('merenda/relatorios_tecnicos.html', documentos=documentos)
+
+
+@merenda_bp.route('/relatorios/tecnicos/<int:id>/imprimir')
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def imprimir_relatorio(id):
+    doc = RelatorioTecnico.query.get_or_404(id)
+    # Renderiza o template de impressão HTML limpo
+    return render_template('merenda/relatorio_print.html', doc=doc)
+
+
+@merenda_bp.route('/relatorios/tecnicos/<int:id>/excluir')
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def excluir_relatorio(id):
+    doc = RelatorioTecnico.query.get_or_404(id)
+    try:
+        # Nota: Os arquivos no Supabase permanecem, ou você pode implementar a deleção via API se desejar.
+        # Aqui removemos apenas a referência no banco.
+        db.session.delete(doc)
+        db.session.commit()
+        flash('Documento excluído com sucesso.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao excluir: {e}', 'danger')
+        
+    return redirect(url_for('merenda.relatorios_tecnicos'))

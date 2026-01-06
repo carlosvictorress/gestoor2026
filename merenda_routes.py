@@ -4,6 +4,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
 from reportlab.lib import colors
 from reportlab.lib.units import cm
+import base64
 import io
 import json
 import uuid
@@ -1364,6 +1365,39 @@ def download_anexo(anexo_id):
 @role_required('Merenda Escolar', 'admin')
 def imprimir_relatorio(id):
     doc = RelatorioTecnico.query.get_or_404(id)
+    
+    # 1. Formatação da Data por Extenso
+    meses = {
+        1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho',
+        7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
+    }
+    data_extenso = f"{doc.data_emissao.day} de {meses[doc.data_emissao.month]} de {doc.data_emissao.year}"
+    
+    # 2. Função Auxiliar para Converter Imagem em Base64
+    def get_image_b64(filename):
+        # Monta o caminho exato dentro da pasta static/img
+        filepath = os.path.join(current_app.static_folder, 'img', filename)
+        
+        # Verifica se existe para não dar erro
+        if not os.path.exists(filepath):
+            print(f"ERRO: Imagem não encontrada no caminho: {filepath}")
+            return None
+            
+        with open(filepath, "rb") as image_file:
+            # Lê o arquivo e converte para string base64
+            encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+        return encoded_string
+
+    # 3. Carrega as imagens (ATENÇÃO AOS NOMES EXATOS AQUI)
+    # Se o arquivo no seu projeto for .jpg minúsculo, mude aqui. Se for .JPG, mantenha.
+    timbre_b64 = get_image_b64('timbre.JPG') 
+    marcadagua_b64 = get_image_b64('marcadagua.png')
+    
+    return render_template('merenda/relatorio_print.html', 
+                           doc=doc, 
+                           data_extenso=data_extenso,
+                           timbre_b64=timbre_b64,
+                           marcadagua_b64=marcadagua_b64)
     
     # Formatação da Data por Extenso
     meses = {

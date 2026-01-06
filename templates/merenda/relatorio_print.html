@@ -4,79 +4,58 @@
     <meta charset="UTF-8">
     <title>{{ doc.tipo_documento }} {{ doc.numero_documento }}</title>
     <style>
-        /* --- CONFIGURAÇÕES CRÍTICAS DE IMPRESSÃO --- */
         @page {
             size: A4;
-            /* Margens ABNT: Sup 3cm, Dir 2cm, Inf 2cm, Esq 3cm */
+            /* Margens Oficiais (Superior 3cm, Esquerda 3cm, Direita 2cm, Inferior 2cm) */
             margin: 3cm 2cm 2cm 3cm; 
-        }
-
-        html, body {
-            margin: 0;
-            padding: 0;
-            height: 100%;
         }
 
         body {
             font-family: "Times New Roman", Times, serif;
             font-size: 12pt;
-            line-height: 1.5; /* Espaçamento entre linhas padrão ABNT */
+            line-height: 1.5;
             color: #000;
-            /* FORÇA O NAVEGADOR A IMPRIMIR FUNDOS E IMAGENS */
-            -webkit-print-color-adjust: exact;
+            margin: 0;
+            padding: 0;
+            -webkit-print-color-adjust: exact; /* Força impressão de cores/fundo */
             print-color-adjust: exact;
             
-            /* --- MARCA D'ÁGUA --- */
-            /* Certifique-se que marcadagua.png está em static/img/ */
-            background-image: url("{{ url_for('static', filename='img/marcadagua.png') }}");
+            /* MARCA D'ÁGUA CENTRALIZADA (Fixa via Base64) */
+            {% if marcadagua_b64 %}
+            background-image: url("data:image/png;base64,{{ marcadagua_b64 }}");
             background-repeat: no-repeat;
             background-position: center center;
-            background-attachment: fixed; /* Fixa no centro da folha */
-            background-size: 80%; /* Ajuste o tamanho da marca d'água aqui se precisar */
+            background-size: 80%; /* Tamanho da marca d'água na página */
+            {% endif %}
         }
 
-        /* --- ESTILOS PARA A TELA (Botão de Imprimir) --- */
+        /* Botão de Imprimir (Apenas Tela) */
         .no-print {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: #333;
+            background-color: #333;
             color: #fff;
             padding: 10px 20px;
             border-radius: 5px;
             cursor: pointer;
             border: none;
-            font-family: sans-serif;
             font-weight: bold;
             z-index: 9999;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        
-        @media print {
-            .no-print { display: none !important; }
-        }
+        @media print { .no-print { display: none; } }
 
-        /* --- ESTRUTURA DO DOCUMENTO --- */
-        .container {
-            /* O conteúdo flui dentro das margens definidas em @page */
-            width: 100%;
-        }
-
-        /* Cabeçalho com Timbre */
-        .header-timbre {
+        .header {
             text-align: center;
-            margin-bottom: 2cm; /* Espaço após o timbre */
+            margin-bottom: 2cm;
         }
         
-        .header-timbre img {
-            /* Ajuste a altura máxima do seu timbre aqui para não ficar gigante */
-            max-height: 3.5cm; 
-            width: auto;
-            /* Garante que a imagem seja tratada como bloco para centralizar */
-            display: inline-block; 
+        .header img {
+            height: 2.5cm; /* Altura do Timbre */
+            display: block;
+            margin: 0 auto;
         }
 
-        /* Título do Documento (ex: OFÍCIO Nº 123) */
         .doc-title {
             text-align: center;
             font-weight: bold;
@@ -86,92 +65,87 @@
             text-decoration: underline;
         }
 
-        /* Blocos de Informação (Destinatário, Assunto) */
-        .info-block {
+        .content-block {
+            text-align: justify;
+            text-justify: inter-word;
             margin-bottom: 1cm;
         }
-        
-        .info-label {
-             font-weight: bold;
-             margin-right: 5px;
+
+        /* Recuo de parágrafo oficial */
+        .paragraph {
+            text-indent: 2.5cm;
+            margin-bottom: 10px;
+            white-space: pre-wrap; /* Respeita quebras de linha do banco */
         }
 
-        /* Corpo do Texto */
-        .main-text {
-            text-align: justify; /* Texto justificado (alinhado nas duas margens) */
-            text-justify: inter-word;
-            margin-bottom: 2cm;
-            white-space: pre-wrap; /* Mantém os parágrafos e quebras de linha digitados */
-        }
-
-        /* Data e Local alinhados à direita */
         .date-right {
             text-align: right;
+            margin-top: 2cm;
             margin-bottom: 3cm;
         }
 
-        /* Assinatura centralizada */
-        .signature-block {
+        .signature {
             text-align: center;
-            page-break-inside: avoid; /* Tenta não quebrar a assinatura em duas páginas */
+            page-break-inside: avoid;
         }
         
         .signature-line {
             border-top: 1px solid #000;
-            width: 60%; /* Largura da linha da assinatura */
-            margin: 0 auto 10px auto;
+            width: 60%;
+            margin: 0 auto 5px auto;
         }
     </style>
 </head>
 <body>
-    <button class="no-print" onclick="window.print()">🖨️ Visualizar Impressão Profissional</button>
 
-    <div class="container">
-        
-        <div class="header-timbre">
-            <img src="{{ url_for('static', filename='img/timbre.jpg') }}" alt="Timbre Oficial">
-        </div>
+    <button class="no-print" onclick="window.print()">🖨️ IMPRIMIR OFICIAL</button>
 
-        <div class="doc-title">
-            {{ doc.tipo_documento|upper }} Nº {{ doc.numero_documento }}
-        </div>
-
-        <div class="info-block">
-            <div>A Sua Senhoria o(a) Senhor(a)</div>
-            <div style="font-weight: bold; font-size: 13pt; margin: 5px 0;">
-                {{ doc.destinatario_nome|upper }}
-            </div>
-            {% if doc.destinatario_cargo %}
-            <div>{{ doc.destinatario_cargo }}</div>
-            {% endif %}
-        </div>
-
-        <div class="info-block" style="margin-top: 1.5cm;">
-            <span class="info-label">ASSUNTO:</span> {{ doc.assunto }}
-        </div>
-
-        <div class="main-text">
-            <p>{{ doc.vocativo if doc.vocativo else 'Prezado(a) Senhor(a),' }}</p>
-            
-            {{ doc.corpo_texto|safe }}
-        </div>
-
-        <div class="date-right">
-            <p style="margin-bottom: 1.5cm;">{{ doc.fecho if doc.fecho else 'Atenciosamente,' }}</p>
-            
-            {{ doc.local_emissao }}, {{ data_extenso }}.
-        </div>
-
-        <div class="signature-block">
-            <div class="signature-line"></div>
-            <div style="font-weight: bold;">{{ doc.responsavel_assinatura|upper }}</div>
-            </div>
-
+    <div class="header">
+        {% if timbre_b64 %}
+            <img src="data:image/jpeg;base64,{{ timbre_b64 }}" alt="Timbre Oficial">
+        {% else %}
+            <h2 style="margin:0;">PREFEITURA MUNICIPAL</h2>
+            <h3 style="margin:0;">SECRETARIA DE EDUCAÇÃO</h3>
+        {% endif %}
     </div>
 
-    <script>
-        // Opcional: Abre a tela de impressão automaticamente ao carregar
-        // window.onload = window.print;
-    </script>
+    <div class="doc-title">
+        {{ doc.tipo_documento|upper }} Nº {{ doc.numero_documento }}
+    </div>
+
+    <div class="content-block">
+        <div><strong>A Sua Senhoria o(a) Senhor(a)</strong></div>
+        <div style="font-size: 1.1em; font-weight: bold; margin: 5px 0;">{{ doc.destinatario_nome|upper }}</div>
+        {% if doc.destinatario_cargo %}
+        <div>{{ doc.destinatario_cargo }}</div>
+        {% endif %}
+    </div>
+
+    <div class="content-block" style="font-weight: bold;">
+        ASSUNTO: {{ doc.assunto }}
+    </div>
+
+    <div class="content-block">
+        <div class="paragraph">
+            {{ doc.vocativo if doc.vocativo else 'Prezado(a) Senhor(a),' }}
+        </div>
+        
+        <div class="paragraph">
+            {{ doc.corpo_texto }}
+        </div>
+    </div>
+
+    <div class="date-right">
+        <p>{{ doc.fecho if doc.fecho else 'Atenciosamente,' }}</p>
+        <br>
+        {{ doc.local_emissao }}, {{ data_extenso }}.
+    </div>
+
+    <div class="signature">
+        <div class="signature-line"></div>
+        <div style="font-weight: bold;">{{ doc.responsavel_assinatura|upper }}</div>
+        <div style="font-size: 10pt; font-style: italic;">Responsável Técnico / PNAE</div>
+    </div>
+
 </body>
 </html>

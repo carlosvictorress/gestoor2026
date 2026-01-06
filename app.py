@@ -3555,6 +3555,23 @@ def haversine(lat1, lon1, lat2, lon2):
     distance = R * c
     return distance
 
+# --- ROTA TEMPORÁRIA PARA CRIAR TABELAS QUE FALTAM ---
+@app.route('/criar-tabelas-extras')
+def criar_tabelas_extras():
+    try:
+        from models import RelatorioTecnico, RelatorioAnexo
+        with app.app_context():
+            db.create_all()
+            return """
+            <div style='text-align: center; padding: 50px; font-family: Arial;'>
+                <h1 style='color: green;'>Sucesso! ✅</h1>
+                <p>A tabela <b>relatorios_tecnicos</b> foi criada no banco de dados.</p>
+                <a href='/merenda/dashboard' style='padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px;'>Voltar para o Sistema</a>
+            </div>
+            """
+    except Exception as e:
+        return f"<h1>Erro ao criar tabelas: {e}</h1>"
+
 # ===================================================================
 # PARTE 6: Importação e Registro dos Blueprints
 # ===================================================================
@@ -3596,6 +3613,7 @@ app.register_blueprint(assinatura_bp)
 # ===================================================================
 # PARTE 7: Bloco de Execução Principal
 # ===================================================================
+
 
 if __name__ == "__main__":
     app.run(debug=True)

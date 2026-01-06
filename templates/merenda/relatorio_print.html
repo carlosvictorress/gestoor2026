@@ -21,12 +21,11 @@
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
 
-            {% if marcadagua_b64 %}
-            background-image: url("data:image/png;base64,{{ marcadagua_b64 }}");
+            /* Marca D'água fixa na pasta static */
+            background-image: url("{{ url_for('static', filename='marcadagua.png') }}");
             background-repeat: no-repeat;
             background-position: center center;
             background-size: 70%;
-            {% endif %}
         }
 
         /* ================= BOTÃO (APENAS WEB) ================= */
@@ -56,15 +55,24 @@
         }
 
         .header img {
-            max-height: 2.5cm;
+            max-height: 2.5cm; /* Ajuste a altura do brasão aqui se precisar */
             width: auto;
             display: block;
-            margin: 0 auto;
+            margin: 0 auto 10px auto; /* 10px de espaço entre a imagem e o texto */
         }
 
-        .header h3,
+        .header h3 {
+            margin: 0;
+            font-size: 14pt;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
         .header h4 {
-            margin: 2px 0;
+            margin: 2px 0 0 0;
+            font-size: 12pt;
+            font-weight: bold;
+            text-transform: uppercase;
         }
 
         /* ================= TÍTULO DO DOCUMENTO ================= */
@@ -75,6 +83,7 @@
             text-transform: uppercase;
             text-decoration: underline;
             margin-bottom: 1cm;
+            margin-top: 1cm;
         }
 
         /* ================= BLOCO PADRÃO ================= */
@@ -142,22 +151,17 @@
 
 <button class="no-print" onclick="window.print()">🖨️ IMPRIMIR</button>
 
-<!-- ================= CABEÇALHO ================= -->
 <div class="header">
-    {% if timbre_b64 %}
-        <img src="data:image/jpeg;base64,{{ timbre_b64 }}" alt="Timbre Oficial">
-    {% else %}
-        <h3>PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ</h3>
-        <h4>SECRETARIA MUNICIPAL DE EDUCAÇÃO</h4>
-    {% endif %}
+    <img src="{{ url_for('static', filename='timbre.jpg') }}" alt="Brasão">
+    
+    <h3>PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ</h3>
+    <h4>SECRETARIA MUNICIPAL DE EDUCAÇÃO</h4>
 </div>
 
-<!-- ================= TÍTULO ================= -->
 <div class="doc-title">
     {{ doc.tipo_documento|upper }} Nº {{ doc.numero_documento }}
 </div>
 
-<!-- ================= DESTINATÁRIO ================= -->
 <div class="block destinatario">
     <strong>A Sua Senhoria o(a) Senhor(a)</strong>
     <div class="nome">{{ doc.destinatario_nome|upper }}</div>
@@ -167,12 +171,10 @@
     {% endif %}
 </div>
 
-<!-- ================= ASSUNTO ================= -->
 <div class="block assunto">
     ASSUNTO: {{ doc.assunto }}
 </div>
 
-<!-- ================= CORPO ================= -->
 <div class="block">
     <div class="paragraph">
         {{ doc.vocativo if doc.vocativo else 'Prezado(a) Senhor(a),' }}
@@ -183,13 +185,11 @@
     </div>
 </div>
 
-<!-- ================= FECHO E DATA ================= -->
 <div class="fecho">
     <p>{{ doc.fecho if doc.fecho else 'Atenciosamente,' }}</p>
     {{ doc.local_emissao }}, {{ data_extenso }}.
 </div>
 
-<!-- ================= ASSINATURA ================= -->
 <div class="signature">
     <div class="signature-line"></div>
     <div class="signature-name">{{ doc.responsavel_assinatura|upper }}</div>

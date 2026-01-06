@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ doc.tipo_documento }} {{ doc.numero_documento }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2.5cm 2cm 2cm 2cm; /* Margens ABNT/Oficial */
+        }
+        body {
+            font-family: "Times New Roman", Times, serif;
+            font-size: 12pt;
+            line-height: 1.5;
+            color: #000;
+            background: #fff;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 3cm;
+        }
+        .header img {
+            height: 80px;
+            margin-bottom: 10px;
+        }
+        .header h1, .header h2, .header h3 {
+            margin: 0;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 12pt;
+        }
+        .document-info {
+            margin-bottom: 2cm;
+        }
+        .document-number {
+            font-weight: bold;
+            margin-bottom: 1cm;
+        }
+        .destinatario {
+            margin-bottom: 1.5cm;
+        }
+        .assunto {
+            font-weight: bold;
+            margin-bottom: 1.5cm;
+            text-align: justify;
+        }
+        .corpo-texto {
+            text-align: justify;
+            text-indent: 2.5cm; /* Parágrafo */
+            margin-bottom: 2cm;
+            white-space: pre-wrap; /* Mantém quebras de linha do textarea */
+        }
+        .fecho {
+            margin-bottom: 3cm;
+            text-indent: 2.5cm;
+        }
+        .assinatura {
+            text-align: center;
+            margin-top: 2cm;
+        }
+        .assinatura-linha {
+            border-top: 1px solid #000;
+            width: 60%;
+            margin: 0 auto 10px auto;
+        }
+        .rodape {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 9pt;
+            color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
+        }
+        /* Botão de imprimir que some na impressão */
+        .no-print {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #0d6efd;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: sans-serif;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        @media print {
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <button class="no-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+
+    <div class="header">
+        <!-- Substitua pelo caminho do brasão da sua prefeitura -->
+        <img src="{{ url_for('static', filename='img/brasao.png') }}" alt="Brasão" onerror="this.style.display='none'">
+        <h2>Prefeitura Municipal</h2>
+        <h3>Secretaria Municipal de Educação</h3>
+        <h3>Setor de Alimentação Escolar</h3>
+    </div>
+
+    <div class="document-info">
+        <div class="document-number">
+            {{ doc.local_emissao }}, {{ doc.data_emissao.strftime('%d de %B de %Y') }}.<br><br>
+            {{ doc.tipo_documento.upper() }} Nº {{ doc.numero_documento }}
+        </div>
+
+        <div class="destinatario">
+            {{ doc.vocativo }}<br>
+            <strong>{{ doc.destinatario_nome }}</strong><br>
+            {% if doc.destinatario_cargo %}{{ doc.destinatario_cargo }}{% endif %}
+        </div>
+
+        <div class="assunto">
+            Assunto: {{ doc.assunto }}
+        </div>
+    </div>
+
+    <div class="corpo-texto">
+        {{ doc.corpo_texto }}
+    </div>
+
+    <div class="fecho">
+        {{ doc.fecho }}
+    </div>
+
+    <div class="assinatura">
+        <div class="assinatura-linha"></div>
+        <strong>{{ doc.responsavel_assinatura }}</strong><br>
+        Nutricionista Responsável<br>
+        CRN: 0000/UF
+    </div>
+
+    <div class="rodape">
+        Sistema de Gestão Escolar - Documento gerado em {{ doc.created_at.strftime('%d/%m/%Y às %H:%M') }}
+    </div>
+
+</body>
+</html>

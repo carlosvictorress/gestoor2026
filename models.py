@@ -1359,3 +1359,35 @@ class ConfiguracaoPNAE(db.Model):
     @property
     def valor_meta_minima(self):
         return self.valor_total_repasse * (self.meta_percentual / 100)    
+
+class RelatorioTecnico(db.Model):
+    __tablename__ = 'relatorios_tecnicos'
+
+    id = db.Column(db.Integer, primary_key=True)
+    tipo_documento = db.Column(db.String(50), nullable=False)
+    numero_documento = db.Column(db.String(50), nullable=False)
+    data_emissao = db.Column(db.Date, nullable=False)
+    local_emissao = db.Column(db.String(100), nullable=False)
+    
+    vocativo = db.Column(db.String(50))
+    destinatario_nome = db.Column(db.String(100), nullable=False)
+    destinatario_cargo = db.Column(db.String(100))
+    
+    assunto = db.Column(db.String(200), nullable=False)
+    corpo_texto = db.Column(db.Text, nullable=False)
+    
+    fecho = db.Column(db.String(50))
+    responsavel_assinatura = db.Column(db.String(100), nullable=False)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    anexos = db.relationship('RelatorioAnexo', backref='relatorio', lazy=True, cascade="all, delete-orphan")
+
+class RelatorioAnexo(db.Model):
+    __tablename__ = 'relatorio_anexo'
+    id = db.Column(db.Integer, primary_key=True)
+    relatorio_id = db.Column(db.Integer, db.ForeignKey('relatorios_tecnicos.id'), nullable=False)
+    filename = db.Column(db.String(255), nullable=False) # Nome do arquivo salvo no servidor
+    nome_original = db.Column(db.String(255), nullable=False) # Nome original do arquivo enviado
+    descricao = db.Column(db.String(255)) # Descrição opcional (ex: "Foto da despensa")
+    upload_date = db.Column(db.DateTime, default=datetime.utcnow)

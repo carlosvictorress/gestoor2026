@@ -8,11 +8,7 @@
         /* ================= CONFIGURAÇÃO DO PDF ================= */
         @page {
             size: A4;
-            /* AQUI ESTÁ O SEGREDO:
-               Mudei a margem de baixo para 0cm. 
-               Isso permite que o rodapé apareça na impressão.
-               Ordem: Topo | Direita | Baixo | Esquerda
-            */
+            /* Mantemos a margem de baixo zerada para nós controlarmos a posição manualmente */
             margin: 1.5cm 2cm 0cm 2cm;
         }
 
@@ -24,8 +20,8 @@
             margin: 0;
             padding: 0;
             
-            /* Aumentei o espaço extra no final para o texto não bater no rodapé */
-            padding-bottom: 3cm; 
+            /* Aumentei para 4cm para o texto não bater no rodapé que subiu */
+            padding-bottom: 4cm; 
 
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
@@ -156,18 +152,20 @@
             font-style: italic;
         }
 
-        /* ================= RODAPÉ CORRIGIDO ================= */
+        /* ================= RODAPÉ CORRIGIDO PARA IMPRESSORA FÍSICA ================= */
         .footer {
             position: fixed;
-            /* Coloquei o bottom positivo para ele subir um pouco da borda do papel */
-            bottom: 0.5cm; 
+            /* SUBI PARA 1.5cm */
+            /* Isso garante que saia da "zona morta" da impressora HP/Epson */
+            bottom: 1.5cm; 
             left: 0;
             width: 100%;
             text-align: center;
             font-size: 10pt;
-            background-color: transparent; /* Garante transparência */
+            background-color: transparent;
             padding-top: 5px;
             border-top: 1px solid #000;
+            z-index: 1000; /* Garante que fique acima de qualquer fundo */
         }
         
         .footer p {

@@ -8,7 +8,7 @@
         /* ================= CONFIGURAÇÃO DO PDF ================= */
         @page {
             size: A4;
-            margin: 1.5cm 2cm;
+            margin: 1.5cm 2cm; /* Margens da página */
         }
 
         body {
@@ -18,14 +18,11 @@
             color: #000;
             margin: 0;
             padding: 0;
+            /* Espaço extra no final para o rodapé não cobrir o texto */
+            padding-bottom: 2cm; 
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
 
-            /* AJUSTE DE TRANSPARÊNCIA:
-               Mudei de 0.92 para 0.80.
-               Isso significa que a "película branca" agora cobre 80% da imagem,
-               deixando a marca d'água 20% visível (antes estava apenas 8%).
-            */
             background-image: 
                 linear-gradient(rgba(255, 255, 255, 0.80), rgba(255, 255, 255, 0.80)),
                 url("{{ url_for('static', filename='marcadagua.png') }}");
@@ -151,6 +148,24 @@
             font-size: 10pt;
             font-style: italic;
         }
+
+        /* ================= RODAPÉ (NOVO) ================= */
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 10pt;
+            background-color: transparent;
+            padding-top: 5px;
+            border-top: 1px solid #000; /* Linha preta separando o rodapé */
+        }
+        
+        .footer p {
+            margin: 2px 0;
+            font-weight: bold;
+        }
     </style>
 </head>
 
@@ -163,8 +178,6 @@
     
     <h3>PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ</h3>
     <h4>SECRETARIA MUNICIPAL DE EDUCAÇÃO</h4>
-    <h1>Rua Epaminondas Nogueira 1425 - Centro - Valença do Piauí</h1>
-    <h1>CNPJ: 06.095.146/0001-44 - e-mail: seme.valenca@yahoo.com.br</h1>
 </div>
 
 <div class="doc-title">
@@ -203,6 +216,11 @@
     <div class="signature-line"></div>
     <div class="signature-name">{{ doc.responsavel_assinatura|upper }}</div>
     <div class="signature-role">Responsável Técnico / PNAE</div>
+</div>
+
+<div class="footer">
+    <p>Rua Epaminondas Nogueira 1425 - Centro - Valença do Piauí</p>
+    <p>CNPJ: 06.095.146/0001-44 - e-mail: seme.valenca@yahoo.com.br</p>
 </div>
 
 </body>

@@ -5,11 +5,11 @@
     <title>{{ doc.tipo_documento }} {{ doc.numero_documento }}</title>
 
     <style>
-        /* ================= CONFIGURAÇÃO DO PDF ================= */
+        /* ================= CONFIGURAÇÃO DA PÁGINA ================= */
         @page {
             size: A4;
-            /* ZERAMOS TUDO: Isso dá controle total do papel para o nosso CSS */
-            margin: 0; 
+            /* Margens padrão - Deixe a impressora respirar */
+            margin: 1cm 1.5cm; 
         }
 
         body {
@@ -18,106 +18,81 @@
             line-height: 1.35;
             color: #000;
             margin: 0;
-            
-            /* AQUI CRIAMOS AS MARGENS DO TEXTO (Simulando o @page antigo) */
-            /* Topo: 1.5cm | Direita: 2cm | Baixo: 4cm (para caber o rodapé) | Esquerda: 2cm */
-            padding: 1.5cm 2cm 4cm 2cm; 
-
+            padding: 0;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+        }
 
+        /* CONFIGURAÇÃO DO FUNDO (MARCA D'ÁGUA) 
+           Aplicamos no body para cobrir tudo */
+        body {
             background-image: 
                 linear-gradient(rgba(255, 255, 255, 0.80), rgba(255, 255, 255, 0.80)),
                 url("{{ url_for('static', filename='marcadagua.png') }}");
-            
             background-repeat: no-repeat;
             background-position: center center;
-            background-size: 70%; /* Ajuste para o tamanho da página inteira */
-            background-attachment: fixed; /* Garante que o fundo fique fixo */
+            background-size: 60%; /* Um pouco menor para garantir que caiba */
+            background-attachment: fixed;
         }
 
-        /* ================= BOTÃO (APENAS WEB) ================= */
-        .no-print {
+        /* ================= ESTRUTURA MÁGICA DE TABELA ================= */
+        /* Isso garante que cabeçalho e rodapé se repitam e respeitem as margens */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        /* O Header e o Footer da tabela têm altura fixa */
+        thead { display: table-header-group; }
+        tfoot { display: table-footer-group; }
+        
+        /* Espaços vazios para garantir que o conteúdo não cubra o cabeçalho/rodapé */
+        .header-space { height: 3.5cm; }
+        .footer-space { height: 2cm; }
+
+        /* ================= CONTEÚDO FIXO (Header e Footer Reais) ================= */
+        .page-header {
             position: fixed;
-            top: 10px;
-            right: 10px;
-            padding: 8px 15px;
-            background: #333;
-            color: #fff;
-            border-radius: 5px;
-            border: none;
-            cursor: pointer;
-            z-index: 9999;
-        }
-
-        @media print {
-            .no-print {
-                display: none;
-            }
-        }
-
-        /* ================= CABEÇALHO ================= */
-        .header {
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3.5cm;
             text-align: center;
-            margin-bottom: 1cm;
+            background: transparent; /* Importante para ver a marca d'agua */
         }
 
-        .header img {
-            max-height: 2.5cm; 
-            width: auto;
-            display: block;
-            margin: 0 auto 10px auto; 
+        .page-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 1.5cm; /* Altura do rodapé */
+            
+            /* Estilo do Rodapé */
+            text-align: center;
+            font-size: 10pt;
+            border-top: 1px solid #000;
+            padding-top: 5px;
+            background: rgba(255, 255, 255, 0.9); /* Fundo branco leve para leitura */
         }
 
-        .header h3 {
-            margin: 0;
-            font-size: 14pt;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        .header h4 {
-            margin: 2px 0 0 0;
-            font-size: 12pt;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        /* ================= TÍTULO DO DOCUMENTO ================= */
+        /* ================= ESTILOS DO TEXTO ================= */
         .doc-title {
             text-align: center;
             font-weight: bold;
             font-size: 14pt;
             text-transform: uppercase;
             text-decoration: underline;
-            margin-bottom: 1cm;
-            margin-top: 1cm;
+            margin: 1cm 0;
         }
 
-        /* ================= BLOCO PADRÃO ================= */
-        .block {
-            margin-bottom: 0.6cm;
-        }
+        .block { margin-bottom: 0.6cm; }
 
-        /* ================= DESTINATÁRIO ================= */
-        .destinatario strong {
-            display: block;
-            margin-bottom: 4px;
-        }
+        .destinatario strong { display: block; margin-bottom: 4px; }
+        .destinatario .nome { font-weight: bold; font-size: 1.05em; margin-bottom: 3px; }
 
-        .destinatario .nome {
-            font-weight: bold;
-            font-size: 1.05em;
-            margin-bottom: 3px;
-        }
+        .assunto { font-weight: bold; margin-top: 0.8cm; }
 
-        /* ================= ASSUNTO ================= */
-        .assunto {
-            font-weight: bold;
-            margin-top: 0.8cm;
-        }
-
-        /* ================= TEXTO ================= */
         .paragraph {
             text-align: justify;
             text-indent: 2cm;
@@ -125,126 +100,107 @@
             white-space: pre-wrap;
         }
 
-        /* ================= DATA E FECHO ================= */
-        .fecho {
-            text-align: right;
-            margin-top: 1cm;
-            margin-bottom: 2cm;
-        }
+        .fecho { text-align: right; margin-top: 1cm; margin-bottom: 2cm; }
 
-        /* ================= ASSINATURA ================= */
-        .signature {
-            text-align: center;
-            page-break-inside: avoid;
-        }
+        .signature { text-align: center; page-break-inside: avoid; }
+        .signature-line { border-top: 1px solid #000; width: 55%; margin: 0 auto 5px auto; }
+        .signature-name { font-weight: bold; }
+        .signature-role { font-size: 10pt; font-style: italic; }
 
-        .signature-line {
-            border-top: 1px solid #000;
-            width: 55%;
-            margin: 0 auto 5px auto;
-        }
-
-        .signature-name {
-            font-weight: bold;
-        }
-
-        .signature-role {
-            font-size: 10pt;
-            font-style: italic;
-        }
-
-        /* ================= RODAPÉ BLINDADO ================= */
-        .footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 2cm; /* Altura reservada para o rodapé */
-            
-            /* Centralização e Estilo */
-            text-align: center;
-            font-size: 10pt;
-            background-color: transparent;
-            
-            /* A mágica acontece aqui: Padding-bottom joga o texto pra cima da borda do papel */
-            padding-bottom: 1cm; 
-            padding-top: 10px;
-            
-            /* Garante que fique acima de tudo */
-            z-index: 9999;
-        }
+        .header-content img { height: 2.2cm; width: auto; display: block; margin: 0 auto 5px auto; }
+        .header-content h3 { margin: 0; font-size: 14pt; font-weight: bold; text-transform: uppercase; }
+        .header-content h4 { margin: 2px 0 0 0; font-size: 12pt; font-weight: bold; text-transform: uppercase; }
         
-        .footer-content {
-            border-top: 1px solid #000; /* A linha fica dentro do conteúdo */
-            width: 90%; /* Linha não encosta nas bordas laterais */
-            margin: 0 auto; /* Centraliza a linha */
-            padding-top: 5px;
-        }
+        .footer-content p { margin: 2px 0; font-weight: bold; }
 
-        .footer p {
-            margin: 2px 0;
-            font-weight: bold;
-            color: #000 !important; /* Força cor preta */
-            -webkit-print-color-adjust: exact;
-        }
+        /* Botão */
+        .no-print { position: fixed; top: 10px; right: 10px; padding: 8px 15px; background: #333; color: #fff; border-radius: 5px; cursor: pointer; z-index: 9999; }
+        @media print { .no-print { display: none; } }
+
     </style>
 </head>
 
 <body>
+    <button class="no-print" onclick="window.print()">🖨️ IMPRIMIR</button>
 
-<button class="no-print" onclick="window.print()">🖨️ IMPRIMIR</button>
-
-<div class="header">
-    <img src="{{ url_for('static', filename='timbre.jpg') }}" alt="Brasão">
-    
-    <h3>PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ</h3>
-    <h4>SECRETARIA MUNICIPAL DE EDUCAÇÃO</h4>
-</div>
-
-<div class="doc-title">
-    {{ doc.tipo_documento|upper }} Nº {{ doc.numero_documento }}
-</div>
-
-<div class="block destinatario">
-    <strong>A Sua Senhoria o(a) Senhor(a)</strong>
-    <div class="nome">{{ doc.destinatario_nome|upper }}</div>
-
-    {% if doc.destinatario_cargo %}
-        <div>{{ doc.destinatario_cargo }}</div>
-    {% endif %}
-</div>
-
-<div class="block assunto">
-    ASSUNTO: {{ doc.assunto }}
-</div>
-
-<div class="block">
-    <div class="paragraph">
-        {{ doc.vocativo if doc.vocativo else 'Prezado(a) Senhor(a),' }}
+    <div class="page-header">
+        <div class="header-content">
+            <img src="{{ url_for('static', filename='timbre.jpg') }}" alt="Brasão">
+            <h3>PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ</h3>
+            <h4>SECRETARIA MUNICIPAL DE EDUCAÇÃO</h4>
+        </div>
     </div>
 
-    <div class="paragraph">
-        {{ doc.corpo_texto }}
+    <div class="page-footer">
+        <div class="footer-content">
+            <p>Rua Epaminondas Nogueira 1425 - Centro - Valença do Piauí</p>
+            <p>CNPJ: 06.095.146/0001-44 - e-mail: seme.valenca@yahoo.com.br</p>
+        </div>
     </div>
-</div>
 
-<div class="fecho">
-    <p>{{ doc.fecho if doc.fecho else 'Atenciosamente,' }}</p>
-    {{ doc.local_emissao }}, {{ data_extenso }}.
-</div>
+    <table>
+        <thead>
+            <tr>
+                <td>
+                    <div class="header-space">&nbsp;</div>
+                </td>
+            </tr>
+        </thead>
 
-<div class="signature">
-    <div class="signature-line"></div>
-    <div class="signature-name">{{ doc.responsavel_assinatura|upper }}</div>
-    <div class="signature-role">Responsável Técnico / PNAE</div>
-</div>
+        <tbody>
+            <tr>
+                <td>
+                    <div class="content-wrapper" style="padding: 0 1cm;">
+                        
+                        <div class="doc-title">
+                            {{ doc.tipo_documento|upper }} Nº {{ doc.numero_documento }}
+                        </div>
 
-<div class="footer">
-    <div class="footer-content">
-        <p>Rua Epaminondas Nogueira 1425 - Centro - Valença do Piauí</p>
-        <p>CNPJ: 06.095.146/0001-44 - e-mail: seme.valenca@yahoo.com.br</p>
-    </div>
-</div>
+                        <div class="block destinatario">
+                            <strong>A Sua Senhoria o(a) Senhor(a)</strong>
+                            <div class="nome">{{ doc.destinatario_nome|upper }}</div>
+                            {% if doc.destinatario_cargo %}
+                                <div>{{ doc.destinatario_cargo }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="block assunto">
+                            ASSUNTO: {{ doc.assunto }}
+                        </div>
+
+                        <div class="block">
+                            <div class="paragraph">
+                                {{ doc.vocativo if doc.vocativo else 'Prezado(a) Senhor(a),' }}
+                            </div>
+                            <div class="paragraph">
+                                {{ doc.corpo_texto }}
+                            </div>
+                        </div>
+
+                        <div class="fecho">
+                            <p>{{ doc.fecho if doc.fecho else 'Atenciosamente,' }}</p>
+                            {{ doc.local_emissao }}, {{ data_extenso }}.
+                        </div>
+
+                        <div class="signature">
+                            <div class="signature-line"></div>
+                            <div class="signature-name">{{ doc.responsavel_assinatura|upper }}</div>
+                            <div class="signature-role">Responsável Técnico / PNAE</div>
+                        </div>
+
+                    </div>
+                    </td>
+            </tr>
+        </tbody>
+
+        <tfoot>
+            <tr>
+                <td>
+                    <div class="footer-space">&nbsp;</div>
+                </td>
+            </tr>
+        </tfoot>
+    </table>
 
 </body>
 </html>

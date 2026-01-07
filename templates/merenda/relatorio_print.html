@@ -8,7 +8,12 @@
         /* ================= CONFIGURAÇÃO DO PDF ================= */
         @page {
             size: A4;
-            margin: 1.5cm 2cm; /* Margens da página */
+            /* AQUI ESTÁ O SEGREDO:
+               Mudei a margem de baixo para 0cm. 
+               Isso permite que o rodapé apareça na impressão.
+               Ordem: Topo | Direita | Baixo | Esquerda
+            */
+            margin: 1.5cm 2cm 0cm 2cm;
         }
 
         body {
@@ -18,8 +23,10 @@
             color: #000;
             margin: 0;
             padding: 0;
-            /* Espaço extra no final para o rodapé não cobrir o texto */
-            padding-bottom: 2cm; 
+            
+            /* Aumentei o espaço extra no final para o texto não bater no rodapé */
+            padding-bottom: 3cm; 
+
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
 
@@ -149,17 +156,18 @@
             font-style: italic;
         }
 
-        /* ================= RODAPÉ (NOVO) ================= */
+        /* ================= RODAPÉ CORRIGIDO ================= */
         .footer {
             position: fixed;
-            bottom: 0;
+            /* Coloquei o bottom positivo para ele subir um pouco da borda do papel */
+            bottom: 0.5cm; 
             left: 0;
             width: 100%;
             text-align: center;
             font-size: 10pt;
-            background-color: transparent;
+            background-color: transparent; /* Garante transparência */
             padding-top: 5px;
-            border-top: 1px solid #000; /* Linha preta separando o rodapé */
+            border-top: 1px solid #000;
         }
         
         .footer p {

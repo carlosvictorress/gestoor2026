@@ -21,12 +21,13 @@
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
 
-            /* TRUQUE DA TRANSPARÊNCIA:
-               O linear-gradient aplica uma camada branca (255,255,255) com 92% de opacidade (0.92)
-               sobre a imagem. Isso faz a imagem de fundo aparecer apenas 8%.
+            /* AJUSTE DE TRANSPARÊNCIA:
+               Mudei de 0.92 para 0.80.
+               Isso significa que a "película branca" agora cobre 80% da imagem,
+               deixando a marca d'água 20% visível (antes estava apenas 8%).
             */
             background-image: 
-                linear-gradient(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.92)),
+                linear-gradient(rgba(255, 255, 255, 0.80), rgba(255, 255, 255, 0.80)),
                 url("{{ url_for('static', filename='marcadagua.png') }}");
             
             background-repeat: no-repeat;

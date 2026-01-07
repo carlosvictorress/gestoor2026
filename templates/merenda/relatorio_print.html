@@ -21,8 +21,14 @@
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
 
-            /* Marca D'água fixa na pasta static */
-            background-image: url("{{ url_for('static', filename='marcadagua.png') }}");
+            /* TRUQUE DA TRANSPARÊNCIA:
+               O linear-gradient aplica uma camada branca (255,255,255) com 92% de opacidade (0.92)
+               sobre a imagem. Isso faz a imagem de fundo aparecer apenas 8%.
+            */
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.92)),
+                url("{{ url_for('static', filename='marcadagua.png') }}");
+            
             background-repeat: no-repeat;
             background-position: center center;
             background-size: 70%;
@@ -55,10 +61,10 @@
         }
 
         .header img {
-            max-height: 2.5cm; /* Ajuste a altura do brasão aqui se precisar */
+            max-height: 2.5cm; 
             width: auto;
             display: block;
-            margin: 0 auto 10px auto; /* 10px de espaço entre a imagem e o texto */
+            margin: 0 auto 10px auto; 
         }
 
         .header h3 {

@@ -8,8 +8,8 @@
         /* ================= CONFIGURAÇÃO DO PDF ================= */
         @page {
             size: A4;
-            /* Mantemos a margem de baixo zerada para nós controlarmos a posição manualmente */
-            margin: 1.5cm 2cm 0cm 2cm;
+            /* ZERAMOS TUDO: Isso dá controle total do papel para o nosso CSS */
+            margin: 0; 
         }
 
         body {
@@ -18,10 +18,10 @@
             line-height: 1.35;
             color: #000;
             margin: 0;
-            padding: 0;
             
-            /* Aumentei para 4cm para o texto não bater no rodapé que subiu */
-            padding-bottom: 4cm; 
+            /* AQUI CRIAMOS AS MARGENS DO TEXTO (Simulando o @page antigo) */
+            /* Topo: 1.5cm | Direita: 2cm | Baixo: 4cm (para caber o rodapé) | Esquerda: 2cm */
+            padding: 1.5cm 2cm 4cm 2cm; 
 
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
@@ -32,7 +32,8 @@
             
             background-repeat: no-repeat;
             background-position: center center;
-            background-size: 70%;
+            background-size: 70%; /* Ajuste para o tamanho da página inteira */
+            background-attachment: fixed; /* Garante que o fundo fique fixo */
         }
 
         /* ================= BOTÃO (APENAS WEB) ================= */
@@ -152,25 +153,39 @@
             font-style: italic;
         }
 
-        /* ================= RODAPÉ CORRIGIDO PARA IMPRESSORA FÍSICA ================= */
+        /* ================= RODAPÉ BLINDADO ================= */
         .footer {
             position: fixed;
-            /* SUBI PARA 1.5cm */
-            /* Isso garante que saia da "zona morta" da impressora HP/Epson */
-            bottom: 1.5cm; 
+            bottom: 0;
             left: 0;
             width: 100%;
+            height: 2cm; /* Altura reservada para o rodapé */
+            
+            /* Centralização e Estilo */
             text-align: center;
             font-size: 10pt;
             background-color: transparent;
-            padding-top: 5px;
-            border-top: 1px solid #000;
-            z-index: 1000; /* Garante que fique acima de qualquer fundo */
+            
+            /* A mágica acontece aqui: Padding-bottom joga o texto pra cima da borda do papel */
+            padding-bottom: 1cm; 
+            padding-top: 10px;
+            
+            /* Garante que fique acima de tudo */
+            z-index: 9999;
         }
         
+        .footer-content {
+            border-top: 1px solid #000; /* A linha fica dentro do conteúdo */
+            width: 90%; /* Linha não encosta nas bordas laterais */
+            margin: 0 auto; /* Centraliza a linha */
+            padding-top: 5px;
+        }
+
         .footer p {
             margin: 2px 0;
             font-weight: bold;
+            color: #000 !important; /* Força cor preta */
+            -webkit-print-color-adjust: exact;
         }
     </style>
 </head>
@@ -225,8 +240,10 @@
 </div>
 
 <div class="footer">
-    <p>Rua Epaminondas Nogueira 1425 - Centro - Valença do Piauí</p>
-    <p>CNPJ: 06.095.146/0001-44 - e-mail: seme.valenca@yahoo.com.br</p>
+    <div class="footer-content">
+        <p>Rua Epaminondas Nogueira 1425 - Centro - Valença do Piauí</p>
+        <p>CNPJ: 06.095.146/0001-44 - e-mail: seme.valenca@yahoo.com.br</p>
+    </div>
 </div>
 
 </body>

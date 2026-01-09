@@ -35,59 +35,63 @@ merenda_bp = Blueprint('merenda', __name__, url_prefix='/merenda')
 @login_required
 @role_required("RH", "admin", "Merenda Escolar")
 def dashboard():
-    # --- Indicadores Rápidos (KPIs) ---
+    # ... (Mantenha o código existente dos KPIs e gráficos) ...
+    
     total_escolas_ativas = Escola.query.filter_by(status='Ativa').count()
     total_produtos = ProdutoMerenda.query.count()
     solicitacoes_pendentes = SolicitacaoMerenda.query.filter_by(status='Pendente').count()
-
-    # --- Gráfico: Top 5 Escolas por Quantidade Total de Produtos Consumidos ---
-    top_escolas_query = db.session.query(
-        Escola.nome,
-        func.sum(EstoqueMovimento.quantidade).label('total_consumido')
-    ).join(SolicitacaoMerenda, Escola.id == SolicitacaoMerenda.escola_id)\
-     .join(EstoqueMovimento, SolicitacaoMerenda.id == EstoqueMovimento.solicitacao_id)\
-     .filter(EstoqueMovimento.tipo == 'Saída')\
-     .group_by(Escola.nome)\
-     .order_by(func.sum(EstoqueMovimento.quantidade).desc())\
-     .limit(5).all()
     
-    # --- CORREÇÃO APLICADA AQUI ---
-    if top_escolas_query:
-        escolas_labels, escolas_data = zip(*top_escolas_query)
-    else:
-        escolas_labels, escolas_data = [], []
+    # ... (Mantenha as queries dos gráficos existentes) ...
+    
+    # --- NOVO: LÓGICA DE ALERTA DE VALIDADE ---
+    hoje = date.today()
+    data_limite_alerta = hoje + timedelta(days=45) # Alerta para produtos vencendo nos próximos 45 dias
+    data_corte_passado = hoje - timedelta(days=30) # Mostra vencidos até 30 dias atrás (para conferência)
 
-    # --- Gráfico: Top 5 Produtos Mais Solicitados ---
-    top_produtos_query = db.session.query(
+    # Busca Entradas de Estoque onde:
+    # 1. A validade existe (não é nula)
+    # 2. A validade é menor que o limite (está vencendo ou venceu)
+    # 3. Não é muito antiga (data_corte_passado)
+    # 4. O Produto ainda tem estoque positivo (Evita alertar sobre o que já acabou)
+    
+    alertas_validade = db.session.query(
         ProdutoMerenda.nome,
-        func.sum(SolicitacaoItem.quantidade_solicitada).label('total_solicitado')
+        EstoqueMovimento.lote,
+        EstoqueMovimento.data_validade,
+        ProdutoMerenda.unidade_medida,
+        ProdutoMerenda.estoque_atual
     ).join(ProdutoMerenda)\
-     .group_by(ProdutoMerenda.nome)\
-     .order_by(func.sum(SolicitacaoItem.quantidade_solicitada).desc())\
-     .limit(5).all()
-    
-    # --- CORREÇÃO APLICADA AQUI ---
-    if top_produtos_query:
-        produtos_labels, produtos_data = zip(*top_produtos_query)
-    else:
-        produtos_labels, produtos_data = [], []
+     .filter(
+        EstoqueMovimento.tipo == 'Entrada',
+        EstoqueMovimento.data_validade.isnot(None),
+        EstoqueMovimento.data_validade <= data_limite_alerta,
+        EstoqueMovimento.data_validade >= data_corte_passado,
+        ProdutoMerenda.estoque_atual > 0 
+     ).order_by(EstoqueMovimento.data_validade.asc()).all()
 
-    # --- Tabela: Produtos com Estoque Baixo (Ex: < 10 unidades) ---
+    # --- FIM DA NOVA LÓGICA ---
+
+    # (Mantenha a query de estoque baixo existente)
     estoque_baixo_limite = 10
     produtos_estoque_baixo = ProdutoMerenda.query.filter(
         ProdutoMerenda.estoque_atual < estoque_baixo_limite, 
         ProdutoMerenda.estoque_atual > 0
     ).order_by(ProdutoMerenda.estoque_atual.asc()).all()
 
+    # Adicione 'alertas_validade' e 'date' (para comparação no template) ao return
     return render_template('merenda/dashboard.html',
                            total_escolas_ativas=total_escolas_ativas,
                            total_produtos=total_produtos,
                            solicitacoes_pendentes=solicitacoes_pendentes,
-                           escolas_labels=list(escolas_labels),
-                           escolas_data=list(escolas_data),
-                           produtos_labels=list(produtos_labels),
-                           produtos_data=list(produtos_data),
-                           produtos_estoque_baixo=produtos_estoque_baixo)
+                           # ... mantenha as variáveis dos gráficos ...
+                           escolas_labels=list(escolas_labels if 'escolas_labels' in locals() else []), 
+                           escolas_data=list(escolas_data if 'escolas_data' in locals() else []),
+                           produtos_labels=list(produtos_labels if 'produtos_labels' in locals() else []),
+                           produtos_data=list(produtos_data if 'produtos_data' in locals() else []),
+                           produtos_estoque_baixo=produtos_estoque_baixo,
+                           
+                           alertas_validade=alertas_validade, # <--- ADICIONE ESTA
+                           hoje=hoje)
 
 # Rotas para Gerenciamento de Escolas
 @merenda_bp.route('/escolas')

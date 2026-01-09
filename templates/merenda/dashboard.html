@@ -87,6 +87,70 @@
     </div>
 </div>
 
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-calendar-x"></i> Alerta de Validade (Lotes)</h5>
+        <small class="fw-bold">Próximos 45 dias</small>
+    </div>
+    <div class="card-body">
+        {% if alertas_validade %}
+        <div class="alert alert-light border border-warning" role="alert">
+            <i class="bi bi-info-circle-fill text-warning"></i> 
+            <small>Atenção: Estes itens possuem lotes vencendo. O sistema exibe lotes antigos de produtos que ainda possuem saldo positivo em estoque.</small>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Produto</th>
+                        <th>Lote</th>
+                        <th class="text-center">Validade</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">Estoque Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in alertas_validade %}
+                    {% set dias_restantes = (item.data_validade - hoje).days %}
+                    
+                    <tr class="{{ 'table-danger' if dias_restantes < 0 else '' }}">
+                        <td class="fw-bold">{{ item.nome }}</td>
+                        <td><span class="badge bg-secondary">{{ item.lote or 'S/N' }}</span></td>
+                        
+                        <td class="text-center fw-bold">
+                            {{ item.data_validade.strftime('%d/%m/%Y') }}
+                        </td>
+                        
+                        <td class="text-center">
+                            {% if dias_restantes < 0 %}
+                                <span class="badge bg-danger">VENCIDO há {{ dias_restantes|abs }} dias</span>
+                            {% elif dias_restantes == 0 %}
+                                <span class="badge bg-danger">VENCE HOJE</span>
+                            {% elif dias_restantes <= 15 %}
+                                <span class="badge bg-danger">Vence em {{ dias_restantes }} dias</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Vence em {{ dias_restantes }} dias</span>
+                            {% endif %}
+                        </td>
+                        
+                        <td class="text-center">
+                            {{ item.estoque_atual }} {{ item.unidade_medida }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-success">
+            <i class="bi bi-calendar-check fs-1"></i><br>
+            <span class="fw-bold">Tudo certo!</span><br>
+            Nenhum lote com validade crítica identificada no momento.
+        </div>
+        {% endif %}
+    </div>
+</div>
 <div class="card shadow-sm mb-5">
     <div class="card-header bg-danger text-white">
         <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Alerta de Estoque Baixo</h5>

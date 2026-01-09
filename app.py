@@ -2393,26 +2393,26 @@ def gerar_requerimento_pdf(req_id):
 
     buffer = io.BytesIO()
     
-    # --- CONFIGURAÇÃO DA PÁGINA ---
-    # Mantivemos Top=3cm para não bater no cabeçalho
+    # --- CORREÇÃO 1: Ajuste de Margens ---
+    # Aumentamos topMargin para 4.5cm para garantir que não bata no Timbre/Logo
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=A4, 
-        rightMargin=1.0*cm,
-        leftMargin=1.0*cm,
-        topMargin=3.0*cm,    
+        rightMargin=1.5*cm, # Margens laterais um pouco mais seguras
+        leftMargin=1.5*cm,
+        topMargin=4.5*cm,    
         bottomMargin=2.0*cm  
     )
     
-    # --- ESTILOS (Ajustados para leitura confortável) ---
-    styles = getSampleStyleSheet()
+    # Largura útil da página (21cm - 1.5 - 1.5 = 18cm)
+    largura_util = 18 * cm
     
-    # Aumentei o leading (entrelinha) para 10 para o texto não ficar "encavalado"
-    # Fonte 8.5 é um bom equilíbrio entre tamanho e economia de espaço
-    style_normal = ParagraphStyle('Normal_Custom', parent=styles['Normal'], fontSize=8.5, leading=10)
-    style_center = ParagraphStyle('Center_Custom', parent=styles['Normal'], fontSize=8.5, alignment=TA_CENTER, leading=10)
-    style_center_bold = ParagraphStyle('Center_Bold', parent=styles['Normal'], fontSize=8.5, alignment=TA_CENTER, fontName='Helvetica-Bold', leading=10)
-    style_title = ParagraphStyle('Title_Custom', parent=styles['Normal'], fontSize=11, alignment=TA_CENTER, fontName='Helvetica-Bold', spaceAfter=2)
+    # --- ESTILOS ---
+    styles = getSampleStyleSheet()
+    style_normal = ParagraphStyle('Normal_Custom', parent=styles['Normal'], fontSize=9, leading=11)
+    style_center = ParagraphStyle('Center_Custom', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER, leading=11)
+    style_center_bold = ParagraphStyle('Center_Bold', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER, fontName='Helvetica-Bold', leading=11)
+    style_title = ParagraphStyle('Title_Custom', parent=styles['Normal'], fontSize=12, alignment=TA_CENTER, fontName='Helvetica-Bold', spaceAfter=10)
     
     def label(texto):
         return Paragraph(f"<b>{texto}</b>", style_normal)
@@ -2424,53 +2424,57 @@ def gerar_requerimento_pdf(req_id):
 
     # --- TÍTULO ---
     story.append(Paragraph("REQUERIMENTO PADRÃO", style_title))
-    story.append(Spacer(1, 0.1*cm))
+    story.append(Spacer(1, 0.2*cm))
 
     # --- DESTINATÁRIO ---
+    # Ajuste de largura para totalizar 18cm
     tbl_destinatario_data = [
         [label("AUTORIDADE A QUEM É DIRIGIDA:"), content(requerimento.autoridade_dirigida or "Sr(a). Secretário(a)")]
     ]
-    tbl_destinatario = Table(tbl_destinatario_data, colWidths=[6.5*cm, 12.5*cm])
+    tbl_destinatario = Table(tbl_destinatario_data, colWidths=[7*cm, 11*cm])
     tbl_destinatario.setStyle(TableStyle([
         ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.black),
         ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
-        # Padding aumentado para 3 (antes era 1)
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
     ]))
     story.append(tbl_destinatario)
-    story.append(Spacer(1, 0.3*cm))
+    story.append(Spacer(1, 0.5*cm))
 
     # --- BLOCO 1: IDENTIFICAÇÃO ---
     story.append(Paragraph("<b>1. IDENTIFICAÇÃO DO SERVIDOR</b>", style_normal))
     story.append(Spacer(1, 0.1*cm))
     
+    # Definição de larguras para somar 18cm e acomodar bem os rótulos
+    # Col 1 (Rótulos): 4cm | Col 2 (Dados): 5cm | Col 3 (Rótulos): 4cm | Col 4 (Dados): 5cm
+    cols_width = [4*cm, 5*cm, 4*cm, 5*cm]
+
     dados_servidor = [
-        [label("NOME COMPLETO:"), content(servidor.nome), label("Nº CONTRA-CHEQUE:"), content(servidor.num_contra_cheque)],
+        [label("NOME COMPLETO:"), content(servidor.nome), label("Nº MATRÍCULA:"), content(servidor.num_contrato)],
         [label("CARGO/FUNÇÃO:"), content(servidor.funcao), label("CLASSE/NÍVEL:"), content(servidor.classe_nivel)],
         [label("DATA NASCIMENTO:"), content(fmt_data(servidor.data_nascimento)), label("DATA ADMISSÃO:"), content(fmt_data(servidor.data_inicio))],
         [label("LOTAÇÃO:"), content(servidor.lotacao), label("TELEFONE:"), content(servidor.telefone)],
         [label("LOCAL DE TRABALHO:"), content(servidor.local_trabalho), label(""), content("")],
-        [label("ENDEREÇO RESIDENCIAL:"), content(servidor.endereco), label(""), content("")]
+        [label("ENDEREÇO:"), content(servidor.endereco), label(""), content("")]
     ]
 
-    t_servidor = Table(dados_servidor, colWidths=[3.5*cm, 9.5*cm, 3*cm, 3*cm])
+    t_servidor = Table(dados_servidor, colWidths=cols_width)
     t_servidor.setStyle(TableStyle([
         ('GRID', (0,0), (-1,-1), 0.5, colors.black),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('SPAN', (1, 5), (3, 5)), 
-        ('SPAN', (1, 4), (3, 4)), 
-        ('BACKGROUND', (0,0), (0,-1), colors.whitesmoke),
-        ('BACKGROUND', (2,0), (2,3), colors.whitesmoke),
+        ('SPAN', (1, 5), (3, 5)), # Mescla endereço
+        ('SPAN', (1, 4), (3, 4)), # Mescla local trabalho
+        ('BACKGROUND', (0,0), (0,-1), colors.whitesmoke), # Coluna 1 cinza
+        ('BACKGROUND', (2,0), (2,3), colors.whitesmoke),  # Coluna 3 cinza (até onde tem rótulos)
         
-        # --- AQUI ESTÁ A MUDANÇA PRINCIPAL ---
-        # Aumentamos o padding para 2.5 (era 0). Isso dá respiro ao texto.
-        ('TOPPADDING', (0,0), (-1,-1), 2.5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
-        ('LEFTPADDING', (0,0), (-1,-1), 3),
-        ('RIGHTPADDING', (0,0), (-1,-1), 3),
+        # --- CORREÇÃO 3: Padding Moderado ---
+        # Reduzido para 4 (pontos) para não espremer o texto
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING', (0,0), (-1,-1), 4),
+        ('RIGHTPADDING', (0,0), (-1,-1), 4),
     ]))
     story.append(t_servidor)
-    story.append(Spacer(1, 0.3*cm))
+    story.append(Spacer(1, 0.5*cm))
 
     # --- BLOCO 2: DADOS DO REQUERIMENTO ---
     story.append(Paragraph("<b>2. DADOS DO REQUERIMENTO</b>", style_normal))
@@ -2479,55 +2483,60 @@ def gerar_requerimento_pdf(req_id):
     dados_req = [
         [label("NATUREZA:"), content(natureza_texto), label("DATA INÍCIO:"), content(fmt_data(requerimento.data_inicio_requerimento))],
         [label("PERÍODO AQUISITIVO:"), content(requerimento.periodo_aquisitivo), label("DURAÇÃO (DIAS):"), content(requerimento.duracao)],
+        # Note: Quebra de linha manual para separar o rótulo do conteúdo longo
         [label("INFORMAÇÕES COMPLEMENTARES:"), content(requerimento.informacoes_complementares), label(""), content("")]
     ]
 
-    # Altura da última linha ajustada para acomodar o padding
-    t_req = Table(dados_req, colWidths=[3.5*cm, 9.5*cm, 3*cm, 3*cm], rowHeights=[None, None, 1.4*cm])
+    # --- CORREÇÃO 2: RowHeights Automático ---
+    # Removemos rowHeights fixo. O ReportLab calculará a altura necessária para o texto.
+    t_req = Table(dados_req, colWidths=cols_width)
+    
     t_req.setStyle(TableStyle([
         ('GRID', (0,0), (-1,-1), 0.5, colors.black),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('SPAN', (1, 2), (3, 2)), 
+        ('SPAN', (1, 2), (3, 2)), # Mescla a célula de informações complementares
         ('BACKGROUND', (0,0), (0,-1), colors.whitesmoke),
         ('BACKGROUND', (2,0), (2,1), colors.whitesmoke),
-        ('VALIGN', (0, 2), (-1, 2), 'TOP'),
+        ('VALIGN', (0, 2), (-1, 2), 'TOP'), # Alinha inf. complementares ao topo
         
-        # Padding confortável
-        ('TOPPADDING', (0,0), (-1,-1), 2.5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
-        ('LEFTPADDING', (0,0), (-1,-1), 3),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING', (0,0), (-1,-1), 4),
     ]))
     story.append(t_req)
-    story.append(Spacer(1, 0.3*cm))
+    story.append(Spacer(1, 0.5*cm))
 
     # --- BLOCO 3: PARECER JURÍDICO ---
     story.append(Paragraph("<b>3. PARECER JURÍDICO / ADMINISTRATIVO</b>", style_normal))
     story.append(Spacer(1, 0.1*cm))
     
+    # Usamos largura_util (18cm)
     tbl_parecer_data = [[content(requerimento.parecer_juridico or " ")]]
     
-    t_parecer = Table(tbl_parecer_data, colWidths=[19*cm], rowHeights=[1.6*cm])
+    # Altura mínima definida, mas flexível se o texto for maior
+    t_parecer = Table(tbl_parecer_data, colWidths=[largura_util])
     t_parecer.setStyle(TableStyle([
         ('GRID', (0,0), (-1,-1), 0.5, colors.black),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0,0), (-1,-1), 3),
-        ('LEFTPADDING', (0,0), (-1,-1), 3),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING', (0,0), (-1,-1), 4),
+        ('MINROWHEIGHT', (0,0), (-1,-1), 1.6*cm) # Altura mínima
     ]))
     story.append(t_parecer)
-    story.append(Spacer(1, 0.3*cm))
+    story.append(Spacer(1, 0.5*cm))
 
     # --- ASSINATURA REQUERENTE ---
     story.append(Paragraph(f"Valença do Piauí, {data_hoje}", style_center))
-    story.append(Spacer(1, 0.6*cm)) # Espaço razoável para assinar
+    story.append(Spacer(1, 1.0*cm)) # Mais espaço para assinar
     
     line = "________________________________________________________"
     story.append(Paragraph(line, style_center))
     story.append(Paragraph(f"<b>{servidor.nome.upper()}</b>", style_center))
     story.append(Paragraph("ASSINATURA DO REQUERENTE", style_center))
     
-    story.append(Spacer(1, 0.3*cm))
+    story.append(Spacer(1, 0.5*cm))
     story.append(HRFlowable(width="100%", thickness=0.5, color=colors.black, dash=(3, 2)))
-    story.append(Spacer(1, 0.3*cm))
+    story.append(Spacer(1, 0.5*cm))
 
     # --- BLOCO 4: CHEFIA ---
     story.append(Paragraph("<b>4. DESPACHO DA CHEFIA IMEDIATA</b>", style_normal))
@@ -2537,25 +2546,28 @@ def gerar_requerimento_pdf(req_id):
     
     tbl_chefia_data = [
         [Paragraph(check_box, style_normal)],
-        [Spacer(1, 0.4*cm)], 
+        [Spacer(1, 0.5*cm)], 
         [Paragraph("_____________________________________________", style_center)],
         [Paragraph("ASSINATURA E CARIMBO DO CHEFE IMEDIATO", style_center)]
     ]
     
-    t_chefia = Table(tbl_chefia_data, colWidths=[19*cm])
+    t_chefia = Table(tbl_chefia_data, colWidths=[largura_util])
     t_chefia.setStyle(TableStyle([
         ('BOX', (0,0), (-1,-1), 0.5, colors.black),
-        ('TOPPADDING', (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
     ]))
     story.append(t_chefia)
-    story.append(Spacer(1, 0.3*cm))
+    story.append(Spacer(1, 0.5*cm))
 
     # --- TEXTO ENCAMINHAMENTO ---
     story.append(Paragraph("Encaminhe-se ao setor competente para as providências necessárias.", style_normal))
-    story.append(Spacer(1, 0.5*cm))
+    story.append(Spacer(1, 1.0*cm))
 
     # --- ASSINATURAS FINAIS ---
+    # Dividir a largura útil por 2
+    col_width_assinatura = largura_util / 2
+
     tbl_assinaturas_finais = [
         [
             Paragraph("_________________________", style_center),
@@ -2567,7 +2579,7 @@ def gerar_requerimento_pdf(req_id):
         ]
     ]
     
-    t_final = Table(tbl_assinaturas_finais, colWidths=[9.5*cm, 9.5*cm])
+    t_final = Table(tbl_assinaturas_finais, colWidths=[col_width_assinatura, col_width_assinatura])
     t_final.setStyle(TableStyle([
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
@@ -2575,12 +2587,14 @@ def gerar_requerimento_pdf(req_id):
     ]))
     story.append(t_final)
 
+    # Gera o PDF usando a função de cabeçalho global
     doc.build(story, onFirstPage=cabecalho_e_rodape, onLaterPages=cabecalho_e_rodape)
     buffer.seek(0)
 
     response = make_response(buffer.getvalue())
     response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = f'inline; filename=requerimento_{servidor.nome}_{req_id}.pdf'
+    nome_arquivo = f'requerimento_{servidor.nome.replace(" ", "_")}_{req_id}.pdf'
+    response.headers['Content-Disposition'] = f'inline; filename={nome_arquivo}'
     
     return response
 

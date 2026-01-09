@@ -456,9 +456,7 @@ class ProdutoMerenda(db.Model):
     lipidios = db.Column(db.Float, default=0.0) # Gorduras
     
     # Relacionamentos
-    movimentos = db.relationship("EstoqueMovimento", backref="produto_ref", lazy=True)
-
-
+    
 class EstoqueMovimento(db.Model):
     __tablename__ = "estoque_movimento"
     id = db.Column(db.Integer, primary_key=True)

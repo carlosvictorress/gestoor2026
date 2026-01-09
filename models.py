@@ -440,11 +440,23 @@ class ProdutoMerenda(db.Model):
     __tablename__ = "produto_merenda"
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(150), nullable=False, unique=True)
-    unidade_medida = db.Column(
-        db.String(20), nullable=False
-    )  # Ex: KG, Litro, Unidade, Pacote
-    categoria = db.Column(db.String(100))  # Ex: Hortifrúti, Grãos, Proteína
+    unidade_medida = db.Column(db.String(20), nullable=False)  # Ex: KG, L, Unid
+    categoria = db.Column(db.String(100))  # Ex: Estocáveis, Proteína, Hortifrúti
     estoque_atual = db.Column(db.Float, nullable=False, default=0.0)
+    
+    # --- NOVOS CAMPOS PROFISSIONAIS ---
+    estoque_minimo = db.Column(db.Float, default=10.0) # Para alertas
+    tipo_armazenamento = db.Column(db.String(50)) # Ex: Seco, Refrigerado, Congelado
+    perecivel = db.Column(db.Boolean, default=True)
+    
+    # Dados Nutricionais (Baseado em 100g ou 100ml) - Essencial para o PNAE
+    calorias = db.Column(db.Float, default=0.0)
+    proteinas = db.Column(db.Float, default=0.0)
+    carboidratos = db.Column(db.Float, default=0.0)
+    lipidios = db.Column(db.Float, default=0.0) # Gorduras
+    
+    # Relacionamentos
+    movimentos = db.relationship("EstoqueMovimento", backref="produto_ref", lazy=True)
 
 
 class EstoqueMovimento(db.Model):

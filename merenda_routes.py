@@ -172,27 +172,35 @@ def listar_produtos():
 @role_required('Merenda Escolar', 'admin')
 def novo_produto():
     if request.method == 'POST':
-        nome_produto = request.form.get('nome')
-        # Verifica se o produto já existe
-        if ProdutoMerenda.query.filter_by(nome=nome_produto).first():
-            flash('Já existe um produto cadastrado com este nome.', 'danger')
-            return redirect(url_for('merenda.novo_produto'))
-        
         try:
+            # Tratamento de valores numéricos (troca vírgula por ponto)
+            def flt(val): return float(val.replace(',', '.')) if val else 0.0
+            
             novo = ProdutoMerenda(
-                nome=nome_produto,
+                nome=request.form.get('nome'),
                 unidade_medida=request.form.get('unidade_medida'),
-                categoria=request.form.get('categoria')
-                # O estoque_atual inicia em 0 por padrão
+                categoria=request.form.get('categoria'),
+                
+                # Campos Profissionais
+                estoque_minimo=flt(request.form.get('estoque_minimo')),
+                tipo_armazenamento=request.form.get('tipo_armazenamento'),
+                perecivel=True if request.form.get('perecivel') else False,
+                
+                # Nutricional
+                calorias=flt(request.form.get('calorias')),
+                proteinas=flt(request.form.get('proteinas')),
+                carboidratos=flt(request.form.get('carboidratos')),
+                lipidios=flt(request.form.get('lipidios'))
             )
+            
             db.session.add(novo)
             db.session.commit()
-            registrar_log(f'Cadastrou o produto da merenda: "{novo.nome}".')
             flash('Produto cadastrado com sucesso!', 'success')
             return redirect(url_for('merenda.listar_produtos'))
+            
         except Exception as e:
             db.session.rollback()
-            flash(f'Erro ao cadastrar produto: {e}', 'danger')
+            flash(f'Erro ao cadastrar: {e}', 'danger')
 
     return render_template('merenda/produtos_form.html', produto=None)
 
@@ -203,17 +211,28 @@ def editar_produto(produto_id):
     produto = ProdutoMerenda.query.get_or_404(produto_id)
     if request.method == 'POST':
         try:
+            def flt(val): return float(val.replace(',', '.')) if val else 0.0
+
             produto.nome = request.form.get('nome')
             produto.unidade_medida = request.form.get('unidade_medida')
             produto.categoria = request.form.get('categoria')
+            
+            # Atualização dos novos campos
+            produto.estoque_minimo = flt(request.form.get('estoque_minimo'))
+            produto.tipo_armazenamento = request.form.get('tipo_armazenamento')
+            produto.perecivel = True if request.form.get('perecivel') else False
+            
+            produto.calorias = flt(request.form.get('calorias'))
+            produto.proteinas = flt(request.form.get('proteinas'))
+            produto.carboidratos = flt(request.form.get('carboidratos'))
+            produto.lipidios = flt(request.form.get('lipidios'))
 
             db.session.commit()
-            registrar_log(f'Editou o produto da merenda: "{produto.nome}".')
-            flash('Dados do produto atualizados com sucesso!', 'success')
+            flash('Produto atualizado com sucesso!', 'success')
             return redirect(url_for('merenda.listar_produtos'))
         except Exception as e:
             db.session.rollback()
-            flash(f'Erro ao editar o produto: {e}', 'danger')
+            flash(f'Erro ao editar: {e}', 'danger')
 
     return render_template('merenda/produtos_form.html', produto=produto)
 # GET /produtos -> Listar todos os produtos e estoque atual

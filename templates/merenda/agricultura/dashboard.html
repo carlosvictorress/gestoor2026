@@ -3,118 +3,170 @@
 {% block title %}Painel PNAE {{ ano_atual }}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-    <div>
-        <h2><i class="bi bi-tree-fill text-success"></i> Agricultura Familiar (PNAE)</h2>
-        <span class="text-muted">Exercício: {{ ano_atual }} | Meta Legal: <strong>{{ meta_info.meta_lei }}%</strong></span>
-    </div>
-    <div>
-        <button class="btn btn-outline-secondary me-2" type="button" data-bs-toggle="collapse" data-bs-target="#configCollapse">
-            <i class="bi bi-gear"></i> Configurar Orçamento
-        </button>
-        <a href="{{ url_for('merenda.listar_agricultores') }}" class="btn btn-outline-primary me-2"><i class="bi bi-people"></i> Agricultores</a>
-        <a href="{{ url_for('merenda.novo_agricultor') }}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Novo Cadastro</a>
-    </div>
-</div>
+<style>
+    /* Estilos para um look profissional */
+    .dashboard-container { background-color: #f8f9fa; padding: 2rem; border-radius: 15px; }
+    .card-stat { border: none; border-radius: 12px; transition: transform 0.2s, box-shadow 0.2s; background: #fff; }
+    .card-stat:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+    .stat-icon { width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+    .progress-custom { height: 12px; border-radius: 10px; background-color: #e9ecef; overflow: visible; position: relative; }
+    .meta-marker { position: absolute; top: -25px; transform: translateX(-50%); font-size: 0.75rem; font-weight: bold; color: #dc3545; }
+    .meta-marker::after { content: ''; position: absolute; bottom: -12px; left: 50%; width: 2px; height: 25px; background: #dc3545; }
+</style>
 
-<div class="collapse mb-4" id="configCollapse">
-    <div class="card card-body bg-light border-warning">
-        <form method="POST" class="row align-items-end">
-            <div class="col-md-8">
-                <label class="form-label fw-bold">Valor Total do Repasse FNDE para {{ ano_atual }} (R$)</label>
-                <input type="text" class="form-control" name="valor_total_repasse" required 
-                       value="{{ '%.2f'|format(meta_info.total_repasse)|replace('.', ',') }}" placeholder="0,00">
-                <small class="text-muted">Informe o valor total recebido para calcularmos a meta de {{ meta_info.meta_lei }}%.</small>
-            </div>
-            <div class="col-md-4">
-                <button type="submit" class="btn btn-warning w-100">Salvar Orçamento</button>
-            </div>
-        </form>
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="#" class="text-decoration-none">Merenda</a></li>
+                    <li class="breadcrumb-item active">Agricultura Familiar</li>
+                </ol>
+            </nav>
+            <h2 class="fw-bold text-dark mb-0">Painel PNAE <span class="text-success">{{ ano_atual }}</span></h2>
+            <p class="text-muted small">Monitoramento de metas legais e contratos ativos</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-white border shadow-sm" type="button" data-bs-toggle="collapse" data-bs-target="#configCollapse">
+                <i class="bi bi-gear-fill me-2 text-secondary"></i>Orçamento
+            </button>
+            <a href="{{ url_for('merenda.listar_agricultores') }}" class="btn btn-white border shadow-sm">
+                <i class="bi bi-people-fill me-2 text-primary"></i>Agricultores
+            </a>
+            <a href="{{ url_for('merenda.novo_agricultor') }}" class="btn btn-primary shadow-sm">
+                <i class="bi bi-plus-lg me-1"></i> Novo Cadastro
+            </a>
+        </div>
     </div>
-</div>
 
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card text-white bg-success shadow h-100">
-            <div class="card-body">
-                <h6 class="card-title">Agricultores</h6>
-                <h2 class="mb-0">{{ total_agricultores }}</h2>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-info shadow h-100">
-            <div class="card-body">
-                <h6 class="card-title">Contratos Ativos</h6>
-                <h2 class="mb-0">{{ contratos_ativos }}</h2>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-primary shadow h-100">
-            <div class="card-body">
-                <h6 class="card-title">Total Contratado</h6>
-                <h3 class="mb-0">{{ total_contratado | currency_br }}</h3>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-dark bg-light border-{{ 'success' if 'Atingida' in meta_info.status else 'warning' }} shadow h-100">
-            <div class="card-body">
-                <h6 class="card-title">Status da Meta</h6>
-                <h4 class="mb-0 {{ 'text-success' if 'Atingida' in meta_info.status else 'text-danger' }}">
-                    {{ "%.2f"|format(meta_info.percentual_atual) }}%
-                </h4>
-                <small>{{ meta_info.status }}</small>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-white">
-        <h5 class="mb-0"><i class="bi bi-speedometer"></i> Monitoramento da Meta Legal (Lei nº 11.947/2009 e 15.226/2025)</h5>
-    </div>
-    <div class="card-body">
-        {% if meta_info.total_repasse > 0 %}
-            <p>
-                Do total de <strong>{{ meta_info.total_repasse | currency_br }}</strong> recebidos, 
-                o município deve aplicar no mínimo <strong>{{ (meta_info.total_repasse * (meta_info.meta_lei/100)) | currency_br }}</strong> 
-                na Agricultura Familiar.
-            </p>
-            
-            <div class="progress" style="height: 35px;">
-                <div class="progress-bar progress-bar-striped progress-bar-animated {{ 'bg-success' if meta_info.percentual_atual >= meta_info.meta_lei else 'bg-warning text-dark' }}" 
-                     role="progressbar" 
-                     style="width: {{ meta_info.percentual_atual }}%">
-                    {{ "%.2f"|format(meta_info.percentual_atual) }}% Atingido
+    <div class="collapse mb-4" id="configCollapse">
+        <div class="card card-body border-0 shadow-sm bg-white">
+            <h6 class="fw-bold mb-3">Configurar Repasse Anual</h6>
+            <form method="POST" class="row align-items-end g-3">
+                <div class="col-md-9">
+                    <label class="form-label small fw-semibold text-uppercase text-muted">Valor Total do Repasse FNDE (R$)</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0">R$</span>
+                        <input type="text" class="form-control bg-light border-start-0" name="valor_total_repasse" 
+                               value="{{ '%.2f'|format(meta_info.total_repasse)|replace('.', ',') }}" placeholder="0,00">
+                    </div>
                 </div>
-                <div class="position-absolute border-start border-danger border-3" 
-                     style="left: {{ meta_info.meta_lei }}%; height: 35px; top:0;" 
-                     title="Meta Mínima: {{ meta_info.meta_lei }}%">
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-dark w-100">Atualizar Dados</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-5">
+        <div class="col-md-3">
+            <div class="card card-stat shadow-sm p-3">
+                <div class="d-flex align-items-center">
+                    <div class="stat-icon bg-success-subtle text-success me-3">
+                        <i class="bi bi-person-check"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted small mb-1">Agricultores</h6>
+                        <h3 class="fw-bold mb-0">{{ total_agricultores }}</h3>
+                    </div>
                 </div>
             </div>
-            <div class="d-flex justify-content-between mt-1 text-muted small">
-                <span>0%</span>
-                <span class="text-danger fw-bold" style="margin-left: -20px;">Meta: {{ meta_info.meta_lei }}%</span>
-                <span>100%</span>
+        </div>
+        <div class="col-md-3">
+            <div class="card card-stat shadow-sm p-3">
+                <div class="d-flex align-items-center">
+                    <div class="stat-icon bg-info-subtle text-info me-3">
+                        <i class="bi bi-file-earmark-text"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted small mb-1">Contratos Ativos</h6>
+                        <h3 class="fw-bold mb-0">{{ contratos_ativos }}</h3>
+                    </div>
+                </div>
             </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card card-stat shadow-sm p-3">
+                <div class="d-flex align-items-center">
+                    <div class="stat-icon bg-primary-subtle text-primary me-3">
+                        <i class="bi bi-cash-stack"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted small mb-1">Total Contratado</h6>
+                        <h3 class="fw-bold mb-0" style="font-size: 1.4rem;">{{ total_contratado | currency_br }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card card-stat shadow-sm p-3 border-start border-4 border-{{ 'success' if meta_info.percentual_atual >= meta_info.meta_lei else 'warning' }}">
+                <div class="d-flex align-items-center">
+                    <div class="ms-2">
+                        <h6 class="text-muted small mb-1">Atingimento da Meta</h6>
+                        <h3 class="fw-bold mb-0 {{ 'text-success' if meta_info.percentual_atual >= meta_info.meta_lei else 'text-warning' }}">
+                            {{ "%.2f"|format(meta_info.percentual_atual) }}%
+                        </h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-            {% if meta_info.falta_contratar > 0 %}
-            <div class="alert alert-warning mt-3">
-                <i class="bi bi-exclamation-triangle-fill"></i> Atenção! Ainda faltam contratar <strong>{{ meta_info.falta_contratar | currency_br }}</strong> para atingir o mínimo legal deste ano.
+    <div class="card border-0 shadow-sm overflow-hidden">
+        <div class="card-header bg-white py-3 border-bottom-0">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0"><i class="bi bi-graph-up-arrow text-success me-2"></i>Monitoramento de Aplicação Legal</h5>
+                <span class="badge bg-light text-dark border">Lei nº 11.947/2009</span>
             </div>
+        </div>
+        <div class="card-body px-4 pb-5">
+            {% if meta_info.total_repasse > 0 %}
+                <div class="row align-items-center mb-5 mt-4">
+                    <div class="col-md-8">
+                        <div class="progress-custom shadow-sm">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated {{ 'bg-success' if meta_info.percentual_atual >= meta_info.meta_lei else 'bg-warning' }}" 
+                                 role="progressbar" 
+                                 style="width: {{ meta_info.percentual_atual if meta_info.percentual_atual <= 100 else 100 }}%">
+                            </div>
+                            <div class="meta-marker" style="left: {{ meta_info.meta_lei }}%;">
+                                META {{ meta_info.meta_lei }}%
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <span class="h4 fw-bold">{{ "%.2f"|format(meta_info.percentual_atual) }}%</span>
+                        <p class="text-muted small mb-0">Total Aplicado</p>
+                    </div>
+                </div>
+
+                <div class="row g-4 mt-2">
+                    <div class="col-md-6">
+                        <div class="p-3 rounded bg-light border">
+                            <p class="mb-1 text-muted small fw-bold text-uppercase">Obrigação Legal Mínima</p>
+                            <h5 class="mb-0 text-dark">{{ (meta_info.total_repasse * (meta_info.meta_lei/100)) | currency_br }}</h5>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        {% if meta_info.falta_contratar > 0 %}
+                        <div class="p-3 rounded bg-warning-subtle border border-warning">
+                            <p class="mb-1 text-warning-emphasis small fw-bold text-uppercase">Ainda necessário contratar</p>
+                            <h5 class="mb-0 text-warning-emphasis">{{ meta_info.falta_contratar | currency_br }}</h5>
+                        </div>
+                        {% else %}
+                        <div class="p-3 rounded bg-success-subtle border border-success">
+                            <p class="mb-1 text-success-emphasis small fw-bold text-uppercase">Status da Meta</p>
+                            <h5 class="mb-0 text-success-emphasis"><i class="bi bi-check-circle-fill me-2"></i>Meta Atingida!</h5>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
             {% else %}
-            <div class="alert alert-success mt-3">
-                <i class="bi bi-check-circle-fill"></i> Parabéns! O município já cumpriu a exigência mínima de compra da Agricultura Familiar.
-            </div>
+                <div class="text-center py-5">
+                    <i class="bi bi-calculator text-muted display-4"></i>
+                    <p class="mt-3 text-muted">Aguardando configuração do orçamento anual para gerar indicadores.</p>
+                </div>
             {% endif %}
-
-        {% else %}
-            <div class="text-center py-4">
-                <p class="text-muted">Por favor, configure o valor do repasse anual do FNDE clicando no botão "Configurar Orçamento" acima para visualizar o gráfico.</p>
-            </div>
-        {% endif %}
+        </div>
     </div>
 </div>
 {% endblock %}

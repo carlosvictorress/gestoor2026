@@ -1,270 +1,270 @@
 {% extends 'base.html' %}
 
-{% block title %}Dashboard da Merenda Escolar{% endblock %}
+{% block title %}Dashboard | Gestão de Merenda{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 border-bottom pb-3">
-    <div class="d-flex align-items-center">
-        <h3 class="me-4 mb-0"><i class="bi bi-egg-fried"></i> Merenda Escolar</h3>
-        
-        <a href="{{ url_for('merenda.painel_solicitacoes') }}" class="btn btn-outline-secondary me-2">
-            <i class="bi bi-clipboard-check"></i> Solicitações
-        </a>
-        
-        <a href="{{ url_for('merenda.gerenciar_cardapio') }}" class="btn btn-outline-secondary me-2">
-            <i class="bi bi-calendar-week"></i> Cardápios
-        </a>
-        
-        <a href="{{ url_for('merenda.listar_escolas') }}" class="btn btn-outline-secondary me-2">
-            <i class="bi bi-building"></i> Escolas
-        </a>
-        
-        <a href="{{ url_for('merenda.listar_produtos') }}" class="btn btn-outline-secondary me-2">
-            <i class="bi bi-box-seam"></i> Produtos
-        </a>
-        
-        <div class="btn-group">
-            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="bi bi-file-earmark-text"></i> Relatórios
-            </button>
+<style>
+    :root {
+        --primary-soft: #f0f4f8;
+        --sidebar-bg: #212529;
+    }
+    .card { border: none; border-radius: 12px; transition: transform 0.2s; }
+    .card:hover { transform: translateY(-3px); }
+    .kpi-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+    .nav-pills .nav-link { color: #6c757d; font-weight: 500; }
+    .nav-pills .nav-link.active { background-color: #0d6efd; }
+    .table thead th { 
+        text-transform: uppercase; 
+        font-size: 0.75rem; 
+        letter-spacing: 0.05em; 
+        background-color: var(--primary-soft); 
+        border: none;
+    }
+    .status-badge { padding: 0.5em 1em; border-radius: 50px; font-size: 0.75rem; }
+</style>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Painel de Controle</h2>
+            <p class="text-muted">Gestão integrada da Merenda Escolar</p>
+        </div>
+        <div>
+            <a href="{{ url_for('merenda.agricultura_dashboard') }}" class="btn btn-success px-4 shadow-sm">
+                <i class="bi bi-tree me-2"></i>Agricultura Familiar
+            </a>
+        </div>
+    </div>
+
+    <ul class="nav nav-pills mb-4 bg-white p-2 rounded shadow-sm">
+        <li class="nav-item">
+            <a class="nav-link active" href="#"><i class="bi bi-speedometer2 me-2"></i>Geral</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('merenda.painel_solicitacoes') }}"><i class="bi bi-clipboard-check me-2"></i>Solicitações</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('merenda.gerenciar_cardapio') }}"><i class="bi bi-calendar-week me-2"></i>Cardápios</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('merenda.listar_escolas') }}"><i class="bi bi-building me-2"></i>Escolas</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('merenda.listar_produtos') }}"><i class="bi bi-box-seam me-2"></i>Produtos</a>
+        </li>
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button"><i class="bi bi-file-earmark-bar-graph me-2"></i>Relatórios</a>
             <ul class="dropdown-menu">
                 <li><a class="dropdown-item" href="{{ url_for('merenda.relatorios_tecnicos') }}">Técnicos e Ofícios</a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item" href="{{ url_for('merenda.relatorio_saidas') }}">Saídas de Estoque</a></li>
                 <li><a class="dropdown-item" href="{{ url_for('merenda.relatorio_consolidado_mensal') }}">Consumo Mensal</a></li>
             </ul>
-        </div>
-        
-        <a href="{{ url_for('merenda.agricultura_dashboard') }}" class="btn btn-outline-success ms-2">
-            <i class="bi bi-tree"></i> Agricultura Familiar
-        </a>
-    </div>
-</div>
+        </li>
+    </ul>
 
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card text-white bg-primary shadow">
-            <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-building"></i> Escolas Ativas</h5>
-                <p class="card-text fs-1 fw-bold">{{ total_escolas_ativas }}</p>
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="kpi-icon bg-primary text-white me-3">
+                        <i class="bi bi-building"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted mb-0">Escolas Ativas</h6>
+                        <span class="h3 fw-bold">{{ total_escolas_ativas }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="kpi-icon bg-success text-white me-3">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted mb-0">Produtos no Catálogo</h6>
+                        <span class="h3 fw-bold">{{ total_produtos }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="kpi-icon bg-warning text-dark me-3">
+                        <i class="bi bi-hourglass-split"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted mb-0">Pendentes de Aprovação</h6>
+                        <span class="h3 fw-bold">{{ solicitacoes_pendentes }}</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card text-white bg-success shadow">
-            <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-box-seam"></i> Produtos Cadastrados</h5>
-                <p class="card-text fs-1 fw-bold">{{ total_produtos }}</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card text-dark bg-warning shadow">
-            <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-hourglass-split"></i> Solicitações Pendentes</h5>
-                <p class="card-text fs-1 fw-bold">{{ solicitacoes_pendentes }}</p>
-            </div>
-        </div>
-    </div>
-</div>
 
-<div class="row mb-4">
-    <div class="col-lg-6">
-        <div class="card shadow-sm">
-            <div class="card-body" style="height: 400px;">
-                <h5 class="card-title">Top 5 Escolas por Consumo</h5>
-                <canvas id="topEscolasChart"></canvas>
+    <div class="row mb-4 g-4">
+        <div class="col-lg-7">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white py-3">
+                    <h6 class="m-0 fw-bold text-primary">Consumo por Unidade Escolar</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="topEscolasChart" style="min-height: 300px;"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white py-3">
+                    <h6 class="m-0 fw-bold text-primary">Distribuição de Demanda</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="topProdutosChart" style="min-height: 300px;"></canvas>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-lg-6">
-        <div class="card shadow-sm">
-            <div class="card-body" style="height: 400px;">
-                <h5 class="card-title">Top 5 Produtos Mais Solicitados</h5>
-                <canvas id="topProdutosChart"></canvas>
+
+    <div class="row">
+        <div class="col-xl-8 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                    <h6 class="m-0 fw-bold text-danger"><i class="bi bi-calendar-x me-2"></i>Controle de Validade (45 dias)</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">Produto / Lote</th>
+                                    <th class="text-center">Vencimento</th>
+                                    <th class="text-center">Status</th>
+                                    <th class="text-center pe-4">Saldo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in alertas_validade %}
+                                {% set dias_restantes = (item.data_validade - hoje).days %}
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="fw-bold text-dark">{{ item.nome }}</div>
+                                        <small class="text-muted">Lote: {{ item.lote or 'N/A' }}</small>
+                                    </td>
+                                    <td class="text-center fw-bold">{{ item.data_validade.strftime('%d/%m/%Y') }}</td>
+                                    <td class="text-center">
+                                        {% if dias_restantes < 0 %}
+                                            <span class="badge bg-danger status-badge">Expirado</span>
+                                        {% elif dias_restantes <= 15 %}
+                                            <span class="badge bg-warning text-dark status-badge">Crítico</span>
+                                        {% else %}
+                                            <span class="badge bg-info text-dark status-badge">Atenção</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center pe-4 font-monospace">{{ item.estoque_atual }} {{ item.unidade_medida }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-5 text-muted">Nenhum alerta de validade detectado.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-</div>
 
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="bi bi-calendar-x"></i> Alerta de Validade (Lotes)</h5>
-        <small class="fw-bold">Próximos 45 dias</small>
-    </div>
-    <div class="card-body">
-        {% if alertas_validade %}
-        <div class="alert alert-light border border-warning" role="alert">
-            <i class="bi bi-info-circle-fill text-warning"></i> 
-            <small>Atenção: Estes itens possuem lotes vencendo. O sistema exibe lotes antigos de produtos que ainda possuem saldo positivo em estoque.</small>
-        </div>
-
-        <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>Produto</th>
-                        <th>Lote</th>
-                        <th class="text-center">Validade</th>
-                        <th class="text-center">Status</th>
-                        <th class="text-center">Estoque Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in alertas_validade %}
-                    {% set dias_restantes = (item.data_validade - hoje).days %}
-                    
-                    <tr class="{{ 'table-danger' if dias_restantes < 0 else '' }}">
-                        <td class="fw-bold">{{ item.nome }}</td>
-                        <td><span class="badge bg-secondary">{{ item.lote or 'S/N' }}</span></td>
-                        
-                        <td class="text-center fw-bold">
-                            {{ item.data_validade.strftime('%d/%m/%Y') }}
-                        </td>
-                        
-                        <td class="text-center">
-                            {% if dias_restantes < 0 %}
-                                <span class="badge bg-danger">VENCIDO há {{ dias_restantes|abs }} dias</span>
-                            {% elif dias_restantes == 0 %}
-                                <span class="badge bg-danger">VENCE HOJE</span>
-                            {% elif dias_restantes <= 15 %}
-                                <span class="badge bg-danger">Vence em {{ dias_restantes }} dias</span>
-                            {% else %}
-                                <span class="badge bg-warning text-dark">Vence em {{ dias_restantes }} dias</span>
-                            {% endif %}
-                        </td>
-                        
-                        <td class="text-center">
-                            {{ item.estoque_atual }} {{ item.unidade_medida }}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="text-center py-4 text-success">
-            <i class="bi bi-calendar-check fs-1"></i><br>
-            <span class="fw-bold">Tudo certo!</span><br>
-            Nenhum lote com validade crítica identificada no momento.
-        </div>
-        {% endif %}
-    </div>
-</div>
-<div class="card shadow-sm mb-5">
-    <div class="card-header bg-danger text-white">
-        <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Alerta de Estoque Baixo</h5>
-    </div>
-    <div class="card-body">
-        {% if produtos_estoque_baixo %}
-        <div class="table-responsive">
-            <table class="table table-sm table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Produto</th>
-                        <th>Estoque Atual</th>
-                        <th>Ação</th>
-                    </tr>
-                </thead>
-                <tbody>
+        <div class="col-xl-4 mb-4">
+            <div class="card shadow-sm border-start border-danger border-4">
+                <div class="card-header bg-white py-3">
+                    <h6 class="m-0 fw-bold text-danger"><i class="bi bi-exclamation-circle me-2"></i>Estoque Crítico</h6>
+                </div>
+                <div class="card-body">
                     {% for p in produtos_estoque_baixo %}
-                    <tr>
-                        <td class="fw-bold text-danger">{{ p.nome }}</td>
-                        <td>{{ p.estoque_atual }} {{ p.unidade_medida }}</td>
-                        <td>
-                            <a href="{{ url_for('merenda.entrada_estoque') }}" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-plus-lg"></i> Repor
-                            </a>
-                        </td>
-                    </tr>
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                        <div>
+                            <div class="fw-bold">{{ p.nome }}</div>
+                            <small class="text-danger">Apenas {{ p.estoque_atual }} {{ p.unidade_medida }}</small>
+                        </div>
+                        <a href="{{ url_for('merenda.entrada_estoque') }}" class="btn btn-sm btn-light border">
+                            <i class="bi bi-plus-lg"></i>
+                        </a>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3 text-success">
+                        <i class="bi bi-check-all fs-2"></i>
+                        <p class="mb-0">Estoque regularizado</p>
+                    </div>
                     {% endfor %}
-                </tbody>
-            </table>
+                </div>
+            </div>
         </div>
-        {% else %}
-        <div class="text-center py-3 text-success">
-            <i class="bi bi-check-circle-fill fs-4"></i><br>
-            Nenhum produto com estoque crítico no momento.
-        </div>
-        {% endif %}
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // 1. Gráfico de Top Escolas (Barras Horizontais)
+    // Configurações Globais do Chart.js para um look mais clean
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.color = '#6c757d';
+
+    // Gráfico de Escolas
     const ctxEscolas = document.getElementById('topEscolasChart').getContext('2d');
-    
-    // Verifica se há dados antes de renderizar
-    const escolasData = {{ escolas_data|tojson }};
-    const escolasLabels = {{ escolas_labels|tojson }};
+    new Chart(ctxEscolas, {
+        type: 'bar',
+        data: {
+            labels: {{ escolas_labels|tojson }},
+            datasets: [{
+                label: 'Consumo',
+                data: {{ escolas_data|tojson }},
+                backgroundColor: '#0d6efd',
+                borderRadius: 5,
+                barThickness: 20
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { grid: { display: false } }, y: { grid: { display: false } } }
+        }
+    });
 
-    if (escolasData.length > 0) {
-        new Chart(ctxEscolas, {
-            type: 'bar',
-            data: {
-                labels: escolasLabels,
-                datasets: [{
-                    label: 'Qtd. Total Consumida',
-                    data: escolasData,
-                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                indexAxis: 'y', // Barra horizontal para ler melhor os nomes das escolas
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: { beginAtZero: true }
-                }
-            }
-        });
-    } else {
-        // Exibe mensagem se não houver dados
-        ctxEscolas.font = "14px Arial";
-        ctxEscolas.fillText("Sem dados de consumo ainda.", 10, 50);
-    }
-
-    // 2. Gráfico de Top Produtos (Pizza)
+    // Gráfico de Produtos
     const ctxProdutos = document.getElementById('topProdutosChart').getContext('2d');
-    const produtosData = {{ produtos_data|tojson }};
-    const produtosLabels = {{ produtos_labels|tojson }};
-
-    if (produtosData.length > 0) {
-        new Chart(ctxProdutos, {
-            type: 'doughnut', // Doughnut fica mais moderno que Pie
-            data: {
-                labels: produtosLabels,
-                datasets: [{
-                    label: 'Quantidade Solicitada',
-                    data: produtosData,
-                    backgroundColor: [
-                        'rgba(255, 99, 132, 0.7)',
-                        'rgba(75, 192, 192, 0.7)',
-                        'rgba(255, 206, 86, 0.7)',
-                        'rgba(153, 102, 255, 0.7)',
-                        'rgba(255, 159, 64, 0.7)'
-                    ],
-                    borderWidth: 1
-                }]
+    new Chart(ctxProdutos, {
+        type: 'doughnut',
+        data: {
+            labels: {{ produtos_labels|tojson }},
+            datasets: [{
+                data: {{ produtos_data|tojson }},
+                backgroundColor: ['#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#fd7e14'],
+                hoverOffset: 10,
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } }
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                }
-            }
-        });
-    } else {
-        ctxProdutos.font = "14px Arial";
-        ctxProdutos.fillText("Sem solicitações ainda.", 10, 50);
-    }
+            cutout: '70%'
+        }
+    });
 });
 </script>
 {% endblock %}

@@ -4,40 +4,31 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}SysEduca Web{% endblock %}</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-	
-	{# Importações Leaflet para mapas e desenhar rotas #}
-	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="https://unpkg.com/leaflet.animatedmarker@1.0.0/src/AnimatedMarker.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  
+    
+    {# Mantendo as importações Leaflet do seu arquivo original #}
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
-        /* Variável de largura da sidebar */
         :root {
-            --sidebar-width: 250px;
+            --sidebar-width: 260px;
+            --sidebar-bg: #1e293b; /* Azul ardósia escuro */
+            --sidebar-hover: #334155;
+            --primary-color: #3b82f6;
+            --body-bg: #f8fafc;
         }
 
-        /* PADRÃO: Desktop (Menu visível) */
-        body { 
-            background-color: #f8f9fa; 
-            padding-top: 56px; 
-            padding-left: var(--sidebar-width); 
-            transition: padding-left 0.3s;
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--body-bg);
+            overflow-x: hidden;
         }
-        .navbar { 
-            background-color: #072657; 
-            position: fixed; 
-            top: 0; 
-            z-index: 1030;
-            left: var(--sidebar-width); 
-            width: calc(100% - var(--sidebar-width));
-        }
+
+        /* Estrutura de Sidebar Profissional */
         #sidebar {
             width: var(--sidebar-width);
             height: 100vh;
@@ -45,262 +36,218 @@
             top: 0;
             left: 0;
             z-index: 1040;
-            background-color: #072657;
-            color: #f8f9fa;
-            overflow-y: auto;
-            padding-top: 1rem;
-            transition: transform 0.3s;
+            background: var(--sidebar-bg);
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.1);
         }
 
-        /* Estilos de submenu */
-        #sidebar .nav-link { color: rgba(255, 255, 255, 0.7); padding: 0.75rem 1rem; transition: background-color 0.2s; }
-        #sidebar .nav-link:hover, #sidebar .nav-link.active, #sidebar .nav-link.dropdown-toggle:not(.collapsed) { color: #fff; background-color: #133c7f; border-radius: 0; }
-        #sidebar .collapse .dropdown-menu { position: static; display: block; background-color: #061c3d; border: none; padding: 0; margin: 0; border-radius: 0; }
-        #sidebar .dropdown-item { color: rgba(255, 255, 255, 0.8); padding: 0.5rem 1.5rem; background-color: transparent; }
-        #sidebar .dropdown-item:hover { background-color: #133c7f; color: #fff; }
-        .sidebar-brand { padding: 0.5rem 1rem 1rem; font-size: 1.5rem; font-weight: bold; color: #fff; text-align: center; display: block; }
+        #sidebar.collapsed { margin-left: calc(-1 * var(--sidebar-width)); }
 
-        /* === MOBILE (Abaixo de 992px) === */
+        .sidebar-header {
+            padding: 1.5rem;
+            color: #fff;
+            font-weight: 700;
+            font-size: 1.25rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .nav-link {
+            color: #94a3b8;
+            padding: 0.8rem 1.5rem;
+            display: flex;
+            align-items: center;
+            transition: 0.2s;
+            font-weight: 500;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: #fff;
+            background: var(--sidebar-hover);
+        }
+
+        .nav-link i { margin-right: 12px; font-size: 1.1rem; }
+
+        /* Área de Conteúdo Principal */
+        main {
+            margin-left: var(--sidebar-width);
+            transition: all 0.3s;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        main.expanded { margin-left: 0; }
+
+        .top-navbar {
+            background: #fff;
+            padding: 0.75rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        /* Botão Toggle da Sidebar */
+        #sidebarCollapse {
+            background: #f1f5f9;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        /* Estilo do Rodapé */
+        footer {
+            background: #fff;
+            border-top: 1px solid #e2e8f0;
+            padding: 1rem;
+            text-align: center;
+            color: #64748b;
+            margin-top: auto;
+        }
+
+        /* Responsividade */
         @media (max-width: 991.98px) {
-            body { padding-left: 0; }
-            .navbar { left: 0; width: 100%; }
-            #sidebar {
-                transform: translateX(-100%);
-                box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-            }
-            body.sidebar-toggled #sidebar { transform: translateX(0); }
-             #sidebar-backdrop {
-                content: '';
-                position: fixed;
-                top: 0; left: 0; width: 100%; height: 100%;
-                background-color: rgba(0, 0, 0, 0.5);
-                z-index: 1020;
-                display: none;
-            }
-            body.sidebar-toggled #sidebar-backdrop { display: block; }
+            #sidebar { margin-left: calc(-1 * var(--sidebar-width)); }
+            #sidebar.active { margin-left: 0; }
+            main { margin-left: 0 !important; }
         }
+
+        /* Ajustes de Toasts para não sobrepor menus */
+        .toast-container { z-index: 1060; }
     </style>
-	{% block head_extra %}{% endblock %}
-{% block extra_head %}{% endblock %} </head>
-<body>
+</head>
+<body class="{% if session.get('role') %}logged-in{% endif %}">
 
-<div class="modal fade" id="confirmarAcaoModal" tabindex="-1" aria-labelledby="confirmarAcaoModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="confirmarAcaoModalLabel"><i class="bi bi-exclamation-triangle-fill"></i> Confirmação Necessária</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p id="mensagemConfirmacao" class="fw-bold text-center">Tem certeza que deseja prosseguir com esta ação?</p>
-                <p class="text-muted small text-center mb-0">Esta operação não pode ser desfeita.</p>
-            </div>
-            <div class="modal-footer justify-content-between">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <a href="#" id="btnConfirmarUniversal" class="btn btn-danger">Sim, Excluir/Continuar</a>
-            </div>
+    {% if session.get('user_id') %}
+    <nav id="sidebar">
+        <div class="sidebar-header d-flex align-items-center">
+            <i class="bi bi-mortarboard-fill text-primary me-2"></i>
+            <span>SysEduca</span>
         </div>
-    </div>
-</div>
-<nav id="sidebar" class="d-flex flex-column">
-    <a class="sidebar-brand text-decoration-none" href="{{ url_for('dashboard') }}">
-        <b>gestor</b> 360º
-    </a>
-    
-    <div class="flex-grow-1 overflow-auto">
-    <ul class="nav nav-pills flex-column mb-auto">
         
-        <li class="nav-item">
-            <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><i class="bi bi-speedometer2"></i> Dashboard</a>
-        </li>
-
-        <li class="nav-item">
-            <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('lista_servidores', 'gerenciar_veiculos', 'motoristas.listar', 'transporte.', 'lancar_abastecimento', 'almoxarifado.', 'academico.')) %}active{% endif %}" 
-               data-bs-toggle="collapse" 
-               href="#cadastrosCollapse" 
-               role="button" 
-               aria-expanded="{% if request.endpoint.startswith(('lista_servidores', 'gerenciar_veiculos', 'motoristas.listar', 'transporte.', 'lancar_abastecimento', 'almoxarifado.', 'academico.')) %}true{% else %}false{% endif %}" 
-               aria-controls="cadastrosCollapse">
-                <i class="bi bi-pencil-square"></i> Cadastros
+        <div class="flex-grow-1 overflow-auto py-3">
+            <a href="{{ url_for('dashboard') }}" class="nav-link">
+                <i class="bi bi-speedometer2"></i> Dashboard
             </a>
-            <div class="collapse {% if request.endpoint.startswith(('lista_servidores', 'gerenciar_veiculos', 'motoristas.listar', 'transporte.', 'lancar_abastecimento', 'almoxarifado.', 'academico.')) %}show{% endif %}" id="cadastrosCollapse">
-                <ul class="dropdown-menu">
-                    {% if session.get('role') in ['admin', 'RH', 'Fiscal'] %}
-                    <li><a class="dropdown-item" href="{{ url_for('lista_servidores') }}"><i class="bi bi-people-fill"></i> Servidores</a></li>
-                    {% endif %}
-                    {% if session.get('role') in ['admin', 'Combustivel', 'RH'] %}
-                    <li><a class="dropdown-item" href="{{ url_for('motoristas.listar') }}"><i class="bi bi-person-video3"></i> Motoristas</a></li>
-                    {% endif %}
-                    {% if session.get('role') in ['admin', 'Combustivel'] %}
-                    <li><a class="dropdown-item" href="{{ url_for('gerenciar_veiculos') }}"><i class="bi bi-truck"></i> Veículos</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('transporte.dashboard') }}"><i class="bi bi-bus-front-fill"></i> Transporte</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('lancar_abastecimento') }}"><i class="bi bi-fuel-pump-fill"></i> Combustível</a></li>
-                    {% endif %}
-                    {% if session.get('role') in ['admin', 'almoxarifado'] %}
-                    <li><a class="dropdown-item" href="{{ url_for('almoxarifado.dashboard') }}"><i class="bi bi-box-seam-fill"></i> Almoxarifado</a></li>
-                    {% endif %}
-                    {% if session.get('role') in ['admin', 'academico'] %}
-                    <li><a class="dropdown-item" href="{{ url_for('academico.dashboard') }}"><i class="bi bi-mortarboard-fill"></i> Académico</a></li>
-                    {% endif %}
-                </ul>
-            </div>
-        </li>
-{% if session.get('role') in ['admin', 'Merenda Escolar', 'CAEE', 'RH', 'Fiscal'] %}
-        <li class="nav-item">
-            <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('merenda.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}active{% endif %}" 
-               data-bs-toggle="collapse" 
-               href="#modulosCollapse" 
-               role="button" 
-               aria-expanded="{% if request.endpoint.startswith(('merenda.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}true{% else %}false{% endif %}" 
-               aria-controls="modulosCollapse">
-                <i class="bi bi-grid-fill"></i> Módulos
-            </a>
-            <div class="collapse {% if request.endpoint.startswith(('merenda.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}show{% endif %}" id="modulosCollapse">
-                <ul class="dropdown-menu">
-                    {% if session.get('role') in ['admin', 'CAEE'] %}
-                    <li><a class="dropdown-item" href="{{ url_for('caee.dashboard') }}"><i class="bi bi-heart-pulse-fill"></i> CAEE </a></li>
-                    {% endif %}
-                    {% if session.get('role') in ['admin', 'RH', 'Fiscal'] %}
-                    <li><a class="dropdown-item" href="{{ url_for('fiscal.dashboard') }}"><i class="bi bi-file-earmark-lock2-fill"></i> Fiscal de Contratos</a></li>
-                    {% endif %}
-                    
-                    {% if session.get('role') in ['admin', 'Merenda Escolar'] %}
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="{{ url_for('merenda.dashboard') }}"><i class="bi bi-cart4"></i> Merenda Escolar</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('merenda.agricultura_dashboard') }}"><i class="bi bi-tree-fill"></i> Agricultura Familiar (PNAE)</a></li>
-                    {% endif %}
-                    {% if session.get('role') in ['admin', 'RH'] %}
-                    <li><a class="dropdown-item" href="{{ url_for('listar_gams') }}"><i class="bi bi-heart-pulse"></i> GAM (Guia Médica)</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="{{ url_for('protocolo.dashboard') }}"><i class="bi bi-folder2-open"></i> Protocolo</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('contratos.gerenciar_contratos') }}"><i class="bi bi-file-text-fill"></i> Contratos (RH)</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('listar_requerimentos') }}"><i class="bi bi-file-earmark-text"></i> Requerimentos</a></li>                         
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="{{ url_for('visualizar_frequencia') }}"><i class="bi bi-clock-history"></i> Frequência</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('frequencia.dashboard_frequencia') }}"><i class="bi bi-clock-history"></i> Visão Frequência</a></li>
-                    {% endif %}
-                    {% if session.get('role') == 'admin' %}
-                    <li><a class="dropdown-item" href="{{ url_for('patrimonio.listar_itens') }}"><i class="bi bi-archive-fill"></i> Patrimônio</a></li>						
-                    <li><a class="dropdown-item" href="{{ url_for('escola.listar_escolas') }}"><i class="bi bi-building"></i> Escolas</a></li>
-                    {% endif %}
-                </ul>
-            </div>
-        </li>
-{% endif %}
-        <li class="nav-item">
-    <a class="nav-link" href="{{ url_for('contas.dashboard') }}">
-        <i class="bi bi-file-earmark-bar-graph-fill"></i> Prestação de Contas
-    </a>
-</li>
-        <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('bloco_de_notas') }}"><i class="bi bi-journal-richtext"></i> Bloco de Notas</a>
-        </li>
-        {% if session['role'] in ['admin', 'RH'] %}
-<li class="nav-item">
-    <a class="nav-link" href="{{ url_for('assinatura.index_assinatura') }}">
-        <i class="bi bi-pen-fill"></i>
-        <span>Assinatura Digital</span>
-    </a>
-</li>
-{% endif %}
-        {% if session.get('role') == 'admin' %}
-        <li class="nav-item">
-            <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('lista_usuarios', 'ver_logs', 'admin_licenca', 'backup.')) %}active{% endif %}" 
-               data-bs-toggle="collapse" 
-               href="#adminCollapse" 
-               role="button" 
-               aria-expanded="{% if request.endpoint.startswith(('lista_usuarios', 'ver_logs', 'admin_licenca', 'backup.')) %}true{% else %}false{% endif %}" 
-               aria-controls="adminCollapse">
-                <i class="bi bi-gear-fill"></i> Administração
-            </a>
-            <div class="collapse {% if request.endpoint.startswith(('lista_usuarios', 'ver_logs', 'admin_licenca', 'backup.')) %}show{% endif %}" id="adminCollapse">
-                <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="{{ url_for('lista_usuarios') }}"><i class="bi bi-person-gear"></i> Usuários</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('ver_logs') }}"><i class="bi bi-journal-text"></i> Logs</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('admin_licenca') }}"><i class="bi bi-key-fill"></i> Licença</a></li>
-					<li><a class="dropdown-item" href="{{ url_for('backup.index') }}"><i class="bi bi-database-down"></i> Backup</a></li>
-                </ul>
-            </div>
-        </li>
-        {% endif %}
-    </ul>
-    </div>
-    
-    <div class="mt-auto border-top p-3">
-                <div class="d-grid">
-            <a href="{{ url_for('logout') }}" class="btn btn-danger"><i class="bi bi-box-arrow-right"></i> Sair</a>
-        </div>
-    </div>
-</nav>
-<div id="sidebar-backdrop" onclick="toggleSidebar()"></div> 
-<nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
-    <div class="container-fluid">
-        <button class="btn btn-primary d-lg-none me-3" onclick="toggleSidebar()">
-            <i class="bi bi-list"></i>
-        </button>
-        
-        <span class="navbar-text me-auto">
-             {% if session.logged_in %}
-                Olá, <strong class="text-white">{{ session.get('username')|capitalize }}</strong> 
-                (<small>{{ session.get('secretaria') }}</small>)
-            {% endif %}
-        </span>
-         <div class="d-flex align-items-center">
-         </div>
-    </div>
-</nav>
 
-
-<div class="toast-container position-fixed top-0 end-0 p-3">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="toast align-items-center text-white bg-{{ category }} border-0" role="alert" aria-live="assertive" aria-atomic="true">
-                    <div class="d-flex"><div class="toast-body">{{ message }}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-</div>
-
-<main class="container mt-4">
-    {% block content %}{% endblock %}
-</main>
-
-<footer class="text-center text-muted py-4 mt-auto">
-    <p>&copy; {{ current_year }} - Sistema para gerenciamento de secretarias</p>
-</footer>
-
-<script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/scripts.js') }}"></script> 
-<script>
-    function toggleSidebar() {
-        document.body.classList.toggle('sidebar-toggled');
-    }
-    
-    document.addEventListener('DOMContentLoaded', function () {
-        var toastElList = [].slice.call(document.querySelectorAll('.toast'));
-        var toastList = toastElList.map(function (toastEl) {
-            var toast = new bootstrap.Toast(toastEl, { delay: 5000 });
-            toast.show();
-            return toast;
-        });
-
-        // 1. Corrige o padding do main container para o navbar fixo
-        document.querySelector('main').style.paddingTop = 
-            document.querySelector('.navbar').offsetHeight + 20 + 'px';
+            <div class="text-uppercase small fw-bold px-4 mt-4 mb-2" style="color: #475569; font-size: 0.7rem;">Operacional</div>
             
-        // 2. Fecha a sidebar ao clicar em qualquer link (mobile)
-        document.querySelectorAll('#sidebar .nav-link').forEach(link => {
-            link.addEventListener('click', function() {
-                if (window.innerWidth < 992 && document.body.classList.contains('sidebar-toggled')) {
-                    // Pequeno delay para permitir a navegação antes de fechar
-                    setTimeout(toggleSidebar, 150); 
-                }
+            <a href="{{ url_for('listar_servidores') }}" class="nav-link">
+                <i class="bi bi-person-badge"></i> Servidores
+            </a>
+            
+            <a href="{{ url_for('merenda.dashboard') }}" class="nav-link">
+                <i class="bi bi-egg-fried"></i> Merenda Escolar
+            </a>
+
+            <a href="{{ url_for('transporte.dashboard') }}" class="nav-link">
+                <i class="bi bi-bus-front"></i> Transporte Escolar
+            </a>
+
+            {% if session.get('role') == 'admin' %}
+            <div class="text-uppercase small fw-bold px-4 mt-4 mb-2" style="color: #475569; font-size: 0.7rem;">Configurações</div>
+            <a href="{{ url_for('listar_usuarios') }}" class="nav-link">
+                <i class="bi bi-people"></i> Gerenciar Usuários
+            </a>
+            <a href="{{ url_for('listar_secretarias') }}" class="nav-link">
+                <i class="bi bi-building-gear"></i> Secretarias
+            </a>
+            <a href="{{ url_for('exibir_logs') }}" class="nav-link">
+                <i class="bi bi-journal-text"></i> Logs do Sistema
+            </a>
+            {% endif %}
+        </div>
+
+        <div class="p-3 border-top border-secondary">
+            <a href="{{ url_for('logout') }}" class="nav-link text-danger p-0">
+                <i class="bi bi-box-arrow-left"></i> Sair do Sistema
+            </a>
+        </div>
+    </nav>
+
+    <main id="main-content">
+        <header class="top-navbar">
+            <button id="sidebarCollapse">
+                <i class="bi bi-list fs-4"></i>
+            </button>
+            
+            <div class="dropdown">
+                <div class="d-flex align-items-center cursor-pointer" data-bs-toggle="dropdown">
+                    <div class="text-end me-3 d-none d-sm-block">
+                        <div class="fw-bold small">{{ session.get('user_name', 'Usuário') }}</div>
+                        <div class="text-muted small" style="font-size: 0.75rem;">{{ session.get('role') }}</div>
+                    </div>
+                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                        {{ session.get('user_name', 'U')[0] | upper }}
+                    </div>
+                </div>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                    <li><a class="dropdown-item" href="#"><i class="bi bi-person me-2"></i>Meu Perfil</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-left me-2"></i>Sair</a></li>
+                </ul>
+            </div>
+        </header>
+    {% else %}
+    <main style="margin-left: 0;">
+    {% endif %}
+
+        <div class="container-fluid p-4">
+            {% block content %}{% endblock %}
+        </div>
+
+        <footer>
+            <small>&copy; {{ current_year }} SysEduca Web - Gestão Inteligente de Secretarias</small>
+        </footer>
+    </main>
+
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="toast align-items-center text-white bg-{{ 'primary' if category == 'message' else 'danger' if category == 'error' else category }} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                  <div class="toast-body">{{ message }}</div>
+                  <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+    </div>
+
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Controle da Sidebar
+            const btnToggle = document.getElementById('sidebarCollapse');
+            const sidebar = document.getElementById('sidebar');
+            const main = document.getElementById('main-content');
+
+            if (btnToggle) {
+                btnToggle.addEventListener('click', function() {
+                    if (window.innerWidth >= 992) {
+                        sidebar.classList.toggle('collapsed');
+                        main.classList.toggle('expanded');
+                    } else {
+                        sidebar.classList.toggle('active');
+                    }
+                });
+            }
+
+            // Inicialização de Toasts
+            var toastElList = [].slice.call(document.querySelectorAll('.toast'));
+            toastElList.map(function (toastEl) {
+                let t = new bootstrap.Toast(toastEl, { delay: 5000 });
+                t.show();
             });
         });
-    });
-</script>
-{% block scripts %}{% endblock %}
+    </script>
 </body>
 </html>

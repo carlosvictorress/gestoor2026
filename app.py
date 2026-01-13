@@ -2338,16 +2338,27 @@ def novo_requerimento():
                 flash("Servidor com o CPF informado não encontrado.", "danger")
                 return redirect(url_for("novo_requerimento"))
 
+            natureza_selecionada = request.form.get("natureza")
+            natureza_outro_val = request.form.get("natureza_outro") if natureza_selecionada == 'Outro' else None
+
             novo_req = Requerimento(
                 tipo_documento=request.form.get("tipo_documento"),
                 autoridade_dirigida=request.form.get("autoridade_dirigida"),
                 servidor_cpf=cpf_servidor,
-                natureza=request.form.get("natureza"),
+                natureza=natureza_selecionada,
+                natureza_outro=natureza_outro_val,
+                
+                # --- CAMPOS QUE ESTAVAM FALTANDO ---
+                duracao=request.form.get("duracao"),
+                periodo_aquisitivo=request.form.get("periodo_aquisitivo"),
+                informacoes_complementares=request.form.get("informacoes_complementares"),
+                parecer_juridico=request.form.get("parecer_juridico"),
+                # -----------------------------------
+
                 data_inicio_requerimento=datetime.strptime(
                     request.form.get("data_inicio_requerimento"), "%Y-%m-%d"
                 ).date(),
                 status="Em Análise",
-                # Adicione outros campos do formulário aqui se necessário
             )
             db.session.add(novo_req)
             db.session.commit()

@@ -153,6 +153,7 @@ class Requerimento(db.Model):
     servidor = db.relationship(
         "Servidor", backref=db.backref("requerimentos", lazy=True)
     )
+    tipo_documento = db.Column(db.String(50), default='Requerimento')
     natureza = db.Column(db.String(100), nullable=False)
     natureza_outro = db.Column(db.String(255), nullable=True)
     data_admissao = db.Column(db.Date, nullable=True)

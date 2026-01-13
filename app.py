@@ -598,6 +598,7 @@ def editar_requerimento(req_id):
     if request.method == 'POST':
         try:
             # Atualiza os dados do requerimento a partir do formulário
+            requerimento.tipo_documento = request.form.get('tipo_documento')
             requerimento.autoridade_dirigida = request.form.get('autoridade_dirigida')
             requerimento.natureza = request.form.get('natureza')
             requerimento.natureza_outro = request.form.get('natureza_outro') if requerimento.natureza == 'Outro' else None
@@ -2338,6 +2339,7 @@ def novo_requerimento():
                 return redirect(url_for("novo_requerimento"))
 
             novo_req = Requerimento(
+                tipo_documento=request.form.get("tipo_documento"),
                 autoridade_dirigida=request.form.get("autoridade_dirigida"),
                 servidor_cpf=cpf_servidor,
                 natureza=request.form.get("natureza"),
@@ -2421,8 +2423,17 @@ def gerar_requerimento_pdf(req_id):
 
     story = []
 
-    # TÍTULO
-    story.append(Paragraph("REQUERIMENTO PADRÃO", style_title))
+    # --- INÍCIO DA ALTERAÇÃO (Lógica do Título) ---
+    titulo_texto = "REQUERIMENTO PADRÃO"
+    
+    # Verifica se o campo 'tipo_documento' é 'Encaminhamento'
+    # O getattr é usado para evitar erro caso o campo esteja vazio no banco
+    if getattr(requerimento, 'tipo_documento', 'Requerimento') == 'Encaminhamento':
+        titulo_texto = "ENCAMINHAMENTO"
+
+    story.append(Paragraph(titulo_texto, style_title))
+    # --- FIM DA ALTERAÇÃO ---
+
     # Espaço reduzido
     story.append(Spacer(1, 0.2*cm))
 

@@ -46,6 +46,28 @@
             <h5>2. Detalhes do Requerimento</h5>
         </div>
         <div class="card-body">
+            
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label class="form-label fw-bold">Tipo de Documento:</label>
+                    <div class="d-flex gap-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="tipo_documento" id="tipo_req" value="Requerimento" 
+                            {% if not requerimento or not requerimento.tipo_documento or requerimento.tipo_documento == 'Requerimento' %}checked{% endif %}>
+                            <label class="form-check-label" for="tipo_req">
+                                Requerimento Padrão
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="tipo_documento" id="tipo_enc" value="Encaminhamento"
+                            {% if requerimento and requerimento.tipo_documento == 'Encaminhamento' %}checked{% endif %}>
+                            <label class="form-check-label" for="tipo_enc">
+                                Encaminhamento
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="row mb-3">
                 <div class="col-md-5">
                     <label for="natureza" class="form-label">Natureza do Requerimento*</label>

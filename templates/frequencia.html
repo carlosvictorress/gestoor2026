@@ -99,12 +99,29 @@
                 
                 <td class="text-center">
                     {% if registro.servidor_ponto and registro.servidor_ponto.foto_filename and registro.foto_filename %}
+                        
+                        {# --- LÓGICA CORRIGIDA PARA SUPABASE --- #}
+                        {# Define as variáveis iniciais #}
+                        {% set foto_perfil = registro.servidor_ponto.foto_filename %}
+                        {% set foto_ponto = registro.foto_filename %}
+
+                        {# Se a foto de perfil NÃO for um link (http), usa o url_for local (legado) #}
+                        {% if 'http' not in foto_perfil %}
+                            {% set foto_perfil = url_for('uploaded_file', filename=foto_perfil) %}
+                        {% endif %}
+
+                        {# Se a foto do ponto NÃO for um link (http), usa o url_for local (legado) #}
+                        {% if 'http' not in foto_ponto %}
+                            {# Assume que fotos locais antigas estão na pasta 'pontos/' #}
+                            {% set foto_ponto = url_for('uploaded_file', filename='pontos/' ~ foto_ponto) %}
+                        {% endif %}
+
                         <button class="btn btn-info btn-sm" 
                                 data-bs-toggle="modal" 
                                 data-bs-target="#modalAuditoria"
                                 data-servidor-nome="{{ registro.servidor_ponto.nome }}"
-                                data-ref-foto="{{ url_for('uploaded_file', filename=registro.servidor_ponto.foto_filename) }}"
-                                data-ponto-foto="{{ url_for('uploaded_file', filename='pontos/' ~ registro.foto_filename) }}">
+                                data-ref-foto="{{ foto_perfil }}"
+                                data-ponto-foto="{{ foto_ponto }}">
                             <i class="bi bi-images"></i> Verificar
                         </button>
                     {% else %}
@@ -180,38 +197,39 @@ document.addEventListener('DOMContentLoaded', function () {
     modalAuditoria.addEventListener('show.bs.modal', function (event) {
         var button = event.relatedTarget;
         var nomeServidor = button.getAttribute('data-servidor-nome');
+        // Agora as URLs já vêm resolvidas do HTML (Jinja2), seja local ou nuvem
         var urlFotoRef = button.getAttribute('data-ref-foto');
         var urlFotoPonto = button.getAttribute('data-ponto-foto');
+        
         var modalNome = modalAuditoria.querySelector('#modalServidorNome');
         var imgRef = modalAuditoria.querySelector('#fotoReferencia');
         var imgPonto = modalAuditoria.querySelector('#fotoPonto');
+        
         modalNome.textContent = 'Servidor: ' + nomeServidor;
         imgRef.src = urlFotoRef;
         imgPonto.src = urlFotoPonto;
     });
+    
+    // Limpa as imagens ao fechar para não mostrar a anterior enquanto carrega a próxima
     modalAuditoria.addEventListener('hidden.bs.modal', function () {
         modalAuditoria.querySelector('#fotoReferencia').src = '';
         modalAuditoria.querySelector('#fotoPonto').src = '';
     });
 
-    // --- NOVO SCRIPT PARA OS BOTÕES DE EXPORTAÇÃO ---
-    // Esta função pega os filtros atuais do formulário e os adiciona à URL de exportação
+    // --- SCRIPT PARA OS BOTÕES DE EXPORTAÇÃO ---
     function exportarComFiltros(baseUrl) {
         const mes = document.getElementById('mes').value;
         const ano = document.getElementById('ano').value;
         const escola_id = document.getElementById('escola_id').value;
         
-        // Constrói os parâmetros da URL
         const params = new URLSearchParams();
         if (mes) params.append('mes', mes);
         if (ano) params.append('ano', ano);
         if (escola_id) params.append('escola_id', escola_id);
         
-        // Redireciona para a URL de exportação com os filtros
         window.location.href = baseUrl + '?' + params.toString();
     }
 
-    // Adiciona os cliques aos botões de exportação
     document.getElementById('btnExportarExcel').addEventListener('click', function() {
         exportarComFiltros("{{ url_for('exportar_frequencia_excel') }}");
     });

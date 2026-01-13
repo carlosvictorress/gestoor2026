@@ -2966,17 +2966,20 @@ def lancar_abastecimento():
 def registrar_ponto():
     if request.method == "POST":
         try:
+            # 1. Coleta dados do formulário
             foto_b64 = request.form.get("foto_b64")
             tipo_registro = request.form.get("tipo")
-            escola_id_form = request.form.get("escola_id", type=int) # Escola onde ele ESTÁ tentando bater
+            escola_id_form = request.form.get("escola_id", type=int)
             lat_user_str = request.form.get("latitude")
             lon_user_str = request.form.get("longitude")
 
+            # Validação básica
             if not foto_b64 or not escola_id_form:
                 flash("Foto ou local de trabalho não detectados.", "danger")
                 return redirect(url_for("registrar_ponto"))
 
-            # 1. Identificação Facial
+            # 2. Identificação Facial
+            # Busca todos os servidores que têm biometria (encoding) cadastrada
             todos_servidores = Servidor.query.filter(Servidor.face_encoding.isnot(None)).all()
             servidor_identificado, msg_identificacao = identificar_servidor_por_rosto(foto_b64, todos_servidores)
 
@@ -2984,62 +2987,109 @@ def registrar_ponto():
                 flash(f"Falha na identificação: {msg_identificacao}", "danger")
                 return redirect(url_for("registrar_ponto"))
 
-            # --- NOVO BLOQUEIO: VÍNCULO DE ESCOLA ---
-            # Se o servidor tem uma escola vinculada E a escola selecionada é diferente
+            # 3. Validação de Vínculo (Se o servidor for lotado em uma escola específica)
             if servidor_identificado.escola_id and servidor_identificado.escola_id != escola_id_form:
-                escola_correta = servidor_identificado.escola_vinculada.nome if servidor_identificado.escola_vinculada else "outra unidade"
-                flash(f"ACESSO NEGADO: Você está lotado na '{escola_correta}'. Não é permitido registrar ponto nesta localização.", "danger")
+                escola_vinculada = Escola.query.get(servidor_identificado.escola_id)
+                nome_escola = escola_vinculada.nome if escola_vinculada else "outra unidade"
+                flash(f"ACESSO NEGADO: Você está lotado na '{nome_escola}'. Não é permitido registrar ponto nesta localização.", "danger")
                 return redirect(url_for("registrar_ponto"))
-            # ----------------------------------------
 
-            # 2. Validação de Geolocalização (GPS)
+            # 4. Validação de Geolocalização (GPS)
             escola_local = Escola.query.get(escola_id_form)
             
-            if lat_user_str == 'N/A' or lon_user_str == 'N/A':
-                flash("Erro: GPS não detectado. Ative a localização.", "warning")
+            # Verifica se o GPS veio válido
+            if not lat_user_str or lat_user_str == 'N/A' or not lon_user_str or lon_user_str == 'N/A':
+                flash("Erro: GPS não detectado. Ative a localização do seu dispositivo.", "warning")
                 return redirect(url_for("registrar_ponto"))
 
             if escola_local and escola_local.latitude:
                 try:
                     lat_user = float(lat_user_str)
                     lon_user = float(lon_user_str)
+                    
+                    # Calcula a distância em metros
                     distancia = haversine(lat_user, lon_user, escola_local.latitude, escola_local.longitude)
                     limite_metros = app.config.get('RAIO_PERMITIDO_METROS', 100)
 
                     if distancia > limite_metros:
-                        flash(f"Fora do perímetro! Distância: {distancia:.0f}m. Limite: {limite_metros}m.", "danger")
+                        flash(f"Fora do perímetro! Você está a {distancia:.0f}m da escola. Limite: {limite_metros}m.", "danger")
                         return redirect(url_for("registrar_ponto"))
 
                 except Exception as e:
-                    print(f"Erro GPS: {e}")
-                    flash("Erro ao validar localização.", "danger")
+                    print(f"Erro ao calcular GPS: {e}")
+                    flash("Erro ao validar localização GPS.", "danger")
                     return redirect(url_for("registrar_ponto"))
 
-            # 3. Salvar o Ponto
-            filename_ponto = f"ponto_{servidor_identificado.num_contrato}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
-            
+            # 5. Processamento da Foto (Base64 -> Arquivo -> Supabase)
+            url_foto_final = None
+            try:
+                # Remove o cabeçalho "data:image/jpeg;base64," se existir
+                if "," in foto_b64:
+                    _, encoded = foto_b64.split(",", 1)
+                else:
+                    encoded = foto_b64
+
+                # Decodifica o texto Base64 para binário (bytes da imagem)
+                foto_binaria = base64.b64decode(encoded)
+                
+                # Cria um arquivo na memória (BytesIO) para enviar ao Supabase
+                arquivo_foto = BytesIO(foto_binaria)
+                
+                # Define o fuso horário para usar no nome do arquivo
+                fuso_brasil = pytz.timezone('America/Sao_Paulo')
+                agora_brasil = datetime.now(fuso_brasil)
+                
+                # Nome do arquivo único
+                filename_ponto = f"ponto_{servidor_identificado.num_contrato}_{agora_brasil.strftime('%Y%m%d%H%M%S')}.jpg"
+                
+                # Faz o upload para o Bucket 'pontos' no Supabase
+                url_foto_supabase = upload_arquivo_para_nuvem(
+                    arquivo_foto, 
+                    pasta="pontos", 
+                    nome_arquivo_personalizado=filename_ponto
+                )
+
+                if url_foto_supabase:
+                    url_foto_final = url_foto_supabase
+                else:
+                    print("Erro: A função de upload retornou None.")
+                    # Mesmo sem foto na nuvem, o ponto pode ser salvo (fica a seu critério)
+                    # url_foto_final = None 
+
+            except Exception as e:
+                print(f"Erro crítico ao processar/enviar foto: {e}")
+                url_foto_final = None
+
+            # 6. Salvar no Banco de Dados (Com Horário Correto)
+            # Garante que o horário do registro seja o de Brasília
+            fuso_brasil = pytz.timezone('America/Sao_Paulo')
+            agora_brasil = datetime.now(fuso_brasil)
+
             novo_ponto = Ponto(
                 servidor_cpf=servidor_identificado.cpf,
                 tipo=tipo_registro,
                 escola_id=escola_id_form,
                 latitude=float(lat_user_str),
                 longitude=float(lon_user_str),
-                foto_filename=filename_ponto
+                foto_filename=url_foto_final,  # Salva a URL pública do Supabase
+                timestamp=agora_brasil         # Salva o horário corrigido
             )
             
             db.session.add(novo_ponto)
             db.session.commit()
 
-            hora = datetime.now().strftime('%H:%M')
-            nome = servidor_identificado.nome.split()[0]
-            flash(f"Sucesso, {nome}! {tipo_registro.capitalize()} registrada às {hora}.", "success")
+            hora_formatada = agora_brasil.strftime('%H:%M')
+            primeiro_nome = servidor_identificado.nome.split()[0]
+            flash(f"Sucesso, {primeiro_nome}! {tipo_registro.capitalize()} registrada às {hora_formatada}.", "success")
             
         except Exception as e:
             db.session.rollback()
+            print(f"Erro geral no registro de ponto: {e}")
             flash(f"Erro no sistema: {e}", "danger")
 
         return redirect(url_for("registrar_ponto"))
 
+    # Método GET: Renderiza a página
     escolas = Escola.query.filter_by(status="Ativa").order_by(Escola.nome).all()
     return render_template("registrar_ponto.html", escolas=escolas)
 

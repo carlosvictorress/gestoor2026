@@ -4,6 +4,15 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from werkzeug.utils import secure_filename
 import os
 import uuid
+import io
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.units import cm
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
+from flask import make_response
+from utils import cabecalho_e_rodape
 from datetime import datetime
 from extensions import db, bcrypt
 from models import Motorista, DocumentoMotorista
@@ -213,3 +222,139 @@ def excluir(motorista_id):
         db.session.rollback()
         flash(f'Erro ao excluir motorista: {e}', 'danger')
         return redirect(url_for('motoristas.detalhes', motorista_id=motorista_id))
+    
+@motoristas_bp.route('/<int:motorista_id>/ficha', methods=['GET'])
+@login_required
+@role_required('RH', 'admin', 'Combustivel')
+def imprimir_ficha(motorista_id):
+    motorista = Motorista.query.get_or_404(motorista_id)
+    
+    # Configuração do PDF
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, 
+                            rightMargin=1.5*cm, leftMargin=1.5*cm, 
+                            topMargin=4*cm, bottomMargin=2*cm)
+    
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Estilos Personalizados
+    style_titulo = ParagraphStyle(name='Titulo', parent=styles['Heading1'], alignment=TA_CENTER, fontSize=14, spaceAfter=10)
+    style_rotulo = ParagraphStyle(name='Rotulo', parent=styles['Normal'], fontSize=8, textColor=colors.gray)
+    style_dado = ParagraphStyle(name='Dado', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold', spaceAfter=6)
+    
+    # Título da Ficha
+    story.append(Paragraph(f"FICHA CADASTRAL DO MOTORISTA", style_titulo))
+    story.append(Spacer(1, 0.5*cm))
+    
+    # --- BLOCO 1: DADOS PESSOAIS ---
+    story.append(Paragraph("DADOS PESSOAIS E FUNCIONAIS", styles['Heading3']))
+    story.append(Spacer(1, 0.2*cm))
+    
+    # Preparando dados para a tabela
+    dados_pessoais = [
+        [
+            [Paragraph("NOME COMPLETO", style_rotulo), Paragraph(motorista.nome.upper(), style_dado)],
+            [Paragraph("CPF", style_rotulo), Paragraph(motorista.cpf or "-", style_dado)]
+        ],
+        [
+            [Paragraph("RG", style_rotulo), Paragraph(motorista.rg or "-", style_dado)],
+            [Paragraph("DATA NASCIMENTO", style_rotulo), Paragraph("-", style_dado)] # Adicione se tiver esse campo no model
+        ],
+        [
+            [Paragraph("ENDEREÇO", style_rotulo), Paragraph(motorista.endereco or "-", style_dado)],
+            [Paragraph("TELEFONE", style_rotulo), Paragraph(motorista.telefone or "-", style_dado)]
+        ],
+        [
+            [Paragraph("VÍNCULO", style_rotulo), Paragraph(motorista.tipo_vinculo or "-", style_dado)],
+            [Paragraph("SECRETARIA", style_rotulo), Paragraph(motorista.secretaria or "-", style_dado)]
+        ]
+    ]
+    
+    tbl_pessoais = Table(dados_pessoais, colWidths=[13*cm, 5*cm])
+    tbl_pessoais.setStyle(TableStyle([
+        ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+    ]))
+    story.append(tbl_pessoais)
+    story.append(Spacer(1, 0.5*cm))
+    
+    # --- BLOCO 2: HABILITAÇÃO (CNH) ---
+    story.append(Paragraph("DADOS DA HABILITAÇÃO (CNH)", styles['Heading3']))
+    story.append(Spacer(1, 0.2*cm))
+    
+    validade_str = motorista.cnh_validade.strftime('%d/%m/%Y') if motorista.cnh_validade else "-"
+    
+    dados_cnh = [
+        [
+            [Paragraph("NÚMERO DA CNH", style_rotulo), Paragraph(motorista.cnh_numero or "-", style_dado)],
+            [Paragraph("CATEGORIA", style_rotulo), Paragraph(motorista.cnh_categoria or "-", style_dado)],
+            [Paragraph("VALIDADE", style_rotulo), Paragraph(validade_str, style_dado)]
+        ]
+    ]
+    
+    tbl_cnh = Table(dados_cnh, colWidths=[8*cm, 4*cm, 6*cm])
+    tbl_cnh.setStyle(TableStyle([
+        ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+    ]))
+    story.append(tbl_cnh)
+    story.append(Spacer(1, 0.5*cm))
+    
+    # --- BLOCO 3: VEÍCULO E ROTA ---
+    story.append(Paragraph("VEÍCULO E ROTA VINCULADA", styles['Heading3']))
+    story.append(Spacer(1, 0.2*cm))
+    
+    veiculo_info = f"{motorista.veiculo_modelo or '-'} ({motorista.veiculo_ano or '-'})"
+    
+    dados_rota = [
+        [
+            [Paragraph("VEÍCULO PADRÃO", style_rotulo), Paragraph(veiculo_info, style_dado)],
+            [Paragraph("PLACA", style_rotulo), Paragraph(motorista.veiculo_placa or "-", style_dado)]
+        ],
+        [
+            [Paragraph("DESCRIÇÃO DA ROTA", style_rotulo), Paragraph(motorista.rota_descricao or "-", style_dado)],
+            [Paragraph("TURNO", style_rotulo), Paragraph(motorista.turno or "-", style_dado)]
+        ]
+    ]
+    
+    tbl_rota = Table(dados_rota, colWidths=[13*cm, 5*cm])
+    tbl_rota.setStyle(TableStyle([
+        ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+    ]))
+    story.append(tbl_rota)
+    story.append(Spacer(1, 2*cm))
+    
+    # --- ASSINATURAS ---
+    linha = "______________________________________________________"
+    
+    dados_assinatura = [
+        [Paragraph(linha, style_titulo)],
+        [Paragraph(f"<b>{motorista.nome.upper()}</b>", style_titulo)],
+        [Paragraph("Assinatura do Motorista", style_titulo)],
+        [Spacer(1, 1.5*cm)],
+        [Paragraph(linha, style_titulo)],
+        [Paragraph("Responsável pelo Setor de Transportes", style_titulo)]
+    ]
+    
+    tbl_ass = Table(dados_assinatura, colWidths=[18*cm])
+    story.append(tbl_ass)
+    
+    # Gera o PDF
+    # Tenta usar o cabecalho padrão se existir no utils, senão usa padrão
+    try:
+        from utils import cabecalho_e_rodape
+        doc.build(story, onFirstPage=cabecalho_e_rodape, onLaterPages=cabecalho_e_rodape)
+    except ImportError:
+        doc.build(story)
+        
+    buffer.seek(0)
+    
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=ficha_{motorista.nome}.pdf'
+    
+    return response    

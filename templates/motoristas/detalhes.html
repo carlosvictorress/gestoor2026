@@ -81,14 +81,17 @@
                     </div>
                 </div>
                 <div class="card-footer d-flex justify-content-end align-items-center">
-                    <a href="{{ url_for('motoristas.excluir', motorista_id=motorista.id) }}" 
-                       class="btn btn-danger me-auto" 
-                       onclick="return confirm('ATENÇÃO: Esta ação é irreversível e irá apagar todos os documentos anexados. Deseja continuar?');">
-                       <i class="bi bi-trash-fill"></i> Excluir Motorista
-                    </a>
-                    
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Salvar Alterações</button>
-                </div>
+    <a href="{{ url_for('motoristas.excluir', motorista_id=motorista.id) }}" 
+       class="btn btn-danger me-auto" 
+       onclick="return confirm('ATENÇÃO: Esta ação é irreversível e irá apagar todos os documentos anexados. Deseja continuar?');">
+       <i class="bi bi-trash-fill"></i> Excluir Motorista
+    </a>
+    
+    <a href="{{ url_for('motoristas.imprimir_ficha', motorista_id=motorista.id) }}" target="_blank" class="btn btn-info me-2 text-white">
+        <i class="bi bi-printer-fill"></i> Imprimir Ficha
+    </a>
+    <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Salvar Alterações</button>
+</div>
             </div>
         </form>
     </div>

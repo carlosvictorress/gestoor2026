@@ -3639,6 +3639,16 @@ def criar_tabelas_extras():
             """
     except Exception as e:
         return f"<h1>Erro ao criar tabelas: {e}</h1>"
+    
+@app.errorhandler(404)
+def page_not_found(e):
+    # O Flask retornará o seu novo arquivo 404.html sempre que uma rota não for encontrada
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    # Você pode usar o mesmo template ou criar um 500.html
+    return render_template('404.html'), 500    
 
 # ===================================================================
 # PARTE 6: Importação e Registro dos Blueprints

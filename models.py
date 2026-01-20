@@ -354,26 +354,31 @@ class Contrato(db.Model):
 
 class Patrimonio(db.Model):
     __tablename__ = "patrimonio"
+
+    # Campos de Identificação
     id = db.Column(db.Integer, primary_key=True)
-    numero_patrimonio = db.Column(db.String(50), unique=True, nullable=False)
-    descricao = db.Column(db.String(300), nullable=False)
-    categoria = db.Column(db.String(100), nullable=True)
-    status = db.Column(
-        db.String(50), nullable=False, default="Ativo"
-    )  # Ex: Ativo, Manutenção, Baixado
-    localizacao = db.Column(
-        db.String(200), nullable=False
-    )  # Ex: "SEMED - Sala do Secretário", "Escola X - Sala 10"
+    numero_patrimonio = db.Column(db.String(50), unique=True, nullable=False) # Também conhecido como Tombamento
+    descricao = db.Column(db.String(300), nullable=False) # Nome principal do bem
+    categoria = db.Column(db.String(100), nullable=True) # Ex: Móveis, Eletrônicos, Veículos
+    
+    # Controle de Estado e Uso (Essencial para o novo Design)
+    status = db.Column(db.String(50), nullable=False, default="Ativo") # Ativo, Manutenção, Baixado
+    estado_conservacao = db.Column(db.String(50), default="Bom") # Bom, Regular, Inservível
+    situacao_uso = db.Column(db.String(50), default="Em uso") # Em uso, Almoxarifado, Manutenção
+    
+    # Detalhes Técnicos
+    marca = db.Column(db.String(100))
+    modelo = db.Column(db.String(100))
+    localizacao = db.Column(db.String(200), nullable=False) # Ex: "SEMED - Sala 01"
+    
+    # Dados Financeiros e de Registro
     data_aquisicao = db.Column(db.Date, nullable=True)
     valor_aquisicao = db.Column(db.Float, nullable=True)
     observacoes = db.Column(db.Text, nullable=True)
-    marca = db.Column(db.String(100))
-    modelo = db.Column(db.String(100))
-    estado_conservacao = db.Column(db.String(50), default="Bom") # Bom, Regular, Inservível
-    situacao_uso = db.Column(db.String(50), default="Em uso") # Em uso, Almoxarifado, Manutenção
-    foto_url = db.Column(db.String(500)) # Link do Supabase Storage
+    foto_url = db.Column(db.String(500)) # Link para a imagem no Supabase Storage
     data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
-    # Relacionamento com o servidor responsável
+
+    # Relacionamento com o Servidor (Responsável atual)
     servidor_responsavel_cpf = db.Column(
         db.String(14), db.ForeignKey("servidor.cpf"), nullable=True
     )
@@ -388,6 +393,9 @@ class Patrimonio(db.Model):
         lazy=True,
         cascade="all, delete-orphan",
     )
+
+    def __repr__(self):
+        return f'<Patrimonio {self.numero_patrimonio} - {self.descricao}>'
 
 
 class MovimentacaoPatrimonio(db.Model):

@@ -96,9 +96,10 @@ def editar_item(item_id):
             item.observacoes = request.form.get('observacoes')
             
             db.session.commit()
+            flash("Patrimônio atualizado com sucesso!", "success")
             registrar_log(f'Editou o item patrimonial: "{item.descricao}" ({item.numero_patrimonio}).')
             flash('Item atualizado com sucesso!', 'success')
-            return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
+            return redirect(url_for('patrimonio.detalhes_item', item_id=item.id))
         except Exception as e:
             db.session.rollback()
             flash(f'Erro ao atualizar o item: {e}', 'danger')
@@ -181,7 +182,7 @@ def gerar_etiqueta_qr(id):
     
     # Gerar QR Code com o link de consulta
     # O link aponta para a rota de detalhes que já existe no seu sistema
-    link_consulta = url_for('patrimonio.detalhes_patrimonio', id=bem.id, _external=True)
+    link_consulta = url_for('patrimonio.detalhes_item', item_id=bem.id, _external=True)
     qr = qrcode.make(link_consulta)
     qr_buffer = BytesIO()
     qr.save(qr_buffer, format='PNG')

@@ -1,4 +1,5 @@
 # patrimonio_routes.py
+import qrcode
 from utils import role_required
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from extensions import db, bcrypt
@@ -6,6 +7,11 @@ from models import Patrimonio, MovimentacaoPatrimonio, Servidor
 from utils import login_required, registrar_log # LINHA CORRIGIDA
 from sqlalchemy import or_
 from datetime import datetime
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas as canvas_lib
+from reportlab.lib.utils import ImageReader
+from utils import upload_arquivo_para_nuvem
 
 patrimonio_bp = Blueprint('patrimonio', __name__, url_prefix='/patrimonio')
 
@@ -162,3 +168,36 @@ def listar_termos_responsabilidade():
 
     # 2. Renderizar o template
     return render_template('patrimonio/termos_responsabilidade.html', termos=[]) # Troque o [] pela sua variável de termos
+
+@patrimonio_bp.route('/<int:id>/etiqueta')
+@login_required
+def gerar_etiqueta_qr(id):
+    bem = Patrimonio.query.get_or_404(id)
+    
+    buffer = BytesIO()
+    p = canvas_lib.Canvas(buffer, pagesize=(200, 100)) # Tamanho de etiqueta pequeno
+    
+    # Gerar QR Code com o link de consulta
+    # O link aponta para a rota de detalhes que já existe no seu sistema
+    link_consulta = url_for('patrimonio.detalhes_patrimonio', id=bem.id, _external=True)
+    qr = qrcode.make(link_consulta)
+    qr_buffer = BytesIO()
+    qr.save(qr_buffer, format='PNG')
+    qr_buffer.seek(0)
+    
+    # Desenhar na etiqueta
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(10, 85, "PREFEITURA DE VALENÇA DO PIAUÍ")
+    p.setFont("Helvetica", 7)
+    p.drawString(10, 75, f"Bem: {bem.nome_bem[:30]}")
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(10, 60, f"TOMBAMENTO: {bem.tombamento}")
+    
+    # Inserir QR Code
+    p.drawImage(ImageReader(qr_buffer), 130, 10, width=60, height=60)
+    
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+    
+    return send_file(buffer, mimetype='application/pdf', download_name=f'etiqueta_{bem.tombamento}.pdf')

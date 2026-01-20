@@ -367,7 +367,12 @@ class Patrimonio(db.Model):
     data_aquisicao = db.Column(db.Date, nullable=True)
     valor_aquisicao = db.Column(db.Float, nullable=True)
     observacoes = db.Column(db.Text, nullable=True)
-
+    marca = db.Column(db.String(100))
+    modelo = db.Column(db.String(100))
+    estado_conservacao = db.Column(db.String(50), default="Bom") # Bom, Regular, Inservível
+    situacao_uso = db.Column(db.String(50), default="Em uso") # Em uso, Almoxarifado, Manutenção
+    foto_url = db.Column(db.String(500)) # Link do Supabase Storage
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
     # Relacionamento com o servidor responsável
     servidor_responsavel_cpf = db.Column(
         db.String(14), db.ForeignKey("servidor.cpf"), nullable=True

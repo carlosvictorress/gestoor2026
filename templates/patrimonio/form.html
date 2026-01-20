@@ -1,87 +1,109 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ 'Editar' if item else 'Adicionar' }} Item Patrimonial{% endblock %}
+{% block title %}{{ 'Editar Bem' if patrimonio else 'Novo Patrimônio' }}{% endblock %}
 
 {% block content %}
-<h2>{{ 'Editar' if item else 'Adicionar' }} Item Patrimonial</h2>
-<hr>
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="bi bi-box-seam-fill text-primary"></i> 
+            {{ 'Editar Bem Patrimonial' if patrimonio else 'Cadastro de Novo Patrimônio' }}
+        </h2>
+        <a href="{{ url_for('patrimonio.listar_patrimonio') }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Voltar para Lista
+        </a>
+    </div>
 
-<form method="POST">
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <h5 class="mb-3 text-muted">Dados do Item</h5>
-            <div class="row mb-3">
-                <div class="col-md-4">
-                    <label for="numero_patrimonio" class="form-label">Nº Patrimônio (Tombamento)*</label>
-                    <input type="text" class="form-control" name="numero_patrimonio" id="numero_patrimonio" value="{{ item.numero_patrimonio if item else '' }}" required {{ 'readonly' if item }}>
-                    {% if item %}
-                    <small class="form-text text-muted">O número de patrimônio não pode ser alterado.</small>
-                    {% endif %}
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+            <form method="POST" 
+                  action="{{ url_for('patrimonio.editar_patrimonio', id=patrimonio.id) if patrimonio else url_for('patrimonio.cadastrar_patrimonio') }}" 
+                  enctype="multipart/form-data">
+                
+                <h5 class="text-muted border-bottom pb-2 mb-4">1. Identificação do Bem</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label for="nome_bem" class="form-label font-weight-bold">Nome do Bem*</label>
+                        <input type="text" class="form-control" name="nome_bem" required 
+                               value="{{ patrimonio.nome_bem if patrimonio else '' }}" placeholder="Ex: Notebook, Ar Condicionado, Cadeira">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="tombamento" class="form-label font-weight-bold">Nº de Tombamento*</label>
+                        <input type="text" class="form-control" name="tombamento" required 
+                               value="{{ patrimonio.tombamento if patrimonio else '' }}" placeholder="Ex: 2026.0001">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="secretaria_id" class="form-label font-weight-bold">Secretaria Responsável*</label>
+                        <select class="form-select" name="secretaria_id" required>
+                            <option value="">-- Selecione --</option>
+                            {% for sec in secretarias %}
+                                <option value="{{ sec.id }}" 
+                                    {{ 'selected' if patrimonio and patrimonio.secretaria_id == sec.id else '' }}>
+                                    {{ sec.nome }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
-                <div class="col-md-8">
-                    <label for="descricao" class="form-label">Descrição Completa do Item*</label>
-                    <input type="text" class="form-control" name="descricao" id="descricao" value="{{ item.descricao if item else '' }}" required>
-                </div>
-            </div>
-            
-            <div class="row mb-3">
-                 <div class="col-md-6">
-                    <label for="categoria" class="form-label">Categoria</label>
-                    <input type="text" class="form-control" name="categoria" id="categoria" value="{{ item.categoria if item else '' }}" placeholder="Ex: Móveis, Eletrônicos, Veículos">
-                </div>
-                <div class="col-md-6">
-                    <label for="status" class="form-label">Status*</label>
-                    <select class="form-select" name="status" id="status" required>
-                        <option value="Ativo" {{ 'selected' if item and item.status == 'Ativo' }}>Ativo</option>
-                        <option value="Manutenção" {{ 'selected' if item and item.status == 'Manutenção' }}>Em Manutenção</option>
-                        <option value="Baixado" {{ 'selected' if item and item.status == 'Baixado' }}>Baixado (Inativo)</option>
-                    </select>
-                </div>
-            </div>
 
-            <hr>
-            <h5 class="mb-3 text-muted">Dados de Aquisição e Localização</h5>
+                <h5 class="text-muted border-bottom pb-2 mb-4">2. Detalhes e Especificações</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label for="marca" class="form-label">Marca</label>
+                        <input type="text" class="form-control" name="marca" value="{{ patrimonio.marca if patrimonio else '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="modelo" class="form-label">Modelo</label>
+                        <input type="text" class="form-control" name="modelo" value="{{ patrimonio.modelo if patrimonio else '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="valor_compra" class="form-label">Valor de Compra (R$)</label>
+                        <input type="number" step="0.01" class="form-control" name="valor_compra" 
+                               value="{{ patrimonio.valor_compra if patrimonio else '' }}" placeholder="0.00">
+                    </div>
+                </div>
 
-            <div class="row mb-3">
-                 <div class="col-md-4">
-                    <label for="data_aquisicao" class="form-label">Data de Aquisição</label>
-                    <input type="date" class="form-control" name="data_aquisicao" id="data_aquisicao" value="{{ item.data_aquisicao.strftime('%Y-%m-%d') if item and item.data_aquisicao else '' }}">
+                <h5 class="text-muted border-bottom pb-2 mb-4">3. Estado e Evidência Visual</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label for="estado_conservacao" class="form-label font-weight-bold">Estado de Conservação</label>
+                        <select class="form-select" name="estado_conservacao">
+                            <option value="Bom" {{ 'selected' if patrimonio and patrimonio.estado_conservacao == 'Bom' else '' }}>Bom</option>
+                            <option value="Regular" {{ 'selected' if patrimonio and patrimonio.estado_conservacao == 'Regular' else '' }}>Regular</option>
+                            <option value="Inservível" {{ 'selected' if patrimonio and patrimonio.estado_conservacao == 'Inservível' else '' }}>Inservível</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="situacao_uso" class="form-label font-weight-bold">Situação de Uso</label>
+                        <select class="form-select" name="situacao_uso">
+                            <option value="Em uso" {{ 'selected' if patrimonio and patrimonio.situacao_uso == 'Em uso' else '' }}>Em uso</option>
+                            <option value="Almoxarifado" {{ 'selected' if patrimonio and patrimonio.situacao_uso == 'Almoxarifado' else '' }}>Almoxarifado</option>
+                            <option value="Manutenção" {{ 'selected' if patrimonio and patrimonio.situacao_uso == 'Manutenção' else '' }}>Em Manutenção</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="foto_bem" class="form-label font-weight-bold">Foto do Bem (Opcional)</label>
+                        <input type="file" class="form-control" name="foto_bem" accept="image/*">
+                        {% if patrimonio and patrimonio.foto_url %}
+                            <small class="text-success mt-1 d-block"><i class="bi bi-check-circle"></i> Já possui foto salva</small>
+                        {% endif %}
+                    </div>
+                    <div class="col-12">
+                        <label for="descricao" class="form-label">Descrição Detalhada / Observações</label>
+                        <textarea class="form-control" name="descricao" rows="3">{{ patrimonio.descricao if patrimonio else '' }}</textarea>
+                    </div>
                 </div>
-                <div class="col-md-4">
-                    <label for="valor_aquisicao" class="form-label">Valor de Aquisição (R$)</label>
-                    <input type="text" class="form-control" name="valor_aquisicao" id="valor_aquisicao" value="{{ '%.2f'|format(item.valor_aquisicao)|replace('.', ',') if item and item.valor_aquisicao else '' }}">
-                </div>
-            </div>
-            
-            {% if not item %} <div class="row mb-3">
-                <div class="col-md-6">
-                    <label for="localizacao" class="form-label">Localização Inicial*</label>
-                    <input type="text" class="form-control" name="localizacao" id="localizacao" required placeholder="Ex: SEMED - Almoxarifado">
-                </div>
-                <div class="col-md-6">
-                    <label for="servidor_responsavel_cpf" class="form-label">Responsável Inicial (Opcional)</label>
-                    <select class="form-select" name="servidor_responsavel_cpf" id="servidor_responsavel_cpf">
-                        <option value="">-- Sem responsável específico --</option>
-                        {% for s in servidores %}
-                        <option value="{{ s.cpf }}">{{ s.nome }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
-            {% endif %}
-            
-            <div class="row mb-3">
-                <div class="col-md-12">
-                    <label for="observacoes" class="form-label">Observações</label>
-                    <textarea class="form-control" name="observacoes" id="observacoes" rows="3">{{ item.observacoes if item else '' }}</textarea>
-                </div>
-            </div>
 
-        </div>
-        <div class="card-footer text-end">
-            <a href="{{ url_for('patrimonio.listar_itens') }}" class="btn btn-secondary">Cancelar</a>
-            <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle-fill"></i> Salvar Item</button>
+                <hr class="my-4">
+
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="reset" class="btn btn-light px-4">Limpar</button>
+                    <button type="submit" class="btn btn-primary px-5">
+                        <i class="bi bi-floppy"></i> {{ 'Salvar Alterações' if patrimonio else 'Cadastrar Patrimônio' }}
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
-</form>
+</div>
 {% endblock %}

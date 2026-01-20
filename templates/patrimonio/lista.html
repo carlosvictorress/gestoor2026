@@ -1,32 +1,24 @@
-<div class="card mb-3 shadow-sm border-left-primary">
-    <div class="card-body">
-        <div class="row align-items-center">
-            <div class="col-md-2 text-center">
-                {% if bem.foto_url %}
-                    <img src="{{ bem.foto_url }}" class="img-fluid rounded" style="max-height: 80px;">
-                {% else %}
-                    <i class="bi bi-box-seam text-secondary" style="font-size: 2rem;"></i>
-                {% endif %}
-            </div>
-            <div class="col-md-4">
-                <h5 class="mb-1 text-primary">{{ bem.nome_bem }}</h5>
-                <small class="text-muted">Tombamento: <strong>{{ bem.tombamento }}</strong></small>
-            </div>
-            <div class="col-md-3 text-center">
-                <span class="badge {{ 'bg-success' if bem.estado_conservacao == 'Bom' else 'bg-warning' }}">
-                    {{ bem.estado_conservacao }}
-                </span>
-                <br>
-                <small class="text-muted">{{ bem.situacao_uso }}</small>
-            </div>
-            <div class="col-md-3 text-end">
-                <a href="{{ url_for('patrimonio.gerar_etiqueta_qr', id=bem.id) }}" class="btn btn-sm btn-outline-dark">
-                    <i class="bi bi-qr-code"></i> Etiqueta
-                </a>
-                <a href="{{ url_for('patrimonio.detalhes_patrimonio', id=bem.id) }}" class="btn btn-sm btn-info">
-                    <i class="bi bi-eye"></i>
-                </a>
+{% for bem in itens %}
+    <div class="card mb-3 shadow-sm border-left-primary">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-2 text-center">
+                    {% if bem.foto_url %}
+                        <img src="{{ bem.foto_url }}" class="img-fluid rounded" style="max-height: 80px;">
+                    {% else %}
+                        <i class="bi bi-box-seam text-secondary" style="font-size: 2rem;"></i>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-4">
+                    <h5 class="mb-1 text-primary">{{ bem.descricao }}</h5>
+                    <small class="text-muted">Tombamento: <strong>{{ bem.numero_patrimonio }}</strong></small>
+                </div>
             </div>
         </div>
     </div>
-</div>
+{% else %}
+    <div class="alert alert-info text-center">
+        Nenhum item patrimonial encontrado.
+    </div>
+{% endfor %}

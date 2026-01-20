@@ -61,9 +61,9 @@
 
                         <div class="col-md-2 text-end">
                             <div class="btn-group-vertical w-100">
-                                <a href="{{ url_for('patrimonio.gerar_etiqueta_qr', id=bem.id) }}" class="btn btn-sm btn-outline-dark mb-1">
-                                    <i class="bi bi-qr-code"></i> Etiqueta
-                                </a>
+                                <a href="{{ url_for('patrimonio.gerar_etiqueta_qr', item_id=bem.id) }}" class="btn btn-sm btn-outline-dark mb-1">
+    <i class="bi bi-qr-code"></i> Etiqueta
+</a>
                                 <a href="{{ url_for('patrimonio.detalhes_item', item_id=bem.id) }}" class="btn btn-sm btn-outline-primary">
     <i class="bi bi-eye"></i> Detalhes
 </a>

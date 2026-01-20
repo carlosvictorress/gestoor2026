@@ -1,8 +1,11 @@
 # patrimonio_routes.py
+from flask import (
+    Blueprint, render_template, request, redirect, url_for, flash, session,
+    make_response, current_app, send_from_directory, send_file, jsonify
+)
 import qrcode
 from models import Secretaria
 from utils import role_required
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from extensions import db, bcrypt
 from models import Patrimonio, MovimentacaoPatrimonio, Servidor
 from utils import login_required, registrar_log # LINHA CORRIGIDA
@@ -202,33 +205,58 @@ def listar_termos_responsabilidade():
 
 @patrimonio_bp.route('/<int:id>/etiqueta')
 @login_required
+@role_required('Patrimonio', 'admin')
 def gerar_etiqueta_qr(id):
+    # Busca o item no banco de dados
     bem = Patrimonio.query.get_or_404(id)
     
-    buffer = BytesIO()
-    p = canvas_lib.Canvas(buffer, pagesize=(200, 100)) # Tamanho de etiqueta pequeno
-    
-    # Gerar QR Code com o link de consulta
-    # O link aponta para a rota de detalhes que já existe no seu sistema
-    link_consulta = url_for('patrimonio.detalhes_item', item_id=bem.id, _external=True)
-    qr = qrcode.make(link_consulta)
-    qr_buffer = BytesIO()
-    qr.save(qr_buffer, format='PNG')
-    qr_buffer.seek(0)
-    
-    # Desenhar na etiqueta
-    p.setFont("Helvetica-Bold", 8)
-    p.drawString(10, 85, "PREFEITURA DE VALENÇA DO PIAUÍ")
-    p.setFont("Helvetica", 7)
-    p.drawString(10, 75, f"Bem: {bem.descricao[:30]}")
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(10, 60, f"TOMBAMENTO: {bem.numero_patrimonio}")
-    
-    # Inserir QR Code
-    p.drawImage(ImageReader(qr_buffer), 130, 10, width=60, height=60)
-    
-    p.showPage()
-    p.save()
-    buffer.seek(0)
-    
-    return send_file(buffer, mimetype='application/pdf', download_name=f'etiqueta_{bem.tombamento}.pdf')
+    try:
+        # Cria um buffer na memória para o PDF
+        buffer = BytesIO()
+        # Define um tamanho de etiqueta pequeno (ex: 200x100 pontos)
+        p = canvas_lib.Canvas(buffer, pagesize=(200, 100))
+        
+        # 1. Gerar o QR Code com o link de detalhes do item
+        # O link aponta para a URL externa do seu sistema na Railway
+        link_consulta = url_for('patrimonio.detalhes_item', item_id=bem.id, _external=True)
+        qr = qrcode.make(link_consulta)
+        qr_buffer = BytesIO()
+        qr.save(qr_buffer, format='PNG')
+        qr_buffer.seek(0)
+        
+        # 2. Desenhar o cabeçalho na etiqueta
+        p.setFont("Helvetica-Bold", 8)
+        p.drawString(10, 85, "PREFEITURA DE VALENÇA DO PIAUÍ")
+        
+        p.setFont("Helvetica", 7)
+        p.drawString(10, 75, f"Bem: {bem.descricao[:30]}") # Limita a 30 caracteres
+        
+        # CORREÇÃO AQUI: Usando numero_patrimonio em vez de tombamento
+        p.setFont("Helvetica-Bold", 9)
+        p.drawString(10, 60, f"PATRIMÔNIO: {bem.numero_patrimonio}")
+        
+        # 3. Inserir a imagem do QR Code no PDF
+        qr_img = ImageReader(qr_buffer)
+        p.drawImage(qr_img, 130, 10, width=60, height=60)
+        
+        p.setFont("Helvetica-Oblique", 6)
+        p.drawString(10, 10, "Escaneie para detalhes")
+        
+        # Finaliza o PDF
+        p.showPage()
+        p.save()
+        
+        # Move o ponteiro para o início do buffer para leitura
+        buffer.seek(0)
+        
+        # Retorna o arquivo para download/visualização
+        return send_file(
+            buffer, 
+            mimetype='application/pdf',
+            as_attachment=False, # Abre no navegador
+            download_name=f'etiqueta_{bem.numero_patrimonio}.pdf'
+        )
+        
+    except Exception as e:
+        flash(f"Erro ao gerar etiqueta: {str(e)}", "danger")
+        return redirect(url_for('patrimonio.listar_itens'))

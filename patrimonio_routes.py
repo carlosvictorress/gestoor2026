@@ -35,44 +35,46 @@ def listar_itens():
 
 @patrimonio_bp.route('/item/novo', methods=['GET', 'POST'])
 @login_required
-@role_required('Patrimonio', 'admin')
+@role_required('admin', 'RH', 'Fiscal')
 def novo_item():
     if request.method == 'POST':
-        numero_patrimonio = request.form.get('numero_patrimonio')
-        # Verifica se o número de patrimônio já existe
-        if Patrimonio.query.filter_by(numero_patrimonio=numero_patrimonio).first():
-            flash('Este número de patrimônio já está cadastrado.', 'danger')
-            return redirect(url_for('patrimonio.novo_item'))
-        
         try:
-            valor_str = request.form.get('valor_aquisicao', '0').replace('.', '').replace(',', '.')
-            valor = float(valor_str) if valor_str else None
-            
-            data_str = request.form.get('data_aquisicao')
-            data = datetime.strptime(data_str, '%Y-%m-%d').date() if data_str else None
+            # Captura da foto para o Supabase
+            foto_file = request.files.get('foto_bem')
+            foto_link = None
+            if foto_file and foto_file.filename != '':
+                from utils import upload_arquivo_para_nuvem
+                foto_link = upload_arquivo_para_nuvem(foto_file, pasta="patrimonio")
 
-            novo = Patrimonio(
-                numero_patrimonio=numero_patrimonio,
-                descricao=request.form.get('descricao'),
+            # Criando o objeto com os novos campos
+            novo_bem = Patrimonio(
+                numero_patrimonio=request.form.get('tombamento'),
+                descricao=request.form.get('nome_bem'),
                 categoria=request.form.get('categoria'),
-                status=request.form.get('status'),
-                localizacao=request.form.get('localizacao'),
-                data_aquisicao=data,
-                valor_aquisicao=valor,
-                observacoes=request.form.get('observacoes'),
-                servidor_responsavel_cpf=request.form.get('servidor_responsavel_cpf') or None
+                marca=request.form.get('marca'),
+                modelo=request.form.get('modelo'),
+                valor_aquisicao=float(request.form.get('valor_compra') or 0),
+                estado_conservacao=request.form.get('estado_conservacao'),
+                situacao_uso=request.form.get('situacao_uso'),
+                localizacao=request.form.get('localizacao', 'Não informada'),
+                observacoes=request.form.get('descricao'),
+                foto_url=foto_link,
+                servidor_responsavel_cpf=request.form.get('servidor_responsavel_cpf')
             )
-            db.session.add(novo)
+            
+            db.session.add(novo_bem)
             db.session.commit()
-            registrar_log(f'Cadastrou o item patrimonial: "{novo.descricao}" ({novo.numero_patrimonio}).')
-            flash('Item patrimonial cadastrado com sucesso!', 'success')
+            flash("Patrimônio cadastrado com sucesso!", "success")
             return redirect(url_for('patrimonio.listar_itens'))
+            
         except Exception as e:
             db.session.rollback()
-            flash(f'Erro ao cadastrar o item: {e}', 'danger')
+            flash(f"Erro ao cadastrar: {str(e)}", "danger")
 
+    from models import Servidor, Secretaria
     servidores = Servidor.query.order_by(Servidor.nome).all()
-    return render_template('patrimonio/form.html', servidores=servidores, item=None)
+    secretarias = Secretaria.query.order_by(Secretaria.nome).all()
+    return render_template('patrimonio/form.html', servidores=servidores, secretarias=secretarias, patrimonio=None)
 
 
 @patrimonio_bp.route('/item/editar/<int:item_id>', methods=['GET', 'POST'])

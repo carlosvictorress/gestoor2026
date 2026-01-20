@@ -17,8 +17,8 @@
     <div class="card shadow-sm border-0">
         <div class="card-body p-4">
             <form method="POST" 
-                  action="{{ url_for('patrimonio.editar_patrimonio', id=patrimonio.id) if patrimonio else url_for('patrimonio.cadastrar_patrimonio') }}" 
-                  enctype="multipart/form-data">
+      action="{{ url_for('patrimonio.editar_item', id=patrimonio.id) if patrimonio else url_for('patrimonio.novo_item') }}" 
+      enctype="multipart/form-data">
                 
                 <h5 class="text-muted border-bottom pb-2 mb-4">1. Identificação do Bem</h5>
                 <div class="row g-3 mb-4">

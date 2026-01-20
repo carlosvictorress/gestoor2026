@@ -81,30 +81,46 @@ def novo_item():
 @login_required
 @role_required('Patrimonio', 'admin')
 def editar_item(item_id):
+    # Busca o item pelo ID ou retorna 404 se não existir
     item = Patrimonio.query.get_or_404(item_id)
+    
     if request.method == 'POST':
         try:
+            # Tratamento do valor de aquisição (converte padrão brasileiro para float)
             valor_str = request.form.get('valor_aquisicao', '0').replace('.', '').replace(',', '.')
-            item.valor_aquisicao = float(valor_str) if valor_str else None
+            item.valor_aquisicao = float(valor_str) if valor_str else 0.0
             
+            # Tratamento da data de aquisição
             data_str = request.form.get('data_aquisicao')
-            item.data_aquisicao = datetime.strptime(data_str, '%Y-%m-%d').date() if data_str else None
-
+            if data_str:
+                item.data_aquisicao = datetime.strptime(data_str, '%Y-%m-%d').date()
+            
+            # Atualização dos campos básicos conforme sua nova Classe Patrimonio
             item.descricao = request.form.get('descricao')
             item.categoria = request.form.get('categoria')
             item.status = request.form.get('status')
             item.observacoes = request.form.get('observacoes')
             
+            # Persistência no banco de dados
             db.session.commit()
-            flash("Patrimônio atualizado com sucesso!", "success")
+            
+            # Log de auditoria
             registrar_log(f'Editou o item patrimonial: "{item.descricao}" ({item.numero_patrimonio}).')
-            flash('Item atualizado com sucesso!', 'success')
+            
+            flash("Patrimônio atualizado com sucesso!", "success")
+            
+            # REDIRECIONAMENTO CRÍTICO: 
+            # Usa 'detalhes_item' como endpoint e 'item_id' como parâmetro
             return redirect(url_for('patrimonio.detalhes_item', item_id=item.id))
+            
         except Exception as e:
             db.session.rollback()
-            flash(f'Erro ao atualizar o item: {e}', 'danger')
+            flash(f'Erro ao atualizar o item: {str(e)}', 'danger')
 
+    # Busca servidores para o caso de precisar exibir no formulário (ex: seleção de responsável)
     servidores = Servidor.query.order_by(Servidor.nome).all()
+    
+    # Renderiza o formulário passando o objeto 'item' para preencher os campos
     return render_template('patrimonio/form.html', servidores=servidores, item=item)
 
 @patrimonio_bp.route('/item/detalhes/<int:item_id>')
@@ -192,7 +208,7 @@ def gerar_etiqueta_qr(id):
     p.setFont("Helvetica-Bold", 8)
     p.drawString(10, 85, "PREFEITURA DE VALENÇA DO PIAUÍ")
     p.setFont("Helvetica", 7)
-    p.drawString(10, 75, f"Bem: {bem.nome_bem[:30]}")
+    p.drawString(10, 75, f"Bem: {bem.descricao[:30]}")
     p.setFont("Helvetica-Bold", 10)
     p.drawString(10, 60, f"TOMBAMENTO: {bem.tombamento}")
     

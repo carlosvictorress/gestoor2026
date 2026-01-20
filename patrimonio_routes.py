@@ -1,5 +1,6 @@
 # patrimonio_routes.py
 import qrcode
+from models import Secretaria
 from utils import role_required
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from extensions import db, bcrypt
@@ -81,47 +82,58 @@ def novo_item():
 @login_required
 @role_required('Patrimonio', 'admin')
 def editar_item(item_id):
-    # Busca o item pelo ID ou retorna 404 se não existir
+    # Busca o item ou retorna 404
     item = Patrimonio.query.get_or_404(item_id)
     
+    # Importação local para evitar erros de dependência circular
+    from models import Secretaria
+
     if request.method == 'POST':
         try:
-            # Tratamento do valor de aquisição (converte padrão brasileiro para float)
+            # 1. Tratamento de Valor de Aquisição
             valor_str = request.form.get('valor_aquisicao', '0').replace('.', '').replace(',', '.')
             item.valor_aquisicao = float(valor_str) if valor_str else 0.0
             
-            # Tratamento da data de aquisição
+            # 2. Tratamento de Data de Aquisição
             data_str = request.form.get('data_aquisicao')
             if data_str:
                 item.data_aquisicao = datetime.strptime(data_str, '%Y-%m-%d').date()
-            
-            # Atualização dos campos básicos conforme sua nova Classe Patrimonio
+
+            # 3. Atualização dos campos principais
+            # Nota: Usamos 'descricao' para coincidir com o banco de dados
             item.descricao = request.form.get('descricao')
             item.categoria = request.form.get('categoria')
             item.status = request.form.get('status')
             item.observacoes = request.form.get('observacoes')
             
-            # Persistência no banco de dados
+            # 4. Atualização da Secretaria e Responsável
+            # Estes campos garantem que o item esteja vinculado corretamente
+            item.secretaria_id = request.form.get('secretaria_id')
+            item.servidor_responsavel_cpf = request.form.get('servidor_responsavel_cpf')
+            
+            # 5. Salva no Banco de Dados
             db.session.commit()
             
-            # Log de auditoria
+            # Log e Feedback
             registrar_log(f'Editou o item patrimonial: "{item.descricao}" ({item.numero_patrimonio}).')
-            
             flash("Patrimônio atualizado com sucesso!", "success")
             
-            # REDIRECIONAMENTO CRÍTICO: 
-            # Usa 'detalhes_item' como endpoint e 'item_id' como parâmetro
+            # Redireciona para os detalhes do item recém-editado
             return redirect(url_for('patrimonio.detalhes_item', item_id=item.id))
             
         except Exception as e:
             db.session.rollback()
             flash(f'Erro ao atualizar o item: {str(e)}', 'danger')
 
-    # Busca servidores para o caso de precisar exibir no formulário (ex: seleção de responsável)
+    # Busca listas para preencher os campos de seleção (Selects) no formulário
     servidores = Servidor.query.order_by(Servidor.nome).all()
+    secretarias = Secretaria.query.order_by(Secretaria.nome).all()
     
-    # Renderiza o formulário passando o objeto 'item' para preencher os campos
-    return render_template('patrimonio/form.html', servidores=servidores, item=item)
+    # Renderiza o formulário enviando o item atual, a lista de servidores e secretarias
+    return render_template('patrimonio/form.html', 
+                           item=item, 
+                           servidores=servidores, 
+                           secretarias=secretarias)
 
 @patrimonio_bp.route('/item/detalhes/<int:item_id>')
 @login_required
@@ -210,7 +222,7 @@ def gerar_etiqueta_qr(id):
     p.setFont("Helvetica", 7)
     p.drawString(10, 75, f"Bem: {bem.descricao[:30]}")
     p.setFont("Helvetica-Bold", 10)
-    p.drawString(10, 60, f"TOMBAMENTO: {bem.tombamento}")
+    p.drawString(10, 60, f"TOMBAMENTO: {bem.numero_patrimonio}")
     
     # Inserir QR Code
     p.drawImage(ImageReader(qr_buffer), 130, 10, width=60, height=60)

@@ -32,18 +32,17 @@
                         <input type="text" class="form-control" name="tombamento" required 
                                value="{{ patrimonio.tombamento if patrimonio else '' }}" placeholder="Ex: 2026.0001">
                     </div>
-                    <div class="col-md-3">
-                        <label for="secretaria_id" class="form-label font-weight-bold">Secretaria Responsável*</label>
-                        <select class="form-select" name="secretaria_id" required>
-                            <option value="">-- Selecione --</option>
-                            {% for sec in secretarias %}
-                                <option value="{{ sec.id }}" 
-                                    {{ 'selected' if patrimonio and patrimonio.secretaria_id == sec.id else '' }}>
-                                    {{ sec.nome }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
+                    <div class="col-md-6">
+    <label for="secretaria_id" class="form-label font-weight-bold">Secretaria Responsável*</label>
+    <select class="form-select" name="secretaria_id" required>
+        <option value="">-- Selecione a Secretaria --</option>
+        {% for sec in secretarias %}
+            <option value="{{ sec.id }}" {{ 'selected' if item and item.secretaria_id == sec.id else '' }}>
+                {{ sec.nome }}
+            </option>
+        {% endfor %}
+    </select>
+</div>
                 </div>
 
                 <h5 class="text-muted border-bottom pb-2 mb-4">2. Detalhes e Especificações</h5>

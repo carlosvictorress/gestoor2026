@@ -1042,33 +1042,31 @@ def gerenciar_contrato_pnae(contrato_id):
 
 @merenda_bp.route('/agricultura/contratos/<int:contrato_id>/nova-entrega', methods=['POST'])
 @login_required
+@role_required('Merenda Escolar', 'admin')
 def registrar_entrega_pnae(contrato_id):
     contrato = ContratoPNAE.query.get_or_404(contrato_id)
     
     try:
+        # 1. Captura Dados do Formulário
         data_entrega = datetime.strptime(request.form.get('data_entrega'), '%Y-%m-%d').date()
         nota_fiscal = request.form.get('numero_nota_fiscal')
+        escola_id = request.form.get('escola_id', type=int) # Novo campo solicitado
         
-        # --- Lógica de Upload para o Supabase (NOVO) ---
+        # 2. Tratamento de Upload da Nota Fiscal (Supabase)
         link_nf = None
-        if 'arquivo_nf' in request.files:
-            file = request.files['arquivo_nf']
-            # Se o arquivo existe, envia para a nuvem
-            if file and file.filename != '':
-                # Envia para a pasta 'pnae_notas' dentro do seu bucket
-                url_gerada = upload_arquivo_para_nuvem(file, pasta="pnae_notas")
-                
-                if url_gerada:
-                    link_nf = url_gerada # Salva o link completo (https://...)
-                else:
-                    # Se falhar o upload, avisa mas não trava o sistema (opcional)
-                    flash('Atenção: Não foi possível salvar o anexo da Nota Fiscal na nuvem.', 'warning')
+        file = request.files.get('arquivo_nf')
+        if file and file.filename != '':
+            url_gerada = upload_arquivo_para_nuvem(file, pasta="pnae_notas")
+            if url_gerada:
+                link_nf = url_gerada
+            else:
+                flash('Atenção: Falha ao salvar o anexo na nuvem.', 'warning')
 
-        # Processar itens
+        # 3. Processamento dos Itens da Entrega
         item_ids = request.form.getlist('item_id[]')
         qtds = request.form.getlist('qtd_entregue[]')
         
-        lista_itens_entrega = []
+        lista_itens_json = []
         valor_total_entrega = 0.0
         
         for i, item_id in enumerate(item_ids):
@@ -1078,32 +1076,35 @@ def registrar_entrega_pnae(contrato_id):
                 item_contrato = ItemProjetoVenda.query.get(item_id)
                 valor_item = qtd * item_contrato.preco_unitario
                 
-                lista_itens_entrega.append({
+                # Dados para o JSON da entrega
+                lista_itens_json.append({
                     'item_id': item_contrato.id,
                     'nome_produto': item_contrato.nome_produto,
                     'quantidade': qtd,
                     'preco_unitario': item_contrato.preco_unitario,
                     'valor_total': valor_item
                 })
+                
                 valor_total_entrega += valor_item
 
                 # --- INTEGRAÇÃO AUTOMÁTICA COM ESTOQUE ---
+                # Busca ou cria o produto na tabela geral de merenda
                 produto_estoque = ProdutoMerenda.query.filter_by(nome=item_contrato.nome_produto).first()
                 
                 if not produto_estoque:
                     produto_estoque = ProdutoMerenda(
                         nome=item_contrato.nome_produto,
-                        unidade_medida=item_contrato.unidade_medida or 'un', # CORREÇÃO: Evita o erro de valor nulo
-                        categoria=item_contrato.categoria or 'Agricultura Familiar', # CORREÇÃO: Preenche categoria
-                        estoque_atual=0.0,
-                        estoque_minimo=10.0, # Valor padrão para evitar campos vazios
-                        perecivel=True
+                        unidade_medida=item_contrato.unidade_medida or 'un',
+                        categoria='Agricultura Familiar',
+                        estoque_atual=0.0
                     )
                     db.session.add(produto_estoque)
                     db.session.flush()
 
+                # Incrementa o estoque
                 produto_estoque.estoque_atual += qtd
                 
+                # Registra a movimentação de entrada no estoque
                 movimento = EstoqueMovimento(
                     produto_id=produto_estoque.id,
                     tipo='Entrada',
@@ -1115,29 +1116,32 @@ def registrar_entrega_pnae(contrato_id):
                 )
                 db.session.add(movimento)
 
-        if not lista_itens_entrega:
+        if not lista_itens_json:
             flash('Informe a quantidade de pelo menos um item.', 'warning')
             return redirect(url_for('merenda.gerenciar_contrato_pnae', contrato_id=contrato.id))
 
+        # 4. Salva o registro da Entrega (Tabela: pnae_entrega)
         nova_entrega = EntregaPNAE(
             contrato_id=contrato.id,
+            escola_id=escola_id, # Novo campo vinculado
             data_entrega=data_entrega,
             numero_nota_fiscal=nota_fiscal,
-            recibo_filename=link_nf, # Agora salva o LINK do Supabase aqui
+            recibo_filename=link_nf,
             responsavel_recebimento=session.get('username'),
             status='Aprovado',
             valor_total=valor_total_entrega,
-            itens_json=json.dumps(lista_itens_entrega)
+            itens_json=json.dumps(lista_itens_json)
         )
         
         db.session.add(nova_entrega)
         db.session.commit()
         
-        flash('Entrega registrada e arquivo salvo na nuvem com sucesso!', 'success')
+        registrar_log(f'Registrou entrega PNAE #{nova_entrega.id} do fornecedor {contrato.agricultor.razao_social}.')
+        flash('Entrega registrada, estoque atualizado e anexo salvo na nuvem!', 'success')
         
     except Exception as e:
         db.session.rollback()
-        flash(f'Erro ao registrar entrega: {e}', 'danger')
+        flash(f'Erro ao registrar entrega: {str(e)}', 'danger')
         
     return redirect(url_for('merenda.gerenciar_contrato_pnae', contrato_id=contrato.id))
 
@@ -1239,74 +1243,110 @@ def pdf_contrato_pnae(contrato_id):
 
 @merenda_bp.route('/agricultura/entrega/<int:entrega_id>/termo-pdf')
 @login_required
+@role_required('Merenda Escolar', 'admin')
 def pdf_termo_recebimento_pnae(entrega_id):
+    # 1. Busca os dados da entrega e relações
     entrega = EntregaPNAE.query.get_or_404(entrega_id)
     contrato = entrega.contrato
     agricultor = contrato.agricultor
     
+    # 2. Busca a Escola de Destino pelo ID salvo na entrega
+    escola_destino = Escola.query.get(entrega.escola_id) if entrega.escola_id else None
+    nome_escola = escola_destino.nome if escola_destino else "Unidade Escolar não informada"
+    
+    # 3. Configuração do Buffer e Documento
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, 
                             rightMargin=2*cm, leftMargin=2*cm, 
                             topMargin=2*cm, bottomMargin=2*cm)
     
     styles = getSampleStyleSheet()
-    style_titulo = styles['Heading1']
-    style_titulo.alignment = 1 # Centralizado
-    style_normal = styles['BodyText']
-    style_normal.alignment = 4 # Justificado
     
+    # Estilos customizados
+    style_titulo = styles['Heading1']
+    style_titulo.alignment = 1  # Centralizado
+    style_titulo.fontSize = 14
+    
+    style_normal = styles['BodyText']
+    style_normal.alignment = 4  # Justificado
+    style_normal.fontSize = 11
+    style_normal.leading = 14
+    
+    style_assinatura = styles['BodyText']
+    style_assinatura.alignment = 1 # Centralizado
+    style_assinatura.fontSize = 10
+
     story = []
     
-    # Cabeçalho
+    # 4. Título e Cabeçalho
     story.append(Paragraph("TERMO DE RECEBIMENTO DA AGRICULTURA FAMILIAR", style_titulo))
-    story.append(Spacer(1, 0.5*cm))
+    story.append(Spacer(1, 0.8*cm))
     
+    # 5. Texto de Atesto com a Escola
     texto_intro = f"""
     Atesto para os devidos fins que foram entregues nesta data, pelo fornecedor <b>{agricultor.razao_social}</b> 
     (CPF/CNPJ: {agricultor.cpf_cnpj}), referente ao Contrato/Chamada Pública nº {contrato.numero_contrato}, 
-    os gêneros alimentícios abaixo discriminados:
+    destinado à unidade escolar <b>{nome_escola}</b>, os gêneros alimentícios abaixo discriminados:
     """
     story.append(Paragraph(texto_intro, style_normal))
-    story.append(Spacer(1, 0.5*cm))
+    story.append(Spacer(1, 0.6*cm))
     
-    # Tabela
+    # 6. Tabela de Itens
     dados_tabela = [['Produto', 'Unidade', 'Qtd. Entregue', 'Valor Total']]
     
+    # Processa o JSON dos itens salvos na entrega
     if entrega.itens_json:
         try:
             itens = json.loads(entrega.itens_json)
             for item in itens:
+                # Busca a unidade de medida no contrato original se não estiver no JSON
                 dados_tabela.append([
-                    item['nome_produto'],
+                    item.get('nome_produto', 'N/A').upper(),
                     "Unid.", 
-                    f"{item['quantidade']}".replace('.', ','),
-                    currency_filter_br(item['valor_total'])
+                    f"{item.get('quantidade', 0)}".replace('.', ','),
+                    currency_filter_br(item.get('valor_total', 0))
                 ])
-        except:
-            dados_tabela.append(['Erro ao ler itens', '-', '-', '-'])
+        except Exception as e:
+            dados_tabela.append([f'Erro ao processar itens: {str(e)}', '', '', ''])
             
+    # Linha do Total Geral
     dados_tabela.append(['TOTAL DA ENTREGA', '', '', currency_filter_br(entrega.valor_total)])
     
-    t = Table(dados_tabela, colWidths=[8*cm, 2.5*cm, 3*cm, 3.5*cm])
+    # Estilização da Tabela
+    t = Table(dados_tabela, colWidths=[8.5*cm, 2.5*cm, 3*cm, 3*cm])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('ALIGN', (0, 1), (0, -2), 'LEFT'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('SPAN', (0, -1), (2, -1)), # Mescla as 3 primeiras colunas da última linha
+        ('ALIGN', (0, -1), (0, -1), 'RIGHT'),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
     ]))
     story.append(t)
+    story.append(Spacer(1, 2*cm))
+    
+    # 7. Bloco de Assinaturas
+    data_hoje = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+    
+    # Grid para assinaturas lado a lado
+    assinaturas = [
+        [
+            Paragraph("___________________________________<br/>Responsável pelo Recebimento", style_assinatura),
+            Paragraph(f"___________________________________<br/>{agricultor.razao_social}", style_assinatura)
+        ]
+    ]
+    
+    t_ass = Table(assinaturas, colWidths=[8.5*cm, 8.5*cm])
+    story.append(t_ass)
+    
     story.append(Spacer(1, 1*cm))
+    story.append(Paragraph(f"<small>Emitido em: {data_hoje}</small>", style_normal))
     
-    # Assinaturas
-    story.append(Paragraph("_____________________________________________", style_titulo))
-    story.append(Paragraph(f"Responsável: {entrega.responsavel_recebimento}", style_titulo))
-    story.append(Spacer(1, 1.5*cm))
-    
-    story.append(Paragraph("_____________________________________________", style_titulo))
-    story.append(Paragraph(f"{agricultor.razao_social}", style_titulo))
-    
+    # 8. Geração Final usando o cabeçalho padrão do sistema
     doc.build(story, onFirstPage=lambda c, d: cabecalho_e_rodape(c, d), 
                      onLaterPages=lambda c, d: cabecalho_e_rodape(c, d))
     

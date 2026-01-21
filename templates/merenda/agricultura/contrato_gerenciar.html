@@ -149,39 +149,49 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalEntrega" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalEntrega" tabindex="-1" aria-labelledby="modalEntregaLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
-        <form method="POST" action="{{ url_for('merenda.registrar_entrega_pnae', contrato_id=contrato.id) }}" enctype="multipart/form-data">
+        <form action="{{ url_for('merenda.registrar_entrega_pnae', contrato_id=contrato.id) }}" method="POST" enctype="multipart/form-data">
             <div class="modal-content">
                 <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title"><i class="bi bi-truck"></i> Registrar Nova Entrega</h5>
+                    <h5 class="modal-title" id="modalEntregaLabel"><i class="bi bi-box-seam"></i> Registrar Nova Entrega</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="row mb-3">
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold">Escola de Destino*</label>
+                            <select class="form-select border-primary" name="escola_id" required>
+                                <option value="">-- Selecione a Escola que recebeu os produtos --</option>
+                                {% for escola in escolas_ativas %}
+                                    <option value="{{ escola.id }}">{{ escola.nome }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Informe para qual unidade a entrega está sendo enviada.</small>
+                        </div>
+
                         <div class="col-md-4">
-                            <label class="form-label">Data da Entrega</label>
-                            <input type="date" class="form-control" name="data_entrega" required> 
+                            <label class="form-label fw-bold">Data da Entrega*</label>
+                            <input type="date" class="form-control" name="data_entrega" required>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Nº Nota Fiscal / Recibo</label>
-                            <input type="text" class="form-control" name="numero_nota_fiscal" placeholder="Ex: 00123">
+                            <label class="form-label fw-bold">Nº Nota Fiscal</label>
+                            <input type="text" class="form-control" name="numero_nota_fiscal" placeholder="Opcional">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Arquivo (Foto/PDF)</label>
-                            <input type="file" class="form-control" name="arquivo_nf" accept="image/*, .pdf">
+                            <label class="form-label fw-bold">Anexo (NF/Recibo)</label>
+                            <input type="file" class="form-control" name="arquivo_nf" accept="image/*,application/pdf">
                         </div>
                     </div>
-                    
-                    <h6 class="border-bottom pb-2 mb-3 mt-4 text-success">Itens Entregues Nesta Data</h6>
-                    
-                    <div class="table-responsive bg-light border rounded p-2">
-                        <table class="table table-sm mb-0">
-                            <thead>
+
+                    <h6 class="mt-4 mb-3 border-bottom pb-2">Itens Entregues</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
                                 <tr>
                                     <th>Produto</th>
                                     <th>Preço Un.</th>
-                                    <th width="150px">Qtd. Entregue</th>
+                                    <th style="width: 150px;">Qtd. Entregue</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -193,7 +203,10 @@
                                     </td>
                                     <td class="align-middle">{{ item.preco_unitario | currency_br }}</td>
                                     <td>
-                                        <input type="number" step="0.01" class="form-control form-control-sm" name="qtd_entregue[]" placeholder="0" min="0">
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" step="0.01" class="form-control" name="qtd_entregue[]" placeholder="0.00" min="0">
+                                            <span class="input-group-text">{{ item.unidade_medida }}</span>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -201,9 +214,9 @@
                         </table>
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success"><i class="bi bi-check-circle"></i> Confirmar Entrega</button>
+                    <button type="submit" class="btn btn-success px-4"><i class="bi bi-check-circle"></i> Confirmar Entrega</button>
                 </div>
             </div>
         </form>

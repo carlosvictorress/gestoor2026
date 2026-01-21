@@ -1093,9 +1093,11 @@ def registrar_entrega_pnae(contrato_id):
                 if not produto_estoque:
                     produto_estoque = ProdutoMerenda(
                         nome=item_contrato.nome_produto,
-                        unidade_medida=item_contrato.unidade_medida,
-                        categoria=item_contrato.categoria,
-                        estoque_atual=0.0
+                        unidade_medida=item_contrato.unidade_medida or 'un', # CORREÇÃO: Evita o erro de valor nulo
+                        categoria=item_contrato.categoria or 'Agricultura Familiar', # CORREÇÃO: Preenche categoria
+                        estoque_atual=0.0,
+                        estoque_minimo=10.0, # Valor padrão para evitar campos vazios
+                        perecivel=True
                     )
                     db.session.add(produto_estoque)
                     db.session.flush()

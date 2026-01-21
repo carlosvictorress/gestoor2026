@@ -1151,7 +1151,7 @@ def registrar_entrega_pnae(contrato_id):
 @merenda_bp.route('/agricultura/contratos/<int:contrato_id>/pdf')
 @login_required
 def pdf_contrato_pnae(contrato_id):
-    from .utils import cabecalho_e_rodape # Importa seu cabeçalho padrão
+    from utils import cabecalho_e_rodape # Importa seu cabeçalho padrão
     contrato = ContratoPNAE.query.get_or_404(contrato_id)
     agricultor = contrato.agricultor
     

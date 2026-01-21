@@ -1018,8 +1018,10 @@ def novo_contrato_pnae(agricultor_id):
 def gerenciar_contrato_pnae(contrato_id):
     contrato = ContratoPNAE.query.get_or_404(contrato_id)
     
+    # --- BUSCA AS ESCOLAS ATIVAS (Adicionado para o Modal funcionar) ---
+    escolas_ativas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
+    
     # Lógica para calcular o saldo de cada item
-    # Cria um dicionário para somar o que já foi entregue de cada produto
     entregue_por_produto = {} # Ex: {'Alface': 50.0, 'Tomate': 10.0}
     
     for entrega in contrato.entregas:
@@ -1038,7 +1040,8 @@ def gerenciar_contrato_pnae(contrato_id):
 
     return render_template('merenda/agricultura/contrato_gerenciar.html', 
                            contrato=contrato, 
-                           entregue_por_produto=entregue_por_produto)
+                           entregue_por_produto=entregue_por_produto,
+                           escolas_ativas=escolas_ativas) # <--- Variável enviada aqui
 
 @merenda_bp.route('/agricultura/contratos/<int:contrato_id>/nova-entrega', methods=['POST'])
 @login_required

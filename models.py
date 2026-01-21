@@ -1364,6 +1364,8 @@ class EntregaPNAE(db.Model):
     valor_total = db.Column(db.Float, default=0.0)
     observacoes = db.Column(db.Text)
     
+    escola_id = db.Column(db.Integer, db.ForeignKey('escola.id'), nullable=True)
+    
     # Itens desta entrega específica (JSON ou tabela separada, simplificado aqui como texto detalhado ou JSON)
     itens_json = db.Column(db.Text) # Ex: [{"produto": "Alface", "qtd": 10, "valor": 50.00}]
     

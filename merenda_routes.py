@@ -168,7 +168,11 @@ def editar_escola(escola_id):
 @login_required
 @role_required('Merenda Escolar', 'admin')
 def listar_produtos():
-    produtos = ProdutoMerenda.query.order_by(ProdutoMerenda.nome).all()
+    # FILTRO ADICIONADO: Busca apenas produtos que NÃO sejam da Agricultura Familiar
+    produtos = ProdutoMerenda.query.filter(
+        ProdutoMerenda.categoria != 'Agricultura Familiar'
+    ).order_by(ProdutoMerenda.nome).all()
+    
     return render_template('merenda/produtos_lista.html', produtos=produtos)
 
 @merenda_bp.route('/produtos/novo', methods=['GET', 'POST'])

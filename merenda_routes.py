@@ -583,7 +583,7 @@ def gerar_pdf_saidas(titulo, periodo, dados):
     Função que gera o PDF do relatório de saídas.
     """
     # --- IMPORTAÇÕES CORRIGIDAS E COMPLETAS ---
-    from .utils import cabecalho_e_rodape_moderno
+    from utils import cabecalho_e_rodape_moderno
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.pagesizes import A4 # <-- Importação que faltava

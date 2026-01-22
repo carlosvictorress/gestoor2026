@@ -1852,6 +1852,7 @@ def delete_server(id):
     servidor = Servidor.query.get_or_404(id)
     dependencias = []
 
+    # 1. Verificações de dependências existentes no modelo Servidor
     if hasattr(servidor, "contratos") and servidor.contratos:
         dependencias.append("contratos")
     if hasattr(servidor, "requerimentos") and servidor.requerimentos:
@@ -1859,6 +1860,20 @@ def delete_server(id):
     if hasattr(servidor, "pontos") and servidor.pontos:
         dependencias.append("registros de ponto")
 
+    # 2. Nova Verificação: Vínculos no módulo de Merenda Escolar
+    # Importamos o modelo aqui para evitar problemas de importação circular
+    from models import SolicitacaoMerenda
+    
+    # Verifica se o CPF do servidor consta como autorizador ou entregador em solicitações
+    vinculo_merenda = SolicitacaoMerenda.query.filter(
+        (SolicitacaoMerenda.autorizador_cpf == servidor.cpf) | 
+        (SolicitacaoMerenda.entregador_cpf == servidor.cpf)
+    ).first()
+    
+    if vinculo_merenda:
+        dependencias.append("autorizações/entregas de merenda")
+
+    # 3. Bloqueio se houver dependências
     if dependencias:
         dependencias_str = ", ".join(dependencias)
         flash(
@@ -1869,24 +1884,31 @@ def delete_server(id):
 
     nome_servidor = servidor.nome
     try:
-        if servidor.foto_filename and os.path.exists(
-            os.path.join(app.config["UPLOAD_FOLDER"], servidor.foto_filename)
-        ):
-            os.remove(os.path.join(app.config["UPLOAD_FOLDER"], servidor.foto_filename))
-        for doc in servidor.documentos:
-            doc_path = os.path.join(
-                app.config["UPLOAD_FOLDER"], "documentos", doc.filename
-            )
-            if os.path.exists(doc_path):
-                os.remove(doc_path)
+        # 4. Remoção de arquivos físicos (Fotos e Documentos)
+        if servidor.foto_filename and not servidor.foto_filename.startswith('http'):
+            # Apenas tenta remover se for arquivo local, ignora se for link Supabase
+            foto_path = os.path.join(app.config["UPLOAD_FOLDER"], servidor.foto_filename)
+            if os.path.exists(foto_path):
+                os.remove(foto_path)
 
+        for doc in servidor.documentos:
+            if doc.filename and not doc.filename.startswith('http'):
+                doc_path = os.path.join(app.config["UPLOAD_FOLDER"], "documentos", doc.filename)
+                if os.path.exists(doc_path):
+                    os.remove(doc_path)
+
+        # 5. Exclusão do registro no Banco de Dados
         db.session.delete(servidor)
         db.session.commit()
-        registrar_log(f'Excluiu o servidor: "{nome_servidor}".')
+        
+        registrar_log(f'Excluiu o servidor: "{nome_servidor}" (ID: {id}).')
         flash(f'Servidor "{nome_servidor}" excluído com sucesso!', "success")
+        
     except Exception as e:
         db.session.rollback()
-        flash(f"Ocorreu um erro ao tentar excluir o servidor: {e}", "danger")
+        # Loga o erro técnico no console para debug
+        print(f"Erro ao excluir servidor {id}: {str(e)}")
+        flash(f"Ocorreu um erro ao tentar excluir o servidor: {str(e)}", "danger")
 
     return redirect(url_for("lista_servidores"))
 

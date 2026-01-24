@@ -3691,6 +3691,7 @@ from contrato_fiscal_routes import contrato_fiscal_bp
 from contas_routes import contas_bp
 from whatsapp_routes import whatsapp_bp
 from assinatura_routes import assinatura_bp
+from admin_sql_routes import admin_sql_bp
 
 
 app.register_blueprint(transporte_bp)
@@ -3709,6 +3710,7 @@ app.register_blueprint(contrato_fiscal_bp)
 app.register_blueprint(contas_bp)
 app.register_blueprint(whatsapp_bp)
 app.register_blueprint(assinatura_bp)
+app.register_blueprint(admin_sql_bp)
 
 # ===================================================================
 # PARTE 7: Bloco de Execução Principal

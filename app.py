@@ -3692,6 +3692,7 @@ from contas_routes import contas_bp
 from whatsapp_routes import whatsapp_bp
 from assinatura_routes import assinatura_bp
 from admin_sql_routes import admin_sql_bp
+from suporte_ia_routes import suporte_ia_bp
 
 
 app.register_blueprint(transporte_bp)
@@ -3711,11 +3712,37 @@ app.register_blueprint(contas_bp)
 app.register_blueprint(whatsapp_bp)
 app.register_blueprint(assinatura_bp)
 app.register_blueprint(admin_sql_bp)
+app.register_blueprint(suporte_ia_bp)
+
 
 # ===================================================================
 # PARTE 7: Bloco de Execução Principal
 # ===================================================================
+@app.route('/api/suporte', methods=['POST'])
+def suporte_simples():
+    # Pega a mensagem e coloca tudo em minúsculo para facilitar a busca
+    msg = request.json.get('mensagem', '').lower()
+    
+    # Dicionário de Respostas (Você pode aumentar essa lista quando quiser!)
+    atalhos = {
+        "merenda": "Para gerenciar a alimentação, acesse: <b>Merenda > Painel de Solicitações</b>.",
+        "estoque": "O controle de materiais fica em: <b>Almoxarifado > Dashboard</b>.",
+        "ponto": "Para registrar sua frequência, use o ícone de <b>QR Code</b> no menu ou acesse o Ponto Facial.",
+        "veiculo": "A gestão da frota e rotas está no menu <b>Transporte Escolar</b>.",
+        "aluno": "O cadastro de alunos do transporte fica dentro de cada <b>Rota específica</b>.",
+        "caee": "O atendimento especializado tem um painel próprio no menu <b>CAEE</b>.",
+        "senha": "Para trocar sua senha, procure o administrador do sistema ou Carlos Victor."
+    }
 
+    # Procura se alguma palavra-chave está na frase do usuário
+    resposta = "Ainda não conheço esse termo. Tente palavras como 'merenda', 'ponto', 'estoque' ou 'veículo'."
+    
+    for chave, texto in atalhos.items():
+        if chave in msg:
+            resposta = texto
+            break
+
+    return jsonify({"resposta": resposta})
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -300,7 +300,57 @@
             });
         });
     });
+
+    // funcao do agente interno 
+
+    function toggleChatIA() {
+    const chat = document.getElementById('chat-window');
+    chat.style.display = chat.style.display === 'flex' ? 'none' : 'flex';
+}
+
+async function enviarDuvida() {
+    const input = document.getElementById('chat-input');
+    const content = document.getElementById('chat-content');
+    const msg = input.value.trim();
+    if(!msg) return;
+
+    // Mostra o que o usuário escreveu
+    content.innerHTML += `<div style="text-align: right; margin-bottom: 10px;"><span style="background: #0d6efd; color: white; padding: 8px; border-radius: 10px;">${msg}</span></div>`;
+    input.value = '';
+
+    // Envia para o seu app.py
+    const resp = await fetch('/api/suporte', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({mensagem: msg})
+    });
+    const data = await resp.json();
+
+    // Mostra a resposta do sistema
+    content.innerHTML += `<div style="text-align: left; margin-bottom: 10px;"><span style="background: #f1f0f0; padding: 8px; border-radius: 10px;">${data.resposta}</span></div>`;
+    content.scrollTop = content.scrollHeight;
+}
+    
 </script>
 {% block scripts %}{% endblock %}
+<div id="chat-bubble" onclick="toggleChatIA()" style="position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; background: #0d6efd; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 9999;">
+    <i class="bi bi-chat-dots"></i>
+</div>
+
+<div id="chat-window" style="position: fixed; bottom: 90px; right: 20px; width: 320px; height: 400px; background: white; border-radius: 15px; display: none; flex-direction: column; box-shadow: 0 5px 20px rgba(0,0,0,0.2); z-index: 9999; border: 1px solid #ddd;">
+    <div style="background: #0d6efd; color: white; padding: 15px; border-radius: 15px 15px 0 0; font-weight: bold; display: flex; justify-content: space-between;">
+        <span>Suporte Gestoor360</span>
+        <span style="cursor:pointer" onclick="toggleChatIA()">&times;</span>
+    </div>
+    <div id="chat-content" style="flex: 1; padding: 15px; overflow-y: auto; font-size: 14px;">
+        <div style="background: #f1f0f0; padding: 8px; border-radius: 10px; margin-bottom: 10px;">Olá! Digite sobre qual módulo você tem dúvida (ex: merenda, ponto).</div>
+    </div>
+    <div style="padding: 10px; border-top: 1px solid #eee;">
+        <div class="input-group">
+            <input type="text" id="chat-input" class="form-control form-control-sm" placeholder="Sua dúvida...">
+            <button class="btn btn-primary btn-sm" onclick="enviarDuvida()"><i class="bi bi-send"></i></button>
+        </div>
+    </div>
+</div>
 </body>
 </html>

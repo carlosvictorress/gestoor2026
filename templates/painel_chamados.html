@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-headset"></i> Painel de Chamados Técnicos</h2>
+    <div>
+        <span class="badge bg-danger p-2">Abertos: {{ abertos }}</span>
+        <span class="badge bg-warning p-2 text-dark">Em Atendimento: {{ andamento }}</span>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Escola</th>
+                    <th>Solicitante</th>
+                    <th>Categoria</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for chamado in chamados %}
+                <tr>
+                    <td>{{ chamado.data_abertura.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td><b>{{ chamado.escola.nome }}</b></td>
+                    <td>{{ chamado.servidor.nome }}</td>
+                    <td><span class="badge bg-secondary">{{ chamado.categoria }}</span></td>
+                    <td>
+                        <span class="badge {% if chamado.status == 'Aberto' %}bg-danger{% elif chamado.status == 'Em Andamento' %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                            {{ chamado.status }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('helpdesk.detalhes_chamado', id=chamado.id) }}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-eye"></i> Atender
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

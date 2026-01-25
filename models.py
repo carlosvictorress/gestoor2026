@@ -1417,4 +1417,32 @@ class RelatorioAnexo(db.Model):
     nome_original = db.Column(db.String(255), nullable=False) # Nome original do arquivo enviado
     descricao = db.Column(db.String(255)) # Descrição opcional (ex: "Foto da despensa")
     upload_date = db.Column(db.DateTime, default=datetime.utcnow)
+
+class ChamadoTecnico(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Vínculos com o que você já tem
+    solicitante_cpf = db.Column(db.String(14), db.ForeignKey('servidor.cpf'), nullable=False)
+    patrimonio_id = db.Column(db.Integer, db.ForeignKey('patrimonio.id'), nullable=True) # Se for um item específico
+    escola_id = db.Column(db.Integer, db.ForeignKey('escola.id'), nullable=False)
+    
+    # Detalhes do Problema
+    categoria = db.Column(db.String(50)) # Internet, Computador, Impressora, etc.
+    descricao_problema = db.Column(db.Text, nullable=False)
+    prioridade = db.Column(db.String(20), default='Média') # Baixa, Média, Alta
+    
+    # Fluxo de Atendimento
+    status = db.Column(db.String(20), default='Aberto') # Aberto, Em Andamento, Aguardando Peça, Finalizado
+    data_abertura = db.Column(db.DateTime, default=datetime.utcnow)
+    tecnico_responsavel = db.Column(db.String(100)) # Nome do técnico que assumiu    
+    
+class RelatorioTecnico(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    chamado_id = db.Column(db.Integer, db.ForeignKey('chamado_tecnico.id'), unique=True)
+    
+    # Diagnóstico e Solução
+    laudo_tecnico = db.Column(db.Text, nullable=False)
+    pecas_substituidas = db.Column(db.String(255)) # Ex: Teclado, Fonte, Memória
+    situacao_final = db.Column(db.String(50)) # Resolvido, Perda Total (Sucateamento)
+    data_conclusao = db.Column(db.DateTime, default=datetime.utcnow)    
     

@@ -1,0 +1,75 @@
+{% extends 'base_externa.html' %} {# Uma base sem o menu lateral do sistema #}
+
+{% block content %}
+<div class="container" style="margin-top: 10vh;">
+    <div class="text-center mb-5">
+        <img src="{{ url_for('static', filename='logo_prefeitura.png') }}" alt="Valença do Piauí" style="height: 80px;">
+        <h2 class="mt-3">Portal de Suporte Técnico - Educação</h2>
+        <p class="text-muted">Informe seu CPF para abrir um chamado para a TI.</p>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card shadow-lg border-0">
+                <div class="card-body p-4 text-center">
+                    <div class="mb-4">
+                        <i class="bi bi-person-badge-fill text-primary" style="font-size: 4rem;"></i>
+                    </div>
+                    <div class="mb-3">
+                        <input type="text" id="cpf_busca" class="form-control form-control-lg text-center" placeholder="000.000.000-00">
+                        <div id="erro_cpf" class="text-danger mt-2" style="display: none;"></div>
+                    </div>
+                    <button onclick="buscarServidorSuporte()" class="btn btn-primary btn-lg w-100">
+                        <i class="bi bi-search"></i> Obter Suporte
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalHelpDesk" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-tools"></i> Novo Chamado Técnico</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('helpdesk.abrir_chamado') }}" method="POST">
+                <div class="modal-body">
+                    <div class="alert alert-info py-2">
+                        <strong>Identificamos você:</strong> <span id="nome_servidor"></span><br>
+                        <strong>Sua Escola:</strong> <span id="escola_servidor"></span>
+                        <input type="hidden" name="cpf_servidor" id="hidden_cpf">
+                        <input type="hidden" name="id_escola" id="hidden_escola">
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">O problema é em qual categoria?*</label>
+                            <select class="form-select" name="categoria" required>
+                                <option value="Internet/Rede">Internet / Wi-Fi</option>
+                                <option value="Computador/Note">Computador ou Notebook</option>
+                                <option value="Impressora">Impressora</option>
+                                <option value="Sistemas">Sistemas (Gestoor360 / Outros)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Nº de Patrimônio (Se houver)</label>
+                            <input type="text" class="form-control" name="patrimonio" placeholder="Ex: 01234">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Descreva o defeito com detalhes*</label>
+                            <textarea class="form-control" name="descricao" rows="4" required placeholder="Ex: A impressora da secretaria está puxando papel torto..."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success px-4">Enviar Chamado para TI</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

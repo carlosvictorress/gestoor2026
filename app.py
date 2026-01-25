@@ -3692,6 +3692,7 @@ from contas_routes import contas_bp
 from whatsapp_routes import whatsapp_bp
 from assinatura_routes import assinatura_bp
 from admin_sql_routes import admin_sql_bp
+from helpdesk_routes import helpdesk_bp
 
 
 
@@ -3712,7 +3713,7 @@ app.register_blueprint(contas_bp)
 app.register_blueprint(whatsapp_bp)
 app.register_blueprint(assinatura_bp)
 app.register_blueprint(admin_sql_bp)
-
+app.register_blueprint(helpdesk_bp)
 
 
 # ===================================================================

@@ -202,6 +202,13 @@
         <span>Assinatura Digital</span>
     </a>
 </li>
+
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('helpdesk.painel_chamados') }}">
+        <i class="bi bi-headset"></i>
+        <span>Painel de Chamados</span>
+    </a>
+</li>
 {% endif %}
         {% if session.get('role') == 'admin' %}
         <li class="nav-item">
@@ -301,7 +308,23 @@
         });
     });
 
-      
+  // help desk 
+  
+  <script>
+    // 1. Sua função de abrir/fechar o chat que já fizemos
+    function toggleChatIA() { ... }
+
+    // 2. A Lógica de Busca (JavaScript) que te mandei:
+    async function buscarServidorSuporte() {
+        const cpf = document.getElementById('cpf_busca').value;
+        const erro = document.getElementById('erro_cpf');
+        
+        // ... (resto do código de busca que te enviei)
+    }
+
+    // 3. O código que envia o chamado para o TI
+    // (A função que você vai usar quando o usuário clicar em "Enviar Chamado")
+</script>
 </script>
 {% block scripts %}{% endblock %}
 

@@ -17,3 +17,31 @@ def painel_chamados():
     total_andamento = ChamadoTecnico.query.filter_by(status='Em Andamento').count()
     
     return render_template('painel_chamados.html', chamados=chamados, abertos=total_abertos, andamento=total_andamento)
+
+@helpdesk_bp.route('/suportetecnico')
+def suporte_externo():
+    # Esta rota é pública, por isso não tem @login_required
+    return render_template('suporte_externo.html')
+
+@helpdesk_bp.route('/abrir-chamado', methods=['POST'])
+def abrir_chamado():
+    cpf = request.form.get('cpf_servidor')
+    escola_id = request.form.get('id_escola')
+    categoria = request.form.get('categoria')
+    patrimonio = request.form.get('patrimonio')
+    descricao = request.form.get('descricao')
+
+    novo_chamado = ChamadoTecnico(
+        solicitante_cpf=cpf,
+        escola_id=escola_id,
+        categoria=categoria,
+        patrimonio_id=patrimonio,
+        descricao_problema=descricao,
+        status='Aberto'
+    )
+
+    db.session.add(novo_chamado)
+    db.session.commit()
+    
+    flash("Chamado enviado com sucesso para a TI!", "success")
+    return redirect(url_for('helpdesk.suporte_externo'))

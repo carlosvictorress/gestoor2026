@@ -1417,3 +1417,4 @@ class RelatorioAnexo(db.Model):
     nome_original = db.Column(db.String(255), nullable=False) # Nome original do arquivo enviado
     descricao = db.Column(db.String(255)) # Descrição opcional (ex: "Foto da despensa")
     upload_date = db.Column(db.DateTime, default=datetime.utcnow)
+    

@@ -1,12 +1,14 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from extensions import db
 from models import ChamadoTecnico, RelatorioTecnico, Servidor # Verifique os nomes no seu models.py
+from utils import login_required
 
 # ESTA LINHA ABAIXO É A QUE ESTÁ FALTANDO:
 helpdesk_bp = Blueprint('helpdesk', __name__)
 
 @helpdesk_bp.route('/painel-chamados')
 @login_required
+@role_required('admin')
 def painel_chamados():
     # Busca chamados abertos e em andamento primeiro
     chamados = ChamadoTecnico.query.order_by(ChamadoTecnico.data_abertura.desc()).all()

@@ -1,3 +1,10 @@
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from extensions import db
+from models import ChamadoTecnico, RelatorioTecnico, Servidor # Verifique os nomes no seu models.py
+
+# ESTA LINHA ABAIXO É A QUE ESTÁ FALTANDO:
+helpdesk_bp = Blueprint('helpdesk', __name__)
+
 @helpdesk_bp.route('/painel-chamados')
 @login_required
 def painel_chamados():

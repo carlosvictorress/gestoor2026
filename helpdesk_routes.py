@@ -50,18 +50,25 @@ def abrir_chamado():
 
 @helpdesk_bp.route('/api/buscar-servidor/<cpf>')
 def buscar_servidor_api(cpf):
+    # 1. Limpa o CPF recebido
     cpf_limpo = ''.join(filter(str.isdigit, cpf))
     
-    # Esta query remove caracteres especiais do banco em tempo real para comparar
+    # 2. Busca robusta: ignora pontos e traços no banco de dados
+    from sqlalchemy import func
     servidor = Servidor.query.filter(
         func.replace(func.replace(Servidor.cpf, '.', ''), '-', '') == cpf_limpo
     ).first()
 
     if servidor:
+        # 3. Proteção contra servidor sem escola vinculada
+        nome_escola = servidor.escola.nome if servidor.escola else "Secretaria / Sem Vínculo"
+        id_escola = servidor.escola_id if servidor.escola_id else 0
+
         return jsonify({
             "sucesso": True,
             "nome": servidor.nome,
-            "escola": servidor.escola.nome if servidor.escola else "Secretaria",
-            "id_escola": servidor.escola_id
+            "escola": nome_escola,
+            "id_escola": id_escola
         })
-    return jsonify({"sucesso": False}), 404
+    
+    return jsonify({"sucesso": False, "mensagem": "CPF não localizado"}), 404

@@ -1,4 +1,4 @@
-{% extends 'base_externa.html' %} {# Uma base sem o menu lateral do sistema #}
+{% extends 'base_externa.html' %}
 
 {% block content %}
 <div class="container" style="margin-top: 10vh;">
@@ -17,7 +17,6 @@
                     </div>
                     <div class="mb-3">
                         <input type="text" id="cpf_busca" class="form-control form-control-lg text-center" placeholder="000.000.000-00">
-                        <div id="erro_cpf" class="text-danger mt-2" style="display: none;"></div>
                     </div>
                     <button onclick="buscarServidorSuporte()" class="btn btn-primary btn-lg w-100">
                         <i class="bi bi-search"></i> Obter Suporte
@@ -47,9 +46,9 @@
                     
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label">O problema é em qual categoria?*</label>
+                            <label class="form-label">Categoria do Problema*</label>
                             <select class="form-select" name="categoria" required>
-                                <option value="" disabled selected>Selecione...</option>
+                                <option value="" disabled selected>Selecione uma opção...</option>
                                 <option value="Internet/Rede">Internet / Wi-Fi</option>
                                 <option value="Computador/Note">Computador ou Notebook</option>
                                 <option value="Impressora">Impressora</option>
@@ -57,12 +56,12 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Nº de Patrimônio (Se houver)</label>
+                            <label class="form-label">Nº de Patrimônio</label>
                             <input type="text" class="form-control" name="patrimonio" placeholder="Ex: 01234">
                         </div>
                         <div class="col-12">
-                            <label class="form-label">Descreva o defeito com detalhes*</label>
-                            <textarea class="form-control" name="descricao" rows="4" required placeholder="Ex: A impressora da secretaria está puxando papel torto..."></textarea>
+                            <label class="form-label">Descrição Detalhada do Defeito*</label>
+                            <textarea class="form-control" name="descricao" rows="4" required placeholder="Descreva o que está acontecendo..."></textarea>
                         </div>
                     </div>
                 </div>

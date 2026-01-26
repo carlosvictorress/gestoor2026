@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from extensions import db
 from models import ChamadoTecnico, RelatorioTecnico, Servidor
 from utils import login_required, role_required
+from flask import jsonify
 
 helpdesk_bp = Blueprint('helpdesk', __name__)
 
@@ -45,3 +46,23 @@ def abrir_chamado():
     
     flash("Chamado enviado com sucesso para a TI!", "success")
     return redirect(url_for('helpdesk.suporte_externo'))
+
+@helpdesk_bp.route('/api/buscar-servidor/<cpf>')
+def buscar_servidor_api(cpf):
+    # 1. Limpa o CPF (deixa só números)
+    cpf_limpo = ''.join(filter(str.isdigit, cpf))
+    
+    # 2. Busca no banco de dados de Valença do Piauí
+    servidor = Servidor.query.filter_by(cpf=cpf_limpo).first()
+
+    if servidor:
+        # 3. Se achou, devolve os dados para o JavaScript
+        return jsonify({
+            "sucesso": True,
+            "nome": servidor.nome,
+            "escola": servidor.escola.nome if servidor.escola else "Secretaria",
+            "id_escola": servidor.escola_id
+        })
+    
+    # 4. Se não achou, avisa o erro
+    return jsonify({"sucesso": False, "mensagem": "CPF não localizado"}), 404

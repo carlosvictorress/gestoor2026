@@ -3,6 +3,7 @@ from extensions import db
 from models import ChamadoTecnico, RelatorioTecnico, Servidor
 from utils import login_required, role_required
 from flask import jsonify
+from sqlalchemy import func
 
 helpdesk_bp = Blueprint('helpdesk', __name__)
 
@@ -49,11 +50,12 @@ def abrir_chamado():
 
 @helpdesk_bp.route('/api/buscar-servidor/<cpf>')
 def buscar_servidor_api(cpf):
-    # Limpa o CPF para garantir que a busca no banco funcione
     cpf_limpo = ''.join(filter(str.isdigit, cpf))
     
-    # Busca o servidor no banco de dados de Valença do Piauí
-    servidor = Servidor.query.filter_by(cpf=cpf_limpo).first()
+    # Esta query remove caracteres especiais do banco em tempo real para comparar
+    servidor = Servidor.query.filter(
+        func.replace(func.replace(Servidor.cpf, '.', ''), '-', '') == cpf_limpo
+    ).first()
 
     if servidor:
         return jsonify({
@@ -62,5 +64,4 @@ def buscar_servidor_api(cpf):
             "escola": servidor.escola.nome if servidor.escola else "Secretaria",
             "id_escola": servidor.escola_id
         })
-    
-    return jsonify({"sucesso": False, "mensagem": "CPF não localizado"}), 404
+    return jsonify({"sucesso": False}), 404

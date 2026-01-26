@@ -39,40 +39,41 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function buscarServidorSuporte() {
-    // Agora buscamos exatamente pelo ID que você definiu no HTML
     const inputCpf = document.getElementById('cpf_busca');
-    const cpf = inputCpf ? inputCpf.value : "";
+    let cpf = inputCpf ? inputCpf.value : "";
     
+    // Limpa o CPF de pontos e traços no lado do cliente também
+    cpf = cpf.replace(/\D/g, '');
+
     if (!cpf || cpf.length < 11) {
-        alert("Por favor, informe um CPF válido.");
+        alert("Por favor, informe um CPF válido com 11 dígitos.");
         return;
     }
 
-    // O restante do fetch continua igual...
-    fetch(`/api/buscar-servidor/${cpf}`)
-// ...
-
-    // Faz a chamada para a API do seu sistema
+    // Chamada para a rota definida no helpdesk_routes.py
     fetch(`/api/buscar-servidor/${cpf}`)
         .then(response => {
-            if (!response.ok) throw new Error('Servidor não encontrado');
+            if (!response.ok) {
+                if(response.status === 404) throw new Error('CPF não localizado');
+                throw new Error('Erro no servidor');
+            }
             return response.json();
         })
         .then(data => {
-            // Preenche os dados de Valença do Piauí no seu Modal
-            document.getElementById('nome_servidor_modal').innerText = data.nome;
-            document.getElementById('escola_servidor_modal').innerText = data.escola;
-            
-            // Preenche campos escondidos (hidden) para enviar no formulário depois
-            document.getElementById('cpf_hidden').value = cpf;
-            document.getElementById('escola_id_hidden').value = data.id_escola;
+            // Preenche os IDs exatos que estão no seu suporte_externo.html
+            document.getElementById('nome_servidor').innerText = data.nome;
+            document.getElementById('escola_servidor').innerText = data.escola;
+            document.getElementById('hidden_cpf').value = cpf;
+            document.getElementById('hidden_escola').value = data.id_escola;
 
-            // Abre o Modal do Bootstrap
-            var myModal = new bootstrap.Modal(document.getElementById('modalChamado'));
+            // Abre o Modal (use o ID modalHelpDesk que está no seu HTML)
+            var myModal = new bootstrap.Modal(document.getElementById('modalHelpDesk'));
             myModal.show();
         })
         .catch(error => {
-            alert("CPF não localizado na base da Secretaria de Educação.");
-            console.error("Erro na busca:", error);
+            alert(error.message === 'CPF não localizado' 
+                ? "CPF não localizado na base da Secretaria de Educação de Valença." 
+                : "Erro ao conectar com o sistema.");
+            console.error(error);
         });
 }

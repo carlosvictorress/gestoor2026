@@ -37,3 +37,42 @@ document.addEventListener('DOMContentLoaded', function() {
         modalInstance.show();
     });
 });
+
+function buscarServidorSuporte() {
+    // Agora buscamos exatamente pelo ID que você definiu no HTML
+    const inputCpf = document.getElementById('cpf_busca');
+    const cpf = inputCpf ? inputCpf.value : "";
+    
+    if (!cpf || cpf.length < 11) {
+        alert("Por favor, informe um CPF válido.");
+        return;
+    }
+
+    // O restante do fetch continua igual...
+    fetch(`/api/buscar-servidor/${cpf}`)
+// ...
+
+    // Faz a chamada para a API do seu sistema
+    fetch(`/api/buscar-servidor/${cpf}`)
+        .then(response => {
+            if (!response.ok) throw new Error('Servidor não encontrado');
+            return response.json();
+        })
+        .then(data => {
+            // Preenche os dados de Valença do Piauí no seu Modal
+            document.getElementById('nome_servidor_modal').innerText = data.nome;
+            document.getElementById('escola_servidor_modal').innerText = data.escola;
+            
+            // Preenche campos escondidos (hidden) para enviar no formulário depois
+            document.getElementById('cpf_hidden').value = cpf;
+            document.getElementById('escola_id_hidden').value = data.id_escola;
+
+            // Abre o Modal do Bootstrap
+            var myModal = new bootstrap.Modal(document.getElementById('modalChamado'));
+            myModal.show();
+        })
+        .catch(error => {
+            alert("CPF não localizado na base da Secretaria de Educação.");
+            console.error("Erro na busca:", error);
+        });
+}

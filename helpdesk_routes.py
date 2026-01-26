@@ -8,18 +8,26 @@ from models import Escola
 
 helpdesk_bp = Blueprint('helpdesk', __name__)
 
+from models import Escola # Certifique-se de que Escola está importada
+
 @helpdesk_bp.route('/painel-chamados')
 @login_required
 @role_required('admin')
 def painel_chamados():
-    # Busca chamados abertos e em andamento primeiro
     chamados = ChamadoTecnico.query.order_by(ChamadoTecnico.data_abertura.desc()).all()
     
-    # Contadores para o dashboard
+    # Criamos um dicionário com ID: NOME de todas as escolas
+    # Isso evita o erro de atributo no HTML
+    escolas = {e.id: e.nome for e in Escola.query.all()}
+    
     total_abertos = ChamadoTecnico.query.filter_by(status='Aberto').count()
     total_andamento = ChamadoTecnico.query.filter_by(status='Em Andamento').count()
     
-    return render_template('painel_chamados.html', chamados=chamados, abertos=total_abertos, andamento=total_andamento)
+    return render_template('painel_chamados.html', 
+                           chamados=chamados, 
+                           abertos=total_abertos, 
+                           andamento=total_andamento,
+                           lista_escolas=escolas) # Passamos o dicionário aqui
 
 @helpdesk_bp.route('/suportetecnico')
 def suporte_externo():

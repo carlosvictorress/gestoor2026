@@ -9,39 +9,48 @@
 </div>
 
 <div class="card shadow-sm">
-    <div class="card-body">
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>Data</th>
-                    <th>Escola</th>
-                    <th>Solicitante</th>
-                    <th>Categoria</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for chamado in chamados %}
-                <tr>
-                    <td>{{ chamado.data_abertura.strftime('%d/%m/%Y %H:%M') }}</td>
-                    <td><b>{{ chamado.escola.nome }}</b></td>
-                    <td>{{ chamado.servidor.nome }}</td>
-                    <td><span class="badge bg-secondary">{{ chamado.categoria }}</span></td>
-                    <td>
-                        <span class="badge {% if chamado.status == 'Aberto' %}bg-danger{% elif chamado.status == 'Em Andamento' %}bg-warning text-dark{% else %}bg-success{% endif %}">
-                            {{ chamado.status }}
-                        </span>
-                    </td>
-                    <td>
-                        <a href="{{ url_for('helpdesk.detalhes_chamado', id=chamado.id) }}" class="btn btn-sm btn-primary">
-                            <i class="bi bi-eye"></i> Atender
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Data</th>
+                        <th>Escola</th>
+                        <th>Solicitante (CPF)</th>
+                        <th>Categoria</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for chamado in chamados %}
+                    <tr>
+                        <td>{{ chamado.data_abertura.strftime('%d/%m/%Y %H:%M') }}</td>
+                        
+                        <td><b>{{ lista_escolas.get(chamado.escola_id, 'Secretaria / Outros') }}</b></td>
+                        
+                        <td>{{ chamado.solicitante_cpf }}</td>
+                        
+                        <td><span class="badge bg-secondary">{{ chamado.categoria }}</span></td>
+                        <td>
+                            <span class="badge {% if chamado.status == 'Aberto' %}bg-danger{% elif chamado.status == 'Em Andamento' %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                {{ chamado.status }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('helpdesk.painel_chamados') }}" class="btn btn-sm btn-primary">
+                                <i class="bi bi-eye"></i> Visualizar
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">Nenhum chamado registrado no momento.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 {% endblock %}

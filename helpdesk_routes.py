@@ -49,14 +49,13 @@ def abrir_chamado():
 
 @helpdesk_bp.route('/api/buscar-servidor/<cpf>')
 def buscar_servidor_api(cpf):
-    # 1. Limpa o CPF (deixa só números)
+    # Limpa o CPF para garantir que a busca no banco funcione
     cpf_limpo = ''.join(filter(str.isdigit, cpf))
     
-    # 2. Busca no banco de dados de Valença do Piauí
+    # Busca o servidor no banco de dados de Valença do Piauí
     servidor = Servidor.query.filter_by(cpf=cpf_limpo).first()
 
     if servidor:
-        # 3. Se achou, devolve os dados para o JavaScript
         return jsonify({
             "sucesso": True,
             "nome": servidor.nome,
@@ -64,5 +63,4 @@ def buscar_servidor_api(cpf):
             "id_escola": servidor.escola_id
         })
     
-    # 4. Se não achou, avisa o erro
     return jsonify({"sucesso": False, "mensagem": "CPF não localizado"}), 404

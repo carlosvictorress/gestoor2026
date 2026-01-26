@@ -40,6 +40,7 @@
                     <div class="alert alert-info py-2">
                         <strong>Identificamos você:</strong> <span id="nome_servidor"></span><br>
                         <strong>Sua Escola:</strong> <span id="escola_servidor"></span>
+                        
                         <input type="hidden" name="cpf_servidor" id="hidden_cpf">
                         <input type="hidden" name="id_escola" id="hidden_escola">
                     </div>
@@ -48,6 +49,7 @@
                         <div class="col-md-6">
                             <label class="form-label">O problema é em qual categoria?*</label>
                             <select class="form-select" name="categoria" required>
+                                <option value="" disabled selected>Selecione...</option>
                                 <option value="Internet/Rede">Internet / Wi-Fi</option>
                                 <option value="Computador/Note">Computador ou Notebook</option>
                                 <option value="Impressora">Impressora</option>

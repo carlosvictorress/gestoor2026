@@ -99,3 +99,27 @@ def detalhes_chamado(id):
                            chamado=chamado, 
                            solicitante=nome_solicitante,
                            escola=nome_escola)
+    
+@helpdesk_bp.route('/chamado/status/<int:id>', methods=['POST'])
+@login_required
+@role_required('admin')
+def mudar_status(id):
+    chamado = ChamadoTecnico.query.get_or_404(id)
+    novo_status = request.form.get('status')
+    
+    if novo_status in ['Aberto', 'Em Andamento', 'Concluído']:
+        chamado.status = novo_status
+        db.session.commit()
+        flash(f"Status do chamado #{id} atualizado para {novo_status}!", "success")
+    
+    return redirect(url_for('helpdesk.detalhes_chamado', id=id))
+
+@helpdesk_bp.route('/chamado/imprimir/<int:id>')
+@login_required
+@role_required('admin')
+def imprimir_os(id):
+    # Aqui futuramente você pode usar o ReportLab como faz no app.py para gerar PDFs
+    # Por enquanto, vamos habilitar a impressão via navegador (Ctrl+P)
+    chamado = ChamadoTecnico.query.get_or_404(id)
+    servidor = Servidor.query.filter_by(cpf=chamado.solicitante_cpf).first()
+    return render_template('impressao_os.html', chamado=chamado, servidor=servidor)    

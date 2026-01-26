@@ -106,11 +106,13 @@ def detalhes_chamado(id):
 def mudar_status(id):
     chamado = ChamadoTecnico.query.get_or_404(id)
     novo_status = request.form.get('status')
+    parecer = request.form.get('parecer_tecnico') # Captura o novo campo
     
     if novo_status in ['Aberto', 'Em Andamento', 'Concluído']:
         chamado.status = novo_status
+        chamado.parecer_tecnico = parecer # Salva o laudo
         db.session.commit()
-        flash(f"Status do chamado #{id} atualizado para {novo_status}!", "success")
+        flash(f"Chamado #{id} atualizado com sucesso!", "success")
     
     return redirect(url_for('helpdesk.detalhes_chamado', id=id))
 

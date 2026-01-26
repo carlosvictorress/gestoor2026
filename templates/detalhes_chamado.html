@@ -3,66 +3,68 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="bi bi-info-circle"></i> Detalhes do Chamado #{{ chamado.id }}</h2>
-        <a href="{{ url_for('helpdesk.painel_chamados') }}" class="btn btn-secondary">
-            <i class="bi bi-arrow-left"></i> Voltar
-        </a>
+        <a href="{{ url_for('helpdesk.painel_chamados') }}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Voltar</a>
     </div>
 
     <div class="row">
-        <div class="col-md-8">
+        <div class="col-md-7">
             <div class="card shadow-sm mb-4">
-                <div class="card-header bg-white"><b>Descrição do Problema</b></div>
+                <div class="card-header bg-white"><b>Relato do Solicitante</b></div>
                 <div class="card-body">
-                    <p class="lead">{{ chamado.descricao_problema }}</p>
+                    <p class="lead text-primary">"{{ chamado.descricao_problema }}"</p>
                     <hr>
-                    <div class="row">
-                        <div class="col-sm-6">
-                            <p><b>Categoria:</b> <span class="badge bg-secondary">{{ chamado.categoria }}</span></p>
-                            <p><b>Patrimônio:</b> {{ chamado.patrimonio_id or 'Não informado' }}</p>
-                        </div>
-                        <div class="col-sm-6">
-                            <p><b>Abertura:</b> {{ chamado.data_abertura.strftime('%d/%m/%Y %H:%M') }}</p>
-                            <p><b>Status Atual:</b> 
-                                <span class="badge {% if chamado.status == 'Aberto' %}bg-danger{% elif chamado.status == 'Em Andamento' %}bg-warning text-dark{% else %}bg-success{% endif %}">
-                                    {{ chamado.status }}
-                                </span>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-dark text-white"><b>Gerenciar Chamado</b></div>
-                <div class="card-body">
-                    <form action="{{ url_for('helpdesk.mudar_status', id=chamado.id) }}" method="POST" class="mb-3">
-                        <label class="form-label small fw-bold">Alterar Status:</label>
-                        <div class="input-group">
-                            <select name="status" class="form-select form-select-sm">
-                                <option value="Aberto" {% if chamado.status == 'Aberto' %}selected{% endif %}>Aberto</option>
-                                <option value="Em Andamento" {% if chamado.status == 'Em Andamento' %}selected{% endif %}>Em Atendimento</option>
-                                <option value="Concluído" {% if chamado.status == 'Concluído' %}selected{% endif %}>Concluído</option>
-                            </select>
-                            <button type="submit" class="btn btn-sm btn-success">Atualizar</button>
-                        </div>
-                    </form>
-
-                    <div class="d-grid gap-2">
-                        <a href="{{ url_for('helpdesk.imprimir_os', id=chamado.id) }}" target="_blank" class="btn btn-outline-primary">
-                            <i class="bi bi-printer"></i> Imprimir Ordem de Serviço
-                        </a>
-                    </div>
+                    <p><b>Escola:</b> {{ escola }}</p>
+                    <p><b>Patrimônio:</b> {{ chamado.patrimonio_id or 'Não informado' }}</p>
                 </div>
             </div>
 
             <div class="card shadow-sm">
-                <div class="card-header bg-light"><b>Informações do Solicitante</b></div>
+                <div class="card-header bg-light"><b>Parecer e Laudo Técnico</b></div>
                 <div class="card-body">
-                    <p class="mb-1"><b>Nome:</b><br>{{ solicitante }}</p>
-                    <p class="mb-1"><b>Unidade:</b><br>{{ escola }}</p>
-                    <p class="mb-0"><b>CPF:</b> {{ chamado.solicitante_cpf }}</p>
+                    {% if chamado.parecer_tecnico %}
+                        <div class="p-3 bg-light border rounded">
+                            {{ chamado.parecer_tecnico }}
+                        </div>
+                    {% else %}
+                        <p class="text-muted italic">Nenhum parecer registrado ainda.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <div class="card shadow-sm border-primary mb-4">
+                <div class="card-header bg-primary text-white"><b>Atualizar Atendimento</b></div>
+                <div class="card-body">
+                    <form action="{{ url_for('helpdesk.mudar_status', id=chamado.id) }}" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Status:</label>
+                            <select name="status" class="form-select">
+                                <option value="Aberto" {% if chamado.status == 'Aberto' %}selected{% endif %}>Aberto</option>
+                                <option value="Em Andamento" {% if chamado.status == 'Em Andamento' %}selected{% endif %}>Em Atendimento</option>
+                                <option value="Concluído" {% if chamado.status == 'Concluído' %}selected{% endif %}>Concluído / Finalizado</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Laudo / O que foi feito:</label>
+                            <textarea name="parecer_tecnico" class="form-control" rows="5" placeholder="Ex: Efetuado limpeza de memória e reinstalação do Windows. Equipamento voltou a operar.">{{ chamado.parecer_tecnico or '' }}</textarea>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success">Salvar Parecer e Atualizar</button>
+                            <a href="{{ url_for('helpdesk.imprimir_os', id=chamado.id) }}" target="_blank" class="btn btn-outline-dark">
+                                <i class="bi bi-printer"></i> Imprimir O.S. Atualizada
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <p class="mb-1"><b>Técnico Responsável:</b> {{ session['username'] }}</p>
+                    <p class="mb-0"><b>Data Abertura:</b> {{ chamado.data_abertura.strftime('%d/%m/%Y %H:%M') }}</p>
                 </div>
             </div>
         </div>

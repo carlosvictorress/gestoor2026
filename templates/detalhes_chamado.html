@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-info-circle"></i> Detalhes do Chamado #{{ chamado.id }}</h2>
+        <a href="{{ url_for('helpdesk.painel_chamados') }}" class="btn btn-secondary">Voltar</a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white"><b>Descrição do Problema</b></div>
+                <div class="card-body">
+                    <p class="lead">{{ chamado.descricao_problema }}</p>
+                    <hr>
+                    <p><b>Categoria:</b> {{ chamado.categoria }}</p>
+                    <p><b>Patrimônio:</b> {{ chamado.patrimonio_id or 'Não informado' }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light"><b>Informações do Solicitante</b></div>
+                <div class="card-body">
+                    <p><b>Nome:</b> {{ solicitante }}</p>
+                    <p><b>Unidade:</b> {{ escola }}</p>
+                    <p><b>Status Atual:</b> 
+                        <span class="badge {% if chamado.status == 'Aberto' %}bg-danger{% else %}bg-success{% endif %}">
+                            {{ chamado.status }}
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

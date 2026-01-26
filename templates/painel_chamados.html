@@ -38,9 +38,9 @@
                             </span>
                         </td>
                         <td>
-                            <a href="{{ url_for('helpdesk.painel_chamados') }}" class="btn btn-sm btn-primary">
-                                <i class="bi bi-eye"></i> Visualizar
-                            </a>
+                            <a href="{{ url_for('helpdesk.detalhes_chamado', id=chamado.id) }}" class="btn btn-sm btn-primary">
+    <i class="bi bi-eye"></i> Visualizar
+</a>
                         </td>
                     </tr>
                     {% else %}

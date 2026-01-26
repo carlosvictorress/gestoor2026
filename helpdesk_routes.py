@@ -80,3 +80,22 @@ def buscar_servidor_api(cpf):
         })
     
     return jsonify({"sucesso": False, "mensagem": "CPF não localizado"}), 404
+
+@helpdesk_bp.route('/chamado/<int:id>')
+@login_required
+@role_required('admin')
+def detalhes_chamado(id):
+    chamado = ChamadoTecnico.query.get_or_404(id)
+    
+    # Busca o nome do servidor manualmente pelo CPF do chamado
+    servidor = Servidor.query.filter_by(cpf=chamado.solicitante_cpf).first()
+    nome_solicitante = servidor.nome if servidor else "Não Identificado"
+    
+    # Busca o nome da escola
+    escola = Escola.query.get(chamado.escola_id)
+    nome_escola = escola.nome if escola else "Secretaria"
+
+    return render_template('detalhes_chamado.html', 
+                           chamado=chamado, 
+                           solicitante=nome_solicitante,
+                           escola=nome_escola)

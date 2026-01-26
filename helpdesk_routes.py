@@ -4,6 +4,7 @@ from models import ChamadoTecnico, RelatorioTecnico, Servidor
 from utils import login_required, role_required
 from flask import jsonify
 from sqlalchemy import func
+from models import Escola
 
 helpdesk_bp = Blueprint('helpdesk', __name__)
 
@@ -50,25 +51,24 @@ def abrir_chamado():
 
 @helpdesk_bp.route('/api/buscar-servidor/<cpf>')
 def buscar_servidor_api(cpf):
-    # 1. Limpa o CPF recebido
     cpf_limpo = ''.join(filter(str.isdigit, cpf))
     
-    # 2. Busca robusta: ignora pontos e traços no banco de dados
-    from sqlalchemy import func
-    servidor = Servidor.query.filter(
-        func.replace(func.replace(Servidor.cpf, '.', ''), '-', '') == cpf_limpo
-    ).first()
+    # Busca o servidor pelo CPF
+    servidor = Servidor.query.filter_by(cpf=cpf_limpo).first()
 
     if servidor:
-        # 3. Proteção contra servidor sem escola vinculada
-        nome_escola = servidor.escola.nome if servidor.escola else "Secretaria / Sem Vínculo"
-        id_escola = servidor.escola_id if servidor.escola_id else 0
+        nome_escola = "Secretaria / Sem Vínculo"
+        # Se o servidor tiver um escola_id, buscamos o nome da escola manualmente
+        if servidor.escola_id:
+            escola = Escola.query.get(servidor.escola_id)
+            if escola:
+                nome_escola = escola.nome
 
         return jsonify({
             "sucesso": True,
             "nome": servidor.nome,
             "escola": nome_escola,
-            "id_escola": id_escola
+            "id_escola": servidor.escola_id or 0
         })
     
     return jsonify({"sucesso": False, "mensagem": "CPF não localizado"}), 404

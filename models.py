@@ -458,6 +458,8 @@ class ProdutoMerenda(db.Model):
     categoria = db.Column(db.String(100))  # Ex: Estocáveis, Proteína, Hortifrúti
     estoque_atual = db.Column(db.Float, nullable=False, default=0.0)
     
+    fator_conversao = db.Column(db.Float, default=1.0)
+    
     # --- NOVOS CAMPOS PROFISSIONAIS ---
     estoque_minimo = db.Column(db.Float, default=10.0) # Para alertas
     tipo_armazenamento = db.Column(db.String(50)) # Ex: Seco, Refrigerado, Congelado

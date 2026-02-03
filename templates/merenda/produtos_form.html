@@ -29,7 +29,7 @@
                                 <input type="text" class="form-control form-control-lg" name="nome" id="nome" value="{{ produto.nome if produto else '' }}" required placeholder="Ex: Arroz Agulhinha Tipo 1">
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label for="categoria" class="form-label">Categoria</label>
                                 <select class="form-select" name="categoria" id="categoria">
                                     <option value="" disabled selected>Selecione...</option>
@@ -42,15 +42,22 @@
                                 </select>
                             </div>
 
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label for="unidade_medida" class="form-label">Unidade de Medida <span class="text-danger">*</span></label>
-                                <select class="form-select" name="unidade_medida" id="unidade_medida" required>
+                                <select class="form-select" name="unidade_medida" id="unidade_medida" required onchange="verificarConversao()">
                                     <option value="KG" {{ 'selected' if produto and produto.unidade_medida == 'KG' }}>Quilograma (KG)</option>
                                     <option value="L" {{ 'selected' if produto and produto.unidade_medida == 'L' }}>Litro (L)</option>
                                     <option value="UNID" {{ 'selected' if produto and produto.unidade_medida == 'UNID' }}>Unidade (UNID)</option>
                                     <option value="PCT" {{ 'selected' if produto and produto.unidade_medida == 'PCT' }}>Pacote (PCT)</option>
+                                    <option value="FRD" {{ 'selected' if produto and produto.unidade_medida == 'FRD' }}>Fardo (FRD)</option>
                                     <option value="CX" {{ 'selected' if produto and produto.unidade_medida == 'CX' }}>Caixa (CX)</option>
                                 </select>
+                            </div>
+
+                            <div class="col-md-4" id="div_fator" style="display: none;">
+                                <label for="fator_conversao" class="form-label fw-bold text-primary">Qtd interna (Conversão)</label>
+                                <input type="number" step="0.01" class="form-control border-primary" name="fator_conversao" id="fator_conversao" value="{{ produto.fator_conversao if produto else '1.0' }}">
+                                <div class="form-text small">Ex: Se 1 fardo tem 10kg, digite 10.</div>
                             </div>
                         </div>
                     </div>
@@ -146,6 +153,24 @@
         </div>
     </form>
 </div>
+
+<script>
+function verificarConversao() {
+    const unid = document.getElementById('unidade_medida').value;
+    const divFator = document.getElementById('div_fator');
+    // Mostra o campo se for Fardo ou Caixa
+    if (unid === 'FRD' || unid === 'CX') {
+        divFator.style.display = 'block';
+    } else {
+        divFator.style.display = 'none';
+        // Reseta para 1.0 se for unidade simples para evitar erros de cálculo
+        document.getElementById('fator_conversao').value = "1.0";
+    }
+}
+
+// Executa ao carregar a página para o caso de edição de produto já existente
+document.addEventListener('DOMContentLoaded', verificarConversao);
+</script>
 
 <style>
     .border-top-primary { border-top: 4px solid #0d6efd !important; }

@@ -187,12 +187,22 @@ def novo_produto():
     if request.method == 'POST':
         try:
             # Tratamento de valores numéricos (troca vírgula por ponto)
-            def flt(val): return float(val.replace(',', '.')) if val else 0.0
+            def flt(val): 
+                if not val: return 0.0
+                return float(str(val).replace(',', '.'))
             
+            # Captura o fator de conversão do formulário
+            # Se estiver vazio ou não existir, o padrão é 1.0
+            fator_raw = request.form.get('fator_conversao')
+            fator_final = flt(fator_raw) if fator_raw and flt(fator_raw) > 0 else 1.0
+
             novo = ProdutoMerenda(
                 nome=request.form.get('nome'),
                 unidade_medida=request.form.get('unidade_medida'),
                 categoria=request.form.get('categoria'),
+                
+                # NOVO CAMPO: Fator de Conversão (Ex: 1 fardo = 10 unidades)
+                fator_conversao=fator_final,
                 
                 # Campos Profissionais
                 estoque_minimo=flt(request.form.get('estoque_minimo')),
@@ -224,17 +234,26 @@ def editar_produto(produto_id):
     produto = ProdutoMerenda.query.get_or_404(produto_id)
     if request.method == 'POST':
         try:
-            def flt(val): return float(val.replace(',', '.')) if val else 0.0
+            # Tratamento de valores numéricos (troca vírgula por ponto)
+            def flt(val): 
+                if not val: return 0.0
+                return float(str(val).replace(',', '.'))
+            
+            # Captura e atualiza o fator de conversão
+            # Se o campo estiver vazio ou for zero, define o padrão como 1.0
+            fator_raw = request.form.get('fator_conversao')
+            produto.fator_conversao = flt(fator_raw) if fator_raw and flt(fator_raw) > 0 else 1.0
 
             produto.nome = request.form.get('nome')
             produto.unidade_medida = request.form.get('unidade_medida')
             produto.categoria = request.form.get('categoria')
             
-            # Atualização dos novos campos
+            # Atualização dos demais campos
             produto.estoque_minimo = flt(request.form.get('estoque_minimo'))
             produto.tipo_armazenamento = request.form.get('tipo_armazenamento')
             produto.perecivel = True if request.form.get('perecivel') else False
             
+            # Dados nutricionais
             produto.calorias = flt(request.form.get('calorias'))
             produto.proteinas = flt(request.form.get('proteinas'))
             produto.carboidratos = flt(request.form.get('carboidratos'))
@@ -261,9 +280,9 @@ def entrada_estoque():
         try:
             produto_id = request.form.get('produto_id', type=int)
             quantidade_str = request.form.get('quantidade', '0').replace(',', '.')
-            quantidade = float(quantidade_str)
+            quantidade_digitada = float(quantidade_str)
 
-            if not produto_id or quantidade <= 0:
+            if not produto_id or quantidade_digitada <= 0:
                 flash('Produto e quantidade são obrigatórios.', 'danger')
                 return redirect(url_for('merenda.entrada_estoque'))
 
@@ -273,29 +292,41 @@ def entrada_estoque():
                 flash('Produto não encontrado.', 'danger')
                 return redirect(url_for('merenda.entrada_estoque'))
 
-            # --- LÓGICA PRINCIPAL ---
-            # 1. Adiciona a quantidade ao estoque atual do produto
-            produto.estoque_atual += quantidade
+            # --- LÓGICA DE CONVERSÃO AUTOMÁTICA ---
+            # O estoque_atual sempre armazena a menor unidade (ex: KG ou UNID).
+            # Se o produto for fardo/caixa, multiplicamos pelo fator cadastrado.
+            fator = produto.fator_conversao if produto.fator_conversao and produto.fator_conversao > 0 else 1.0
+            quantidade_para_estoque = quantidade_digitada * fator
+
+            # 1. Adiciona a quantidade convertida ao estoque atual do produto
+            produto.estoque_atual += quantidade_para_estoque
             
-            # 2. Cria um registro do movimento de estoque
+            # 2. Prepara a data de validade
             data_validade_str = request.form.get('data_validade')
             data_validade = datetime.strptime(data_validade_str, '%Y-%m-%d').date() if data_validade_str else None
 
+            # 3. Cria o registro do movimento de estoque
+            # Guardamos a 'quantidade_digitada' (ex: 5 fardos) para manter a coerência com a nota fiscal
             movimento = EstoqueMovimento(
                 produto_id=produto_id,
                 tipo='Entrada',
-                quantidade=quantidade,
+                quantidade=quantidade_digitada,
                 fornecedor=request.form.get('fornecedor'),
                 lote=request.form.get('lote'),
                 data_validade=data_validade,
                 usuario_responsavel=session.get('username')
             )
             
-            db.session.add(movimento) # Adiciona o novo registro de movimento
-            db.session.commit() # Salva o estoque atualizado do produto e o novo movimento
+            db.session.add(movimento)
+            db.session.commit()
             
-            registrar_log(f'Deu entrada de {quantidade} {produto.unidade_medida} do produto "{produto.nome}".')
-            flash(f'Entrada de estoque para "{produto.nome}" registrada com sucesso!', 'success')
+            # Log detalhado mostrando a conversão se ela existir
+            msg_log = f'Entrada de {quantidade_digitada} {produto.unidade_medida}'
+            if fator > 1:
+                msg_log += f' (Convertido em {quantidade_para_estoque} unidades de saldo)'
+            
+            registrar_log(f'{msg_log} do produto "{produto.nome}".')
+            flash(f'Entrada de "{produto.nome}" registrada! Saldo atualizado com sucesso.', 'success')
             return redirect(url_for('merenda.entrada_estoque'))
 
         except Exception as e:
@@ -1580,16 +1611,26 @@ def gerar_pdf_pedido(id):
     story.append(Paragraph(texto_info, style_normal))
     story.append(Spacer(1, 0.8*cm))
     
-    # 3. Tabela de Itens (Incluindo a nova coluna de Especificação)
-    # Cabeçalho da tabela com larguras ajustadas para o total de 18cm de área útil
+    # 3. Tabela de Itens (Incluindo a nova coluna de Especificação e Lógica de Conversão)
     dados_tabela = [['Produto', 'Especificação / Marca', 'Unid.', 'Qtd. Solicitada']]
     
     for item in pedido.itens:
         # Garante que um traço seja exibido caso a especificação esteja vazia
         especificacao = item.especificacao if item.especificacao else "-"
+        nome_exibicao = item.produto.nome.upper()
         
+        # --- LÓGICA DE EXIBIÇÃO DA CONVERSÃO NO PDF ---
+        # Se o produto tiver fator de conversão (fardo/caixa), detalha o total em unidades base
+        fator = item.produto.fator_conversao or 1.0
+        if fator > 1:
+            total_unidades = item.quantidade * fator
+            # Determina a unidade de destino (ex: KG para fardos de arroz, UNID para caixas de biscoito)
+            unidade_alvo = "unid/kg" 
+            detalhe_conversao = f"<br/><font color='gray' size='8'>(Total: {total_unidades:.2f} {unidade_alvo})</font>"
+            nome_exibicao += detalhe_conversao
+
         dados_tabela.append([
-            item.produto.nome.upper(),
+            Paragraph(nome_exibicao, style_normal), # Usamos Paragraph para aceitar a quebra de linha <br/>
             especificacao,
             item.produto.unidade_medida,
             f"{item.quantidade:.2f}".replace('.', ',')
@@ -1605,7 +1646,7 @@ def gerar_pdf_pedido(id):
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('ALIGN', (0, 0), (1, -1), 'LEFT'), # Alinha Produto e Especificação à esquerda
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9), # Tamanho de fonte reduzido para caber mais texto
+        ('FONTSIZE', (0, 0), (-1, -1), 9), 
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
         ('BACKGROUND', (0, 1), (-1, -1), colors.whitesmoke),

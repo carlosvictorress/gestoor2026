@@ -1,10 +1,11 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from extensions import db
-from models import ChamadoTecnico, RelatorioTecnico, Servidor
+from models import ChamadoTecnico, LaudoTecnicoHelpdesk, Servidor 
 from utils import login_required, role_required
 from flask import jsonify
 from sqlalchemy import func
 from models import Escola
+
 
 helpdesk_bp = Blueprint('helpdesk', __name__)
 

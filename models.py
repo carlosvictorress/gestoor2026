@@ -1436,15 +1436,16 @@ class ChamadoTecnico(db.Model):
     data_abertura = db.Column(db.DateTime, default=datetime.utcnow)
     tecnico_responsavel = db.Column(db.String(100)) # Nome do técnico que assumiu    
     
-class RelatorioTecnico(db.Model):
+class LaudoTecnicoHelpdesk(db.Model): # Alterado de RelatorioTecnico para LaudoTecnicoHelpdesk
+    __tablename__ = 'helpdesk_laudo_tecnico' # Nome explícito da tabela
     id = db.Column(db.Integer, primary_key=True)
     chamado_id = db.Column(db.Integer, db.ForeignKey('chamado_tecnico.id'), unique=True)
     
     # Diagnóstico e Solução
     laudo_tecnico = db.Column(db.Text, nullable=False)
-    pecas_substituidas = db.Column(db.String(255)) # Ex: Teclado, Fonte, Memória
-    situacao_final = db.Column(db.String(50)) # Resolvido, Perda Total (Sucateamento)
-    data_conclusao = db.Column(db.DateTime, default=datetime.utcnow)    
+    pecas_substituidas = db.Column(db.String(255)) 
+    situacao_final = db.Column(db.String(50)) 
+    data_conclusao = db.Column(db.DateTime, default=datetime.utcnow)   
 
 class PedidoEmpresa(db.Model):
     __tablename__ = 'pedidos_empresa'

@@ -196,15 +196,19 @@
                             </thead>
                             <tbody>
                                 {% for produto in produtos_disponiveis %}
-                                <tr>
-                                    <td class="fw-bold">{{ produto.nome }}</td>
-                                    <td><span class="badge bg-light text-dark">{{ produto.unidade_medida }}</span></td>
-                                    <td>
-                                        <input type="hidden" name="produto_id[]" value="{{ produto.id }}">
-                                        <div class="input-group"><input type="number" step="0.01" min="0" name="quantidade[]" class="form-control form-control-sm" placeholder="0.00"><span class="input-group-text small">{{ produto.unidade_medida|lower }}</span></div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
+<tr>
+    <td class="fw-bold">{{ produto.nome }}</td>
+    <td><span class="badge bg-light text-dark">{{ produto.unidade_medida }}</span></td>
+    <td>
+        <input type="hidden" name="produto_id[]" value="{{ produto.id }}">
+        <div class="input-group mb-1">
+            <input type="number" step="0.01" name="quantidade[]" class="form-control" placeholder="Qtd">
+            <span class="input-group-text">{{ produto.unidade_medida|lower }}</span>
+        </div>
+        <input type="text" name="especificacao[]" class="form-control form-control-sm" placeholder="Ex: Marca X, Pacote 500g">
+    </td>
+</tr>
+{% endfor %}
                             </tbody>
                         </table>
                     </div>

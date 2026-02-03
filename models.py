@@ -1461,6 +1461,7 @@ class PedidoEmpresaItem(db.Model):
     pedido_id = db.Column(db.Integer, db.ForeignKey('pedidos_empresa.id'))
     produto_id = db.Column(db.Integer, db.ForeignKey('produto_merenda.id'))
     quantidade = db.Column(db.Float, nullable=False)
+    especificacao = db.Column(db.String(255))
     
     produto = db.relationship('ProdutoMerenda')    
     

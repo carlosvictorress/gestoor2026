@@ -1497,21 +1497,42 @@ def excluir_relatorio(id):
 @merenda_bp.route('/pedidos-empresa/novo', methods=['POST'])
 @login_required
 def novo_pedido_empresa():
+    # Captura as listas enviadas pelo formulário
     produtos_ids = request.form.getlist('produto_id[]')
     quantidades = request.form.getlist('quantidade[]')
+    especificacoes = request.form.getlist('especificacao[]') # Nova lista capturada
     
-    # Cria o cabeçalho do pedido
-    pedido = PedidoEmpresa(solicitante=session.get('username'), status='Rascunho')
-    db.session.add(pedido)
+    # Cria o cabeçalho do pedido (ID gerado automaticamente pelo DB)
+    pedido = PedidoEmpresa(
+        solicitante=session.get('username'), 
+        status='Rascunho',
+        data_pedido=datetime.utcnow()
+    )
     
-    # Adiciona apenas itens com quantidade > 0
-    for p_id, qtd in zip(produtos_ids, quantidades):
-        if qtd and float(qtd) > 0:
-            item = PedidoEmpresaItem(pedido=pedido, produto_id=p_id, quantidade=float(qtd))
-            db.session.add(item)
+    try:
+        db.session.add(pedido)
+        
+        # O zip combina as 3 listas para iterar sobre elas simultaneamente
+        for p_id, qtd, spec in zip(produtos_ids, quantidades, especificacoes):
+            # Tratamento básico para aceitar vírgula ou ponto
+            qtd_formatada = qtd.replace(',', '.') if isinstance(qtd, str) else qtd
+            
+            if qtd_formatada and float(qtd_formatada) > 0:
+                item = PedidoEmpresaItem(
+                    pedido=pedido, 
+                    produto_id=int(p_id), 
+                    quantidade=float(qtd_formatada),
+                    especificacao=spec # Salva a especificação/marca/gramatura
+                )
+                db.session.add(item)
+        
+        db.session.commit()
+        flash('Solicitação salva como rascunho com sucesso!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao salvar solicitação: {str(e)}', 'danger')
     
-    db.session.commit()
-    flash('Solicitação salva como rascunho!', 'success')
     return redirect(url_for('merenda.dashboard'))
 
 @merenda_bp.route('/pedidos-empresa/excluir/<int:id>')
@@ -1530,13 +1551,13 @@ def excluir_pedido_empresa(id):
 @login_required
 @role_required('Merenda Escolar', 'admin')
 def gerar_pdf_pedido(id):
-    # 1. Busca o pedido e os itens associados
+    # 1. Busca o pedido e os itens associados no banco de dados
     pedido = PedidoEmpresa.query.get_or_404(id)
     
-    # 2. Configuração do Buffer e Documento
+    # 2. Configuração do Buffer e do Documento PDF
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, 
-                            rightMargin=2*cm, leftMargin=2*cm, 
+                            rightMargin=1.5*cm, leftMargin=1.5*cm, 
                             topMargin=3*cm, bottomMargin=2*cm)
     
     styles = getSampleStyleSheet()
@@ -1559,37 +1580,46 @@ def gerar_pdf_pedido(id):
     story.append(Paragraph(texto_info, style_normal))
     story.append(Spacer(1, 0.8*cm))
     
-    # Tabela de Itens
-    dados_tabela = [['Produto', 'Unidade', 'Quantidade Solicitada']]
+    # 3. Tabela de Itens (Incluindo a nova coluna de Especificação)
+    # Cabeçalho da tabela com larguras ajustadas para o total de 18cm de área útil
+    dados_tabela = [['Produto', 'Especificação / Marca', 'Unid.', 'Qtd. Solicitada']]
     
     for item in pedido.itens:
+        # Garante que um traço seja exibido caso a especificação esteja vazia
+        especificacao = item.especificacao if item.especificacao else "-"
+        
         dados_tabela.append([
             item.produto.nome.upper(),
+            especificacao,
             item.produto.unidade_medida,
             f"{item.quantidade:.2f}".replace('.', ',')
         ])
     
-    # Estilização da Tabela (Mantendo o padrão verde escuro do seu sistema)
-    t = Table(dados_tabela, colWidths=[10*cm, 3*cm, 4*cm])
+    # Definição das larguras das colunas: Produto (7cm), Especificação (6cm), Unidade (2cm), Qtd (3cm)
+    t = Table(dados_tabela, colWidths=[7*cm, 6*cm, 2*cm, 3*cm])
+    
+    # Estilização da Tabela mantendo o padrão verde escuro
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#004d40')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('ALIGN', (0, 0), (0, -1), 'LEFT'), # Nome do produto à esquerda
+        ('ALIGN', (0, 0), (1, -1), 'LEFT'), # Alinha Produto e Especificação à esquerda
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9), # Tamanho de fonte reduzido para caber mais texto
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
         ('BACKGROUND', (0, 1), (-1, -1), colors.whitesmoke),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     
     story.append(t)
-    story.append(Spacer(1, 2*cm))
+    story.append(Spacer(1, 2.5*cm))
     
-    # Campo de Assinatura
+    # 4. Campo de Assinatura
     story.append(Paragraph("________________________________________________", style_titulo))
     story.append(Paragraph("Responsável pela Secretaria de Educação", style_titulo))
     
-    # Geração Final com Cabeçalho e Rodapé Moderno
+    # Geração Final com o timbre da prefeitura (Cabeçalho e Rodapé Moderno)
     doc.build(story, onFirstPage=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Solicitação de Compra"), 
                      onLaterPages=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Solicitação de Compra"))
     

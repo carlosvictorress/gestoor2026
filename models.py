@@ -1445,4 +1445,21 @@ class RelatorioTecnico(db.Model):
     pecas_substituidas = db.Column(db.String(255)) # Ex: Teclado, Fonte, Memória
     situacao_final = db.Column(db.String(50)) # Resolvido, Perda Total (Sucateamento)
     data_conclusao = db.Column(db.DateTime, default=datetime.utcnow)    
+
+class PedidoEmpresa(db.Model):
+    __tablename__ = 'pedidos_empresa'
+    id = db.Column(db.Integer, primary_key=True)
+    data_pedido = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(20), default='Rascunho')  # Rascunho ou Enviado
+    solicitante = db.Column(db.String(100))
+    itens = db.relationship('PedidoEmpresaItem', backref='pedido', cascade="all, delete-orphan")
+
+class PedidoEmpresaItem(db.Model):
+    __tablename__ = 'pedidos_empresa_itens'
+    id = db.Column(db.Integer, primary_key=True)
+    pedido_id = db.Column(db.Integer, db.ForeignKey('pedidos_empresa.id'))
+    produto_id = db.Column(db.Integer, db.ForeignKey('produto_merenda.id'))
+    quantidade = db.Column(db.Float, nullable=False)
+    
+    produto = db.relationship('ProdutoMerenda')    
     

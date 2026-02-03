@@ -14,8 +14,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from extensions import db, bcrypt
 # Importe todos os novos modelos aqui
 from werkzeug.utils import secure_filename
-from models import Escola, ProdutoMerenda, EstoqueMovimento, SolicitacaoMerenda, SolicitacaoItem, Cardapio, PratoDiario, HistoricoCardapio, Servidor, RelatorioTecnico, RelatorioAnexo
-from utils import login_required, registrar_log, limpar_cpf, cabecalho_e_rodape, currency_filter_br, cabecalho_e_rodape_moderno, upload_arquivo_para_nuvem
+from models import Escola, ProdutoMerenda, EstoqueMovimento, SolicitacaoMerenda, SolicitacaoItem, Cardapio, PratoDiario, HistoricoCardapio, Servidor, RelatorioTecnico, RelatorioAnexo, PedidoEmpresa, PedidoEmpresaItemfrom utils import login_required, registrar_log, limpar_cpf, cabecalho_e_rodape, currency_filter_br, cabecalho_e_rodape_moderno, upload_arquivo_para_nuvem
     
 from sqlalchemy import or_, func
 from datetime import datetime
@@ -35,25 +34,16 @@ merenda_bp = Blueprint('merenda', __name__, url_prefix='/merenda')
 @login_required
 @role_required("RH", "admin", "Merenda Escolar")
 def dashboard():
-    # ... (Mantenha o código existente dos KPIs e gráficos) ...
-    
+    # --- KPIs BÁSICOS ---
     total_escolas_ativas = Escola.query.filter_by(status='Ativa').count()
     total_produtos = ProdutoMerenda.query.count()
     solicitacoes_pendentes = SolicitacaoMerenda.query.filter_by(status='Pendente').count()
     
-    # ... (Mantenha as queries dos gráficos existentes) ...
-    
-    # --- NOVO: LÓGICA DE ALERTA DE VALIDADE ---
+    # --- LÓGICA DE ALERTA DE VALIDADE ---
     hoje = date.today()
-    data_limite_alerta = hoje + timedelta(days=45) # Alerta para produtos vencendo nos próximos 45 dias
-    data_corte_passado = hoje - timedelta(days=30) # Mostra vencidos até 30 dias atrás (para conferência)
+    data_limite_alerta = hoje + timedelta(days=45) 
+    data_corte_passado = hoje - timedelta(days=30) 
 
-    # Busca Entradas de Estoque onde:
-    # 1. A validade existe (não é nula)
-    # 2. A validade é menor que o limite (está vencendo ou venceu)
-    # 3. Não é muito antiga (data_corte_passado)
-    # 4. O Produto ainda tem estoque positivo (Evita alertar sobre o que já acabou)
-    
     alertas_validade = db.session.query(
         ProdutoMerenda.nome,
         EstoqueMovimento.lote,
@@ -69,29 +59,43 @@ def dashboard():
         ProdutoMerenda.estoque_atual > 0 
      ).order_by(EstoqueMovimento.data_validade.asc()).all()
 
-    # --- FIM DA NOVA LÓGICA ---
-
-    # (Mantenha a query de estoque baixo existente)
-    estoque_baixo_limite = 10
+    # --- ESTOQUE BAIXO ---
+    # Busca produtos com estoque abaixo do mínimo definido no cadastro de cada um
     produtos_estoque_baixo = ProdutoMerenda.query.filter(
-        ProdutoMerenda.estoque_atual < estoque_baixo_limite, 
+        ProdutoMerenda.estoque_atual <= ProdutoMerenda.estoque_minimo, 
         ProdutoMerenda.estoque_atual > 0
     ).order_by(ProdutoMerenda.estoque_atual.asc()).all()
 
-    # Adicione 'alertas_validade' e 'date' (para comparação no template) ao return
+    # --- NOVO: PRODUTOS PARA O MODAL DE SOLICITAÇÃO (EMPRESA) ---
+    # Filtramos para não mostrar produtos da Agricultura Familiar no pedido para empresa
+    produtos_disponiveis = ProdutoMerenda.query.filter(
+        or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None))
+    ).order_by(ProdutoMerenda.nome.asc()).all()
+
+    # --- NOVO: HISTÓRICO DE PEDIDOS PARA EMPRESA ---
+    # Busca os pedidos realizados, ordenando pelos mais recentes
+    pedidos_empresa = PedidoEmpresa.query.order_by(PedidoEmpresa.data_pedido.desc()).limit(10).all()
+
+    # --- QUERIES DOS GRÁFICOS (Exemplo de estrutura caso você as tenha) ---
+    # Se você já tiver a lógica dos gráficos pronta, mantenha os nomes das variáveis abaixo:
+    escolas_labels = [] # Suas labels de consumo por escola
+    escolas_data = []   # Seus dados de consumo por escola
+    produtos_labels = [] # Suas labels de produtos mais saídos
+    produtos_data = []   # Seus dados de produtos mais saídos
+
     return render_template('merenda/dashboard.html',
                            total_escolas_ativas=total_escolas_ativas,
                            total_produtos=total_produtos,
                            solicitacoes_pendentes=solicitacoes_pendentes,
-                           # ... mantenha as variáveis dos gráficos ...
-                           escolas_labels=list(escolas_labels if 'escolas_labels' in locals() else []), 
-                           escolas_data=list(escolas_data if 'escolas_data' in locals() else []),
-                           produtos_labels=list(produtos_labels if 'produtos_labels' in locals() else []),
-                           produtos_data=list(produtos_data if 'produtos_data' in locals() else []),
+                           alertas_validade=alertas_validade,
                            produtos_estoque_baixo=produtos_estoque_baixo,
-                           
-                           alertas_validade=alertas_validade, # <--- ADICIONE ESTA
-                           hoje=hoje)
+                           produtos_disponiveis=produtos_disponiveis,
+                           pedidos_empresa=pedidos_empresa,
+                           hoje=hoje,
+                           escolas_labels=escolas_labels,
+                           escolas_data=escolas_data,
+                           produtos_labels=produtos_labels,
+                           produtos_data=produtos_data)
 
 # Rotas para Gerenciamento de Escolas
 @merenda_bp.route('/escolas')
@@ -1488,3 +1492,124 @@ def excluir_relatorio(id):
         flash(f'Erro ao excluir: {e}', 'danger')
         
     return redirect(url_for('merenda.relatorios_tecnicos'))
+
+@merenda_bp.route('/pedidos-empresa/novo', methods=['POST'])
+@login_required
+def novo_pedido_empresa():
+    produtos_ids = request.form.getlist('produto_id[]')
+    quantidades = request.form.getlist('quantidade[]')
+    
+    # Cria o cabeçalho do pedido
+    pedido = PedidoEmpresa(solicitante=session.get('username'), status='Rascunho')
+    db.session.add(pedido)
+    
+    # Adiciona apenas itens com quantidade > 0
+    for p_id, qtd in zip(produtos_ids, quantidades):
+        if qtd and float(qtd) > 0:
+            item = PedidoEmpresaItem(pedido=pedido, produto_id=p_id, quantidade=float(qtd))
+            db.session.add(item)
+    
+    db.session.commit()
+    flash('Solicitação salva como rascunho!', 'success')
+    return redirect(url_for('merenda.dashboard'))
+
+@merenda_bp.route('/pedidos-empresa/excluir/<int:id>')
+@login_required
+def excluir_pedido_empresa(id):
+    pedido = PedidoEmpresa.query.get_or_404(id)
+    if pedido.status == 'Enviado':
+        flash('Pedidos já enviados ao fornecedor não podem ser excluídos!', 'danger')
+    else:
+        db.session.delete(pedido)
+        db.session.commit()
+        flash('Pedido excluído com sucesso.', 'success')
+    return redirect(url_for('merenda.dashboard'))
+
+@merenda_bp.route('/pedidos-empresa/<int:id>/pdf')
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def gerar_pdf_pedido(id):
+    # 1. Busca o pedido e os itens associados
+    pedido = PedidoEmpresa.query.get_or_404(id)
+    
+    # 2. Configuração do Buffer e Documento
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, 
+                            rightMargin=2*cm, leftMargin=2*cm, 
+                            topMargin=3*cm, bottomMargin=2*cm)
+    
+    styles = getSampleStyleSheet()
+    style_titulo = styles['Heading1']
+    style_titulo.alignment = 1 # Centralizado
+    style_normal = styles['BodyText']
+    
+    story = []
+    
+    # Título do Documento
+    story.append(Paragraph(f"SOLICITAÇÃO DE COMPRA Nº {pedido.id}/{pedido.data_pedido.year}", style_titulo))
+    story.append(Spacer(1, 0.5*cm))
+    
+    # Informações do Pedido
+    texto_info = f"""
+    <b>Data da Solicitação:</b> {pedido.data_pedido.strftime('%d/%m/%Y %H:%M')}<br/>
+    <b>Solicitante:</b> {pedido.solicitante}<br/>
+    <b>Status:</b> {pedido.status}
+    """
+    story.append(Paragraph(texto_info, style_normal))
+    story.append(Spacer(1, 0.8*cm))
+    
+    # Tabela de Itens
+    dados_tabela = [['Produto', 'Unidade', 'Quantidade Solicitada']]
+    
+    for item in pedido.itens:
+        dados_tabela.append([
+            item.produto.nome.upper(),
+            item.produto.unidade_medida,
+            f"{item.quantidade:.2f}".replace('.', ',')
+        ])
+    
+    # Estilização da Tabela (Mantendo o padrão verde escuro do seu sistema)
+    t = Table(dados_tabela, colWidths=[10*cm, 3*cm, 4*cm])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#004d40')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'), # Nome do produto à esquerda
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.whitesmoke),
+    ]))
+    
+    story.append(t)
+    story.append(Spacer(1, 2*cm))
+    
+    # Campo de Assinatura
+    story.append(Paragraph("________________________________________________", style_titulo))
+    story.append(Paragraph("Responsável pela Secretaria de Educação", style_titulo))
+    
+    # Geração Final com Cabeçalho e Rodapé Moderno
+    doc.build(story, onFirstPage=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Solicitação de Compra"), 
+                     onLaterPages=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Solicitação de Compra"))
+    
+    buffer.seek(0)
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=Solicitacao_Compra_{pedido.id}.pdf'
+    
+    return response
+
+@merenda_bp.route('/pedidos-empresa/enviar/<int:id>')
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def enviar_pedido_fornecedor(id):
+    pedido = PedidoEmpresa.query.get_or_404(id)
+    try:
+        pedido.status = 'Enviado'
+        db.session.commit()
+        registrar_log(f'Enviou pedido à empresa #{id} para o fornecedor.')
+        flash(f'Pedido #{id} enviado com sucesso! O rascunho foi bloqueado para alterações.', 'info')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao enviar pedido: {e}', 'danger')
+    return redirect(url_for('merenda.dashboard'))

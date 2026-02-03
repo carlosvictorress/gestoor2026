@@ -1644,3 +1644,52 @@ def enviar_pedido_fornecedor(id):
         db.session.rollback()
         flash(f'Erro ao enviar pedido: {e}', 'danger')
     return redirect(url_for('merenda.dashboard'))
+
+@merenda_bp.route('/pedidos-empresa/editar/<int:id>', methods=['GET', 'POST'])
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def editar_pedido_empresa(id):
+    pedido = PedidoEmpresa.query.get_or_404(id)
+    
+    # Segurança: Só permite editar se for rascunho
+    if pedido.status != 'Rascunho':
+        flash('Apenas rascunhos podem ser editados.', 'warning')
+        return redirect(url_for('merenda.dashboard'))
+
+    if request.method == 'POST':
+        try:
+            # Limpa os itens antigos para reinserir os novos (mais simples que dar update um por um)
+            PedidoEmpresaItem.query.filter_by(pedido_id=id).delete()
+            
+            produtos_ids = request.form.getlist('produto_id[]')
+            quantidades = request.form.getlist('quantidade[]')
+            especificacoes = request.form.getlist('especificacao[]')
+
+            for p_id, qtd, spec in zip(produtos_ids, quantidades, especificacoes):
+                qtd_formatada = qtd.replace(',', '.') if qtd else "0"
+                if float(qtd_formatada) > 0:
+                    novo_item = PedidoEmpresaItem(
+                        pedido_id=id,
+                        produto_id=int(p_id),
+                        quantidade=float(qtd_formatada),
+                        especificacao=spec
+                    )
+                    db.session.add(novo_item)
+            
+            db.session.commit()
+            flash('Pedido atualizado com sucesso!', 'success')
+            return redirect(url_for('merenda.dashboard'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao atualizar: {str(e)}', 'danger')
+
+    # Para o GET: precisamos listar todos os produtos e marcar os que já estão no pedido
+    produtos = ProdutoMerenda.query.order_by(ProdutoMerenda.nome).all()
+    # Cria um dicionário {produto_id: {qtd: x, spec: y}} para facilitar o preenchimento no HTML
+    itens_atuais = {item.produto_id: item for item in pedido.itens}
+    
+    return render_template('merenda/pedido_empresa_edit.html', 
+                           pedido=pedido, 
+                           produtos=produtos, 
+                           itens_atuais=itens_atuais)

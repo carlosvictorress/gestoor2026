@@ -153,21 +153,37 @@
                             </thead>
                             <tbody>
                                 {% for pedido in pedidos_empresa %}
-                                <tr>
-                                    <td>#{{ pedido.id }}</td>
-                                    <td>{{ pedido.data_pedido.strftime('%d/%m/%Y %H:%M') }}</td>
-                                    <td>{{ pedido.solicitante }}</td>
-                                    <td><span class="badge {{ 'bg-info' if pedido.status == 'Rascunho' else 'bg-success' }}">{{ pedido.status }}</span></td>
-                                    <td class="text-center">
-                                        <div class="btn-group shadow-sm">
-                                            <a href="{{ url_for('merenda.gerar_pdf_pedido', id=pedido.id) }}" class="btn btn-sm btn-outline-danger" title="Gerar PDF"><i class="bi bi-file-pdf"></i></a>
-                                            {% if pedido.status == 'Rascunho' %}
-                                            <a href="{{ url_for('merenda.enviar_pedido_fornecedor', id=pedido.id) }}" class="btn btn-sm btn-outline-success" title="Enviar" onclick="return confirm('Bloquear alterações e enviar?')"><i class="bi bi-send-check"></i></a>
-                                            <a href="{{ url_for('merenda.excluir_pedido_empresa', id=pedido.id) }}" class="btn btn-sm btn-outline-secondary" onclick="return confirm('Excluir rascunho?')"><i class="bi bi-trash"></i></a>
-                                            {% endif %}
-                                        </div>
-                                    </td>
-                                </tr>
+                               <tr>
+    <td>#{{ pedido.id }}</td>
+    <td>{{ pedido.data_pedido.strftime('%d/%m/%Y %H:%M') }}</td>
+    <td>{{ pedido.solicitante }}</td>
+    <td>
+        <span class="badge {{ 'bg-info' if pedido.status == 'Rascunho' else 'bg-success' }}">
+            {{ pedido.status }}
+        </span>
+    </td>
+    <td class="text-center">
+        <div class="btn-group shadow-sm">
+            <a href="{{ url_for('merenda.gerar_pdf_pedido', id=pedido.id) }}" class="btn btn-sm btn-outline-danger" title="Gerar PDF">
+                <i class="bi bi-file-pdf"></i>
+            </a>
+
+            {% if pedido.status == 'Rascunho' %}
+                <a href="{{ url_for('merenda.editar_pedido_empresa', id=pedido.id) }}" class="btn btn-sm btn-outline-primary" title="Editar Rascunho">
+                    <i class="bi bi-pencil"></i>
+                </a>
+
+                <a href="{{ url_for('merenda.enviar_pedido_fornecedor', id=pedido.id) }}" class="btn btn-sm btn-outline-success" title="Enviar" onclick="return confirm('Bloquear alterações e enviar?')">
+                    <i class="bi bi-send-check"></i>
+                </a>
+
+                <a href="{{ url_for('merenda.excluir_pedido_empresa', id=pedido.id) }}" class="btn btn-sm btn-outline-secondary" title="Excluir" onclick="return confirm('Excluir rascunho?')">
+                    <i class="bi bi-trash"></i>
+                </a>
+            {% endif %}
+        </div>
+    </td>
+</tr>
                                 {% else %}
                                 <tr><td colspan="5" class="text-center py-4">Nenhuma solicitação este mês.</td></tr>
                                 {% endfor %}
@@ -213,7 +229,9 @@
                         </table>
                     </div>
                 </div>
-                <div class="modal-footer bg-light"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-warning fw-bold text-white px-4">Salvar Rascunho</button></div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning fw-bold text-white px-4">Salvar Rascunho</button></div>
             </div>
         </form>
     </div>

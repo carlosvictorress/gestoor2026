@@ -3,75 +3,114 @@
 {% block title %}Nova Solicitação de Merenda{% endblock %}
 
 {% block content %}
-<h2><i class="bi bi-card-list"></i> Nova Solicitação de Merenda Escolar</h2>
-<hr>
-
-<form method="POST" id="solicitacaoForm">
-    <div class="card shadow-sm">
-        <div class="card-header">
-            <h5>Dados da Solicitação</h5>
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center my-4">
+        <div>
+            <h2 class="fw-bold text-primary"><i class="bi bi-card-list"></i> Nova Solicitação de Merenda</h2>
+            <p class="text-muted">Lançamento de pedidos das unidades escolares de Valença do Piauí</p>
         </div>
-        <div class="card-body">
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <label for="escola_id" class="form-label">Escola Solicitante*</label>
-                    <select class="form-select" name="escola_id" id="escola_id" required>
-                        <option value="">-- Selecione a escola --</option>
-                        {% for e in escolas %}
-                        <option value="{{ e.id }}">{{ e.nome }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label for="solicitante_cpf" class="form-label">Servidor Solicitante*</label>
-                    <select class="form-select" name="solicitante_cpf" id="solicitante_cpf" required>
-                        <option value="">-- Selecione o servidor responsável --</option>
-                         {% for s in servidores %}
-                        <option value="{{ s.cpf }}">{{ s.nome }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
-            <hr>
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">Itens Solicitados</h5>
-                <button type="button" class="btn btn-sm btn-success" id="addItem"><i class="bi bi-plus-circle"></i> Adicionar Item</button>
-            </div>
-            
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th style="width: 60%;">Produto</th>
-                        <th>Quantidade</th>
-                        <th>Ação</th>
-                    </tr>
-                </thead>
-                <tbody id="itensContainer">
-                    </tbody>
-            </table>
-        </div>
-        <div class="card-footer text-end">
-            <a href="{{ url_for('merenda.listar_produtos') }}" class="btn btn-secondary">Cancelar</a>
-            <button type="submit" class="btn btn-primary"><i class="bi bi-send-fill"></i> Enviar Solicitação</button>
-        </div>
+        <a href="{{ url_for('merenda.painel_solicitacoes') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Voltar
+        </a>
     </div>
-</form>
 
+    <form method="POST" id="solicitacaoForm">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white py-3">
+                <h5 class="m-0 fw-bold"><i class="bi bi-info-circle text-primary me-2"></i>Cabeçalho da Solicitação</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="escola_id" class="form-label fw-bold">Escola Solicitante*</label>
+                        <select class="form-select select2" name="escola_id" id="escola_id" required>
+                            <option value="">-- Selecione a escola --</option>
+                            {% for e in escolas %}
+                            <option value="{{ e.id }}">{{ e.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="solicitante_cpf" class="form-label fw-bold">Servidor Solicitante*</label>
+                        <select class="form-select select2" name="solicitante_cpf" id="solicitante_cpf" required>
+                            <option value="">-- Selecione o servidor responsável --</option>
+                            {% for s in servidores %}
+                            <option value="{{ s.cpf }}">{{ s.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="m-0 fw-bold"><i class="bi bi-basket2 text-primary me-2"></i>Itens da Merenda</h5>
+                <button type="button" class="btn btn-sm btn-success" id="addItem">
+                    <i class="bi bi-plus-lg"></i> Adicionar Item
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 50%;">Produto</th>
+                                <th style="width: 20%;">Quantidade</th>
+                                <th style="width: 20%;">Resumo de Saída</th>
+                                <th style="width: 10%;" class="text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itensContainer">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-white py-3 text-end">
+                <button type="submit" class="btn btn-primary btn-lg px-5" id="btnSalvar">
+                    <i class="bi bi-check-circle-fill me-2"></i>Finalizar Solicitação
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+{# Template para novas linhas #}
 <template id="itemTemplate">
-    <tr>
+    <tr class="item-linha">
         <td>
-            <select class="form-select" name="produto_id[]" required>
+            <select class="form-select produto-select" name="produto_id[]" required>
                 <option value="">-- Selecione um produto --</option>
                 {% for p in produtos %}
-                <option value="{{ p.id }}">{{ p.nome }} (Estoque: {{ p.estoque_atual }} {{ p.unidade_medida }})</option>
+                <option value="{{ p.id }}" 
+                        data-estoque="{{ p.estoque_atual }}" 
+                        data-unidade="{{ p.unidade_medida }}"
+                        data-fator="{{ p.fator_conversao or 1 }}"
+                        data-unidade-base="{{ p.unidade_medida_base or 'unid' }}">
+                    {{ p.nome }}
+                </option>
                 {% endfor %}
             </select>
+            <div class="small mt-1 info-estoque text-muted"></div>
         </td>
         <td>
-            <input type="text" class="form-control" name="quantidade[]" required placeholder="Qtd.">
+            <div class="input-group">
+                <input type="number" step="0.01" class="form-control qtd-input" name="quantidade[]" required placeholder="0.00">
+                <span class="input-group-text unidade-txt">-</span>
+            </div>
         </td>
         <td>
-            <button type="button" class="btn btn-sm btn-danger removeItem"><i class="bi bi-trash-fill"></i></button>
+            <div class="resumo-conversao p-2 rounded bg-light small" style="display: none;">
+                Total: <strong class="total-convertido">0</strong> <span class="unid-base-txt"></span>
+                <div class="alerta-estoque text-danger fw-bold mt-1" style="display: none;">
+                    <i class="bi bi-exclamation-triangle"></i> Estoque Insuficiente!
+                </div>
+            </div>
+        </td>
+        <td class="text-center">
+            <button type="button" class="btn btn-outline-danger btn-sm removeItem">
+                <i class="bi bi-trash"></i>
+            </button>
         </td>
     </tr>
 </template>
@@ -81,25 +120,92 @@ document.addEventListener('DOMContentLoaded', function () {
     const addItemBtn = document.getElementById('addItem');
     const container = document.getElementById('itensContainer');
     const template = document.getElementById('itemTemplate');
+    const btnSalvar = document.getElementById('btnSalvar');
 
     function addNewItem() {
         const clone = template.content.cloneNode(true);
         container.appendChild(clone);
     }
 
-    // Adicionar a primeira linha ao carregar a página
+    // Adiciona primeira linha
     addNewItem();
 
-    // Adicionar nova linha ao clicar no botão
     addItemBtn.addEventListener('click', addNewItem);
 
-    // Remover linha ao clicar no botão de lixeira
     container.addEventListener('click', function (e) {
-        if (e.target && e.target.classList.contains('removeItem')) {
-            e.target.closest('tr').remove();
+        if (e.target.closest('.removeItem')) {
+            const linhas = container.querySelectorAll('.item-linha');
+            if (linhas.length > 1) {
+                e.target.closest('.item-linha').remove();
+                validarFormulario();
+            } else {
+                alert("A solicitação deve ter pelo menos um item.");
+            }
         }
     });
+
+    container.addEventListener('change', function(e) {
+        if (e.target.classList.contains('produto-select') || e.target.classList.contains('qtd-input')) {
+            atualizarLinha(e.target.closest('.item-linha'));
+        }
+    });
+
+    container.addEventListener('input', function(e) {
+        if (e.target.classList.contains('qtd-input')) {
+            atualizarLinha(e.target.closest('.item-linha'));
+        }
+    });
+
+    function atualizarLinha(linha) {
+        const select = linha.querySelector('.produto-select');
+        const option = select.options[select.selectedIndex];
+        const qtdInput = linha.querySelector('.qtd-input');
+        const infoEstoque = linha.querySelector('.info-estoque');
+        const unidadeTxt = linha.querySelector('.unidade-txt');
+        const resumo = linha.querySelector('.resumo-conversao');
+        const totalConv = linha.querySelector('.total-convertido');
+        const unidBaseTxt = linha.querySelector('.unid-base-txt');
+        const alerta = linha.querySelector('.alerta-estoque');
+
+        if (select.value) {
+            const estoque = parseFloat(option.dataset.estoque);
+            const fator = parseFloat(option.dataset.fator);
+            const unidade = option.dataset.unidade;
+            const unidBase = option.dataset.unidadeBase;
+            const qtdPedida = parseFloat(qtdInput.value) || 0;
+            const totalFinal = qtdPedida * fator;
+
+            infoEstoque.innerHTML = `Disponível: <span class="badge bg-secondary">${estoque} ${unidBase}</span>`;
+            unidadeTxt.textContent = unidade;
+            unidBaseTxt.textContent = unidBase;
+
+            if (fator > 1) {
+                resumo.style.display = 'block';
+                totalConv.textContent = totalFinal.toFixed(2);
+            } else {
+                resumo.style.display = 'none';
+            }
+
+            // Validação de Estoque
+            if (totalFinal > estoque) {
+                alerta.style.display = 'block';
+                linha.classList.add('table-danger');
+            } else {
+                alerta.style.display = 'none';
+                linha.classList.remove('table-danger');
+            }
+        } else {
+            infoEstoque.textContent = '';
+            unidadeTxt.textContent = '-';
+            resumo.style.display = 'none';
+        }
+        validarFormulario();
+    }
+
+    function validarFormulario() {
+        const erros = container.querySelectorAll('.table-danger').length;
+        btnSalvar.disabled = (erros > 0);
+    }
 });
 </script>
-
 {% endblock %}

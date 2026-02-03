@@ -11,32 +11,48 @@
 <div class="row">
     <div class="col-lg-7">
         <div class="card shadow-sm mb-4">
-            <div class="card-header">
-                <h5>Itens Solicitados</h5>
+            <div class="card-header bg-white py-3">
+                <h5 class="m-0 fw-bold"><i class="bi bi-list-check text-primary me-2"></i>Itens Solicitados</h5>
             </div>
             <div class="card-body">
                 <ul class="list-group list-group-flush">
                     {% for item in solicitacao.itens %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        {{ item.produto.nome }}
-                        <span class="badge bg-primary rounded-pill">{{ item.quantidade_solicitada }} {{ item.produto.unidade_medida }}</span>
+                    <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                        <div>
+                            <span class="fw-bold d-block text-uppercase">{{ item.produto.nome }}</span>
+                            
+                            {# Lógica de Conversão Visual para o Almoxarife #}
+                            {% if item.produto.fator_conversao and item.produto.fator_conversao > 1 %}
+                                <small class="text-primary fw-bold">
+                                    <i class="bi bi-box-seam me-1"></i> 
+                                    SEPARAR TOTAL: {{ (item.quantidade_solicitada * item.produto.fator_conversao)|float }} 
+                                    {{ item.produto.unidade_medida_base or 'unid/kg' }}
+                                </small>
+                            {% endif %}
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-primary rounded-pill fs-6">
+                                {{ item.quantidade_solicitada }} {{ item.produto.unidade_medida }}
+                            </span>
+                        </div>
                     </li>
                     {% endfor %}
                 </ul>
             </div>
         </div>
     </div>
+
     <div class="col-lg-5">
         <div class="card shadow-sm mb-4">
-            <div class="card-header">
-                <h5>Informações e Ações</h5>
+            <div class="card-header bg-white py-3">
+                <h5 class="m-0 fw-bold"><i class="bi bi-info-circle text-primary me-2"></i>Informações e Ações</h5>
             </div>
             <div class="card-body">
                 <p><strong>Escola:</strong> {{ solicitacao.escola.nome }}</p>
                 <p><strong>Data do Pedido:</strong> {{ solicitacao.data_solicitacao.strftime('%d/%m/%Y %H:%M') }}</p>
                 <p><strong>Solicitante:</strong> {{ solicitacao.solicitante.nome if solicitacao.solicitante else 'N/A' }}</p>
                 <hr>
-                <p><strong>Status:</strong>
+                <p><strong>Status Atual:</strong>
                     <span class="badge fs-6
                         {% if solicitacao.status == 'Pendente' %} bg-warning text-dark
                         {% elif solicitacao.status == 'Autorizada' %} bg-info text-dark
@@ -47,34 +63,48 @@
                 </p>
 
                 {% if solicitacao.status == 'Pendente' %}
+                <div class="alert alert-warning small">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    Este pedido aguarda autorização para liberar a saída no estoque.
+                </div>
                 <form action="{{ url_for('merenda.autorizar_solicitacao', solicitacao_id=solicitacao.id) }}" method="POST">
                     <div class="mb-3">
-                        <label for="autorizador_cpf" class="form-label">Autorizado por:*</label>
+                        <label for="autorizador_cpf" class="form-label fw-bold">Autorizado por:*</label>
                         <select class="form-select" name="autorizador_cpf" required>
                             <option value="">-- Selecione o servidor --</option>
                             {% for s in servidores %}<option value="{{ s.cpf }}">{{ s.nome }}</option>{% endfor %}
                         </select>
                     </div>
-                    <button type="submit" class="btn btn-info w-100"><i class="bi bi-check2-circle"></i> Autorizar Pedido</button>
+                    <button type="submit" class="btn btn-info w-100 fw-bold text-dark"><i class="bi bi-check2-circle"></i> Autorizar Pedido</button>
                 </form>
+
                 {% elif solicitacao.status == 'Autorizada' %}
                 <p><strong>Autorizado por:</strong> {{ solicitacao.autorizador.nome if solicitacao.autorizador else 'N/A' }}</p>
                 <hr>
+                <div class="alert alert-info small">
+                    <i class="bi bi-truck me-2"></i>
+                    Ao confirmar a entrega, o sistema fará a <b>baixa automática</b> convertendo fardos/caixas em unidades.
+                </div>
                 <form action="{{ url_for('merenda.detalhes_solicitacao', solicitacao_id=solicitacao.id) }}" method="POST">
                     <input type="hidden" name="autorizador_cpf" value="{{ solicitacao.autorizador_cpf }}">
                     <div class="mb-3">
-                        <label for="entregador_cpf" class="form-label">Entregue por:*</label>
+                        <label for="entregador_cpf" class="form-label fw-bold">Entregue por (Almoxarife):*</label>
                          <select class="form-select" name="entregador_cpf" required>
                             <option value="">-- Selecione o servidor --</option>
                             {% for s in servidores %}<option value="{{ s.cpf }}">{{ s.nome }}</option>{% endfor %}
                         </select>
                     </div>
-                    <button type="submit" class="btn btn-success w-100" onclick="return confirm('Atenção: Esta ação dará baixa no estoque e não pode ser desfeita. Deseja continuar?');"><i class="bi bi-truck"></i> Registrar Entrega e Baixar Estoque</button>
+                    <button type="submit" class="btn btn-success w-100 fw-bold" onclick="return confirm('CONFIRMAR ENTREGA?\n\nO sistema irá calcular a conversão de fardos e baixar o estoque automaticamente.');">
+                        <i class="bi bi-box-arrow-right"></i> Registrar Entrega e Baixar Estoque
+                    </button>
                 </form>
+
                 {% elif solicitacao.status == 'Entregue' %}
-                <p><strong>Autorizado por:</strong> {{ solicitacao.autorizador.nome if solicitacao.autorizador else 'N/A' }}</p>
-                <p><strong>Entregue por:</strong> {{ solicitacao.entregador.nome if solicitacao.entregador else 'N/A' }}</p>
-                <p><strong>Data da Entrega:</strong> {{ solicitacao.data_entrega.strftime('%d/%m/%Y %H:%M') }}</p>
+                <div class="bg-light p-3 rounded border">
+                    <p class="mb-2"><strong>Autorizado por:</strong> {{ solicitacao.autorizador.nome if solicitacao.autorizador else 'N/A' }}</p>
+                    <p class="mb-2"><strong>Entregue por:</strong> {{ solicitacao.entregador.nome if solicitacao.entregador else 'N/A' }}</p>
+                    <p class="mb-0"><strong>Data da Entrega:</strong> {{ solicitacao.data_entrega.strftime('%d/%m/%Y %H:%M') }}</p>
+                </div>
                 {% endif %}
             </div>
         </div>

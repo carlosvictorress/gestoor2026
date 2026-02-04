@@ -1757,3 +1757,27 @@ def editar_pedido_empresa(id):
                            pedido=pedido, 
                            produtos=produtos, 
                            itens_atuais=itens_atuais)
+@merenda_bp.route('/produtos/excluir/<int:produto_id>', methods=['POST'])
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def excluir_produto(produto_id):
+    produto = ProdutoMerenda.query.get_or_404(produto_id)
+    
+    # Verifica se o produto tem histórico (movimentações ou itens de solicitação)
+    tem_movimentacao = EstoqueMovimento.query.filter_by(produto_id=produto_id).first()
+    tem_solicitacao = SolicitacaoItem.query.filter_by(produto_id=produto_id).first()
+    
+    if tem_movimentacao or tem_solicitacao:
+        flash(f'Não é possível excluir "{produto.nome}" porque ele possui histórico de movimentação ou solicitações vinculadas. Tente apenas editar ou zerar o estoque.', 'danger')
+        return redirect(url_for('merenda.listar_produtos'))
+    
+    try:
+        db.session.delete(produto)
+        db.session.commit()
+        registrar_log(f'Excluiu o produto: "{produto.nome}" (ID: {produto_id}).')
+        flash('Produto excluído com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao excluir produto: {e}', 'danger')
+        
+    return redirect(url_for('merenda.listar_produtos'))    

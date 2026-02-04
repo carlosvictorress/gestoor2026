@@ -40,13 +40,23 @@
         <td>{{ produto.categoria or 'Não informada' }}</td>
         <td>{{ produto.unidade_medida }}</td> 
         <td class="text-center fw-bold text-primary">
-            {# Exibe o saldo real em unidades/quilos conforme sua preferência #}
             {{ "%.2f"|format(produto.estoque_atual) }} {{ produto.unidade_consumo or 'UNID' }}
         </td>
         <td class="text-center">
-            <a href="{{ url_for('merenda.editar_produto', produto_id=produto.id) }}" class="btn btn-sm btn-secondary" title="Editar Produto">
-                <i class="bi bi-pencil-fill"></i> Editar
-            </a>
+            <div class="btn-group shadow-sm">
+                <a href="{{ url_for('merenda.editar_produto', produto_id=produto.id) }}" class="btn btn-sm btn-secondary" title="Editar Produto">
+                    <i class="bi bi-pencil-fill"></i> Editar
+                </a>
+
+                <form action="{{ url_for('merenda.excluir_produto', produto_id=produto.id) }}" 
+                      method="POST" 
+                      style="display:inline;"
+                      onsubmit="return confirm('Tem certeza que deseja excluir o produto {{ produto.nome }}? Esta ação não pode ser desfeita e só funcionará se não houver histórico vinculado.');">
+                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir Produto">
+                        <i class="bi bi-trash-fill"></i> Excluir
+                    </button>
+                </form>
+            </div>
         </td>
     </tr>
     {% else %}

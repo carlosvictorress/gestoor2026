@@ -80,17 +80,17 @@
     <tr class="item-linha">
         <td>
             <select class="form-select produto-select" name="produto_id[]" required>
-                <option value="">-- Selecione um produto --</option>
-                {% for p in produtos %}
-              <option value="{{ p.id }}" 
-        data-estoque="{{ p.estoque_atual }}" 
-        data-unidade-compra="{{ p.unidade_medida }}"
-        data-unidade-consumo="{{ p.unidade_consumo or p.unidade_medida }}"
-        data-fator="{{ p.fator_conversao or 1 }}">
-    {{ p.nome }}
-</option>
-                {% endfor %}
-            </select>
+    <option value="">-- Selecione um produto --</option>
+    {% for p in produtos %}
+    <option value="{{ p.id }}" 
+            data-estoque="{{ p.estoque_atual }}" 
+            data-unidade-compra="{{ p.unidade_medida }}"
+            data-unidade-consumo="{{ p.unidade_consumo or 'UNID' }}"
+            data-fator="{{ p.fator_conversao or 1 }}">
+        {{ p.nome }}
+    </option>
+    {% endfor %}
+</select>
             <div class="small mt-1 info-estoque text-muted"></div>
         </td>
         <td>
@@ -163,29 +163,48 @@ document.addEventListener('DOMContentLoaded', function () {
     const infoEstoque = linha.querySelector('.info-estoque');
     const unidadeTxt = linha.querySelector('.unidade-txt');
     const resumo = linha.querySelector('.resumo-conversao');
+    const totalConv = linha.querySelector('.total-convertido');
+    const unidBaseTxt = linha.querySelector('.unid-base-txt');
+    const alerta = linha.querySelector('.alerta-estoque');
 
     if (select.value) {
-        // O estoque já está no banco em unidades/KG (Ex: 30.00)
-        const estoqueDisponivel = parseFloat(option.dataset.estoque);
-        const unidadeConsumo = option.dataset.unidadeConsumo; // Pega 'KG'
-        const qtdSolicitada = parseFloat(qtdInput.value) || 0;
+        // Agora o estoque já está em unidades reais no banco (Ex: 30.00 KG)
+        const estoqueReal = parseFloat(option.dataset.estoque);
+        const unidConsumo = option.dataset.unidadeConsumo;
+        const fator = parseFloat(option.dataset.fator);
+        const qtdPedida = parseFloat(qtdInput.value) || 0;
 
-        // Mostra o saldo que existe no almoxarifado em KG
-        infoEstoque.innerHTML = `Disponível: <span class="badge bg-secondary">${estoqueDisponivel} ${unidadeConsumo}</span>`;
+        // 1. Atualiza o mostrador de "Disponível" para KG/UNID
+        infoEstoque.innerHTML = `Disponível: <span class="badge bg-secondary">${estoqueReal.toFixed(2)} ${unidConsumo}</span>`;
         
-        // Altera o texto ao lado do campo para KG (unidade de consumo)
-        unidadeTxt.textContent = unidadeConsumo;
+        // 2. Define que o campo de texto ao lado da quantidade é KG/UNID
+        unidadeTxt.textContent = unidConsumo;
 
-        // REMOVEMOS A MULTIPLICAÇÃO: 
-        // Se a escola pede 10, são 10kg. Não precisa mais do resumo de saída.
-        resumo.style.display = 'none';
+        // 3. Lógica do Resumo de Saída: 
+        // Se for um produto de fardo, mostra quanto isso representa em fardos apenas para conferência
+        if (fator > 1 && qtdPedida > 0) {
+            resumo.style.display = 'block';
+            const equivalenciaFardos = qtdPedida / fator;
+            totalConv.textContent = equivalenciaFardos.toFixed(2);
+            unidBaseTxt.textContent = option.dataset.unidadeCompra; // Ex: FRD
+            // Muda o texto para "Equivale a X fardos"
+            linha.querySelector('.total-convertido').previousSibling.textContent = "Equivale a: ";
+        } else {
+            resumo.style.display = 'none';
+        }
 
-        // Validação simples: se pedir 11kg e só tiver 10kg, fica vermelho
-        if (qtdSolicitada > estoqueDisponivel) {
+        // 4. Validação de Estoque (1 para 1)
+        if (qtdPedida > estoqueReal) {
+            alerta.style.display = 'block';
             linha.classList.add('table-danger');
         } else {
+            alerta.style.display = 'none';
             linha.classList.remove('table-danger');
         }
+    } else {
+        infoEstoque.textContent = '';
+        unidadeTxt.textContent = '-';
+        resumo.style.display = 'none';
     }
     validarFormulario();
 }

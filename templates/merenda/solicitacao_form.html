@@ -157,50 +157,38 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     function atualizarLinha(linha) {
-        const select = linha.querySelector('.produto-select');
-        const option = select.options[select.selectedIndex];
-        const qtdInput = linha.querySelector('.qtd-input');
-        const infoEstoque = linha.querySelector('.info-estoque');
-        const unidadeTxt = linha.querySelector('.unidade-txt');
-        const resumo = linha.querySelector('.resumo-conversao');
-        const totalConv = linha.querySelector('.total-convertido');
-        const unidBaseTxt = linha.querySelector('.unid-base-txt');
-        const alerta = linha.querySelector('.alerta-estoque');
+    const select = linha.querySelector('.produto-select');
+    const option = select.options[select.selectedIndex];
+    const qtdInput = linha.querySelector('.qtd-input');
+    const infoEstoque = linha.querySelector('.info-estoque');
+    const unidadeTxt = linha.querySelector('.unidade-txt');
+    const resumo = linha.querySelector('.resumo-conversao');
 
-        if (select.value) {
-            const estoque = parseFloat(option.dataset.estoque);
-            const fator = parseFloat(option.dataset.fator);
-            const unidadeConsumo = option.dataset.unidadeConsumo;
-            const unidBase = option.dataset.unidadeBase;
-            const qtdPedida = parseFloat(qtdInput.value) || 0;
-            const totalFinal = qtdPedida * fator;
+    if (select.value) {
+        // O estoque já está no banco em unidades/KG (Ex: 30.00)
+        const estoqueDisponivel = parseFloat(option.dataset.estoque);
+        const unidadeConsumo = option.dataset.unidadeConsumo; // Pega 'KG'
+        const qtdSolicitada = parseFloat(qtdInput.value) || 0;
 
-            infoEstoque.innerHTML = `Disponível: <span class="badge bg-secondary">${estoque} ${unidadeConsumo}</span>`;
-            unidadeTxt.textContent = unidadeConsumo; // Aqui a escola passa a ver 'KG' em vez de 'FRD'
-            unidBaseTxt.textContent = unidBase;
+        // Mostra o saldo que existe no almoxarifado em KG
+        infoEstoque.innerHTML = `Disponível: <span class="badge bg-secondary">${estoqueDisponivel} ${unidadeConsumo}</span>`;
+        
+        // Altera o texto ao lado do campo para KG (unidade de consumo)
+        unidadeTxt.textContent = unidadeConsumo;
 
-            if (fator > 1) {
-                resumo.style.display = 'block';
-                totalConv.textContent = totalFinal.toFixed(2);
-            } else {
-                resumo.style.display = 'none';
-            }
+        // REMOVEMOS A MULTIPLICAÇÃO: 
+        // Se a escola pede 10, são 10kg. Não precisa mais do resumo de saída.
+        resumo.style.display = 'none';
 
-            // Validação de Estoque
-            if (totalFinal > estoque) {
-                alerta.style.display = 'block';
-                linha.classList.add('table-danger');
-            } else {
-                alerta.style.display = 'none';
-                linha.classList.remove('table-danger');
-            }
+        // Validação simples: se pedir 11kg e só tiver 10kg, fica vermelho
+        if (qtdSolicitada > estoqueDisponivel) {
+            linha.classList.add('table-danger');
         } else {
-            infoEstoque.textContent = '';
-            unidadeTxt.textContent = '-';
-            resumo.style.display = 'none';
+            linha.classList.remove('table-danger');
         }
-        validarFormulario();
     }
+    validarFormulario();
+}
 
     function validarFormulario() {
         const erros = container.querySelectorAll('.table-danger').length;

@@ -44,8 +44,8 @@
     <td>{{ produto.unidade_consumo or produto.unidade_medida }}</td>
     <td class="text-center">{{ produto.fator_conversao or '1.0' }}</td>
     <td class="text-center fw-bold text-primary">
-        {{ "%.2f"|format(produto.estoque_atual) }} {{ produto.unidade_consumo or produto.unidade_medida }}
-    </td>
+    {{ "%.2f"|format(produto.estoque_atual) }} {{ produto.unidade_consumo or 'KG' }}
+</td>
     <td class="text-center">
         <a href="{{ url_for('merenda.editar_produto', produto_id=produto.id) }}" class="btn btn-sm btn-secondary" title="Editar Produto">
             <i class="bi bi-pencil-fill"></i> Editar

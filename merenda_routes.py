@@ -472,7 +472,7 @@ def detalhes_solicitacao(solicitacao_id):
                     return redirect(url_for('merenda.detalhes_solicitacao', solicitacao_id=solicitacao.id))
 
                 # 1. Subtrai a quantidade convertida do estoque principal
-                produto.estoque_atual -= quantidade_real_saida
+                produto.estoque_atual -= item.quantidade_solicitada
                 
                 # 2. Cria o registro de movimento de SAÍDA com o valor real baixado
                 movimento_saida = EstoqueMovimento(

@@ -279,6 +279,8 @@ def entrada_estoque():
     if request.method == 'POST':
         try:
             produto_id = request.form.get('produto_id', type=int)
+            
+            # Tratamento para aceitar vírgula (padrão brasileiro)
             quantidade_str = request.form.get('quantidade', '0').replace(',', '.')
             quantidade_digitada = float(quantidade_str)
 
@@ -292,13 +294,13 @@ def entrada_estoque():
                 flash('Produto não encontrado.', 'danger')
                 return redirect(url_for('merenda.entrada_estoque'))
 
-            # --- LÓGICA DE CONVERSÃO AUTOMÁTICA ---
-            # O estoque_atual sempre armazena a menor unidade (ex: KG ou UNID).
-            # Se o produto for fardo/caixa, multiplicamos pelo fator cadastrado.
+            # --- LÓGICA DE CONVERSÃO AUTOMÁTICA ATUALIZADA ---
+            # O estoque_atual sempre armazena a menor unidade (unidade_consumo, ex: KG ou UNID).
+            # Se o produto for fardo/caixa, multiplicamos pelo fator cadastrado para converter para a unidade de consumo.
             fator = produto.fator_conversao if produto.fator_conversao and produto.fator_conversao > 0 else 1.0
             quantidade_para_estoque = quantidade_digitada * fator
 
-            # 1. Adiciona a quantidade convertida ao estoque atual do produto
+            # 1. Adiciona a quantidade convertida (em unidade de consumo) ao estoque atual
             produto.estoque_atual += quantidade_para_estoque
             
             # 2. Prepara a data de validade
@@ -306,11 +308,11 @@ def entrada_estoque():
             data_validade = datetime.strptime(data_validade_str, '%Y-%m-%d').date() if data_validade_str else None
 
             # 3. Cria o registro do movimento de estoque
-            # Guardamos a 'quantidade_digitada' (ex: 5 fardos) para manter a coerência com a nota fiscal
+            # Guardamos a 'quantidade_digitada' (ex: 5 fardos) para manter a coerência com a nota fiscal da empresa
             movimento = EstoqueMovimento(
                 produto_id=produto_id,
                 tipo='Entrada',
-                quantidade=quantidade_digitada,
+                quantidade=quantidade_digitada, 
                 fornecedor=request.form.get('fornecedor'),
                 lote=request.form.get('lote'),
                 data_validade=data_validade,
@@ -320,23 +322,33 @@ def entrada_estoque():
             db.session.add(movimento)
             db.session.commit()
             
-            # Log detalhado mostrando a conversão se ela existir
+            # Log detalhado e mensagem de sucesso usando as novas unidades
+            unidade_alvo = produto.unidade_consumo or "unid/kg"
             msg_log = f'Entrada de {quantidade_digitada} {produto.unidade_medida}'
             if fator > 1:
-                msg_log += f' (Convertido em {quantidade_para_estoque} unidades de saldo)'
+                msg_log += f' (Convertido em {quantidade_para_estoque:.2f} {unidade_alvo} de saldo real)'
             
             registrar_log(f'{msg_log} do produto "{produto.nome}".')
-            flash(f'Entrada de "{produto.nome}" registrada! Saldo atualizado com sucesso.', 'success')
+            flash(f'Entrada de "{produto.nome}" registrada! Saldo atualizado para {produto.estoque_atual:.2f} {unidade_alvo}.', 'success')
             return redirect(url_for('merenda.entrada_estoque'))
 
         except Exception as e:
             db.session.rollback()
             flash(f'Erro ao registrar entrada de estoque: {e}', 'danger')
     
-    # Para o método GET (carregar a página)
-    produtos = ProdutoMerenda.query.order_by(ProdutoMerenda.nome).all()
-    historico_entradas = EstoqueMovimento.query.filter_by(tipo='Entrada').order_by(EstoqueMovimento.data_movimento.desc()).limit(20).all()
-    return render_template('merenda/estoque_entradas.html', produtos=produtos, historico=historico_entradas)
+    # --- GET: CARREGAMENTO DA PÁGINA COM FILTROS ---
+    # REGRA: Não misturar produtos da Agricultura Familiar
+    produtos = ProdutoMerenda.query.filter(
+        or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None))
+    ).order_by(ProdutoMerenda.nome).all()
+
+    # Histórico de entradas recentes para exibição na tabela
+    historico_entradas = EstoqueMovimento.query.filter_by(tipo='Entrada')\
+        .order_by(EstoqueMovimento.data_movimento.desc()).limit(20).all()
+    
+    return render_template('merenda/estoque_entradas.html', 
+                           produtos=produtos, 
+                           historico=historico_entradas)
 # GET /estoque/entradas -> Listar histórico de entradas e link para registrar nova
 # POST /estoque/entradas/nova -> Lógica para registrar entrada de produtos e atualizar estoque
 
@@ -348,8 +360,6 @@ def nova_solicitacao():
     if request.method == 'POST':
         try:
             escola_id = request.form.get('escola_id', type=int)
-            # Supondo que o solicitante é o usuário logado e que ele é um servidor
-            solicitante = Servidor.query.filter_by(cpf=session.get('user_cpf')).first() # Nota: Precisamos adicionar o CPF à sessão no login
             
             # --- Validação ---
             if not escola_id:
@@ -360,7 +370,8 @@ def nova_solicitacao():
             nova_sol = SolicitacaoMerenda(
                 escola_id=escola_id,
                 status='Pendente',
-                solicitante_cpf=request.form.get('solicitante_cpf') # Usaremos o CPF do formulário por enquanto
+                solicitante_cpf=request.form.get('solicitante_cpf'),
+                data_solicitacao=datetime.utcnow()
             )
             db.session.add(nova_sol)
 
@@ -373,13 +384,15 @@ def nova_solicitacao():
                 return redirect(url_for('merenda.nova_solicitacao'))
 
             for i in range(len(produtos_ids)):
+                if not produtos_ids[i]: continue
+                
                 produto_id = int(produtos_ids[i])
                 quantidade_str = quantidades[i].replace(',', '.')
                 quantidade = float(quantidade_str)
                 
                 if produto_id and quantidade > 0:
                     item = SolicitacaoItem(
-                        solicitacao=nova_sol, # Associa o item à solicitação recém-criada
+                        solicitacao=nova_sol,
                         produto_id=produto_id,
                         quantidade_solicitada=quantidade
                     )
@@ -388,18 +401,29 @@ def nova_solicitacao():
             db.session.commit()
             registrar_log(f'Criou a solicitação de merenda #{nova_sol.id} para a escola ID {escola_id}.')
             flash('Solicitação de merenda enviada com sucesso!', 'success')
-            # Futuramente, redirecionar para a lista de solicitações da escola
-            return redirect(url_for('merenda.listar_produtos')) 
+            return redirect(url_for('merenda.painel_solicitacoes')) 
 
         except Exception as e:
             db.session.rollback()
             flash(f'Erro ao criar solicitação: {e}', 'danger')
 
-    # Para o método GET
+    # --- LÓGICA DO MÉDOTO GET (CARREGAMENTO DO FORMULÁRIO) ---
     escolas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
-    produtos = ProdutoMerenda.query.order_by(ProdutoMerenda.nome).all()
     servidores = Servidor.query.order_by(Servidor.nome).all()
-    return render_template('merenda/solicitacao_form.html', escolas=escolas, produtos=produtos, servidores=servidores)
+    
+    # FILTRO: Não misturar produtos da Agricultura Familiar
+    # Carrega apenas produtos da merenda escolar comum para solicitação padrão
+    produtos = ProdutoMerenda.query.filter(
+        or_(
+            ProdutoMerenda.categoria != 'Agricultura Familiar', 
+            ProdutoMerenda.categoria.is_(None)
+        )
+    ).order_by(ProdutoMerenda.nome).all()
+    
+    return render_template('merenda/solicitacao_form.html', 
+                           escolas=escolas, 
+                           produtos=produtos, 
+                           servidores=servidores)
 # GET /solicitacoes -> Painel para a Secretaria ver todas as solicitações
 @merenda_bp.route('/solicitacoes')
 @login_required

@@ -451,14 +451,14 @@ class Escola(db.Model):
 
 
 class ProdutoMerenda(db.Model):
-    __tablename__ = "produto_merenda"
+    __tablename__ = 'produto_merenda'
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(150), nullable=False, unique=True)
-    unidade_medida = db.Column(db.String(20), nullable=False)  # Ex: KG, L, Unid
-    categoria = db.Column(db.String(100))  # Ex: Estocáveis, Proteína, Hortifrúti
-    estoque_atual = db.Column(db.Float, nullable=False, default=0.0)
-    
+    nome = db.Column(db.String(100), nullable=False)
+    categoria = db.Column(db.String(50)) # Merenda ou Agricultura Familiar
+    unidade_medida = db.Column(db.String(20)) # Ex: FRD, CX (Compra)
+    unidade_consumo = db.Column(db.String(20)) # Ex: KG, UNID (Saída/Escola)
     fator_conversao = db.Column(db.Float, default=1.0)
+    estoque_atual = db.Column(db.Float, default=0.0)
     
     # --- NOVOS CAMPOS PROFISSIONAIS ---
     estoque_minimo = db.Column(db.Float, default=10.0) # Para alertas

@@ -82,13 +82,13 @@
             <select class="form-select produto-select" name="produto_id[]" required>
                 <option value="">-- Selecione um produto --</option>
                 {% for p in produtos %}
-                <option value="{{ p.id }}" 
-                        data-estoque="{{ p.estoque_atual }}" 
-                        data-unidade="{{ p.unidade_medida }}"
-                        data-fator="{{ p.fator_conversao or 1 }}"
-                        data-unidade-base="{{ p.unidade_medida_base or 'unid' }}">
-                    {{ p.nome }}
-                </option>
+              <option value="{{ p.id }}" 
+        data-estoque="{{ p.estoque_atual }}" 
+        data-unidade-compra="{{ p.unidade_medida }}"
+        data-unidade-consumo="{{ p.unidade_consumo or p.unidade_medida }}"
+        data-fator="{{ p.fator_conversao or 1 }}">
+    {{ p.nome }}
+</option>
                 {% endfor %}
             </select>
             <div class="small mt-1 info-estoque text-muted"></div>
@@ -170,13 +170,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (select.value) {
             const estoque = parseFloat(option.dataset.estoque);
             const fator = parseFloat(option.dataset.fator);
-            const unidade = option.dataset.unidade;
+            const unidadeConsumo = option.dataset.unidadeConsumo;
             const unidBase = option.dataset.unidadeBase;
             const qtdPedida = parseFloat(qtdInput.value) || 0;
             const totalFinal = qtdPedida * fator;
 
-            infoEstoque.innerHTML = `Disponível: <span class="badge bg-secondary">${estoque} ${unidBase}</span>`;
-            unidadeTxt.textContent = unidade;
+            infoEstoque.innerHTML = `Disponível: <span class="badge bg-secondary">${estoque} ${unidadeConsumo}</span>`;
+            unidadeTxt.textContent = unidadeConsumo; // Aqui a escola passa a ver 'KG' em vez de 'FRD'
             unidBaseTxt.textContent = unidBase;
 
             if (fator > 1) {

@@ -20,16 +20,16 @@
                 
                 <div class="card shadow-sm mb-4 border-top-primary">
                     <div class="card-header bg-white py-3">
-                        <h5 class="m-0 fw-bold text-dark"><i class="bi bi-info-circle text-primary me-2"></i>Identificação do Produto</h5>
+                        <h5 class="m-0 fw-bold text-dark"><i class="bi bi-info-circle text-primary me-2"></i>Identificação e Unidades</h5>
                     </div>
                     <div class="card-body">
                         <div class="row g-3">
-                            <div class="col-md-12">
+                            <div class="col-md-12 mb-2">
                                 <label for="nome" class="form-label fw-bold">Nome do Produto <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control form-control-lg" name="nome" id="nome" value="{{ produto.nome if produto else '' }}" required placeholder="Ex: Arroz Agulhinha Tipo 1">
                             </div>
                             
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label for="categoria" class="form-label">Categoria</label>
                                 <select class="form-select" name="categoria" id="categoria">
                                     <option value="" disabled selected>Selecione...</option>
@@ -42,20 +42,30 @@
                                 </select>
                             </div>
 
-                            <div class="col-md-4">
-                                <label for="unidade_medida" class="form-label">Unidade de Medida <span class="text-danger">*</span></label>
+                            <div class="col-md-6">
+                                <label for="unidade_medida" class="form-label fw-bold">Unidade de Compra (Empresa)</label>
                                 <select class="form-select" name="unidade_medida" id="unidade_medida" required onchange="verificarConversao()">
+                                    <option value="FRD" {{ 'selected' if produto and produto.unidade_medida == 'FRD' }}>Fardo (FRD)</option>
+                                    <option value="CX" {{ 'selected' if produto and produto.unidade_medida == 'CX' }}>Caixa (CX)</option>
                                     <option value="KG" {{ 'selected' if produto and produto.unidade_medida == 'KG' }}>Quilograma (KG)</option>
                                     <option value="L" {{ 'selected' if produto and produto.unidade_medida == 'L' }}>Litro (L)</option>
                                     <option value="UNID" {{ 'selected' if produto and produto.unidade_medida == 'UNID' }}>Unidade (UNID)</option>
-                                    <option value="PCT" {{ 'selected' if produto and produto.unidade_medida == 'PCT' }}>Pacote (PCT)</option>
-                                    <option value="FRD" {{ 'selected' if produto and produto.unidade_medida == 'FRD' }}>Fardo (FRD)</option>
-                                    <option value="CX" {{ 'selected' if produto and produto.unidade_medida == 'CX' }}>Caixa (CX)</option>
                                 </select>
                             </div>
 
-                            <div class="col-md-4" id="div_fator" style="display: none;">
-                                <label for="fator_conversao" class="form-label fw-bold text-primary">Qtd interna (Conversão)</label>
+                            <div class="col-md-6">
+                                <label for="unidade_consumo" class="form-label fw-bold text-success">Unidade de Consumo (Escola)</label>
+                                <select class="form-select border-success" name="unidade_consumo" id="unidade_consumo" required>
+                                    <option value="KG" {{ 'selected' if produto and produto.unidade_consumo == 'KG' }}>Quilograma (KG)</option>
+                                    <option value="UNID" {{ 'selected' if produto and produto.unidade_consumo == 'UNID' }}>Unidade (UNID)</option>
+                                    <option value="L" {{ 'selected' if produto and produto.unidade_consumo == 'L' }}>Litro (L)</option>
+                                    <option value="PCT" {{ 'selected' if produto and produto.unidade_consumo == 'PCT' }}>Pacote (PCT)</option>
+                                </select>
+                                <div class="form-text">Como a escola solicitará este item.</div>
+                            </div>
+
+                            <div class="col-md-6" id="div_fator">
+                                <label for="fator_conversao" class="form-label fw-bold text-primary">Fator de Conversão</label>
                                 <input type="number" step="0.01" class="form-control border-primary" name="fator_conversao" id="fator_conversao" value="{{ produto.fator_conversao if produto else '1.0' }}">
                                 <div class="form-text small">Ex: Se 1 fardo tem 10kg, digite 10.</div>
                             </div>
@@ -101,11 +111,9 @@
                         </div>
                     </div>
                 </div>
-
             </div>
 
             <div class="col-lg-4">
-                
                 <div class="card shadow-sm mb-4 border-top-warning">
                     <div class="card-header bg-white py-3">
                         <h5 class="m-0 fw-bold text-dark"><i class="bi bi-truck text-warning me-2"></i>Logística</h5>
@@ -117,7 +125,7 @@
                                 <span class="input-group-text"><i class="bi bi-bell"></i></span>
                                 <input type="number" step="0.01" class="form-control" name="estoque_minimo" id="estoque_minimo" value="{{ produto.estoque_minimo if produto else '10' }}" placeholder="Qtd mínima">
                             </div>
-                            <div class="form-text">O sistema avisará quando o estoque atingir este nível.</div>
+                            <div class="form-text">Alerta baseado na unidade de consumo.</div>
                         </div>
 
                         <div class="mb-3">
@@ -132,13 +140,12 @@
                         <div class="form-check form-switch mb-3 p-3 bg-light rounded border">
                             <input class="form-check-input" type="checkbox" id="perecivel" name="perecivel" {{ 'checked' if not produto or produto.perecivel }}>
                             <label class="form-check-label fw-bold" for="perecivel">Produto Perecível?</label>
-                            <div class="form-text small">Marque se possui validade curta.</div>
                         </div>
                         
                         <div class="alert alert-info d-flex align-items-center" role="alert">
                             <i class="bi bi-info-circle-fill me-2 fs-4"></i>
                             <div class="small">
-                                A <strong>Validade (Data de Vencimento)</strong> deve ser informada no momento da <strong>Entrada de Estoque</strong>, pois varia conforme o lote.
+                                Lembre-se: O <strong>Fator de Conversão</strong> pode ser editado aqui caso o novo lote recebido tenha peso diferente do anterior.
                             </div>
                         </div>
                     </div>
@@ -148,7 +155,6 @@
                     <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-save"></i> Salvar Dados</button>
                     <a href="{{ url_for('merenda.listar_produtos') }}" class="btn btn-light border">Cancelar</a>
                 </div>
-
             </div>
         </div>
     </form>
@@ -156,19 +162,21 @@
 
 <script>
 function verificarConversao() {
-    const unid = document.getElementById('unidade_medida').value;
-    const divFator = document.getElementById('div_fator');
-    // Mostra o campo se for Fardo ou Caixa
-    if (unid === 'FRD' || unid === 'CX') {
-        divFator.style.display = 'block';
+    const compra = document.getElementById('unidade_medida').value;
+    const inputFator = document.getElementById('fator_conversao');
+    const labelFator = document.querySelector('label[for="fator_conversao"]');
+    
+    // Se a unidade de compra for a mesma de consumo (ex: KG para KG), o fator deve ser 1.0
+    // No entanto, para Fardo e Caixa, o campo permanece aberto para ajustes de peso.
+    if (compra !== 'FRD' && compra !== 'CX') {
+        // Opcional: Você pode optar por esconder ou apenas alertar. 
+        // Mantemos visível para máxima flexibilidade caso o usuário queira converter PCT em KG etc.
+        labelFator.classList.remove('text-primary');
     } else {
-        divFator.style.display = 'none';
-        // Reseta para 1.0 se for unidade simples para evitar erros de cálculo
-        document.getElementById('fator_conversao').value = "1.0";
+        labelFator.classList.add('text-primary');
     }
 }
 
-// Executa ao carregar a página para o caso de edição de produto já existente
 document.addEventListener('DOMContentLoaded', verificarConversao);
 </script>
 

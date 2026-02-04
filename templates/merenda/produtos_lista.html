@@ -29,35 +29,32 @@
         <th>Nome do Produto</th>
         <th>Categoria</th>
         <th>Unid. Compra</th>
-        <th>Unid. Consumo</th>
-        <th class="text-center">Fator</th>
         <th class="text-center">Estoque Atual</th>
         <th class="text-center">Ações</th>
     </tr>
 </thead>
-                <tbody>
-                    {% for produto in produtos %}
-<tr>
-    <td>{{ produto.nome }}</td>
-    <td>{{ produto.categoria or 'Não informada' }}</td>
-    <td>{{ produto.unidade_medida }}</td> 
-    <td>{{ produto.unidade_consumo or produto.unidade_medida }}</td>
-    <td class="text-center">{{ produto.fator_conversao or '1.0' }}</td>
-    <td class="text-center fw-bold text-primary">
-    {{ "%.2f"|format(produto.estoque_atual) }} {{ produto.unidade_consumo or 'KG' }}
-</td>
-    <td class="text-center">
-        <a href="{{ url_for('merenda.editar_produto', produto_id=produto.id) }}" class="btn btn-sm btn-secondary" title="Editar Produto">
-            <i class="bi bi-pencil-fill"></i> Editar
-        </a>
-    </td>
-</tr>
-{% else %}
-<tr>
-    <td colspan="7" class="text-center">Nenhum produto cadastrado.</td>
-</tr>
-{% endfor %}
-                </tbody>
+<tbody>
+    {% for produto in produtos %}
+    <tr>
+        <td>{{ produto.nome }}</td>
+        <td>{{ produto.categoria or 'Não informada' }}</td>
+        <td>{{ produto.unidade_medida }}</td> 
+        <td class="text-center fw-bold text-primary">
+            {# Exibe o saldo real em unidades/quilos conforme sua preferência #}
+            {{ "%.2f"|format(produto.estoque_atual) }} {{ produto.unidade_consumo or 'UNID' }}
+        </td>
+        <td class="text-center">
+            <a href="{{ url_for('merenda.editar_produto', produto_id=produto.id) }}" class="btn btn-sm btn-secondary" title="Editar Produto">
+                <i class="bi bi-pencil-fill"></i> Editar
+            </a>
+        </td>
+    </tr>
+    {% else %}
+    <tr>
+        <td colspan="5" class="text-center">Nenhum produto cadastrado.</td>
+    </tr>
+    {% endfor %}
+</tbody>
             </table>
         </div>
     </div>

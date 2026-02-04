@@ -83,12 +83,12 @@
     <option value="">-- Selecione um produto --</option>
     {% for p in produtos %}
     <option value="{{ p.id }}" 
-            data-estoque="{{ p.estoque_atual }}" 
-            data-unidade-compra="{{ p.unidade_medida }}"
-            data-unidade-consumo="{{ p.unidade_consumo or 'UNID' }}"
-            data-fator="{{ p.fator_conversao or 1 }}">
-        {{ p.nome }}
-    </option>
+        data-estoque="{{ p.estoque_atual }}" 
+        data-unidade-compra="{{ p.unidade_medida }}"
+        data-unidade-consumo="{{ p.unidade_consumo or 'UNID' }}"
+        data-fator="{{ p.fator_conversao or 1 }}">
+    {{ p.nome }}
+</option>
     {% endfor %}
 </select>
             <div class="small mt-1 info-estoque text-muted"></div>
@@ -165,46 +165,36 @@ document.addEventListener('DOMContentLoaded', function () {
     const resumo = linha.querySelector('.resumo-conversao');
     const totalConv = linha.querySelector('.total-convertido');
     const unidBaseTxt = linha.querySelector('.unid-base-txt');
-    const alerta = linha.querySelector('.alerta-estoque');
 
     if (select.value) {
-        // Agora o estoque já está em unidades reais no banco (Ex: 30.00 KG)
+        // O estoque no banco já é a unidade real (ex: 30.00 KG)
         const estoqueReal = parseFloat(option.dataset.estoque);
-        const unidConsumo = option.dataset.unidadeConsumo;
-        const fator = parseFloat(option.dataset.fator);
+        const unidConsumo = option.dataset.unidadeConsumo || option.dataset.unidade;
+        const fator = parseFloat(option.dataset.fator) || 1;
         const qtdPedida = parseFloat(qtdInput.value) || 0;
 
-        // 1. Atualiza o mostrador de "Disponível" para KG/UNID
+        // Mostra o saldo disponível em KG/UNID para a escola
         infoEstoque.innerHTML = `Disponível: <span class="badge bg-secondary">${estoqueReal.toFixed(2)} ${unidConsumo}</span>`;
-        
-        // 2. Define que o campo de texto ao lado da quantidade é KG/UNID
         unidadeTxt.textContent = unidConsumo;
 
-        // 3. Lógica do Resumo de Saída: 
-        // Se for um produto de fardo, mostra quanto isso representa em fardos apenas para conferência
+        // Lógica do Resumo: Mostra a equivalência em fardos se houver fator > 1
         if (fator > 1 && qtdPedida > 0) {
             resumo.style.display = 'block';
-            const equivalenciaFardos = qtdPedida / fator;
-            totalConv.textContent = equivalenciaFardos.toFixed(2);
-            unidBaseTxt.textContent = option.dataset.unidadeCompra; // Ex: FRD
-            // Muda o texto para "Equivale a X fardos"
-            linha.querySelector('.total-convertido').previousSibling.textContent = "Equivale a: ";
+            const equivaleFardos = qtdPedida / fator; // Transforma KG solicitado em fardos para visualização
+            totalConv.textContent = equivaleFardos.toFixed(2);
+            unidBaseTxt.textContent = option.dataset.unidadeCompra || "FRD";
+            // Altera o label para clareza do usuário
+            resumo.querySelector('strong').previousSibling.textContent = "Equivale a: ";
         } else {
             resumo.style.display = 'none';
         }
 
-        // 4. Validação de Estoque (1 para 1)
+        // Validação de Estoque (1 para 1)
         if (qtdPedida > estoqueReal) {
-            alerta.style.display = 'block';
             linha.classList.add('table-danger');
         } else {
-            alerta.style.display = 'none';
             linha.classList.remove('table-danger');
         }
-    } else {
-        infoEstoque.textContent = '';
-        unidadeTxt.textContent = '-';
-        resumo.style.display = 'none';
     }
     validarFormulario();
 }

@@ -79,7 +79,7 @@
 <template id="itemTemplate">
     <tr class="item-linha">
         <td>
-            <select class="form-select produto-select" name="produto_id[]" required>
+           <select class="form-select produto-select" name="produto_id[]" required>
     <option value="">-- Selecione um produto --</option>
     {% for p in produtos %}
     <option value="{{ p.id }}" 
@@ -87,8 +87,8 @@
         data-unidade-compra="{{ p.unidade_medida }}"
         data-unidade-consumo="{{ p.unidade_consumo or 'UNID' }}"
         data-fator="{{ p.fator_conversao or 1 }}">
-    {{ p.nome }}
-</option>
+        {{ p.nome }}
+    </option>
     {% endfor %}
 </select>
             <div class="small mt-1 info-estoque text-muted"></div>
@@ -167,34 +167,44 @@ document.addEventListener('DOMContentLoaded', function () {
     const unidBaseTxt = linha.querySelector('.unid-base-txt');
 
     if (select.value) {
-        // O estoque no banco já é a unidade real (ex: 30.00 KG)
-        const estoqueReal = parseFloat(option.dataset.estoque);
-        const unidConsumo = option.dataset.unidadeConsumo || option.dataset.unidade;
+        // O estoque no banco já reflete a unidade real de consumo (ex: 30.00 KG)
+        const estoqueReal = parseFloat(option.dataset.estoque) || 0;
+        const unidConsumo = option.dataset.unidadeConsumo || "unid";
         const fator = parseFloat(option.dataset.fator) || 1;
         const qtdPedida = parseFloat(qtdInput.value) || 0;
 
-        // Mostra o saldo disponível em KG/UNID para a escola
+        // 1. Mostra o saldo disponível sempre na unidade de consumo (KG/UNID)
         infoEstoque.innerHTML = `Disponível: <span class="badge bg-secondary">${estoqueReal.toFixed(2)} ${unidConsumo}</span>`;
         unidadeTxt.textContent = unidConsumo;
 
-        // Lógica do Resumo: Mostra a equivalência em fardos se houver fator > 1
+        // 2. Lógica do Resumo de Saída: Mostra a equivalência física em fardos/caixas
         if (fator > 1 && qtdPedida > 0) {
             resumo.style.display = 'block';
-            const equivaleFardos = qtdPedida / fator; // Transforma KG solicitado em fardos para visualização
+            const equivaleFardos = qtdPedida / fator; // Transforma o pedido em unidades para visualização de fardos
             totalConv.textContent = equivaleFardos.toFixed(2);
             unidBaseTxt.textContent = option.dataset.unidadeCompra || "FRD";
-            // Altera o label para clareza do usuário
-            resumo.querySelector('strong').previousSibling.textContent = "Equivale a: ";
+            
+            // Ajusta o rótulo para clareza, garantindo que o texto fixo seja "Equivale a: "
+            const labelResumo = resumo.querySelector('span.label-texto') || resumo.firstChild;
+            if (labelResumo) {
+                // Se você não tiver um span específico para o texto, usamos esta abordagem segura:
+                resumo.innerHTML = `<span class="label-texto">Equivale a: </span><strong class="total-convertido">${equivaleFardos.toFixed(2)}</strong> <span class="unid-base-txt">${option.dataset.unidadeCompra || "FRD"}</span>`;
+            }
         } else {
             resumo.style.display = 'none';
         }
 
-        // Validação de Estoque (1 para 1)
+        // 3. Validação de Estoque (Comparação 1 para 1 entre o pedido e o saldo real)
         if (qtdPedida > estoqueReal) {
             linha.classList.add('table-danger');
         } else {
             linha.classList.remove('table-danger');
         }
+    } else {
+        // Limpa as informações caso o produto seja desmarcado
+        infoEstoque.innerHTML = "";
+        unidadeTxt.textContent = "-";
+        resumo.style.display = 'none';
     }
     validarFormulario();
 }

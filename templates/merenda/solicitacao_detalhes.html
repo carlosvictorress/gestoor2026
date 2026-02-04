@@ -31,6 +31,7 @@
     </div>
     <div class="text-end">
         <span class="badge bg-primary rounded-pill fs-6">
+            {# CORREÇÃO AQUI: Prioriza a unidade de consumo (KG/UNID) #}
             {{ item.quantidade_solicitada }} {{ item.produto.unidade_consumo or item.produto.unidade_medida }}
         </span>
     </div>

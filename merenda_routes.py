@@ -449,44 +449,37 @@ def detalhes_solicitacao(solicitacao_id):
 
     if request.method == 'POST':
         try:
-            # --- Lógica de SAÍDA DE ESTOQUE COM CONVERSÃO ---
+            # 1. Atualiza dados da entrega
             solicitacao.status = 'Entregue'
-            solicitacao.entregador_cpf = request.form.get('entregador_cpf') or None
-            solicitacao.autorizador_cpf = request.form.get('autorizador_cpf') or None # Quem deu a saída
+            solicitacao.entregador_cpf = request.form.get('entregador_cpf')
             solicitacao.data_entrega = datetime.utcnow()
 
-            # Itera sobre cada item da solicitação para dar baixa no estoque
+            # 2. Itera sobre os itens para dar baixa de 1 para 1
             for item in solicitacao.itens:
                 produto = item.produto
                 
-                # --- NOVA LÓGICA DE CONVERSÃO ---
-                # Se for fardo ou caixa, o fator_conversao (ex: 10.0) será usado. 
-                # Se não houver fator ou for 0, usamos 1.0 (unidade simples).
-                fator = produto.fator_conversao if produto.fator_conversao and produto.fator_conversao > 0 else 1.0
-                quantidade_real_saida = item.quantidade_solicitada * fator
-
-                # Verifica se há estoque suficiente comparando com a quantidade convertida
-                if produto.estoque_atual < quantidade_real_saida:
-                    flash(f'Estoque insuficiente para o produto "{produto.nome}". Saldo: {produto.estoque_atual}. Necessário: {quantidade_real_saida}.', 'danger')
+                # Verifica se há estoque suficiente
+                if produto.estoque_atual < item.quantidade_solicitada:
+                    flash(f'Estoque insuficiente para "{produto.nome}". Saldo: {produto.estoque_atual} {produto.unidade_consumo}.', 'danger')
                     db.session.rollback()
                     return redirect(url_for('merenda.detalhes_solicitacao', solicitacao_id=solicitacao.id))
 
-                # 1. Subtrai a quantidade convertida do estoque principal
+                # BAIXA DIRETA (Já está tudo em quilos/unidades)
                 produto.estoque_atual -= item.quantidade_solicitada
                 
-                # 2. Cria o registro de movimento de SAÍDA com o valor real baixado
+                # Registra o movimento de SAÍDA
                 movimento_saida = EstoqueMovimento(
                     produto_id=item.produto_id,
                     tipo='Saída',
-                    quantidade=quantidade_real_saida, # Registra o valor convertido (ex: 10kg em vez de 1 fardo)
+                    quantidade=item.quantidade_solicitada,
                     solicitacao_id=solicitacao.id,
                     usuario_responsavel=session.get('username')
                 )
                 db.session.add(movimento_saida)
 
             db.session.commit()
-            registrar_log(f'Registrou a entrega da solicitação #{solicitacao.id} e deu baixa convertida no estoque.')
-            flash('Entrega registrada e estoque atualizado com sucesso!', 'success')
+            registrar_log(f'Finalizou entrega da solicitação #{solicitacao.id}.')
+            flash('Entrega registrada e estoque atualizado!', 'success')
             return redirect(url_for('merenda.painel_solicitacoes', status='Entregue'))
 
         except Exception as e:

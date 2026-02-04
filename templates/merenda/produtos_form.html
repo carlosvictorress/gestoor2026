@@ -19,99 +19,66 @@
             <div class="col-lg-8">
                 
                 <div class="card shadow-sm mb-4 border-top-primary">
-                    <div class="card-header bg-white py-3">
-                        <h5 class="m-0 fw-bold text-dark"><i class="bi bi-info-circle text-primary me-2"></i>Identificação e Unidades</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row g-3">
-                            <div class="col-md-12 mb-2">
-                                <label for="nome" class="form-label fw-bold">Nome do Produto <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control form-control-lg" name="nome" id="nome" value="{{ produto.nome if produto else '' }}" required placeholder="Ex: Arroz Agulhinha Tipo 1">
-                            </div>
-                            
-                            <div class="col-md-6">
-                                <label for="categoria" class="form-label">Categoria</label>
-                                <select class="form-select" name="categoria" id="categoria">
-                                    <option value="" disabled selected>Selecione...</option>
-                                    <option value="Cereais e Grãos" {{ 'selected' if produto and produto.categoria == 'Cereais e Grãos' }}>Cereais e Grãos</option>
-                                    <option value="Proteína Animal" {{ 'selected' if produto and produto.categoria == 'Proteína Animal' }}>Proteína Animal (Carnes/Ovos)</option>
-                                    <option value="Hortifrúti" {{ 'selected' if produto and produto.categoria == 'Hortifrúti' }}>Hortifrúti (Legumes/Frutas)</option>
-                                    <option value="Laticínios" {{ 'selected' if produto and produto.categoria == 'Laticínios' }}>Laticínios</option>
-                                    <option value="Padaria" {{ 'selected' if produto and produto.categoria == 'Padaria' }}>Padaria/Massas</option>
-                                    <option value="Temperos" {{ 'selected' if produto and produto.categoria == 'Temperos' }}>Temperos/Óleos</option>
-                                </select>
-                            </div>
+    <div class="card-header bg-white py-3">
+        <h5 class="m-0 fw-bold text-dark"><i class="bi bi-info-circle text-primary me-2"></i>Identificação do Produto</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-12">
+                <label for="nome" class="form-label fw-bold">Nome do Produto <span class="text-danger">*</span></label>
+                <input type="text" class="form-control form-control-lg" name="nome" id="nome" value="{{ produto.nome if produto else '' }}" required placeholder="Ex: Arroz Agulhinha Tipo 1">
+            </div>
+            
+            <div class="col-md-4">
+                <label for="categoria" class="form-label">Categoria</label>
+                <select class="form-select" name="categoria" id="categoria">
+                    <option value="" disabled selected>Selecione...</option>
+                    <option value="Cereais e Grãos" {{ 'selected' if produto and produto.categoria == 'Cereais e Grãos' }}>Cereais e Grãos</option>
+                    <option value="Proteína Animal" {{ 'selected' if produto and produto.categoria == 'Proteína Animal' }}>Proteína Animal (Carnes/Ovos)</option>
+                    <option value="Hortifrúti" {{ 'selected' if produto and produto.categoria == 'Hortifrúti' }}>Hortifrúti (Legumes/Frutas)</option>
+                    <option value="Laticínios" {{ 'selected' if produto and produto.categoria == 'Laticínios' }}>Laticínios</option>
+                    <option value="Padaria" {{ 'selected' if produto and produto.categoria == 'Padaria' }}>Padaria/Massas</option>
+                    <option value="Temperos" {{ 'selected' if produto and produto.categoria == 'Temperos' }}>Temperos/Óleos</option>
+                </select>
+            </div>
 
-                            <div class="col-md-6">
-                                <label for="unidade_medida" class="form-label fw-bold">Unidade de Compra (Empresa)</label>
-                                <select class="form-select" name="unidade_medida" id="unidade_medida" required onchange="verificarConversao()">
-                                    <option value="FRD" {{ 'selected' if produto and produto.unidade_medida == 'FRD' }}>Fardo (FRD)</option>
-                                    <option value="CX" {{ 'selected' if produto and produto.unidade_medida == 'CX' }}>Caixa (CX)</option>
-                                    <option value="KG" {{ 'selected' if produto and produto.unidade_medida == 'KG' }}>Quilograma (KG)</option>
-                                    <option value="L" {{ 'selected' if produto and produto.unidade_medida == 'L' }}>Litro (L)</option>
-                                    <option value="UNID" {{ 'selected' if produto and produto.unidade_medida == 'UNID' }}>Unidade (UNID)</option>
-                                </select>
-                            </div>
+            <div class="col-md-4">
+                <label for="unidade_consumo" class="form-label fw-bold">Unidade de Estoque (Saída p/ Escola)*</label>
+                <select class="form-select border-primary" name="unidade_consumo" id="unidade_consumo" required>
+                    <option value="KG" {{ 'selected' if produto and (produto.unidade_consumo == 'KG' or produto.unidade_medida == 'KG') }}>Quilograma (KG)</option>
+                    <option value="UNID" {{ 'selected' if produto and (produto.unidade_consumo == 'UNID' or produto.unidade_medida == 'UNID') }}>Unidade (UNID)</option>
+                    <option value="L" {{ 'selected' if produto and (produto.unidade_consumo == 'L' or produto.unidade_medida == 'L') }}>Litro (L)</option>
+                    <option value="PCT" {{ 'selected' if produto and (produto.unidade_consumo == 'PCT' or produto.unidade_medida == 'PCT') }}>Pacote (PCT)</option>
+                </select>
+                <div class="form-text">É como o produto será contado na prateleira.</div>
+            </div>
 
-                            <div class="col-md-6">
-                                <label for="unidade_consumo" class="form-label fw-bold text-success">Unidade de Consumo (Escola)</label>
-                                <select class="form-select border-success" name="unidade_consumo" id="unidade_consumo" required>
-                                    <option value="KG" {{ 'selected' if produto and produto.unidade_consumo == 'KG' }}>Quilograma (KG)</option>
-                                    <option value="UNID" {{ 'selected' if produto and produto.unidade_consumo == 'UNID' }}>Unidade (UNID)</option>
-                                    <option value="L" {{ 'selected' if produto and produto.unidade_consumo == 'L' }}>Litro (L)</option>
-                                    <option value="PCT" {{ 'selected' if produto and produto.unidade_consumo == 'PCT' }}>Pacote (PCT)</option>
-                                </select>
-                                <div class="form-text">Como a escola solicitará este item.</div>
-                            </div>
-
-                            <div class="col-md-6" id="div_fator">
-                                <label for="fator_conversao" class="form-label fw-bold text-primary">Fator de Conversão</label>
-                                <input type="number" step="0.01" class="form-control border-primary" name="fator_conversao" id="fator_conversao" value="{{ produto.fator_conversao if produto else '1.0' }}">
-                                <div class="form-text small">Ex: Se 1 fardo tem 10kg, digite 10.</div>
-                            </div>
-                        </div>
-                    </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Recebido em Fardo/Caixa?</label>
+                <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" id="tem_fardo" onchange="toggleFardo()">
+                    <label class="form-check-label" for="tem_fardo">Sim, possui embalagem master</label>
                 </div>
+            </div>
 
-                <div class="card shadow-sm mb-4 border-top-success">
-                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                        <h5 class="m-0 fw-bold text-dark"><i class="bi bi-heart-pulse text-success me-2"></i>Informação Nutricional</h5>
-                        <small class="text-muted">Base de cálculo: 100g ou 100ml</small>
+            <div class="col-md-12 bg-light p-3 rounded border" id="secao_fardo" style="display: none;">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="unidade_medida" class="form-label fw-bold">Tipo de Embalagem Master</label>
+                        <select class="form-select" name="unidade_medida" id="unidade_medida">
+                            <option value="FRD" {{ 'selected' if produto and produto.unidade_medida == 'FRD' }}>Fardo (FRD)</option>
+                            <option value="CX" {{ 'selected' if produto and produto.unidade_medida == 'CX' }}>Caixa (CX)</option>
+                        </select>
                     </div>
-                    <div class="card-body bg-light">
-                        <div class="row g-3">
-                            <div class="col-md-3">
-                                <label class="form-label">Calorias (Kcal)</label>
-                                <div class="input-group">
-                                    <input type="number" step="0.01" class="form-control" name="calorias" value="{{ produto.calorias if produto else '' }}">
-                                    <span class="input-group-text">kcal</span>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Carboidratos</label>
-                                <div class="input-group">
-                                    <input type="number" step="0.01" class="form-control" name="carboidratos" value="{{ produto.carboidratos if produto else '' }}">
-                                    <span class="input-group-text">g</span>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Proteínas</label>
-                                <div class="input-group">
-                                    <input type="number" step="0.01" class="form-control" name="proteinas" value="{{ produto.proteinas if produto else '' }}">
-                                    <span class="input-group-text">g</span>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Lipídios (Gorduras)</label>
-                                <div class="input-group">
-                                    <input type="number" step="0.01" class="form-control" name="lipidios" value="{{ produto.lipidios if produto else '' }}">
-                                    <span class="input-group-text">g</span>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="col-md-6">
+                        <label for="fator_conversao" class="form-label fw-bold">Qtd de unidades/kg dentro do Fardo/Caixa</label>
+                        <input type="number" step="0.01" class="form-control" name="fator_conversao" id="fator_conversao" value="{{ produto.fator_conversao if produto else '1.0' }}">
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
 
             <div class="col-lg-4">
                 <div class="card shadow-sm mb-4 border-top-warning">
@@ -161,23 +128,29 @@
 </div>
 
 <script>
-function verificarConversao() {
-    const compra = document.getElementById('unidade_medida').value;
-    const inputFator = document.getElementById('fator_conversao');
-    const labelFator = document.querySelector('label[for="fator_conversao"]');
-    
-    // Se a unidade de compra for a mesma de consumo (ex: KG para KG), o fator deve ser 1.0
-    // No entanto, para Fardo e Caixa, o campo permanece aberto para ajustes de peso.
-    if (compra !== 'FRD' && compra !== 'CX') {
-        // Opcional: Você pode optar por esconder ou apenas alertar. 
-        // Mantemos visível para máxima flexibilidade caso o usuário queira converter PCT em KG etc.
-        labelFator.classList.remove('text-primary');
+function toggleFardo() {
+    const check = document.getElementById('tem_fardo');
+    const secao = document.getElementById('secao_fardo');
+    const fatorInput = document.getElementById('fator_conversao');
+    const unidCompra = document.getElementById('unidade_medida');
+
+    if (check.checked) {
+        secao.style.display = 'block';
     } else {
-        labelFator.classList.add('text-primary');
+        secao.style.display = 'none';
+        fatorInput.value = "1.0"; // Se não tem fardo, a entrada é 1 pra 1
+        unidCompra.value = document.getElementById('unidade_consumo').value; 
     }
 }
 
-document.addEventListener('DOMContentLoaded', verificarConversao);
+// Executa ao carregar para verificar se é edição de um produto que já é fardo
+document.addEventListener('DOMContentLoaded', function() {
+    const fator = parseFloat(document.getElementById('fator_conversao').value);
+    if (fator > 1) {
+        document.getElementById('tem_fardo').checked = true;
+        toggleFardo();
+    }
+});
 </script>
 
 <style>

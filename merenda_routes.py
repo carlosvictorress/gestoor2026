@@ -279,6 +279,7 @@ def entrada_estoque():
     if request.method == 'POST':
         try:
             produto_id = request.form.get('produto_id', type=int)
+            tipo_entrada = request.form.get('tipo_entrada')  # 'unidade' ou 'fardo'
             
             # Tratamento para aceitar vírgula (padrão brasileiro)
             quantidade_str = request.form.get('quantidade', '0').replace(',', '.')
@@ -294,13 +295,18 @@ def entrada_estoque():
                 flash('Produto não encontrado.', 'danger')
                 return redirect(url_for('merenda.entrada_estoque'))
 
-            # --- LÓGICA DE CONVERSÃO AUTOMÁTICA ATUALIZADA ---
-            # O estoque_atual sempre armazena a menor unidade (unidade_consumo, ex: KG ou UNID).
-            # Se o produto for fardo/caixa, multiplicamos pelo fator cadastrado para converter para a unidade de consumo.
-            fator = produto.fator_conversao if produto.fator_conversao and produto.fator_conversao > 0 else 1.0
-            quantidade_para_estoque = quantidade_digitada * fator
+            # --- LÓGICA SIMPLIFICADA DE CONVERSÃO ---
+            if tipo_entrada == 'fardo':
+                # Se for fardo, multiplica pelo fator cadastrado (Ex: 10 fardos x 30 unidades)
+                fator = produto.fator_conversao if produto.fator_conversao and produto.fator_conversao > 0 else 1.0
+                quantidade_para_estoque = quantidade_digitada * fator
+                msg_detalhe = f"{quantidade_digitada} fardos ({quantidade_para_estoque:.2f} {produto.unidade_consumo or 'unid'})"
+            else:
+                # Se for unidade/avulso, a entrada é 1 para 1
+                quantidade_para_estoque = quantidade_digitada
+                msg_detalhe = f"{quantidade_digitada} {produto.unidade_consumo or 'unid'}"
 
-            # 1. Adiciona a quantidade convertida (em unidade de consumo) ao estoque atual
+            # 1. Adiciona a quantidade final ao estoque atual
             produto.estoque_atual += quantidade_para_estoque
             
             # 2. Prepara a data de validade
@@ -308,11 +314,11 @@ def entrada_estoque():
             data_validade = datetime.strptime(data_validade_str, '%Y-%m-%d').date() if data_validade_str else None
 
             # 3. Cria o registro do movimento de estoque
-            # Guardamos a 'quantidade_digitada' (ex: 5 fardos) para manter a coerência com a nota fiscal da empresa
+            # Salvamos a quantidade_para_estoque para que o histórico reflita o saldo real em unidades
             movimento = EstoqueMovimento(
                 produto_id=produto_id,
                 tipo='Entrada',
-                quantidade=quantidade_digitada, 
+                quantidade=quantidade_para_estoque, 
                 fornecedor=request.form.get('fornecedor'),
                 lote=request.form.get('lote'),
                 data_validade=data_validade,
@@ -322,27 +328,20 @@ def entrada_estoque():
             db.session.add(movimento)
             db.session.commit()
             
-            # Log detalhado e mensagem de sucesso usando as novas unidades
-            unidade_alvo = produto.unidade_consumo or "unid/kg"
-            msg_log = f'Entrada de {quantidade_digitada} {produto.unidade_medida}'
-            if fator > 1:
-                msg_log += f' (Convertido em {quantidade_para_estoque:.2f} {unidade_alvo} de saldo real)'
-            
-            registrar_log(f'{msg_log} do produto "{produto.nome}".')
-            flash(f'Entrada de "{produto.nome}" registrada! Saldo atualizado para {produto.estoque_atual:.2f} {unidade_alvo}.', 'success')
+            registrar_log(f'Entrada de {msg_detalhe} do produto "{produto.nome}".')
+            flash(f'Sucesso! Adicionado {msg_detalhe} ao estoque de "{produto.nome}".', 'success')
             return redirect(url_for('merenda.entrada_estoque'))
 
         except Exception as e:
             db.session.rollback()
             flash(f'Erro ao registrar entrada de estoque: {e}', 'danger')
     
-    # --- GET: CARREGAMENTO DA PÁGINA COM FILTROS ---
+    # --- GET: CARREGAMENTO DA PÁGINA ---
     # REGRA: Não misturar produtos da Agricultura Familiar
     produtos = ProdutoMerenda.query.filter(
         or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None))
     ).order_by(ProdutoMerenda.nome).all()
 
-    # Histórico de entradas recentes para exibição na tabela
     historico_entradas = EstoqueMovimento.query.filter_by(tipo='Entrada')\
         .order_by(EstoqueMovimento.data_movimento.desc()).limit(20).all()
     

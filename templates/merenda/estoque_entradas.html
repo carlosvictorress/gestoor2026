@@ -1,87 +1,154 @@
 {% extends 'base.html' %}
 
-{% block title %}Entrada de Estoque da Merenda{% endblock %}
+{% block title %}Entrada de Estoque - Gestor 360{% endblock %}
 
 {% block content %}
-<h2><i class="bi bi-box-arrow-in-down"></i> Registrar Entrada de Estoque</h2>
-<hr>
-
-<div class="card shadow-sm mb-4">
-    <div class="card-header">
-        <h5>Nova Entrada de Produto</h5>
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center my-4">
+        <div>
+            <h2 class="fw-bold text-primary"><i class="bi bi-box-arrow-in-down"></i> Entrada de Materiais</h2>
+            <p class="text-muted">Registre a chegada de mercadorias por fardo ou unidade individual</p>
+        </div>
+        <a href="{{ url_for('merenda.listar_produtos') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-list-ul"></i> Ver Estoque Atual
+        </a>
     </div>
-    <div class="card-body">
-        <form method="POST">
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label for="produto_id" class="form-label">Produto*</label>
-                    <select class="form-select" name="produto_id" id="produto_id" required>
-                        <option value="">-- Selecione um produto --</option>
-                        {% for p in produtos %}
-                        <option value="{{ p.id }}">{{ p.nome }} ({{ p.unidade_medida }})</option>
+
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-header bg-white py-3">
+            <h5 class="m-0 fw-bold"><i class="bi bi-plus-circle text-success me-2"></i>Nova Movimentação</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <div class="row g-3">
+                    <div class="col-md-5">
+                        <label for="produto_id" class="form-label fw-bold">Produto*</label>
+                        <select class="form-select select2" name="produto_id" id="produto_id" required onchange="atualizarInfoProduto()">
+                            <option value="">-- Selecione o item que chegou --</option>
+                            {% for p in produtos %}
+                            <option value="{{ p.id }}" 
+                                    data-fator="{{ p.fator_conversao or 1.0 }}" 
+                                    data-unidade-consumo="{{ p.unidade_consumo or 'unid' }}"
+                                    data-unidade-compra="{{ p.unidade_medida or 'FRD' }}">
+                                {{ p.nome }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label for="tipo_entrada" class="form-label fw-bold">Como você está contando?</label>
+                        <select class="form-select border-primary" name="tipo_entrada" id="tipo_entrada" onchange="calcularConversao()">
+                            <option value="fardo">📦 Fardos / Caixas Fechadas</option>
+                            <option value="unidade">🔢 Unidades Soltas / Quilos</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-2">
+                        <label for="quantidade" class="form-label fw-bold">Quantidade*</label>
+                        <input type="number" step="0.01" class="form-control" name="quantidade" id="quantidade" required oninput="calcularConversao()">
+                    </div>
+
+                    <div class="col-md-2">
+                        <label for="data_validade" class="form-label fw-bold">Validade</label>
+                        <input type="date" class="form-control" name="data_validade" id="data_validade">
+                    </div>
+                </div>
+
+                <div class="row g-3 mt-2">
+                    <div class="col-md-4">
+                        <label for="fornecedor" class="form-label">Fornecedor</label>
+                        <input type="text" class="form-control" name="fornecedor" id="fornecedor" placeholder="Nome na Nota Fiscal">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="lote" class="form-label">Lote</label>
+                        <input type="text" class="form-control" name="lote" id="lote">
+                    </div>
+                    
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div id="feedback_conversao" class="alert alert-info w-100 mb-0 py-2" style="display: none;">
+                            <i class="bi bi-calculator me-2"></i> 
+                            O sistema somará <strong><span id="valor_final">0</span></strong> ao estoque real.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 text-end">
+                    <button type="submit" class="btn btn-success btn-lg px-5 fw-bold">
+                        <i class="bi bi-check-lg"></i> Confirmar Entrada
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# Tabela de Histórico Recente #}
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-light py-3">
+            <h6 class="m-0 fw-bold text-muted">Últimos Lançamentos</h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Data</th>
+                            <th>Produto</th>
+                            <th>Quantidade Real</th>
+                            <th>Fornecedor</th>
+                            <th>Responsável</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mov in historico %}
+                        <tr>
+                            <td>{{ mov.data_movimento.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td class="fw-bold">{{ mov.produto.nome }}</td>
+                            <td><span class="badge bg-light text-dark border">{{ mov.quantidade }} {{ mov.produto.unidade_consumo }}</span></td>
+                            <td class="small">{{ mov.fornecedor or '--' }}</td>
+                            <td class="small">{{ mov.usuario_responsavel }}</td>
+                        </tr>
                         {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label for="quantidade" class="form-label">Quantidade*</label>
-                    <input type="text" class="form-control" name="quantidade" id="quantidade" required placeholder="Ex: 50 ou 10,5">
-                </div>
-                <div class="col-md-3">
-                    <label for="data_validade" class="form-label">Data de Validade</label>
-                    <input type="date" class="form-control" name="data_validade" id="data_validade">
-                </div>
+                    </tbody>
+                </table>
             </div>
-            <div class="row g-3 mt-2">
-                <div class="col-md-6">
-                    <label for="fornecedor" class="form-label">Fornecedor</label>
-                    <input type="text" class="form-control" name="fornecedor" id="fornecedor" placeholder="Nome do fornecedor">
-                </div>
-                <div class="col-md-3">
-                    <label for="lote" class="form-label">Lote</label>
-                    <input type="text" class="form-control" name="lote" id="lote">
-                </div>
-                 <div class="col-md-3 d-flex align-items-end">
-                    <button type="submit" class="btn btn-success w-100"><i class="bi bi-check-circle-fill"></i> Registrar Entrada</button>
-                </div>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div class="card shadow-sm">
-    <div class="card-header">
-        <h5>Últimas Entradas Registradas</h5>
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Data</th>
-                        <th>Produto</th>
-                        <th>Quantidade</th>
-                        <th>Fornecedor</th>
-                        <th>Responsável</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for mov in historico %}
-                    <tr>
-                        <td>{{ mov.data_movimento.strftime('%d/%m/%Y %H:%M') }}</td>
-                        <td>{{ mov.produto.nome }}</td>
-                        <td>{{ mov.quantidade }} {{ mov.produto.unidade_medida }}</td>
-                        <td>{{ mov.fornecedor or '--' }}</td>
-                        <td>{{ mov.usuario_responsavel }}</td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="5" class="text-center">Nenhuma entrada registrada ainda.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
         </div>
     </div>
 </div>
 
+<script>
+function calcularConversao() {
+    const select = document.getElementById('produto_id');
+    const option = select.options[select.selectedIndex];
+    const tipo = document.getElementById('tipo_entrada').value;
+    const qtdDigitada = parseFloat(document.getElementById('quantidade').value) || 0;
+    const feedback = document.getElementById('feedback_conversao');
+    const valorFinal = document.getElementById('valor_final');
+
+    if (select.value && qtdDigitada > 0) {
+        const fator = parseFloat(option.dataset.fator) || 1;
+        const unidadeConsumo = option.dataset.unidadeConsumo;
+        
+        let resultado;
+        if (tipo === 'fardo') {
+            resultado = qtdDigitada * fator;
+            feedback.className = "alert alert-primary w-100 mb-0 py-2";
+        } else {
+            resultado = qtdDigitada;
+            feedback.className = "alert alert-secondary w-100 mb-0 py-2";
+        }
+
+        valorFinal.textContent = resultado.toFixed(2) + " " + unidadeConsumo;
+        feedback.style.display = 'block';
+    } else {
+        feedback.style.display = 'none';
+    }
+}
+
+function atualizarInfoProduto() {
+    // Reseta o tipo para fardo por padrão ao trocar de produto
+    document.getElementById('tipo_entrada').value = 'fardo';
+    calcularConversao();
+}
+</script>
 {% endblock %}

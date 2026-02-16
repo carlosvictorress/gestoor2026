@@ -1210,7 +1210,7 @@ def delete_usuario(id):
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    print(f"DEBUG: A aplicação está a usar a base de dados: {app.config['SQLALCHEMY_DATABASE_URI']}")
+    
     if request.method == "POST":
         username = request.form.get("usuario")
         password = request.form.get("senha")
@@ -3710,7 +3710,7 @@ app.register_blueprint(academico_bp)
 app.register_blueprint(caee_bp)
 app.register_blueprint(contrato_fiscal_bp)
 app.register_blueprint(contas_bp)
-app.register_blueprint(whatsapp_bp)
+app.register_blueprint(whatsapp_bp, url_prefix='/atendimento')
 app.register_blueprint(assinatura_bp)
 app.register_blueprint(admin_sql_bp)
 app.register_blueprint(helpdesk_bp)

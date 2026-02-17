@@ -7,7 +7,7 @@ whatsapp_bp = Blueprint('whatsapp', __name__)
 @whatsapp_bp.route('/atendimento')
 def chat_page():
     # Renderiza o arquivo que você já tem
-    return render_template('chatgestoor.html')
+    return render_template('chat/chatgestoor.html')
 
 @whatsapp_bp.route('/atendimento/ask', methods=['POST'])
 def ask():

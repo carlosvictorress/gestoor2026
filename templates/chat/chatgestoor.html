@@ -6,7 +6,7 @@
     <title>Atendimento ao Cidadão</title>
     <script src="https://cdn.tailwindcss.com"></script> 
 </head>
-<body class="bg-[#e5ddd5] flex flex-col h-screen overflow-hidden">
+<body class="bg-[#e5ddd5] flex flex-col h-[100dvh] overflow-hidden">
 
     <header class="bg-[#075e54] p-4 flex items-center shadow-md shrink-0">
         <div class="flex items-center gap-3">
@@ -36,15 +36,15 @@
 
     </main>
 
-    <footer class="bg-[#f0f0f0] p-3 pb-6 flex items-center gap-2 border-t shrink-0">
-        <input type="text" id="user-input" placeholder="Digite sua dúvida..." 
-               class="flex-1 p-3 rounded-2xl border-none shadow-sm focus:ring-0 text-sm">
-        <button onclick="sendMessage()" class="bg-[#075e54] text-white p-3 rounded-full shadow-lg active:scale-95 transition-transform">
-            <svg class="h-6 w-6 transform rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
-        </button>
-    </footer>
+    <footer class="bg-[#f0f0f0] p-3 pb-8 flex items-center gap-2 border-t shrink-0 mb-[env(safe-area-inset-bottom)]">
+    <input type="text" id="user-input" placeholder="Digite sua dúvida..." 
+           class="flex-1 p-3 rounded-2xl border-none shadow-sm focus:ring-2 focus:ring-[#075e54] text-base"> 
+    <button onclick="sendMessage()" class="bg-[#075e54] text-white p-3 rounded-full shadow-lg active:scale-95">
+        <svg class="h-6 w-6 transform rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+        </svg>
+    </button>
+</footer>
 
     <script>
         const chatWindow = document.getElementById('chat-window');

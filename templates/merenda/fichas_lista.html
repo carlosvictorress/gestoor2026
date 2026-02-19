@@ -59,35 +59,39 @@
                                     <span class="badge rounded-pill bg-light text-dark">{{ ficha.status }}</span>
                                 {% endif %}
                             </td>
-                            <td class="text-center">
-    <div class="btn-group">
-        {# BOTÃO PDF - Sempre disponível #}
-        <a href="{{ url_for('merenda.gerar_pdf_ficha', id=ficha.id) }}" class="btn btn-sm btn-outline-danger" title="Gerar PDF">
+                           <td class="text-center">
+    <div class="btn-group shadow-sm">
+        {# 1. PDF - Sempre visível para baixar o documento #}
+        <a href="{{ url_for('merenda.gerar_pdf_ficha', id=ficha.id) }}" 
+           class="btn btn-sm btn-outline-danger" title="Imprimir PDF">
             <i class="bi bi-file-pdf"></i>
         </a>
 
         {% if ficha.status == 'Pendente' %}
-            {# BOTÃO ENVIAR - Só aparece se estiver Pendente #}
+            {# 2. ENVIAR - Muda o status e bloqueia a ficha #}
             <form action="{{ url_for('merenda.enviar_ficha', id=ficha.id) }}" method="POST" style="display:inline;">
-                <button type="submit" class="btn btn-sm btn-outline-success" title="Enviar para Escola">
+                <button type="submit" class="btn btn-sm btn-outline-success" title="Enviar para Escola" 
+                        onclick="return confirm('Deseja enviar? Isso bloqueará edições futuras.')">
                     <i class="bi bi-send-check"></i>
                 </button>
             </form>
 
-            {# BOTÃO EDITAR - Só aparece se estiver Pendente #}
-            <a href="{{ url_for('merenda.editar_ficha', id=ficha.id) }}" class="btn btn-sm btn-outline-secondary" title="Editar">
+            {# 3. EDITAR - Abre o formulário de edição #}
+            <a href="{{ url_for('merenda.editar_ficha', id=ficha.id) }}" 
+               class="btn btn-sm btn-outline-secondary" title="Editar Itens">
                 <i class="bi bi-pencil"></i>
             </a>
 
-            {# BOTÃO EXCLUIR - Só aparece se estiver Pendente #}
-            <form action="{{ url_for('merenda.excluir_ficha', id=ficha.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Deseja realmente excluir?');">
+            {# 4. EXCLUIR - Deleta a ficha do banco #}
+            <form action="{{ url_for('merenda.excluir_ficha', id=ficha.id) }}" method="POST" style="display:inline;" 
+                  onsubmit="return confirm('Tem certeza que deseja excluir esta ficha permanentemente?');">
                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
                     <i class="bi bi-trash"></i>
                 </button>
             </form>
         {% else %}
-            {# MENSAGEM QUANDO JÁ FOI ENVIADO #}
-            <span class="btn btn-sm btn-light disabled" title="Enviado - Bloqueado">
+            {# 5. BLOQUEADO - Aparece apenas o ícone de cadeado se não for mais Pendente #}
+            <span class="btn btn-sm btn-light disabled text-muted" title="Ficha enviada (Edição bloqueada)">
                 <i class="bi bi-lock-fill"></i>
             </span>
         {% endif %}

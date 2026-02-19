@@ -1841,17 +1841,16 @@ def gerar_pdf_ficha(id):
     ficha = FichaDistribuicao.query.get_or_404(id)
     
     buffer = io.BytesIO()
-    # A4 com margens de 1.5cm
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=42, leftMargin=42, topMargin=42, bottomMargin=42)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     elements = []
     styles = getSampleStyleSheet()
 
-    # Estilo do Cabeçalho (Baseado no seu modelo PDF)
-    style_header = ParagraphStyle('Header', fontSize=9, alignment=TA_CENTER, leading=11)
-    style_title = ParagraphStyle('Title', fontSize=12, alignment=TA_CENTER, leading=14, spaceBefore=20, spaceAfter=20, fontName='Helvetica-Bold')
-    style_corpo = ParagraphStyle('Corpo', fontSize=11, alignment=TA_JUSTIFY, leading=14)
+    # Estilos customizados
+    style_header = ParagraphStyle('Header', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER, leading=11)
+    style_title = ParagraphStyle('Title', parent=styles['Normal'], fontSize=12, alignment=TA_CENTER, leading=14, spaceBefore=15, spaceAfter=15, fontName='Helvetica-Bold')
+    style_corpo = ParagraphStyle('Corpo', parent=styles['Normal'], fontSize=11, alignment=TA_JUSTIFY, leading=14)
 
-    # Conteúdo do Cabeçalho
+    # Conteúdo do Cabeçalho (Modelo Oficial)
     cabecalho = [
         "MUNICÍPIO DE VALENÇA DO PIAUÍ",
         "SECRETARIA MUNICIPAL DE EDUCAÇÃO",
@@ -1862,38 +1861,36 @@ def gerar_pdf_ficha(id):
     for linha in cabecalho:
         elements.append(Paragraph(linha, style_header))
 
-    # Título e Texto de Recebimento
     elements.append(Paragraph(f"FICHA DE DISTRIBUIÇÃO DE GÊNEROS ALIMENTÍCIOS - {ficha.mes_referencia.upper()} / {ficha.ano_referencia}", style_title))
     
     texto = (f"Recebi da PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ, por meio da SECRETARIA MUNICIPAL DE EDUCAÇÃO, "
-             f"os gêneros alimentícios <b>{ficha.tipo_genero}</b> abaixo discriminados para a unidade <b>{ficha.escola.nome}</b>, "
-             f"por cujo armazenagem, conservação e aplicação me responsabilizo conforme as normas do PNAE.")
+             f"os gêneros alimentícios <b>{ficha.tipo_genero}</b> discriminados para a unidade <b>{ficha.escola.nome}</b>, "
+             f"conforme as normas do PNAE.")
     elements.append(Paragraph(texto, style_corpo))
     elements.append(Spacer(1, 15))
 
     # Tabela de Itens
-    data = [["ITEM", "ESPECIFICAÇÃO DO PRODUTO", "UNID.", "QT", "OBS"]]
+    data = [["ITEM", "PRODUTO", "UNID.", "QUANTIDADE", "OBS"]]
     for i, item in enumerate(ficha.itens, 1):
         data.append([
             str(i),
             item.produto.nome.upper(),
             item.produto.unidade_medida,
-            f"{item.quantidade:,.2f}".replace(',', 'v').replace('.', ',').replace('v', '.'),
+            f"{item.quantidade:,.2f}".replace('.', 'X').replace(',', '.').replace('X', ','),
             item.observacao or ""
         ])
 
-    t = Table(data, colWidths=[1*cm, 8.5*cm, 1.5*cm, 2*cm, 4*cm])
+    t = Table(data, colWidths=[1*cm, 9*cm, 1.5*cm, 2.5*cm, 3*cm])
     t.setStyle(TableStyle([
         ('GRID', (0,0), (-1,-1), 0.5, colors.black),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('ALIGN', (0,0), (0,-1), 'CENTER'), # ID centralizado
-        ('ALIGN', (2,0), (3,-1), 'CENTER'), # Unid e Qtd centralizados
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('ALIGN', (1,1), (1,-1), 'LEFT'),
     ]))
     elements.append(t)
     
-    # Assinaturas no final
+    # Assinaturas
     elements.append(Spacer(1, 40))
     ass_data = [
         ["____________________________________", "", "____________________________________"],
@@ -1907,8 +1904,18 @@ def gerar_pdf_ficha(id):
     buffer.seek(0)
     return make_response(buffer.getvalue(), 200, {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': f'attachment; filename=Ficha_{ficha.id}.pdf'
+        'Content-Disposition': f'attachment; filename=Ficha_{id}.pdf'
     })
+
+@merenda_bp.route('/fichas/enviar/<int:id>', methods=['POST'])
+@login_required
+def enviar_ficha(id):
+    ficha = FichaDistribuicao.query.get_or_404(id)
+    if ficha.status == 'Pendente':
+        ficha.status = 'Enviado'
+        db.session.commit()
+        flash('Ficha enviada! Edição e Exclusão bloqueadas.', 'success')
+    return redirect(url_for('merenda.listar_fichas'))
     
 @merenda_bp.route('/fichas')
 @login_required
@@ -1990,13 +1997,3 @@ def enviar_para_escola(id):
     flash(f'Ficha #{id} enviada com sucesso. Edição bloqueada.', 'success')
     return redirect(url_for('merenda.listar_fichas'))    
 
-@merenda_bp.route('/fichas/enviar/<int:id>', methods=['POST'])
-@login_required
-def enviar_ficha(id):
-    ficha = FichaDistribuicao.query.get_or_404(id)
-    if ficha.status == 'Pendente':
-        # Aqui você pode adicionar lógica de baixar estoque se quiser
-        ficha.status = 'Enviado'
-        db.session.commit()
-        flash('Ficha enviada com sucesso! Edição bloqueada.', 'success')
-    return redirect(url_for('merenda.listar_fichas'))

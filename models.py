@@ -1467,3 +1467,27 @@ class PedidoEmpresaItem(db.Model):
     
     produto = db.relationship('ProdutoMerenda')    
     
+class FichaDistribuicao(db.Model):
+    __tablename__ = 'ficha_distribuicao'
+    id = db.Column(db.Integer, primary_key=True)
+    escola_id = db.Column(db.Integer, db.ForeignKey('escolas.id'), nullable=False)
+    mes_referencia = db.Column(db.String(20), nullable=False) # Ex: "Janeiro"
+    ano_referencia = db.Column(db.Integer, nullable=False)
+    tipo_genero = db.Column(db.String(50), nullable=False) # "PERECÍVEIS" ou "NÃO PERECÍVEIS"
+    data_emissao = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(20), default='Pendente') # Pendente, Enviado
+    
+    itens = db.relationship('FichaDistribuicaoItem', backref='ficha', cascade="all, delete-orphan")
+    escola = db.relationship('Escola', backref='fichas')
+
+class FichaDistribuicaoItem(db.Model):
+    __tablename__ = 'ficha_distribuicao_item'
+    id = db.Column(db.Integer, primary_key=True)
+    ficha_id = db.Column(db.Integer, db.ForeignKey('ficha_distribuicao.id'))
+    produto_id = db.Column(db.Integer, db.ForeignKey('produto_merenda.id'))
+    quantidade = db.Column(db.Float, nullable=False)
+    observacao = db.Column(db.String(200))
+    
+    produto = db.relationship('ProdutoMerenda')    
+    
+    

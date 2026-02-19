@@ -49,6 +49,7 @@
         <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#"><i class="bi bi-file-earmark-bar-graph me-2"></i>Relatórios</a>
             <ul class="dropdown-menu">
+                <li class="nav-item"><a class="nav-link" href="{{ url_for('merenda.listar_fichas') }}"><i class="bi bi-truck me-2"></i>Ficha de Distribuição</a></li>
                 <li><a class="dropdown-item" href="{{ url_for('merenda.relatorios_tecnicos') }}">Técnicos e Ofícios</a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item" href="{{ url_for('merenda.relatorio_saidas') }}">Saídas de Estoque</a></li>

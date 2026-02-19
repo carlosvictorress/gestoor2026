@@ -1835,85 +1835,79 @@ def enviar_alimentos_ficha(ficha_id):
         
     return redirect(url_for('merenda.listar_fichas'))
 
-@merenda_bp.route('/ficha/pdf/<int:ficha_id>')
+@merenda_bp.route('/fichas/pdf/<int:id>')
 @login_required
-def gerar_pdf_ficha(ficha_id):
-    # Busca a ficha no Supabase
-    ficha = FichaDistribuicao.query.get_or_404(ficha_id)
+def gerar_pdf_ficha(id):
+    ficha = FichaDistribuicao.query.get_or_404(id)
     
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    # A4 com margens de 1.5cm
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=42, leftMargin=42, topMargin=42, bottomMargin=42)
     elements = []
-    
     styles = getSampleStyleSheet()
-    style_center = styles['Normal']
-    style_center.alignment = TA_CENTER
+
+    # Estilo do Cabeçalho (Baseado no seu modelo PDF)
+    style_header = ParagraphStyle('Header', fontSize=9, alignment=TA_CENTER, leading=11)
+    style_title = ParagraphStyle('Title', fontSize=12, alignment=TA_CENTER, leading=14, spaceBefore=20, spaceAfter=20, fontName='Helvetica-Bold')
+    style_corpo = ParagraphStyle('Corpo', fontSize=11, alignment=TA_JUSTIFY, leading=14)
+
+    # Conteúdo do Cabeçalho
+    cabecalho = [
+        "MUNICÍPIO DE VALENÇA DO PIAUÍ",
+        "SECRETARIA MUNICIPAL DE EDUCAÇÃO",
+        "Rua Epaminondas Nogueira, nº 1425 - Centro - Valença do Piauí",
+        "CNPJ: 06.095.146/0001-44 - Fone (89) 3465-2276",
+        "e-mail: seme.valenca@yahoo.com.br"
+    ]
+    for linha in cabecalho:
+        elements.append(Paragraph(linha, style_header))
+
+    # Título e Texto de Recebimento
+    elements.append(Paragraph(f"FICHA DE DISTRIBUIÇÃO DE GÊNEROS ALIMENTÍCIOS - {ficha.mes_referencia.upper()} / {ficha.ano_referencia}", style_title))
     
-    # --- CABEÇALHO (Igual ao seu PDF) ---
-    elements.append(Paragraph("<b>MUNICÍPIO DE VALENÇA DO PIAUÍ</b>", style_center))
-    elements.append(Paragraph("SECRETARIA MUNICIPAL DE EDUCAÇÃO", style_center))
-    elements.append(Paragraph("Rua Epaminondas Nogueira, n 1425 - Centro - Valença do Piauí", style_center))
-    elements.append(Paragraph("CNPJ: 06.095.146/0001-44 - Fone (89) 3465-2276", style_center))
-    elements.append(Paragraph("e-mail: seme.valenca@yahoo.com.br", style_center))
-    elements.append(Spacer(1, 20))
-    
-    # --- TÍTULO ---
-    titulo = f"FICHA DE DISTRIBUIÇÃO DE GÊNEROS ALIMENTÍCIOS {ficha.mes_referencia}/{ficha.ano_referencia}"
-    elements.append(Paragraph(f"<b>{titulo.upper()}</b>", style_center))
-    elements.append(Spacer(1, 15))
-    
-    # --- TEXTO DE RESPONSABILIDADE ---
-    texto = f"""Recebi da PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ, por meio da SECRETARIA 
-    MUNICIPAL DE EDUCAÇÃO DE VALENÇA DO PIAUÍ, os gêneros alimentícios <b>{ficha.tipo_genero.upper()}</b> 
-    abaixo discriminados, por cujo armazenagem, conservação e aplicação me responsabilizo 
-    conforme as normas estabelecidas pelo PNAE."""
-    elements.append(Paragraph(texto, styles['Normal']))
+    texto = (f"Recebi da PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ, por meio da SECRETARIA MUNICIPAL DE EDUCAÇÃO, "
+             f"os gêneros alimentícios <b>{ficha.tipo_genero}</b> abaixo discriminados para a unidade <b>{ficha.escola.nome}</b>, "
+             f"por cujo armazenagem, conservação e aplicação me responsabilizo conforme as normas do PNAE.")
+    elements.append(Paragraph(texto, style_corpo))
     elements.append(Spacer(1, 15))
 
-    # --- TABELA DE ITENS ---
+    # Tabela de Itens
     data = [["ITEM", "ESPECIFICAÇÃO DO PRODUTO", "UNID.", "QT", "OBS"]]
     for i, item in enumerate(ficha.itens, 1):
         data.append([
-            str(i), 
-            item.produto.nome.upper(), 
-            item.produto.unidade_medida, 
-            str(item.quantidade), 
+            str(i),
+            item.produto.nome.upper(),
+            item.produto.unidade_medida,
+            f"{item.quantidade:,.2f}".replace(',', 'v').replace('.', ',').replace('v', '.'),
             item.observacao or ""
         ])
-    
-    # Ajuste de larguras das colunas
-    t = Table(data, colWidths=[1*cm, 8*cm, 2*cm, 2*cm, 5*cm])
+
+    t = Table(data, colWidths=[1*cm, 8.5*cm, 1.5*cm, 2*cm, 4*cm])
     t.setStyle(TableStyle([
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (0,0), (0,-1), 'CENTER'), # ID centralizado
+        ('ALIGN', (2,0), (3,-1), 'CENTER'), # Unid e Qtd centralizados
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('ALIGN', (1,1), (1,-1), 'LEFT'), # Alinha nomes dos produtos à esquerda
+        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
     ]))
     elements.append(t)
     
-    # --- ASSINATURAS ---
-    elements.append(Spacer(1, 50))
-    assinaturas = [
-        ["__________________________________________", "", "__________________________________________"],
-        ["Assinatura do(a) Diretor(a)", "", "Coordenador(a) da Merenda Escolar"]
+    # Assinaturas no final
+    elements.append(Spacer(1, 40))
+    ass_data = [
+        ["____________________________________", "", "____________________________________"],
+        ["Assinatura do(a) Diretor(a)", "", "Coordenador(a) da Merenda"]
     ]
-    table_ass = Table(assinaturas, colWidths=[8*cm, 1*cm, 8*cm])
-    table_ass.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER')]))
-    elements.append(table_ass)
-    
-    # --- DATA FINAL ---
-    elements.append(Spacer(1, 30))
-    data_hoje = datetime.now()
-    meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
-    data_extenso = f"Valença do Piauí, {data_hoje.day} de {meses[data_hoje.month-1]} de {data_hoje.year}"
-    elements.append(Paragraph(data_extenso, styles['Normal']))
-    
+    ass_table = Table(ass_data, colWidths=[8*cm, 1*cm, 8*cm])
+    ass_table.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+    elements.append(ass_table)
+
     doc.build(elements)
     buffer.seek(0)
-    
     return make_response(buffer.getvalue(), 200, {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': f'inline; filename=ficha_{ficha_id}.pdf'
+        'Content-Disposition': f'attachment; filename=Ficha_{ficha.id}.pdf'
     })
     
 @merenda_bp.route('/fichas')
@@ -1971,4 +1965,38 @@ def excluir_ficha(id):
         db.session.rollback()
         flash(f'Erro ao excluir: {str(e)}', 'danger')
     
+    return redirect(url_for('merenda.listar_fichas'))
+
+@merenda_bp.route('/pedido/editar/<int:id>')
+def editar_pedido(id):
+    pedido = PedidoEmpresa.query.get_or_404(id)
+    # Se o status for 'Entregue', por exemplo, bloqueia. 
+    # Mas 'Enviado para Escola' deve permitir edição se você desejar.
+    if pedido.status == 'Entregue':
+        flash('Pedidos entregues não podem ser editados.', 'warning')
+        return redirect(url_for('merenda.dashboard'))
+    
+@merenda_bp.route('/fichas/enviar/<int:id>', methods=['POST'])
+@login_required
+def enviar_para_escola(id):
+    ficha = FichaDistribuicao.query.get_or_404(id)
+    
+    # Aqui você pode baixar o estoque automaticamente se desejar
+    # for item in ficha.itens:
+    #     item.produto.estoque_atual -= item.quantidade
+    
+    ficha.status = 'Enviado'
+    db.session.commit()
+    flash(f'Ficha #{id} enviada com sucesso. Edição bloqueada.', 'success')
+    return redirect(url_for('merenda.listar_fichas'))    
+
+@merenda_bp.route('/fichas/enviar/<int:id>', methods=['POST'])
+@login_required
+def enviar_ficha(id):
+    ficha = FichaDistribuicao.query.get_or_404(id)
+    if ficha.status == 'Pendente':
+        # Aqui você pode adicionar lógica de baixar estoque se quiser
+        ficha.status = 'Enviado'
+        db.session.commit()
+        flash('Ficha enviada com sucesso! Edição bloqueada.', 'success')
     return redirect(url_for('merenda.listar_fichas'))

@@ -1781,3 +1781,162 @@ def excluir_produto(produto_id):
         flash(f'Erro ao excluir produto: {e}', 'danger')
         
     return redirect(url_for('merenda.listar_produtos'))    
+
+@merenda_bp.route('/ficha/enviar/<int:ficha_id>', methods=['POST'])
+@login_required
+def enviar_alimentos_ficha(ficha_id):
+    ficha = FichaDistribuicao.query.get_or_404(ficha_id)
+    
+    if ficha.status == 'Enviado':
+        flash('Estes alimentos já foram enviados e a baixa no estoque já foi realizada.', 'warning')
+        return redirect(url_for('merenda.listar_fichas'))
+
+    try:
+        for item in ficha.itens:
+            produto = item.produto
+            
+            # 1. Registra a saída no histórico de movimentação
+            movimento = EstoqueMovimento(
+                produto_id=item.produto_id,
+                quantidade=item.quantidade,
+                tipo='saida',
+                origem=f'Ficha de Distribuição Mensal #{ficha.id} - {ficha.mes_referencia}/{ficha.ano_referencia}',
+                data_movimento=datetime.now(),
+                escola_id=ficha.escola_id
+            )
+            
+            # 2. Atualiza o saldo real no Supabase
+            produto.estoque_atual -= item.quantidade
+            db.session.add(movimento)
+
+        ficha.status = 'Enviado'
+        db.session.commit()
+        registrar_log(f"Enviou alimentos da Ficha {ficha.id} para {ficha.escola.nome}")
+        flash(f'Sucesso! Baixa de estoque realizada para {ficha.escola.nome}.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao processar baixa: {str(e)}', 'danger')
+        
+    return redirect(url_for('merenda.listar_fichas'))
+
+@merenda_bp.route('/ficha/pdf/<int:ficha_id>')
+@login_required
+def gerar_pdf_ficha(ficha_id):
+    # Busca a ficha no Supabase
+    ficha = FichaDistribuicao.query.get_or_404(ficha_id)
+    
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    elements = []
+    
+    styles = getSampleStyleSheet()
+    style_center = styles['Normal']
+    style_center.alignment = TA_CENTER
+    
+    # --- CABEÇALHO (Igual ao seu PDF) ---
+    elements.append(Paragraph("<b>MUNICÍPIO DE VALENÇA DO PIAUÍ</b>", style_center))
+    elements.append(Paragraph("SECRETARIA MUNICIPAL DE EDUCAÇÃO", style_center))
+    elements.append(Paragraph("Rua Epaminondas Nogueira, n 1425 - Centro - Valença do Piauí", style_center))
+    elements.append(Paragraph("CNPJ: 06.095.146/0001-44 - Fone (89) 3465-2276", style_center))
+    elements.append(Paragraph("e-mail: seme.valenca@yahoo.com.br", style_center))
+    elements.append(Spacer(1, 20))
+    
+    # --- TÍTULO ---
+    titulo = f"FICHA DE DISTRIBUIÇÃO DE GÊNEROS ALIMENTÍCIOS {ficha.mes_referencia}/{ficha.ano_referencia}"
+    elements.append(Paragraph(f"<b>{titulo.upper()}</b>", style_center))
+    elements.append(Spacer(1, 15))
+    
+    # --- TEXTO DE RESPONSABILIDADE ---
+    texto = f"""Recebi da PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ, por meio da SECRETARIA 
+    MUNICIPAL DE EDUCAÇÃO DE VALENÇA DO PIAUÍ, os gêneros alimentícios <b>{ficha.tipo_genero.upper()}</b> 
+    abaixo discriminados, por cujo armazenagem, conservação e aplicação me responsabilizo 
+    conforme as normas estabelecidas pelo PNAE."""
+    elements.append(Paragraph(texto, styles['Normal']))
+    elements.append(Spacer(1, 15))
+
+    # --- TABELA DE ITENS ---
+    data = [["ITEM", "ESPECIFICAÇÃO DO PRODUTO", "UNID.", "QT", "OBS"]]
+    for i, item in enumerate(ficha.itens, 1):
+        data.append([
+            str(i), 
+            item.produto.nome.upper(), 
+            item.produto.unidade_medida, 
+            str(item.quantidade), 
+            item.observacao or ""
+        ])
+    
+    # Ajuste de larguras das colunas
+    t = Table(data, colWidths=[1*cm, 8*cm, 2*cm, 2*cm, 5*cm])
+    t.setStyle(TableStyle([
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('ALIGN', (1,1), (1,-1), 'LEFT'), # Alinha nomes dos produtos à esquerda
+    ]))
+    elements.append(t)
+    
+    # --- ASSINATURAS ---
+    elements.append(Spacer(1, 50))
+    assinaturas = [
+        ["__________________________________________", "", "__________________________________________"],
+        ["Assinatura do(a) Diretor(a)", "", "Coordenador(a) da Merenda Escolar"]
+    ]
+    table_ass = Table(assinaturas, colWidths=[8*cm, 1*cm, 8*cm])
+    table_ass.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+    elements.append(table_ass)
+    
+    # --- DATA FINAL ---
+    elements.append(Spacer(1, 30))
+    data_hoje = datetime.now()
+    meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
+    data_extenso = f"Valença do Piauí, {data_hoje.day} de {meses[data_hoje.month-1]} de {data_hoje.year}"
+    elements.append(Paragraph(data_extenso, styles['Normal']))
+    
+    doc.build(elements)
+    buffer.seek(0)
+    
+    return make_response(buffer.getvalue(), 200, {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': f'inline; filename=ficha_{ficha_id}.pdf'
+    })
+    
+@merenda_bp.route('/fichas')
+@login_required
+def listar_fichas():
+    # Busca as fichas para mostrar na tela
+    fichas = FichaDistribuicao.query.order_by(FichaDistribuicao.id.desc()).all()
+    return render_template('merenda/fichas_lista.html', fichas=fichas)   
+
+@merenda_bp.route('/fichas/nova', methods=['GET', 'POST'])
+@login_required
+def nova_ficha():
+    if request.method == 'POST':
+        # Lógica para salvar a ficha (conforme passei anteriormente)
+        nova_f = FichaDistribuicao(
+            escola_id=request.form.get('escola_id'),
+            mes_referencia=request.form.get('mes_referencia'),
+            ano_referencia=datetime.now().year,
+            tipo_genero=request.form.get('tipo_genero')
+        )
+        db.session.add(nova_f)
+        db.session.flush()
+
+        produtos_ids = request.form.getlist('produto_id[]')
+        quantidades = request.form.getlist('quantidade[]')
+        
+        for i in range(len(produtos_ids)):
+            if quantidades[i] and float(quantidades[i]) > 0:
+                item = FichaDistribuicaoItem(
+                    ficha_id=nova_f.id,
+                    produto_id=produtos_ids[i],
+                    quantidade=float(quantidades[i])
+                )
+                db.session.add(item)
+        
+        db.session.commit()
+        flash('Ficha criada com sucesso!', 'success')
+        return redirect(url_for('merenda.listar_fichas'))
+
+    escolas = Escola.query.all()
+    produtos = ProdutoMerenda.query.all()
+    return render_template('merenda/ficha_form.html', escolas=escolas, produtos=produtos)

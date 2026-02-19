@@ -1470,15 +1470,16 @@ class PedidoEmpresaItem(db.Model):
 class FichaDistribuicao(db.Model):
     __tablename__ = 'ficha_distribuicao'
     id = db.Column(db.Integer, primary_key=True)
-    escola_id = db.Column(db.Integer, db.ForeignKey('escolas.id'), nullable=False)
-    mes_referencia = db.Column(db.String(20), nullable=False) # Ex: "Janeiro"
+    escola_id = db.Column(db.Integer, db.ForeignKey('escola.id'), nullable=False)
+    mes_referencia = db.Column(db.String(20), nullable=False)
     ano_referencia = db.Column(db.Integer, nullable=False)
-    tipo_genero = db.Column(db.String(50), nullable=False) # "PERECÍVEIS" ou "NÃO PERECÍVEIS"
+    tipo_genero = db.Column(db.String(50), nullable=False)
     data_emissao = db.Column(db.DateTime, default=datetime.utcnow)
-    status = db.Column(db.String(20), default='Pendente') # Pendente, Enviado
+    status = db.Column(db.String(20), default='Pendente')
     
+    # Relacionamentos
     itens = db.relationship('FichaDistribuicaoItem', backref='ficha', cascade="all, delete-orphan")
-    escola = db.relationship('Escola', backref='fichas')
+    escola = db.relationship('Escola', backref='fichas_distribuicao')
 
 class FichaDistribuicaoItem(db.Model):
     __tablename__ = 'ficha_distribuicao_item'
@@ -1488,6 +1489,6 @@ class FichaDistribuicaoItem(db.Model):
     quantidade = db.Column(db.Float, nullable=False)
     observacao = db.Column(db.String(200))
     
-    produto = db.relationship('ProdutoMerenda')    
+    produto = db.relationship('ProdutoMerenda')  
     
     

@@ -1,66 +1,91 @@
 {% extends 'base.html' %}
 
-{% block title %}Fichas de Distribuição Mensal{% endblock %}
-
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-file-earmark-text"></i> Fichas de Distribuição Mensal</h2>
-    <a href="{{ url_for('merenda.nova_ficha') }}" class="btn btn-primary">
-        <i class="bi bi-plus-circle"></i> Criar Nova Ficha Mensal
-    </a>
-</div>
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center my-4">
+        <div>
+            <h2 class="fw-bold text-primary"><i class="bi bi-file-earmark-spreadsheet-fill"></i> Fichas de Distribuição</h2>
+            <p class="text-muted">Gerencie o envio de gêneros alimentícios para as unidades escolares.</p>
+        </div>
+        <a href="{{ url_for('merenda.nova_ficha') }}" class="btn btn-primary shadow-sm">
+            <i class="bi bi-plus-lg"></i> Nova Ficha de Distribuição
+        </a>
+    </div>
 
-<div class="card shadow-sm">
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>Escola</th>
-                        <th>Mês/Ano</th>
-                        <th>Tipo</th>
-                        <th>Status</th>
-                        <th class="text-center">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ficha in fichas %}
-                    <tr>
-                        <td>{{ ficha.escola.nome }}</td>
-                        <td>{{ ficha.mes_referencia }}/{{ ficha.ano_referencia }}</td>
-                        <td>{{ ficha.tipo_genero }}</td>
-                        <td>
-                            {% if ficha.status == 'Enviado' %}
-                                <span class="badge bg-success">Enviado / Baixa no Estoque OK</span>
-                            {% else %}
-                                <span class="badge bg-warning text-dark">Pendente</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-center">
-                            <a href="{{ url_for('merenda.gerar_pdf_ficha', ficha_id=ficha.id) }}" target="_blank" class="btn btn-sm btn-danger">
-                                <i class="bi bi-file-pdf"></i> PDF
-                            </a>
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-body bg-light rounded">
+            <div class="row align-items-center">
+                <div class="col">
+                    <span class="text-muted small text-uppercase fw-bold">Total de Fichas: {{ fichas|length }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                            {% if ficha.status == 'Pendente' %}
-                                <form action="{{ url_for('merenda.enviar_alimentos_ficha', ficha_id=ficha.id) }}" method="POST" style="display:inline;">
-                                    <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('Deseja confirmar o envio? Isso subtrairá os itens do estoque no Supabase.')">
-                                        <i class="bi bi-truck"></i> ENVIAR ALIMENTOS
-                                    </button>
-                                </form>
-
-                                <form action="{{ url_for('merenda.excluir_ficha', id=ficha.id) }}" method="POST" style="display:inline;">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-                                </form>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="5" class="text-center text-muted">Nenhuma ficha mensal gerada.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-primary text-white">
+                        <tr>
+                            <th class="ps-4">Nº Ficha</th>
+                            <th>Escola Destino</th>
+                            <th>Mês/Ano Ref.</th>
+                            <th>Gênero</th>
+                            <th>Status</th>
+                            <th class="text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ficha in fichas %}
+                        <tr>
+                            <td class="ps-4 fw-bold text-secondary">#{{ ficha.id }}</td>
+                            <td>
+                                <div class="fw-bold">{{ ficha.escola.nome }}</div>
+                                <small class="text-muted"><i class="bi bi-calendar3"></i> {{ ficha.data_emissao.strftime('%d/%m/%Y') }}</small>
+                            </td>
+                            <td>{{ ficha.mes_referencia }}/{{ ficha.ano_referencia }}</td>
+                            <td>
+                                <span class="badge {{ 'bg-info text-dark' if ficha.tipo_genero == 'PERECÍVEIS' else 'bg-secondary' }}">
+                                    {{ ficha.tipo_genero }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if ficha.status == 'Pendente' %}
+                                    <span class="badge rounded-pill bg-warning text-dark"><i class="bi bi-clock-history"></i> Pendente</span>
+                                {% elif ficha.status == 'Enviado' %}
+                                    <span class="badge rounded-pill bg-success"><i class="bi bi-check-circle"></i> Enviado</span>
+                                {% else %}
+                                    <span class="badge rounded-pill bg-light text-dark">{{ ficha.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group">
+                                    <a href="#" class="btn btn-sm btn-outline-danger" title="Gerar PDF">
+                                        <i class="bi bi-file-pdf"></i>
+                                    </a>
+                                    <a href="#" class="btn btn-sm btn-outline-secondary" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <form action="{{ url_for('merenda.excluir_ficha', id=ficha.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Deseja realmente excluir esta ficha?');">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+                                Nenhuma ficha de distribuição encontrada.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

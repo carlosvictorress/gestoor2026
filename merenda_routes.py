@@ -1956,3 +1956,19 @@ def nova_ficha():
     escolas = Escola.query.all()
     produtos = ProdutoMerenda.query.all()
     return render_template('merenda/ficha_form.html', escolas=escolas, produtos=produtos)
+
+@merenda_bp.route('/fichas/excluir/<int:id>', methods=['POST'])
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def excluir_ficha(id):
+    ficha = FichaDistribuicao.query.get_or_404(id)
+    try:
+        db.session.delete(ficha)
+        db.session.commit()
+        registrar_log(f"Excluiu a Ficha de Distribuição #{id}")
+        flash('Ficha excluída com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao excluir: {str(e)}', 'danger')
+    
+    return redirect(url_for('merenda.listar_fichas'))

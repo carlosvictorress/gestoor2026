@@ -32,16 +32,32 @@
                 </tr>
             </thead>
             <tbody>
-                {% for p in produtos %}
-                <tr>
-                    <td>{{ p.nome }}</td>
-                    <td>
-                        <input type="hidden" name="produto_id[]" value="{{ p.id }}">
-                        <input type="number" name="quantidade[]" class="form-control" step="0.01">
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
+    {% if editando %}
+        {# MODO EDIÇÃO: Mostra apenas os produtos que já estão na ficha #}
+        {% for item in ficha.itens %}
+        <tr>
+            <td>
+                {{ item.produto.nome }}
+                <input type="hidden" name="produto_id[]" value="{{ item.produto.id }}">
+            </td>
+            <td>
+                <input type="number" name="quantidade[]" class="form-control" step="0.01" value="{{ item.quantidade }}">
+            </td>
+        </tr>
+        {% endfor %}
+    {% else %}
+        {# MODO CRIAÇÃO: Mostra todos os produtos para preencher #}
+        {% for p in produtos %}
+        <tr>
+            <td>{{ p.nome }}</td>
+            <td>
+                <input type="hidden" name="produto_id[]" value="{{ p.id }}">
+                <input type="number" name="quantidade[]" class="form-control" step="0.01">
+            </td>
+        </tr>
+        {% endfor %}
+    {% endif %}
+</tbody>
         </table>
         <button type="submit" class="btn btn-primary">Salvar Ficha</button>
     </form>

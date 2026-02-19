@@ -1,6 +1,6 @@
 # merenda_routes.py
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
 from reportlab.lib import colors
 from reportlab.lib.units import cm
@@ -1845,66 +1845,61 @@ def gerar_pdf_ficha(id):
     elements = []
     styles = getSampleStyleSheet()
 
-    # Estilos customizados
-    style_header = ParagraphStyle('Header', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER, leading=11)
-    style_title = ParagraphStyle('Title', parent=styles['Normal'], fontSize=12, alignment=TA_CENTER, leading=14, spaceBefore=15, spaceAfter=15, fontName='Helvetica-Bold')
-    style_corpo = ParagraphStyle('Corpo', parent=styles['Normal'], fontSize=11, alignment=TA_JUSTIFY, leading=14)
+    # Criando estilos explicitamente para evitar NameError
+    style_header = ParagraphStyle(
+        'CustomHeader', 
+        parent=styles['Normal'], 
+        fontSize=9, 
+        alignment=TA_CENTER, 
+        leading=11
+    )
+    
+    style_title = ParagraphStyle(
+        'CustomTitle', 
+        parent=styles['Normal'], 
+        fontSize=12, 
+        alignment=TA_CENTER, 
+        leading=14, 
+        fontName='Helvetica-Bold',
+        spaceAfter=20
+    )
 
-    # Conteúdo do Cabeçalho (Modelo Oficial)
-    cabecalho = [
+    # Conteúdo do cabeçalho
+    texto_cabecalho = [
         "MUNICÍPIO DE VALENÇA DO PIAUÍ",
         "SECRETARIA MUNICIPAL DE EDUCAÇÃO",
-        "Rua Epaminondas Nogueira, nº 1425 - Centro - Valença do Piauí",
-        "CNPJ: 06.095.146/0001-44 - Fone (89) 3465-2276",
-        "e-mail: seme.valenca@yahoo.com.br"
+        "CNPJ: 06.095.146/0001-44"
     ]
-    for linha in cabecalho:
+    
+    for linha in texto_cabecalho:
         elements.append(Paragraph(linha, style_header))
 
-    elements.append(Paragraph(f"FICHA DE DISTRIBUIÇÃO DE GÊNEROS ALIMENTÍCIOS - {ficha.mes_referencia.upper()} / {ficha.ano_referencia}", style_title))
+    elements.append(Spacer(1, 12))
+    elements.append(Paragraph(f"FICHA DE DISTRIBUIÇÃO Nº {ficha.id}", style_title))
     
-    texto = (f"Recebi da PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ, por meio da SECRETARIA MUNICIPAL DE EDUCAÇÃO, "
-             f"os gêneros alimentícios <b>{ficha.tipo_genero}</b> discriminados para a unidade <b>{ficha.escola.nome}</b>, "
-             f"conforme as normas do PNAE.")
-    elements.append(Paragraph(texto, style_corpo))
-    elements.append(Spacer(1, 15))
-
     # Tabela de Itens
-    data = [["ITEM", "PRODUTO", "UNID.", "QUANTIDADE", "OBS"]]
-    for i, item in enumerate(ficha.itens, 1):
+    data = [["PRODUTO", "UNID.", "QUANTIDADE"]]
+    for item in ficha.itens:
         data.append([
-            str(i),
-            item.produto.nome.upper(),
+            item.produto.nome,
             item.produto.unidade_medida,
-            f"{item.quantidade:,.2f}".replace('.', 'X').replace(',', '.').replace('X', ','),
-            item.observacao or ""
+            f"{item.quantidade:,.2f}".replace('.', ',')
         ])
 
-    t = Table(data, colWidths=[1*cm, 9*cm, 1.5*cm, 2.5*cm, 3*cm])
+    t = Table(data, colWidths=[10*cm, 2*cm, 4*cm])
     t.setStyle(TableStyle([
         ('GRID', (0,0), (-1,-1), 0.5, colors.black),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('ALIGN', (1,1), (1,-1), 'LEFT'),
+        ('ALIGN', (2,1), (2,-1), 'RIGHT'),
     ]))
     elements.append(t)
-    
-    # Assinaturas
-    elements.append(Spacer(1, 40))
-    ass_data = [
-        ["____________________________________", "", "____________________________________"],
-        ["Assinatura do(a) Diretor(a)", "", "Coordenador(a) da Merenda"]
-    ]
-    ass_table = Table(ass_data, colWidths=[8*cm, 1*cm, 8*cm])
-    ass_table.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER')]))
-    elements.append(ass_table)
 
     doc.build(elements)
     buffer.seek(0)
+    
     return make_response(buffer.getvalue(), 200, {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': f'attachment; filename=Ficha_{id}.pdf'
+        'Content-Disposition': f'inline; filename=Ficha_{id}.pdf'
     })
 
 @merenda_bp.route('/fichas/enviar/<int:id>', methods=['POST'])
@@ -2032,5 +2027,5 @@ def editar_ficha(id):
             flash(f'Erro ao atualizar: {str(e)}', 'danger')
 
     escolas = Escola.query.order_by(Escola.nome).all()
-    return render_template('merenda/ficha_form.html', ficha=ficha, escolas=escolas, editando=True)
+    return render_template('merenda/ficha_form.html', ficha=ficha, editando=True)
 

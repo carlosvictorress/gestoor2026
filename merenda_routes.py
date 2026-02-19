@@ -1997,3 +1997,40 @@ def enviar_para_escola(id):
     flash(f'Ficha #{id} enviada com sucesso. Edição bloqueada.', 'success')
     return redirect(url_for('merenda.listar_fichas'))    
 
+
+@merenda_bp.route('/fichas/editar/<int:id>', methods=['GET', 'POST'])
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def editar_ficha(id):
+    ficha = FichaDistribuicao.query.get_or_404(id)
+    
+    # Bloqueia edição se já tiver sido enviada
+    if ficha.status != 'Pendente':
+        flash('Esta ficha já foi enviada e não pode mais ser editada.', 'warning')
+        return redirect(url_for('merenda.listar_fichas'))
+
+    if request.method == 'POST':
+        try:
+            ficha.mes_referencia = request.form.get('mes_referencia')
+            ficha.tipo_genero = request.form.get('tipo_genero')
+            
+            # Atualiza os itens da ficha
+            quantidades = request.form.getlist('quantidade[]')
+            itens_ids = request.form.getlist('item_id[]')
+            
+            for i_id, qtd in zip(itens_ids, quantidades):
+                item = FichaDistribuicaoItem.query.get(i_id)
+                if item:
+                    item.quantidade = float(qtd) if qtd else 0.0
+
+            db.session.commit()
+            registrar_log(f"Editou a Ficha de Distribuição #{id}")
+            flash('Ficha atualizada com sucesso!', 'success')
+            return redirect(url_for('merenda.listar_fichas'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao atualizar: {str(e)}', 'danger')
+
+    escolas = Escola.query.order_by(Escola.nome).all()
+    return render_template('merenda/ficha_form.html', ficha=ficha, escolas=escolas, editando=True)
+

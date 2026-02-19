@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Nova Ficha de Distribuição</h2>
+    <form method="POST">
+        <div class="mb-3">
+            <label class="form-label">Escola</label>
+            <select name="escola_id" class="form-select">
+                {% for e in escolas %}
+                <option value="{{ e.id }}">{{ e.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Mês de Referência</label>
+            <input type="text" name="mes_referencia" class="form-control" placeholder="Ex: Março/2026">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Tipo de Gênero</label>
+            <select name="tipo_genero" class="form-select">
+                <option value="PERECÍVEIS">PERECÍVEIS</option>
+                <option value="NÃO PERECÍVEIS">NÃO PERECÍVEIS</option>
+            </select>
+        </div>
+
+        <h4>Produtos</h4>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Produto</th>
+                    <th>Quantidade</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in produtos %}
+                <tr>
+                    <td>{{ p.nome }}</td>
+                    <td>
+                        <input type="hidden" name="produto_id[]" value="{{ p.id }}">
+                        <input type="number" name="quantidade[]" class="form-control" step="0.01">
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button type="submit" class="btn btn-primary">Salvar Ficha</button>
+    </form>
+</div>
+{% endblock %}

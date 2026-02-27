@@ -1332,6 +1332,9 @@ def pdf_termo_recebimento_pnae(entrega_id):
     contrato = entrega.contrato
     agricultor = contrato.agricultor
     
+    # Formata a data da entrega para exibir no documento
+    data_entrega_formatada = entrega.data_entrega.strftime('%d/%m/%Y')
+    
     # 2. Busca a Escola de Destino pelo ID salvo na entrega
     escola_destino = Escola.query.get(entrega.escola_id) if entrega.escola_id else None
     nome_escola = escola_destino.nome if escola_destino else "Unidade Escolar não informada"
@@ -1364,9 +1367,10 @@ def pdf_termo_recebimento_pnae(entrega_id):
     story.append(Paragraph("TERMO DE RECEBIMENTO DA AGRICULTURA FAMILIAR", style_titulo))
     story.append(Spacer(1, 0.8*cm))
     
-    # 5. Texto de Atesto com a Escola
+    # 5. Texto de Atesto com a Escola (Data ajustada para a data da entrega)
     texto_intro = f"""
-    Atesto para os devidos fins que foram entregues nesta data, pelo fornecedor <b>{agricultor.razao_social}</b> 
+    Atesto para os devidos fins que foram entregues no dia <b>{data_entrega_formatada}</b>, 
+    pelo fornecedor <b>{agricultor.razao_social}</b> 
     (CPF/CNPJ: {agricultor.cpf_cnpj}), referente ao Contrato/Chamada Pública nº {contrato.numero_contrato}, 
     destinado à unidade escolar <b>{nome_escola}</b>, os gêneros alimentícios abaixo discriminados:
     """
@@ -1381,7 +1385,6 @@ def pdf_termo_recebimento_pnae(entrega_id):
         try:
             itens = json.loads(entrega.itens_json)
             for item in itens:
-                # Busca a unidade de medida no contrato original se não estiver no JSON
                 dados_tabela.append([
                     item.get('nome_produto', 'N/A').upper(),
                     "Unid.", 

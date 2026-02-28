@@ -4,8 +4,7 @@
 # ===================================================================
 import os
 import io
-from dotenv import load_dotenv
-load_dotenv()
+from dotenv import load_dotenv, load_dotenv()
 import csv
 import uuid
 import locale
@@ -104,6 +103,12 @@ app = Flask(__name__)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
+
+@login_manager.user_loader
+def load_user(user_id):
+    # Importante: O user_id vem como string da sessão, converta para int se necessário
+    return User.query.get(int(user_id))
+
 login_manager.login_view = 'login'
 
 basedir = os.path.abspath(os.path.dirname(__file__))

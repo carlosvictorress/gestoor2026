@@ -1,12 +1,13 @@
-{% extends "base.html" %}
+{% extends "solicitacao/base_transporte.html" %}
 
 {% block content %}
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h3 class="fw-bold text-primary mb-0">Solicitação de Transporte</h3>
-            <p class="text-muted">Setor: <span class="badge bg-light text-dark border">{{ session.get('secretaria') }}</span></p>
+            <p class="text-muted">Setor: <span class="badge bg-light text-dark border">{{ session.get('setor_nome') }}</span></p>
         </div>
+        <a href="{{ url_for('solicitacao.login_setor') }}" class="btn btn-outline-secondary btn-sm">Sair</a>
     </div>
 
     <div class="row">
@@ -27,7 +28,7 @@
                     <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Nova Solicitação</h5>
                 </div>
                 <div class="card-body p-4">
-                    <form action="{{ url_for('solicitacao.painel_usuario') }}" method="POST">
+                    <form action="{{ url_for('solicitacao.salvar_solicitacao') }}" method="POST">
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Data Solicitada</label>
                             <input type="date" name="data_solicitada" class="form-control form-control-lg" required>
@@ -69,7 +70,6 @@
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/pt-br.js'></script>
 
 <style>
-    /* Ajustes finos para um visual mais clean */
     .card { border-radius: 12px; }
     .form-control { border-radius: 8px; border: 1px solid #dee2e6; }
     .btn-primary { border-radius: 8px; background-color: #0d6efd; }
@@ -80,7 +80,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         var calendarEl = document.getElementById('calendar');
-        var calendar = new FullCalendar.FullCalendar.Calendar(calendarEl, {
+        var calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
             locale: 'pt-br',
             height: 450,

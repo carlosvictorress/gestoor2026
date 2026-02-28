@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-br" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,29 +9,35 @@
         .bg-blue-custom { background-color: #4A76B8; }
     </style>
 </head>
-<body class="h-screen w-full flex overflow-hidden">
+<body class="h-full w-full flex overflow-hidden font-sans">
 
     <div class="w-1/2 bg-blue-custom flex flex-col justify-center items-center p-12 text-white">
-        <h1 class="text-3xl md:text-4xl font-bold mb-8 text-center">SISTEMA PARA AGENDAR VEÍCULO</h1>
+        <h1 class="text-3xl md:text-4xl font-bold mb-10 text-center uppercase tracking-wide">
+            Sistema para Agendar Veículo
+        </h1>
         
         <form action="{{ url_for('solicitacao.login_setor') }}" method="POST" class="w-full max-w-sm">
-            <div class="flex shadow-lg rounded-lg overflow-hidden bg-white">
+            <div class="flex shadow-2xl rounded-lg overflow-hidden bg-white">
                 <input type="text" 
                        name="codigo_setor" 
                        placeholder="Digite o código único do setor" 
                        required
-                       class="w-full px-4 py-3 text-gray-700 focus:outline-none">
-                <button type="submit" class="bg-amber-400 hover:bg-amber-500 px-6 py-3 text-white font-bold text-xl">
-                    >
+                       class="w-full px-5 py-4 text-gray-700 focus:outline-none text-lg">
+                <button type="submit" class="bg-amber-400 hover:bg-amber-500 px-8 py-4 text-white font-bold text-2xl transition duration-200">
+                    &gt;
                 </button>
             </div>
         </form>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                {% for category, message in messages %}
-                    <p class="mt-4 text-white font-semibold bg-red-500 px-4 py-2 rounded">{{ message }}</p>
-                {% endfor %}
+                <div class="mt-6 w-full max-w-sm">
+                    {% for category, message in messages %}
+                        <p class="text-white font-semibold bg-red-600/80 px-4 py-3 rounded-lg text-center backdrop-blur-sm">
+                            {{ message }}
+                        </p>
+                    {% endfor %}
+                </div>
             {% endif %}
         {% endwith %}
     </div>
@@ -39,7 +45,7 @@
     <div class="w-1/2 bg-white flex justify-center items-center p-12">
         <img src="{{ url_for('static', filename='img/brasao_valenca.png') }}" 
              alt="Brasão Valença do Piauí" 
-             class="max-w-xs md:max-w-sm object-contain">
+             class="max-w-xs md:max-w-sm object-contain drop-shadow-xl">
     </div>
 
 </body>

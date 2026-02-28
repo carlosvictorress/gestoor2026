@@ -10,6 +10,7 @@ from sqlalchemy import extract
 from flask import jsonify
 from sqlalchemy import extract
 from flask import send_file
+from flask_login import login_required
 
 
 solicitacao_bp = Blueprint('solicitacao', __name__, url_prefix='/solicitacao')

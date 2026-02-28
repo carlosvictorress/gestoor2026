@@ -15,10 +15,14 @@ solicitacao_bp = Blueprint('solicitacao', __name__, url_prefix='/solicitacao')
 def transporte_admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Verifica se o cargo do usuário logado é 'admin'
+        # LOG DE DEBUG: O sistema vai imprimir isso no log da Railway
+        print(f"DEBUG: Session role é: {session.get('role')}")
+        print(f"DEBUG: Usuário autenticado pelo Flask-Login: {session.get('logged_in')}")
+        
         if session.get('role') != 'admin':
-            flash('Acesso restrito!', 'danger')
-            return redirect(url_for('index'))
+            flash('Acesso restrito ao Admin!', 'danger')
+            # Você está sendo jogado aqui?
+            return redirect(url_for('solicitacao.login_setor'))
         return f(*args, **kwargs)
     return decorated_function
 

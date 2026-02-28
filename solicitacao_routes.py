@@ -111,7 +111,7 @@ def salvar_solicitacao():
 @system_login_required
 @transporte_admin_required
 def painel_admin():
-    # Adicione o .options(joinedload(SolicitacaoVeiculo.setor))
+    # O joinedload força o carregamento do objeto 'setor' junto com a 'solicitacao'
     solicitacoes = SolicitacaoVeiculo.query.options(
         joinedload(SolicitacaoVeiculo.setor)
     ).filter_by(status='Pendente').all()

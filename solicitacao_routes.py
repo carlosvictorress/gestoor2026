@@ -147,3 +147,13 @@ def cadastrar_setor():
         flash(f'Setor {nome} cadastrado com sucesso!', 'success')
         return redirect(url_for('solicitacao.painel_admin'))
     return render_template('solicitacao/cadastrar_setor.html')
+
+@solicitacao_bp.route('/admin/reprovar/<int:id>')
+@system_login_required
+@transporte_admin_required
+def reprovar_solicitacao(id):
+    sol = SolicitacaoVeiculo.query.get_or_404(id)
+    sol.status = 'Reprovada'
+    db.session.commit()
+    flash('Solicitação reprovada com sucesso!', 'info')
+    return redirect(url_for('solicitacao.painel_admin'))

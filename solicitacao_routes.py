@@ -1,20 +1,16 @@
 import io
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from flask import make_response
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from datetime import datetime
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, make_response, send_file, jsonify
+from flask_login import login_required
+from sqlalchemy import extract
 from extensions import db
 from models import SetorTransporte, SolicitacaoVeiculo
-from datetime import datetime
-from sqlalchemy import extract
-from flask import jsonify
-from sqlalchemy import extract
-from flask import send_file
-from flask_login import login_required
+
+# Importe o role_required do seu arquivo utils.py
+from utils import role_required
 
 
 solicitacao_bp = Blueprint('solicitacao', __name__, url_prefix='/solicitacao')
-
 # Rota para o Usuário (Setor)
 @solicitacao_bp.route('/painel', methods=['GET', 'POST'])
 def painel_usuario():

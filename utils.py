@@ -21,6 +21,8 @@ from models import Log
 # Importação do Supabase
 from supabase import create_client
 
+
+
 def limpar_cpf(cpf):
     if cpf:
         return re.sub(r"\D", "", cpf)
@@ -274,3 +276,15 @@ def upload_arquivo_para_nuvem(file, pasta="geral"):
     except Exception as e:
         print(f"Erro no upload para Supabase: {e}")
         return None
+    
+def role_required(role):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # Verifica se o usuário está logado e se a role bate
+            if session.get('role') != role:
+                flash('Acesso negado!', 'danger')
+                return redirect(url_for('index'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator    

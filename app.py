@@ -16,6 +16,7 @@ import math
 import face_recognition
 import pytz
 import json
+from flask_login import LoginManager, current_user
 from sqlalchemy import or_
 
 from reportlab.platypus import KeepTogether

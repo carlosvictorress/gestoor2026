@@ -1,38 +1,63 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="card shadow">
-        <div class="card-header bg-dark text-white">
-            <h4 class="mb-0">Gestão de Solicitações de Transporte</h4>
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-0">Gestão de Transportes</h3>
+            <p class="text-muted">Ações pendentes para aprovação</p>
         </div>
-        <div class="card-body">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Setor</th>
-                        <th>Data</th>
-                        <th>Responsável</th>
-                        <th>Motivo</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for sol in solicitacoes %}
-                    <tr>
-                        <td>{{ sol.setor.nome_setor }}</td>
-                        <td>{{ sol.data_solicitada.strftime('%d/%m/%Y') }}</td>
-                        <td>{{ sol.responsavel }}</td>
-                        <td>{{ sol.motivo }}</td>
-                        <td>
-                            <a href="{{ url_for('solicitacao.aprovar_solicitacao', id=sol.id) }}" class="btn btn-sm btn-success">Aprovar</a>
-                            <a href="{{ url_for('solicitacao.reprovar_solicitacao', id=sol.id) }}" class="btn btn-sm btn-danger">Reprovar</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <a href="{{ url_for('solicitacao.cadastrar_setor') }}" class="btn btn-primary shadow-sm">
+            <i class="fas fa-plus-circle me-2"></i>Cadastrar Setor
+        </a>
+    </div>
+
+    <div class="row">
+        {% for sol in solicitacoes %}
+        <div class="col-lg-6 col-xl-4">
+            <div class="card border-0 shadow-sm mb-4 h-100 hover-shadow transition">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <span class="badge bg-warning text-dark px-3 py-2 rounded-pill">
+                            <i class="fas fa-clock me-1"></i>Pendente
+                        </span>
+                        <small class="text-muted">{{ sol.data_criacao.strftime('%d/%m/%Y %H:%M') }}</small>
+                    </div>
+                    
+                    <h5 class="fw-bold text-primary mb-3">{{ sol.setor.nome_setor }}</h5>
+                    
+                    <ul class="list-unstyled text-muted mb-4">
+                        <li class="mb-2"><i class="fas fa-calendar-day me-2"></i><strong>Data Viagem:</strong> {{ sol.data_solicitada.strftime('%d/%m/%Y') }}</li>
+                        <li class="mb-2"><i class="fas fa-user me-2"></i><strong>Responsável:</strong> {{ sol.responsavel }}</li>
+                        <li class="mb-2"><i class="fas fa-clock me-2"></i><strong>Horário:</strong> {{ sol.horario_saida.strftime('%H:%M') }} - {{ sol.horario_chegada.strftime('%H:%M') }}</li>
+                        <li class="mb-0"><i class="fas fa-info-circle me-2"></i><strong>Motivo:</strong> {{ sol.motivo }}</li>
+                    </ul>
+
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('solicitacao.aprovar_solicitacao', id=sol.id) }}" class="btn btn-success flex-grow-1 shadow-sm">
+                            <i class="fas fa-check me-1"></i>Aprovar
+                        </a>
+                        <a href="{{ url_for('solicitacao.reprovar_solicitacao', id=sol.id) }}" class="btn btn-outline-danger flex-grow-1">
+                            <i class="fas fa-times me-1"></i>Reprovar
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
+        {% else %}
+        <div class="col-12 text-center py-5">
+            <div class="display-1 text-muted"><i class="fas fa-clipboard-check"></i></div>
+            <h4 class="text-muted mt-3">Tudo em dia!</h4>
+            <p class="text-muted">Não há novas solicitações pendentes no momento.</p>
+        </div>
+        {% endfor %}
     </div>
 </div>
+
+<style>
+    .hover-shadow:hover { box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15) !important; }
+    .transition { transition: all 0.3s ease; }
+    .card { border-radius: 15px; }
+    .btn { border-radius: 8px; font-weight: 500; }
+</style>
 {% endblock %}

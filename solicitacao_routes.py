@@ -146,8 +146,15 @@ def reprovar_solicitacao(id):
 @transporte_admin_required
 def cadastrar_setor():
     if request.method == 'POST':
-        novo = SetorTransporte(nome_setor=request.form.get('nome_setor'), codigo_setor=request.form.get('codigo_setor'))
+        novo = SetorTransporte(
+            nome_setor=request.form.get('nome_setor'), 
+            codigo_setor=request.form.get('codigo_setor')
+        )
         db.session.add(novo)
         db.session.commit()
-        return redirect(url_for('solicitacao.painel_admin'))
-    return render_template('solicitacao/cadastrar_setor.html')
+        flash('Setor cadastrado!', 'success')
+        return redirect(url_for('solicitacao.cadastrar_setor'))
+    
+    # BUSCA TODOS OS SETORES PARA EXIBIR NA TABELA
+    setores = SetorTransporte.query.all()
+    return render_template('solicitacao/cadastrar_setor.html', setores=setores)

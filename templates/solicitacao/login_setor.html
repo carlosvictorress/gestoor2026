@@ -3,61 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestoor 360º - Login de Setor</title>
+    <title>Agendamento de Veículos - Valença do Piauí</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Estilos adicionais inspirados na Apple */
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            -webkit-font-smoothing: antialiased;
-        }
+        .bg-blue-custom { background-color: #4A76B8; }
     </style>
 </head>
-<body class="bg-[#FBFBFD] text-[#1D1D1F] flex items-center justify-center min-h-screen p-4">
+<body class="h-screen w-full flex overflow-hidden">
 
-    <div class="bg-white p-10 md:p-16 rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] w-full max-w-lg border border-[#F2F2F2]">
+    <div class="w-1/2 bg-blue-custom flex flex-col justify-center items-center p-12 text-white">
+        <h1 class="text-3xl md:text-4xl font-bold mb-8 text-center">SISTEMA PARA AGENDAR VEÍCULO</h1>
         
-        <div class="text-center mb-12">
-            <img src="{{ url_for('static', filename='img/logo_gestoor.png') }}" alt="Gestoor 360º" class="h-16 mx-auto mb-6">
-            <h1 class="text-4xl font-semibold tracking-tight">Login do Setor</h1>
-            <p class="text-[#86868B] mt-2 text-lg">Digite o código do seu setor para acessar o transporte.</p>
-        </div>
-
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="mb-6 p-4 rounded-xl text-center {% if category == 'danger' %}bg-red-50 text-red-700{% else %}bg-green-50 text-green-700{% endif %}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <form action="{{ url_for('solicitacao.login_setor') }}" method="POST" class="space-y-6">
-            
-            <div>
-                <label for="codigo_setor" class="block text-sm font-medium text-[#1D1D1F] mb-1.5 ml-1">Código do Setor</label>
+        <form action="{{ url_for('solicitacao.login_setor') }}" method="POST" class="w-full max-w-sm">
+            <div class="flex shadow-lg rounded-lg overflow-hidden bg-white">
                 <input type="text" 
-                       id="codigo_setor" 
                        name="codigo_setor" 
-                       placeholder="Ex: ADM-2023" 
+                       placeholder="Digite o código único do setor" 
                        required
-                       class="w-full px-6 py-4 rounded-xl border border-[#D2D2D7] bg-white text-[#1D1D1F] placeholder-[#86868B] 
-                              focus:ring-2 focus:ring-[#0071E3] focus:border-[#0071E3] transition duration-200 text-lg">
-            </div>
-
-            <div>
-                <button type="submit" 
-                        class="w-full bg-[#0071E3] text-white font-semibold py-4 rounded-xl text-lg 
-                               hover:bg-[#147CEB] active:bg-[#006AD1] transition duration-200 shadow-[0_4px_14px_0_rgba(0,113,227,0.3)]">
-                    Acessar Calendário
+                       class="w-full px-4 py-3 text-gray-700 focus:outline-none">
+                <button type="submit" class="bg-amber-400 hover:bg-amber-500 px-6 py-3 text-white font-bold text-xl">
+                    >
                 </button>
             </div>
         </form>
 
-        <div class="mt-12 text-center text-[#86868B]">
-            <a href="/" class="text-[#0071E3] hover:underline">Voltar para a página inicial</a>
-        </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <p class="mt-4 text-white font-semibold bg-red-500 px-4 py-2 rounded">{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <div class="w-1/2 bg-white flex justify-center items-center p-12">
+        <img src="{{ url_for('static', filename='img/brasao_valenca.png') }}" 
+             alt="Brasão Valença do Piauí" 
+             class="max-w-xs md:max-w-sm object-contain">
     </div>
 
 </body>

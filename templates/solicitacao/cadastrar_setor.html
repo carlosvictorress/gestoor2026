@@ -1,31 +1,62 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>Cadastrar Setor - Gestoor 360º</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-</head>
-<body class="bg-light">
-    <div class="container mt-5">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                <h4>Cadastrar Novo Setor para solicitar Transporte</h4>
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Novo Setor</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label class="form-label">Nome do Setor</label>
+                            <input type="text" name="nome_setor" class="form-control" placeholder="Ex: CAEE" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Código de Acesso</label>
+                            <input type="text" name="codigo_setor" class="form-control" placeholder="Ex: SEME022CAEE" required>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100 shadow-sm">Cadastrar</button>
+                    </form>
+                </div>
             </div>
-            <div class="card-body">
-                <form method="POST">
-                    <div class="form-group">
-                        <label>Nome do Setor</label>
-                        <input type="text" name="nome_setor" class="form-control" placeholder="Ex: CAEE" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Código de Acesso</label>
-                        <input type="text" name="codigo_setor" class="form-control" placeholder="Ex: SEME022CAEE" required>
-                    </div>
-                    <button type="submit" class="btn btn-success">Cadastrar Setor</button>
-                    <a href="{{ url_for('solicitacao.painel_admin') }}" class="btn btn-secondary">Voltar</a>
-                </form>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h5 class="mb-0 text-dark"><i class="fas fa-list-ul me-2"></i>Setores Cadastrados</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nome do Setor</th>
+                                <th>Código de Acesso</th>
+                                <th class="text-end">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in setores %}
+                            <tr>
+                                <td class="fw-bold">{{ s.nome_setor }}</td>
+                                <td><code>{{ s.codigo_setor }}</code></td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted">Nenhum setor cadastrado.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
-</body>
-</html>
+</div>
+{% endblock %}

@@ -128,3 +128,17 @@ def api_eventos():
     solicitacoes = SolicitacaoVeiculo.query.filter_by(status='Aprovada').all()
     eventos = [{'title': f'Ocupado - {sol.responsavel}', 'start': sol.data_solicitada.isoformat(), 'color': '#ffc107'} for sol in solicitacoes]
     return jsonify(eventos)
+
+@solicitacao_bp.route('/admin/cadastrar-setor', methods=['GET', 'POST'])
+@system_login_required
+@transporte_admin_required
+def cadastrar_setor():
+    if request.method == 'POST':
+        nome = request.form.get('nome_setor')
+        codigo = request.form.get('codigo_setor')
+        novo_setor = SetorTransporte(nome_setor=nome, codigo_setor=codigo)
+        db.session.add(novo_setor)
+        db.session.commit()
+        flash(f'Setor {nome} cadastrado com sucesso!', 'success')
+        return redirect(url_for('solicitacao.painel_admin'))
+    return render_template('solicitacao/cadastrar_setor.html')

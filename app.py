@@ -4,7 +4,8 @@
 # ===================================================================
 import os
 import io
-from dotenv import load_dotenv, load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 import csv
 import uuid
 import locale

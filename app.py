@@ -100,6 +100,11 @@ except locale.Error:
 
 
 app = Flask(__name__)
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 app.jinja_env.filters['currency_br'] = currency_filter_br

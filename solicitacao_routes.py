@@ -1,7 +1,6 @@
 import io
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, make_response, send_file, jsonify
-from flask_login import login_required
 from sqlalchemy import extract
 from extensions import db
 from models import SetorTransporte, SolicitacaoVeiculo
@@ -11,17 +10,24 @@ from reportlab.pdfgen import canvas
 
 solicitacao_bp = Blueprint('solicitacao', __name__, url_prefix='/solicitacao')
 
-# --- DECORADOR ISOLADO ---
+# --- DECORADORES ---
+
+def system_login_required(f):
+    """Verifica se o usuário está logado no sistema principal."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('logged_in'):
+            flash('Por favor, faça login no sistema principal.', 'warning')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 def transporte_admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # LOG DE DEBUG: O sistema vai imprimir isso no log da Railway
-        print(f"DEBUG: Session role é: {session.get('role')}")
-        print(f"DEBUG: Usuário autenticado pelo Flask-Login: {session.get('logged_in')}")
-        
+        # Verifica se é admin do sistema
         if session.get('role') != 'admin':
             flash('Acesso restrito ao Admin!', 'danger')
-            # Você está sendo jogado aqui?
             return redirect(url_for('solicitacao.login_setor'))
         return f(*args, **kwargs)
     return decorated_function
@@ -60,12 +66,12 @@ def login_setor():
     return render_template('solicitacao/login_setor.html')
 
 @solicitacao_bp.route('/painel', methods=['GET'])
-@login_required 
+@system_login_required 
 def painel_usuario():
     return render_template('solicitacao/painel_usuario.html')
 
 @solicitacao_bp.route('/painel', methods=['POST'])
-@login_required
+@system_login_required
 def salvar_solicitacao():
     data_str = request.form.get('data_solicitada')
     if not data_str:
@@ -101,14 +107,14 @@ def salvar_solicitacao():
     return redirect(url_for('solicitacao.painel_usuario'))
 
 @solicitacao_bp.route('/admin/painel')
-@login_required
+@system_login_required
 @transporte_admin_required
 def painel_admin():
     solicitacoes = SolicitacaoVeiculo.query.filter_by(status='Pendente').all()
     return render_template('solicitacao/painel_admin.html', solicitacoes=solicitacoes)
 
 @solicitacao_bp.route('/admin/aprovar/<int:id>')
-@login_required
+@system_login_required
 @transporte_admin_required
 def aprovar_solicitacao(id):
     sol = SolicitacaoVeiculo.query.get_or_404(id)

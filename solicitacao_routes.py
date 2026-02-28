@@ -5,12 +5,13 @@ from flask_login import login_required
 from sqlalchemy import extract
 from extensions import db
 from models import SetorTransporte, SolicitacaoVeiculo
+from functools import wraps
 
 # Importe o role_required do seu arquivo utils.py
-from utils import role_required
 
 
 solicitacao_bp = Blueprint('solicitacao', __name__, url_prefix='/solicitacao')
+
 # Rota para o Usuário (Setor)
 @solicitacao_bp.route('/painel', methods=['GET', 'POST'])
 def painel_usuario():
@@ -65,7 +66,7 @@ def painel_usuario():
 
 @solicitacao_bp.route('/admin/aprovar/<int:id>')
 @login_required
-@role_required('admin')
+@transporte_admin_required
 def aprovar_solicitacao(id):
     sol = SolicitacaoVeiculo.query.get_or_404(id)
     sol.status = 'Aprovada'
@@ -84,7 +85,7 @@ def aprovar_solicitacao(id):
 
 @solicitacao_bp.route('/admin/painel')
 @login_required
-@role_required('admin')
+@transporte_admin_required
 def painel_admin():
     # Busca apenas o que está pendente
     solicitacoes = SolicitacaoVeiculo.query.filter_by(status='Pendente').all()
@@ -148,3 +149,13 @@ def login_setor():
         else:
             flash('Código de setor inválido!', 'danger')
     return render_template('solicitacao/login_setor.html')
+
+def transporte_admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Garante que é admin do sistema, sem tocar em outros módulos
+        if session.get('role') != 'admin':
+            flash('Acesso restrito!', 'danger')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function

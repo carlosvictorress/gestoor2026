@@ -86,7 +86,34 @@ def painel_usuario():
 def salvar_solicitacao():
     if 'setor_id' not in session:
         return redirect(url_for('solicitacao.login_setor'))
-    # ... (sua lógica de criação de nova_solicitacao) ...
+    
+    # Captura os dados do formulário
+    data_str = request.form.get('data_solicitada')
+    motivo = request.form.get('motivo')
+    horario_saida = request.form.get('horario_saida')
+    horario_chegada = request.form.get('horario_chegada')
+    responsavel = request.form.get('responsavel')
+    
+    if not data_str:
+        flash('Data inválida!', 'danger')
+        return redirect(url_for('solicitacao.painel_usuario'))
+
+    # Converte os dados
+    nova_solicitacao = SolicitacaoVeiculo(
+        setor_id=session['setor_id'],
+        data_solicitada=datetime.strptime(data_str, '%Y-%m-%d').date(),
+        motivo=motivo,
+        horario_saida=datetime.strptime(horario_saida, '%H:%M').time(),
+        horario_chegada=datetime.strptime(horario_chegada, '%H:%M').time(),
+        responsavel=responsavel,
+        status='Pendente'
+    )
+    
+    # Salva no banco
+    db.session.add(nova_solicitacao)
+    db.session.commit()
+    
+    flash('Solicitação enviada com sucesso!', 'success')
     return redirect(url_for('solicitacao.painel_usuario'))
 
 @solicitacao_bp.route('/admin/painel')

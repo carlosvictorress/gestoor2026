@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-dark text-white">
+            <h4 class="mb-0">Gestão de Solicitações de Transporte</h4>
+        </div>
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Setor</th>
+                        <th>Data</th>
+                        <th>Responsável</th>
+                        <th>Motivo</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sol in solicitacoes %}
+                    <tr>
+                        <td>{{ sol.setor.nome_setor }}</td>
+                        <td>{{ sol.data_solicitada.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ sol.responsavel }}</td>
+                        <td>{{ sol.motivo }}</td>
+                        <td>
+                            <a href="{{ url_for('solicitacao.aprovar_solicitacao', id=sol.id) }}" class="btn btn-sm btn-success">Aprovar</a>
+                            <a href="{{ url_for('solicitacao.reprovar_solicitacao', id=sol.id) }}" class="btn btn-sm btn-danger">Reprovar</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

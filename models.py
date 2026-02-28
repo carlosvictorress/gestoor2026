@@ -1492,3 +1492,21 @@ class FichaDistribuicaoItem(db.Model):
     produto = db.relationship('ProdutoMerenda')  
     
     
+    
+class SetorTransporte(db.Model):
+    __tablename__ = 'setor_transporte'
+    id = db.Column(db.Integer, primary_key=True)
+    codigo_setor = db.Column(db.String(20), unique=True, nullable=False) # Código para login do setor
+    nome_setor = db.Column(db.String(100), nullable=False)
+
+class SolicitacaoVeiculo(db.Model):
+    __tablename__ = 'solicitacao_veiculo'
+    id = db.Column(db.Integer, primary_key=True)
+    setor_id = db.Column(db.Integer, db.ForeignKey('setor_transporte.id'), nullable=False)
+    data_solicitada = db.Column(db.Date, nullable=False)
+    motivo = db.Column(db.String(255), nullable=False)
+    horario_saida = db.Column(db.Time, nullable=False)
+    horario_chegada = db.Column(db.Time, nullable=False)
+    responsavel = db.Column(db.String(100), nullable=False)
+    status = db.Column(db.String(20), default='Pendente') # Pendente, Aprovada, Reprovada
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)    

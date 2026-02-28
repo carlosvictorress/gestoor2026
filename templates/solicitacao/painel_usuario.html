@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">Solicitação de Veículo - Setor: {{ session.get('secretaria') }}</h4>
+        </div>
+        <div class="card-body">
+            <div id="calendar" class="mb-4"></div>
+
+            <hr>
+
+            <form action="{{ url_for('solicitacao.painel_usuario') }}" method="POST" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Data Solicitada *</label>
+                    <input type="date" name="data_solicitada" class="form-control" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Horário de Saída *</label>
+                    <input type="time" name="horario_saida" class="form-control" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Horário de Chegada *</label>
+                    <input type="time" name="horario_chegada" class="form-control" required>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Motivo da Solicitação *</label>
+                    <textarea name="motivo" class="form-control" rows="2" required></textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Nome do Responsável *</label>
+                    <input type="text" name="responsavel" class="form-control" required>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-success">Gerar Solicitação e PDF</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'pt-br',
+            events: '/solicitacao/api/eventos' // Você criará esta rota para carregar datas ocupadas
+        });
+        calendar.render();
+    });
+</script>
+{% endblock %}

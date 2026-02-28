@@ -7,6 +7,7 @@ from models import SetorTransporte, SolicitacaoVeiculo
 from functools import wraps
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
+from sqlalchemy.orm import joinedload
 
 solicitacao_bp = Blueprint('solicitacao', __name__, url_prefix='/solicitacao')
 
@@ -110,7 +111,11 @@ def salvar_solicitacao():
 @system_login_required
 @transporte_admin_required
 def painel_admin():
-    solicitacoes = SolicitacaoVeiculo.query.filter_by(status='Pendente').all()
+    # Adicione o .options(joinedload(SolicitacaoVeiculo.setor))
+    solicitacoes = SolicitacaoVeiculo.query.options(
+        joinedload(SolicitacaoVeiculo.setor)
+    ).filter_by(status='Pendente').all()
+    
     return render_template('solicitacao/painel_admin.html', solicitacoes=solicitacoes)
 
 @solicitacao_bp.route('/admin/aprovar/<int:id>')

@@ -1503,6 +1503,8 @@ class SolicitacaoVeiculo(db.Model):
     __tablename__ = 'solicitacao_veiculo'
     id = db.Column(db.Integer, primary_key=True)
     setor_id = db.Column(db.Integer, db.ForeignKey('setor_transporte.id'), nullable=False)
+    
+    setor = db.relationship('SetorTransporte', backref='solicitacoes')
     data_solicitada = db.Column(db.Date, nullable=False)
     motivo = db.Column(db.String(255), nullable=False)
     horario_saida = db.Column(db.Time, nullable=False)

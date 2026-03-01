@@ -132,13 +132,18 @@ def aprovar_solicitacao(id):
     db.session.commit()
     return send_file(gerar_pdf_autorizacao(sol), mimetype='application/pdf', as_attachment=True, download_name=f'Aut_{sol.id}.pdf')
 
-@solicitacao_bp.route('/admin/reprovar/<int:id>')
+@solicitacao_bp.route('/admin/reprovar/<int:id>', methods=['POST'])
 @system_login_required
 @transporte_admin_required
 def reprovar_solicitacao(id):
+    justificativa = request.form.get('justificativa')
     sol = SolicitacaoVeiculo.query.get_or_404(id)
+    
     sol.status = 'Reprovada'
+    sol.justificativa = justificativa  # Registra o motivo para seu resguardo
     db.session.commit()
+    
+    flash(f'Solicitação de {sol.setor.nome_setor} reprovada com sucesso.', 'info')
     return redirect(url_for('solicitacao.painel_admin'))
 
 @solicitacao_bp.route('/admin/cadastrar-setor', methods=['GET', 'POST'])
@@ -158,3 +163,16 @@ def cadastrar_setor():
     # BUSCA TODOS OS SETORES PARA EXIBIR NA TABELA
     setores = SetorTransporte.query.all()
     return render_template('solicitacao/cadastrar_setor.html', setores=setores)
+
+@solicitacao_bp.route('/api/eventos')
+def api_eventos():
+    # Busca apenas solicitações Aprovadas para mostrar no calendário
+    solicitacoes = SolicitacaoVeiculo.query.filter_by(status='Aprovada').all()
+    eventos = []
+    for sol in solicitacoes:
+        eventos.append({
+            'title': f'{sol.setor.nome_setor} - {sol.responsavel}',
+            'start': sol.data_solicitada.isoformat(),
+            'color': '#28a745' # Verde para aprovado
+        })
+    return jsonify(eventos)

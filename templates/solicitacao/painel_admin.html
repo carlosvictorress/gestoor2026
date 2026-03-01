@@ -33,13 +33,17 @@
                         <li class="mb-0"><i class="fas fa-info-circle me-2"></i><strong>Motivo:</strong> {{ sol.motivo }}</li>
                     </ul>
 
-                    <div class="d-flex gap-2">
-                        <a href="{{ url_for('solicitacao.aprovar_solicitacao', id=sol.id) }}" class="btn btn-success flex-grow-1 shadow-sm">
+                    <div class="d-flex flex-column gap-2">
+                        <a href="{{ url_for('solicitacao.aprovar_solicitacao', id=sol.id) }}" class="btn btn-success shadow-sm">
                             <i class="fas fa-check me-1"></i>Aprovar
                         </a>
-                        <a href="{{ url_for('solicitacao.reprovar_solicitacao', id=sol.id) }}" class="btn btn-outline-danger flex-grow-1">
-                            <i class="fas fa-times me-1"></i>Reprovar
-                        </a>
+                        
+                        <form action="{{ url_for('solicitacao.reprovar_solicitacao', id=sol.id) }}" method="POST" class="d-flex flex-column gap-2">
+                            <input type="text" name="justificativa" placeholder="Motivo da reprovação..." class="form-control form-control-sm" required>
+                            <button type="submit" class="btn btn-outline-danger">
+                                <i class="fas fa-times me-1"></i>Reprovar
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>

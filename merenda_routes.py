@@ -834,7 +834,7 @@ def gerar_pdf_consolidado(titulo, periodo, dados):
 
 # --- MÓDULO AGRICULTURA FAMILIAR ---
 
-@merenda_bp.route('/agricultura', methods=['GET', 'POST']) # Alterado para aceitar POST
+@merenda_bp.route('/agricultura', methods=['GET', 'POST'])
 @login_required
 def agricultura_dashboard():
     # Lógica para SALVAR a configuração (se o form for enviado)
@@ -861,22 +861,26 @@ def agricultura_dashboard():
     total_agricultores = AgricultorFamiliar.query.count()
     contratos_ativos = ContratoPNAE.query.count()
     
-    # Busca contratos DO ANO ATUAL
     ano_atual = datetime.now().year
     
-    # Soma valor total contratado no ano
+    # 1. Soma valor total contratado (apenas informativo, se desejar manter)
     total_contratado = db.session.query(func.sum(ContratoPNAE.valor_total))\
+        .filter(func.extract('year', ContratoPNAE.data_inicio) == ano_atual).scalar() or 0.0
+    
+    # 2. SOMA O VALOR EXECUTADO (Entregas Aprovadas) - ESTA É A MUDANÇA PRINCIPAL
+    total_executado = db.session.query(func.sum(EntregaPNAE.valor_total))\
+        .filter(EntregaPNAE.status == 'Aprovado')\
+        .join(ContratoPNAE)\
         .filter(func.extract('year', ContratoPNAE.data_inicio) == ano_atual).scalar() or 0.0
         
     # Busca configuração do ano
     config_pnae = ConfiguracaoPNAE.query.filter_by(ano=ano_atual).first()
     
-    # Dados para o gráfico de meta
     meta_info = {
         'total_repasse': 0.0,
         'percentual_atual': 0.0,
-        'meta_lei': 30 if ano_atual < 2026 else 45, # Lógica da nova lei na interface
-        'falta_contratar': 0.0,
+        'meta_lei': 30 if ano_atual < 2026 else 45,
+        'falta_executar': 0.0, # Renomeado para ficar claro que é sobre execução
         'status': 'Aguardando Configuração'
     }
     
@@ -885,20 +889,22 @@ def agricultura_dashboard():
         meta_info['meta_lei'] = config_pnae.meta_percentual
         
         if config_pnae.valor_total_repasse > 0:
-            percentual = (total_contratado / config_pnae.valor_total_repasse) * 100
+            # Cálculo baseado no EXECUTADO
+            percentual = (total_executado / config_pnae.valor_total_repasse) * 100
             meta_info['percentual_atual'] = percentual
             
             valor_minimo = config_pnae.valor_meta_minima
-            if total_contratado >= valor_minimo:
+            if total_executado >= valor_minimo:
                 meta_info['status'] = 'Meta Atingida! 🎉'
             else:
-                meta_info['falta_contratar'] = valor_minimo - total_contratado
+                meta_info['falta_executar'] = valor_minimo - total_executado
                 meta_info['status'] = 'Abaixo da Meta ⚠️'
 
     return render_template('merenda/agricultura/dashboard.html', 
                            total_agricultores=total_agricultores, 
                            contratos_ativos=contratos_ativos,
                            total_contratado=total_contratado,
+                           total_executado=total_executado,
                            meta_info=meta_info,
                            ano_atual=ano_atual)
     

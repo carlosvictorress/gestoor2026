@@ -113,60 +113,60 @@
     </div>
 
     <div class="card border-0 shadow-sm overflow-hidden">
-        <div class="card-header bg-white py-3 border-bottom-0">
-            <div class="d-flex justify-content-between align-items-center">
-                <h5 class="fw-bold mb-0"><i class="bi bi-graph-up-arrow text-success me-2"></i>Monitoramento de Aplicação Legal</h5>
-                <span class="badge bg-light text-dark border">Lei nº 11.947/2009</span>
-            </div>
-        </div>
-        <div class="card-body px-4 pb-5">
-            {% if meta_info.total_repasse > 0 %}
-                <div class="row align-items-center mb-5 mt-4">
-                    <div class="col-md-8">
-                        <div class="progress-custom shadow-sm">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated {{ 'bg-success' if meta_info.percentual_atual >= meta_info.meta_lei else 'bg-warning' }}" 
-                                 role="progressbar" 
-                                 style="width: {{ meta_info.percentual_atual if meta_info.percentual_atual <= 100 else 100 }}%">
-                            </div>
-                            <div class="meta-marker" style="left: {{ meta_info.meta_lei }}%;">
-                                META {{ meta_info.meta_lei }}%
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4 text-end">
-                        <span class="h4 fw-bold">{{ "%.2f"|format(meta_info.percentual_atual) }}%</span>
-                        <p class="text-muted small mb-0">Total Aplicado</p>
-                    </div>
-                </div>
-
-                <div class="row g-4 mt-2">
-                    <div class="col-md-6">
-                        <div class="p-3 rounded bg-light border">
-                            <p class="mb-1 text-muted small fw-bold text-uppercase">Obrigação Legal Mínima</p>
-                            <h5 class="mb-0 text-dark">{{ (meta_info.total_repasse * (meta_info.meta_lei/100)) | currency_br }}</h5>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        {% if meta_info.falta_contratar > 0 %}
-                        <div class="p-3 rounded bg-warning-subtle border border-warning">
-                            <p class="mb-1 text-warning-emphasis small fw-bold text-uppercase">Ainda necessário contratar</p>
-                            <h5 class="mb-0 text-warning-emphasis">{{ meta_info.falta_contratar | currency_br }}</h5>
-                        </div>
-                        {% else %}
-                        <div class="p-3 rounded bg-success-subtle border border-success">
-                            <p class="mb-1 text-success-emphasis small fw-bold text-uppercase">Status da Meta</p>
-                            <h5 class="mb-0 text-success-emphasis"><i class="bi bi-check-circle-fill me-2"></i>Meta Atingida!</h5>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-            {% else %}
-                <div class="text-center py-5">
-                    <i class="bi bi-calculator text-muted display-4"></i>
-                    <p class="mt-3 text-muted">Aguardando configuração do orçamento anual para gerar indicadores.</p>
-                </div>
-            {% endif %}
+    <div class="card-header bg-white py-3 border-bottom-0">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold mb-0"><i class="bi bi-graph-up-arrow text-success me-2"></i>Monitoramento de Execução PNAE</h5>
+            <span class="badge bg-light text-dark border">Lei nº 11.947/2009</span>
         </div>
     </div>
+    <div class="card-body px-4 pb-5">
+        {% if meta_info.total_repasse > 0 %}
+            <div class="row align-items-center mb-5 mt-4">
+                <div class="col-md-8">
+                    <div class="progress-custom shadow-sm">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated {{ 'bg-success' if meta_info.percentual_atual >= meta_info.meta_lei else 'bg-warning' }}" 
+                             role="progressbar" 
+                             style="width: {{ meta_info.percentual_atual if meta_info.percentual_atual <= 100 else 100 }}%">
+                        </div>
+                        <div class="meta-marker" style="left: {{ meta_info.meta_lei }}%;">
+                            META {{ meta_info.meta_lei }}%
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 text-end">
+                    <span class="h4 fw-bold">{{ "%.2f"|format(meta_info.percentual_atual) }}%</span>
+                    <p class="text-muted small mb-0">Total Executado (Entregas)</p>
+                </div>
+            </div>
+
+            <div class="row g-4 mt-2">
+                <div class="col-md-6">
+                    <div class="p-3 rounded bg-light border">
+                        <p class="mb-1 text-muted small fw-bold text-uppercase">Obrigação Legal Mínima</p>
+                        <h5 class="mb-0 text-dark">{{ (meta_info.total_repasse * (meta_info.meta_lei/100)) | currency_br }}</h5>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    {% if meta_info.falta_executar > 0 %}
+                    <div class="p-3 rounded bg-warning-subtle border border-warning">
+                        <p class="mb-1 text-warning-emphasis small fw-bold text-uppercase">Ainda necessário entregar</p>
+                        <h5 class="mb-0 text-warning-emphasis">{{ meta_info.falta_executar | currency_br }}</h5>
+                    </div>
+                    {% else %}
+                    <div class="p-3 rounded bg-success-subtle border border-success">
+                        <p class="mb-1 text-success-emphasis small fw-bold text-uppercase">Status da Meta</p>
+                        <h5 class="mb-0 text-success-emphasis"><i class="bi bi-check-circle-fill me-2"></i>Meta Atingida!</h5>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-calculator text-muted display-4"></i>
+                <p class="mt-3 text-muted">Aguardando configuração do orçamento anual para gerar indicadores.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
 </div>
 {% endblock %}

@@ -98,15 +98,28 @@
                             <td class="fw-bold">{{ entrega.valor_total | currency_br }}</td>
                             <td><small class="text-muted">{{ entrega.responsavel_recebimento }}</small></td>
                             <td class="text-center">
-                                <div class="btn-group">
-                                    <a href="{{ url_for('merenda.pdf_termo_recebimento_pnae', entrega_id=entrega.id) }}" target="_blank" class="btn btn-sm btn-outline-dark" title="Imprimir">
-                                        <i class="bi bi-printer"></i>
-                                    </a>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalExcluir{{ entrega.id }}">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
+    <div class="btn-group">
+        <button type="button" class="btn btn-sm btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Imprimir Recibo">
+            <i class="bi bi-printer"></i>
+        </button>
+        <ul class="dropdown-menu">
+            <li>
+                <a class="dropdown-item" href="{{ url_for('merenda.pdf_termo_recebimento_pnae', entrega_id=entrega.id, exibir_valor='true') }}" target="_blank">
+                    <i class="bi bi-file-earmark-pdf text-success"></i> Com Valores
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="{{ url_for('merenda.pdf_termo_recebimento_pnae', entrega_id=entrega.id, exibir_valor='false') }}" target="_blank">
+                    <i class="bi bi-file-earmark-pdf text-secondary"></i> Sem Valores
+                </a>
+            </li>
+        </ul>
+        
+        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalExcluir{{ entrega.id }}" title="Excluir">
+            <i class="bi bi-trash"></i>
+        </button>
+    </div>
+</td>
                         </tr>
                         <div class="modal fade" id="modalExcluir{{ entrega.id }}" tabindex="-1">
                             <div class="modal-dialog">

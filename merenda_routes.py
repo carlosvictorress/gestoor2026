@@ -1338,6 +1338,9 @@ def pdf_contrato_pnae(contrato_id):
 @login_required
 @role_required('Merenda Escolar', 'admin')
 def pdf_termo_recebimento_pnae(entrega_id):
+    # Captura o parâmetro de exibição (padrão 'true' se não informado)
+    exibir_valor = request.args.get('exibir_valor', 'true').lower() == 'true'
+    
     # 1. Busca os dados da entrega e relações
     entrega = EntregaPNAE.query.get_or_404(entrega_id)
     contrato = entrega.contrato
@@ -1378,7 +1381,7 @@ def pdf_termo_recebimento_pnae(entrega_id):
     story.append(Paragraph("TERMO DE RECEBIMENTO DA AGRICULTURA FAMILIAR", style_titulo))
     story.append(Spacer(1, 0.8*cm))
     
-    # 5. Texto de Atesto com a Escola (Data ajustada para a data da entrega)
+    # 5. Texto de Atesto
     texto_intro = f"""
     Atesto para os devidos fins que foram entregues no dia <b>{data_entrega_formatada}</b>, 
     pelo fornecedor <b>{agricultor.razao_social}</b> 
@@ -1388,29 +1391,40 @@ def pdf_termo_recebimento_pnae(entrega_id):
     story.append(Paragraph(texto_intro, style_normal))
     story.append(Spacer(1, 0.6*cm))
     
-    # 6. Tabela de Itens
-    dados_tabela = [['Produto', 'Unidade', 'Qtd. Entregue', 'Valor Total']]
+    # 6. Tabela de Itens (Dinâmica)
+    # Define colunas base
+    cabecalho = ['Produto', 'Unidade', 'Qtd. Entregue']
+    col_widths = [10.5*cm, 3*cm, 3.5*cm]
     
-    # Processa o JSON dos itens salvos na entrega
+    if exibir_valor:
+        cabecalho.append('Valor Total')
+        col_widths = [8.5*cm, 2.5*cm, 3*cm, 3*cm]
+    
+    dados_tabela = [cabecalho]
+    
+    # Processa os itens
     if entrega.itens_json:
         try:
             itens = json.loads(entrega.itens_json)
             for item in itens:
-                dados_tabela.append([
+                linha = [
                     item.get('nome_produto', 'N/A').upper(),
                     "Unid.", 
-                    f"{item.get('quantidade', 0)}".replace('.', ','),
-                    currency_filter_br(item.get('valor_total', 0))
-                ])
+                    f"{item.get('quantidade', 0)}".replace('.', ',')
+                ]
+                if exibir_valor:
+                    linha.append(currency_filter_br(item.get('valor_total', 0)))
+                dados_tabela.append(linha)
         except Exception as e:
             dados_tabela.append([f'Erro ao processar itens: {str(e)}', '', '', ''])
             
-    # Linha do Total Geral
-    dados_tabela.append(['TOTAL DA ENTREGA', '', '', currency_filter_br(entrega.valor_total)])
+    # Linha do Total Geral (apenas se exibir valores)
+    if exibir_valor:
+        dados_tabela.append(['TOTAL DA ENTREGA', '', '', currency_filter_br(entrega.valor_total)])
     
     # Estilização da Tabela
-    t = Table(dados_tabela, colWidths=[8.5*cm, 2.5*cm, 3*cm, 3*cm])
-    t.setStyle(TableStyle([
+    t = Table(dados_tabela, colWidths=col_widths)
+    estilo_tabela = [
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -1418,23 +1432,25 @@ def pdf_termo_recebimento_pnae(entrega_id):
         ('FONTSIZE', (0, 0), (-1, -1), 10),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('SPAN', (0, -1), (2, -1)), # Mescla as 3 primeiras colunas da última linha
-        ('ALIGN', (0, -1), (0, -1), 'RIGHT'),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-    ]))
+    ]
+    
+    if exibir_valor:
+        estilo_tabela.extend([
+            ('SPAN', (0, -1), (2, -1)), # Mescla colunas na última linha
+            ('ALIGN', (0, -1), (0, -1), 'RIGHT'),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ])
+        
+    t.setStyle(TableStyle(estilo_tabela))
     story.append(t)
     story.append(Spacer(1, 2*cm))
     
     # 7. Bloco de Assinaturas
     data_hoje = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
-    
-    # Grid para assinaturas lado a lado
-    assinaturas = [
-        [
-            Paragraph("___________________________________<br/>Responsável pelo Recebimento", style_assinatura),
-            Paragraph(f"___________________________________<br/>{agricultor.razao_social}", style_assinatura)
-        ]
-    ]
+    assinaturas = [[
+        Paragraph("___________________________________<br/>Responsável pelo Recebimento", style_assinatura),
+        Paragraph(f"___________________________________<br/>{agricultor.razao_social}", style_assinatura)
+    ]]
     
     t_ass = Table(assinaturas, colWidths=[8.5*cm, 8.5*cm])
     story.append(t_ass)
@@ -1442,7 +1458,7 @@ def pdf_termo_recebimento_pnae(entrega_id):
     story.append(Spacer(1, 1*cm))
     story.append(Paragraph(f"<small>Emitido em: {data_hoje}</small>", style_normal))
     
-    # 8. Geração Final usando o cabeçalho padrão do sistema
+    # 8. Geração Final
     doc.build(story, onFirstPage=lambda c, d: cabecalho_e_rodape(c, d), 
                      onLaterPages=lambda c, d: cabecalho_e_rodape(c, d))
     

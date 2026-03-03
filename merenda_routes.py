@@ -2061,7 +2061,9 @@ def pdf_recibo_solicitacao(solicitacao_id):
     # Tabela de itens
     data = [["Produto", "Quantidade"]]
     for item in solicitacao.itens:
-        data.append([item.produto.nome, f"{item.quantidade_solicitada} {item.produto.unidade_medida}"])
+        # A alteração está aqui: formatamos o float para 1 casa decimal e removemos a unidade
+        valor_quantidade = f"{float(item.quantidade_solicitada):.1f}".replace('.', ',')
+        data.append([item.produto.nome, valor_quantidade])
     
     t = Table(data, colWidths=[10*cm, 5*cm])
     t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black)]))

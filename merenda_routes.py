@@ -129,13 +129,15 @@ def nova_escola():
         
         try:
             nova = Escola(
-                nome=nome_escola,
-                endereco=request.form.get('endereco'),
-                telefone=request.form.get('telefone'),
-                status=request.form.get('status'),
-                diretor_cpf=request.form.get('diretor_cpf') or None,
-                responsavel_merenda_cpf=request.form.get('responsavel_merenda_cpf') or None
+            nome=nome_escola,
+            endereco=request.form.get('endereco'),
+            telefone=request.form.get('telefone'),
+            status=request.form.get('status'),
+            zona=request.form.get('zona'), # Adicione esta linha
+            diretor_cpf=request.form.get('diretor_cpf') or None,
+            responsavel_merenda_cpf=request.form.get('responsavel_merenda_cpf') or None
             )
+            
             db.session.add(nova)
             db.session.commit()
             registrar_log(f'Cadastrou a escola: "{nova.nome}".')
@@ -159,6 +161,7 @@ def editar_escola(escola_id):
             escola.endereco = request.form.get('endereco')
             escola.telefone = request.form.get('telefone')
             escola.status = request.form.get('status')
+            escola.zona = request.form.get('zona')
             escola.diretor_cpf = request.form.get('diretor_cpf') or None
             escola.responsavel_merenda_cpf = request.form.get('responsavel_merenda_cpf') or None
 

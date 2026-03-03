@@ -434,6 +434,8 @@ class Escola(db.Model):
     codigo_inep = db.Column(db.String(20), unique=True, nullable=True, index=True)
     endereco = db.Column(db.String(300))
     telefone = db.Column(db.String(20))
+    
+    zona = db.Column(db.String(20)) # Adicione esta linha
 
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)

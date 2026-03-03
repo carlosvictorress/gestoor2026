@@ -22,11 +22,14 @@
             </div>
             
             <div class="row mb-3">
-                <div class="col-md-12">
-                    <label for="endereco" class="form-label">Endereço Completo</label>
-                    <input type="text" class="form-control" name="endereco" id="endereco" value="{{ escola.endereco if escola else '' }}">
-                </div>
-            </div>
+    <div class="col-md-4">
+        <label for="zona" class="form-label">Zona*</label>
+        <select class="form-select" name="zona" id="zona" required>
+            <option value="Urbana" {{ 'selected' if escola and escola.zona == 'Urbana' }}>Urbana</option>
+            <option value="Rural" {{ 'selected' if escola and escola.zona == 'Rural' }}>Rural</option>
+        </select>
+    </div>
+</div>
 
             <hr>
             <h5 class="mb-3 text-muted">Responsáveis e Status</h5>

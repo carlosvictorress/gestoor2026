@@ -59,44 +59,52 @@
                                     <span class="badge rounded-pill bg-light text-dark">{{ ficha.status }}</span>
                                 {% endif %}
                             </td>
-                           <td class="text-center">
-    <div class="btn-group shadow-sm">
-        {# 1. PDF - Sempre visível para baixar o documento #}
-        <a href="{{ url_for('merenda.gerar_pdf_ficha', id=ficha.id) }}" 
-           class="btn btn-sm btn-outline-danger" title="Imprimir PDF">
-            <i class="bi bi-file-pdf"></i>
-        </a>
+                            <td class="text-center">
+                                <div class="btn-group shadow-sm">
+                                    {# 1. PDF - Sempre visível #}
+                                    <a href="{{ url_for('merenda.gerar_pdf_ficha', id=ficha.id) }}" 
+                                       class="btn btn-sm btn-outline-danger" title="Imprimir PDF">
+                                        <i class="bi bi-file-pdf"></i>
+                                    </a>
 
-        {% if ficha.status == 'Pendente' %}
-            {# 2. ENVIAR - Muda o status e bloqueia a ficha #}
-            <form action="{{ url_for('merenda.enviar_ficha', id=ficha.id) }}" method="POST" style="display:inline;">
-                <button type="submit" class="btn btn-sm btn-outline-success" title="Enviar para Escola" 
-                        onclick="return confirm('Deseja enviar? Isso bloqueará edições futuras.')">
-                    <i class="bi bi-send-check"></i>
-                </button>
-            </form>
+                                    {# 2. CLONAR - Botão adicionado #}
+                                    <form action="{{ url_for('merenda.clonar_ficha', id=ficha.id) }}" method="POST" style="display:inline;">
+                                        <button type="submit" class="btn btn-sm btn-outline-info" title="Clonar Ficha" 
+                                                onclick="return confirm('Deseja criar uma cópia desta ficha?')">
+                                            <i class="bi bi-files"></i>
+                                        </button>
+                                    </form>
 
-            {# 3. EDITAR - Abre o formulário de edição #}
-            <a href="{{ url_for('merenda.editar_ficha', id=ficha.id) }}" 
-               class="btn btn-sm btn-outline-secondary" title="Editar Itens">
-                <i class="bi bi-pencil"></i>
-            </a>
+                                    {% if ficha.status == 'Pendente' %}
+                                        {# 3. ENVIAR #}
+                                        <form action="{{ url_for('merenda.enviar_ficha', id=ficha.id) }}" method="POST" style="display:inline;">
+                                            <button type="submit" class="btn btn-sm btn-outline-success" title="Enviar para Escola" 
+                                                    onclick="return confirm('Deseja enviar? Isso bloqueará edições futuras.')">
+                                                <i class="bi bi-send-check"></i>
+                                            </button>
+                                        </form>
 
-            {# 4. EXCLUIR - Deleta a ficha do banco #}
-            <form action="{{ url_for('merenda.excluir_ficha', id=ficha.id) }}" method="POST" style="display:inline;" 
-                  onsubmit="return confirm('Tem certeza que deseja excluir esta ficha permanentemente?');">
-                <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </form>
-        {% else %}
-            {# 5. BLOQUEADO - Aparece apenas o ícone de cadeado se não for mais Pendente #}
-            <span class="btn btn-sm btn-light disabled text-muted" title="Ficha enviada (Edição bloqueada)">
-                <i class="bi bi-lock-fill"></i>
-            </span>
-        {% endif %}
-    </div>
-</td>
+                                        {# 4. EDITAR #}
+                                        <a href="{{ url_for('merenda.editar_ficha', id=ficha.id) }}" 
+                                           class="btn btn-sm btn-outline-secondary" title="Editar Itens">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+
+                                        {# 5. EXCLUIR #}
+                                        <form action="{{ url_for('merenda.excluir_ficha', id=ficha.id) }}" method="POST" style="display:inline;" 
+                                              onsubmit="return confirm('Tem certeza que deseja excluir esta ficha permanentemente?');">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        {# 6. BLOQUEADO #}
+                                        <span class="btn btn-sm btn-light disabled text-muted" title="Ficha enviada (Edição bloqueada)">
+                                            <i class="bi bi-lock-fill"></i>
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </td>
                         </tr>
                         {% else %}
                         <tr>

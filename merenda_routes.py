@@ -1,44 +1,38 @@
-# merenda_routes.py
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
-from reportlab.lib import colors
-from reportlab.lib.units import cm
 import os
 import base64
 import io
 import json
 import uuid
-from reportlab.lib.pagesizes import A4
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, make_response
-from extensions import db, bcrypt
-# Importe todos os novos modelos aqui
-from werkzeug.utils import secure_filename
-from models import ( 
-                    Escola, ProdutoMerenda, 
-                    EstoqueMovimento, 
-                    SolicitacaoMerenda, 
-                    SolicitacaoItem, 
-                    Cardapio, 
-                    PratoDiario, 
-                    HistoricoCardapio, 
-                    Servidor,
-                    RelatorioTecnico, 
-                    RelatorioAnexo, 
-                    PedidoEmpresa, 
-                    PedidoEmpresaItem, 
-                    FichaDistribuicao, 
-                    FichaDistribuicaoItem,
-)
-    
-from utils import login_required, registrar_log, limpar_cpf, cabecalho_e_rodape, currency_filter_br, cabecalho_e_rodape_moderno, upload_arquivo_para_nuvem
-    
-from sqlalchemy import or_, func
-from datetime import datetime
-from datetime import date, timedelta
 import calendar
-from utils import role_required
-from models import AgricultorFamiliar, DocumentoAgricultor, ContratoPNAE, ItemProjetoVenda, EntregaPNAE, ConfiguracaoPNAE
+from datetime import datetime, date, timedelta
+from functools import wraps
+
+# 2. Bibliotecas de Terceiros (Flask/SQLAlchemy/ReportLab)
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, make_response
+from sqlalchemy import or_, func
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
+from reportlab.lib import colors
+from reportlab.lib.units import cm
+from reportlab.lib.pagesizes import A4
+from werkzeug.utils import secure_filename
+
+# 3. Módulos Internos (Sua camada de aplicação)
+from extensions import db, bcrypt
+from models import (
+    Escola, ProdutoMerenda, EstoqueMovimento, SolicitacaoMerenda, 
+    SolicitacaoItem, Cardapio, PratoDiario, HistoricoCardapio, 
+    Servidor, RelatorioTecnico, RelatorioAnexo, PedidoEmpresa, 
+    PedidoEmpresaItem, FichaDistribuicao, FichaDistribuicaoItem,
+    AgricultorFamiliar, DocumentoAgricultor, ContratoPNAE, 
+    ItemProjetoVenda, EntregaPNAE, ConfiguracaoPNAE
+)
+from utils import (
+    login_required, registrar_log, limpar_cpf, cabecalho_e_rodape, 
+    currency_filter_br, cabecalho_e_rodape_moderno, 
+    upload_arquivo_para_nuvem, role_required
+)
 
 
 
@@ -468,7 +462,7 @@ def detalhes_solicitacao(solicitacao_id):
             # 1. Atualiza dados da entrega
             solicitacao.status = 'Entregue'
             solicitacao.entregador_cpf = request.form.get('entregador_cpf')
-            solicitacao.data_entrega = datetime.utcnow()
+            solicitacao.data_entrega = datetime.now()
 
             # 2. Itera sobre os itens para dar baixa de 1 para 1
             for item in solicitacao.itens:
@@ -1136,9 +1130,19 @@ def registrar_entrega_pnae(contrato_id):
     
     try:
         # 1. Captura Dados do Formulário
-        data_entrega = datetime.strptime(request.form.get('data_entrega'), '%Y-%m-%d').date()
+        # Importante: datetime.strptime cria um objeto naive (sem fuso). 
+        # Vamos adicionar o fuso de Brasília para garantir consistência.
+        import pytz
+        fuso_br = pytz.timezone('America/Sao_Paulo')
+        
+        data_input = request.form.get('data_entrega')
+        data_entrega = datetime.strptime(data_input, '%Y-%m-%d').date()
+        
+        # Se precisar gravar o horário exato da entrega em Brasília:
+        data_hora_entrega = fuso_br.localize(datetime.combine(data_entrega, datetime.now().time()))
+        
         nota_fiscal = request.form.get('numero_nota_fiscal')
-        escola_id = request.form.get('escola_id', type=int) # Novo campo solicitado
+        escola_id = request.form.get('escola_id', type=int)
         
         # 2. Tratamento de Upload da Nota Fiscal (Supabase)
         link_nf = None
@@ -1164,7 +1168,6 @@ def registrar_entrega_pnae(contrato_id):
                 item_contrato = ItemProjetoVenda.query.get(item_id)
                 valor_item = qtd * item_contrato.preco_unitario
                 
-                # Dados para o JSON da entrega
                 lista_itens_json.append({
                     'item_id': item_contrato.id,
                     'nome_produto': item_contrato.nome_produto,
@@ -1176,7 +1179,6 @@ def registrar_entrega_pnae(contrato_id):
                 valor_total_entrega += valor_item
 
                 # --- INTEGRAÇÃO AUTOMÁTICA COM ESTOQUE ---
-                # Busca ou cria o produto na tabela geral de merenda
                 produto_estoque = ProdutoMerenda.query.filter_by(nome=item_contrato.nome_produto).first()
                 
                 if not produto_estoque:
@@ -1189,7 +1191,6 @@ def registrar_entrega_pnae(contrato_id):
                     db.session.add(produto_estoque)
                     db.session.flush()
 
-                # Incrementa o estoque
                 produto_estoque.estoque_atual += qtd
                 
                 # Registra a movimentação de entrada no estoque
@@ -1197,7 +1198,7 @@ def registrar_entrega_pnae(contrato_id):
                     produto_id=produto_estoque.id,
                     tipo='Entrada',
                     quantidade=qtd,
-                    data_movimento=datetime.combine(data_entrega, datetime.min.time()),
+                    data_movimento=data_hora_entrega, # Usa o horário com fuso BR
                     fornecedor=f"PNAE: {contrato.agricultor.razao_social}",
                     lote=f"CONT-{contrato.numero_contrato}",
                     usuario_responsavel=session.get('username')
@@ -1208,10 +1209,10 @@ def registrar_entrega_pnae(contrato_id):
             flash('Informe a quantidade de pelo menos um item.', 'warning')
             return redirect(url_for('merenda.gerenciar_contrato_pnae', contrato_id=contrato.id))
 
-        # 4. Salva o registro da Entrega (Tabela: pnae_entrega)
+        # 4. Salva o registro da Entrega
         nova_entrega = EntregaPNAE(
             contrato_id=contrato.id,
-            escola_id=escola_id, # Novo campo vinculado
+            escola_id=escola_id,
             data_entrega=data_entrega,
             numero_nota_fiscal=nota_fiscal,
             recibo_filename=link_nf,
@@ -1225,7 +1226,7 @@ def registrar_entrega_pnae(contrato_id):
         db.session.commit()
         
         registrar_log(f'Registrou entrega PNAE #{nova_entrega.id} do fornecedor {contrato.agricultor.razao_social}.')
-        flash('Entrega registrada, estoque atualizado e anexo salvo na nuvem!', 'success')
+        flash('Entrega registrada, estoque atualizado e anexo salvo!', 'success')
         
     except Exception as e:
         db.session.rollback()
@@ -2038,3 +2039,33 @@ def editar_ficha(id):
     escolas = Escola.query.order_by(Escola.nome).all()
     return render_template('merenda/ficha_form.html', ficha=ficha, editando=True)
 
+@merenda_bp.route('/solicitacoes/<int:solicitacao_id>/recibo-pdf')
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def pdf_recibo_solicitacao(solicitacao_id):
+    solicitacao = SolicitacaoMerenda.query.get_or_404(solicitacao_id)
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=3*cm, bottomMargin=2*cm)
+    
+    styles = getSampleStyleSheet()
+    story = [Paragraph("RECIBO DE ENTREGA DE MERENDA", styles['Heading1']), Spacer(1, 0.5*cm)]
+    
+    story.append(Paragraph(f"Escola: {solicitacao.escola.nome}", styles['Normal']))
+    story.append(Paragraph(f"Data da Entrega: {solicitacao.data_entrega.strftime('%d/%m/%Y %H:%M')}", styles['Normal']))
+    story.append(Spacer(1, 1*cm))
+
+    # Tabela de itens
+    data = [["Produto", "Quantidade"]]
+    for item in solicitacao.itens:
+        data.append([item.produto.nome, f"{item.quantidade_solicitada} {item.produto.unidade_medida}"])
+    
+    t = Table(data, colWidths=[10*cm, 5*cm])
+    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black)]))
+    story.append(t)
+    
+    doc.build(story)
+    buffer.seek(0)
+    
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Type'] = 'application/pdf'
+    return response

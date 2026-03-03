@@ -1,30 +1,37 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="container mt-4">
-    <h2>Nova Ficha de Distribuição</h2>
+    <h2>{{ 'Editar' if editando else 'Nova' }} Ficha de Distribuição</h2>
     <form method="POST">
         <div class="mb-3">
             <label class="form-label">Escola</label>
-            <select name="escola_id" class="form-select">
+            <select name="escola_id" class="form-select" required>
+                <option value="">-- Selecione uma escola --</option>
                 {% for e in escolas %}
-                <option value="{{ e.id }}">{{ e.nome }}</option>
+                <option value="{{ e.id }}" {{ 'selected' if editando and e.id == ficha.escola_id }}>
+                    {{ e.nome }}
+                </option>
                 {% endfor %}
             </select>
         </div>
+        
         <div class="mb-3">
             <label class="form-label">Mês de Referência</label>
-            <input type="text" name="mes_referencia" class="form-control" placeholder="Ex: Março/2026">
+            <input type="text" name="mes_referencia" class="form-control" 
+                   value="{{ ficha.mes_referencia if editando else '' }}" 
+                   placeholder="Ex: Março/2026" required>
         </div>
+        
         <div class="mb-3">
             <label class="form-label">Tipo de Gênero</label>
             <select name="tipo_genero" class="form-select">
-                <option value="PERECÍVEIS">PERECÍVEIS</option>
-                <option value="NÃO PERECÍVEIS">NÃO PERECÍVEIS</option>
+                <option value="PERECÍVEIS" {{ 'selected' if editando and ficha.tipo_genero == 'PERECÍVEIS' }}>PERECÍVEIS</option>
+                <option value="NÃO PERECÍVEIS" {{ 'selected' if editando and ficha.tipo_genero == 'NÃO PERECÍVEIS' }}>NÃO PERECÍVEIS</option>
             </select>
         </div>
 
         <h4>Produtos</h4>
-        <table class="table">
+        <table class="table table-hover">
             <thead>
                 <tr>
                     <th>Produto</th>
@@ -32,34 +39,39 @@
                 </tr>
             </thead>
             <tbody>
-    {% if editando %}
-        {# MODO EDIÇÃO: Mostra apenas os produtos que já estão na ficha #}
-        {% for item in ficha.itens %}
-        <tr>
-            <td>
-                {{ item.produto.nome }}
-                <input type="hidden" name="produto_id[]" value="{{ item.produto.id }}">
-            </td>
-            <td>
-                <input type="number" name="quantidade[]" class="form-control" step="0.01" value="{{ item.quantidade }}">
-            </td>
-        </tr>
-        {% endfor %}
-    {% else %}
-        {# MODO CRIAÇÃO: Mostra todos os produtos para preencher #}
-        {% for p in produtos %}
-        <tr>
-            <td>{{ p.nome }}</td>
-            <td>
-                <input type="hidden" name="produto_id[]" value="{{ p.id }}">
-                <input type="number" name="quantidade[]" class="form-control" step="0.01">
-            </td>
-        </tr>
-        {% endfor %}
-    {% endif %}
-</tbody>
+                {% if editando %}
+                    {# MODO EDIÇÃO #}
+                    {% for item in ficha.itens %}
+                    <tr>
+                        <td>
+                            {{ item.produto.nome }}
+                            <input type="hidden" name="item_id[]" value="{{ item.id }}">
+                            <input type="hidden" name="produto_id[]" value="{{ item.produto.id }}">
+                        </td>
+                        <td>
+                            <input type="number" name="quantidade[]" class="form-control" step="0.01" value="{{ item.quantidade }}">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    {# MODO CRIAÇÃO #}
+                    {% for p in produtos %}
+                    <tr>
+                        <td>{{ p.nome }}</td>
+                        <td>
+                            <input type="hidden" name="produto_id[]" value="{{ p.id }}">
+                            <input type="number" name="quantidade[]" class="form-control" step="0.01" value="0">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% endif %}
+            </tbody>
         </table>
-        <button type="submit" class="btn btn-primary">Salvar Ficha</button>
+        
+        <button type="submit" class="btn btn-primary btn-lg">
+            <i class="bi bi-save"></i> Salvar Ficha
+        </button>
+        <a href="{{ url_for('merenda.listar_fichas') }}" class="btn btn-secondary btn-lg">Cancelar</a>
     </form>
 </div>
 {% endblock %}

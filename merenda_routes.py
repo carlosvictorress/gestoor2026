@@ -1869,13 +1869,14 @@ def enviar_alimentos_ficha(ficha_id):
 @login_required
 def gerar_pdf_ficha(id):
     ficha = FichaDistribuicao.query.get_or_404(id)
+    escola = ficha.escola
     
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     elements = []
     styles = getSampleStyleSheet()
 
-    # Criando estilos explicitamente para evitar NameError
+    # Criando estilos explicitamente
     style_header = ParagraphStyle(
         'CustomHeader', 
         parent=styles['Normal'], 
@@ -1891,6 +1892,14 @@ def gerar_pdf_ficha(id):
         alignment=TA_CENTER, 
         leading=14, 
         fontName='Helvetica-Bold',
+        spaceAfter=10
+    )
+    
+    style_info = ParagraphStyle(
+        'CustomInfo', 
+        parent=styles['Normal'], 
+        fontSize=10, 
+        alignment=TA_CENTER, 
         spaceAfter=20
     )
 
@@ -1906,6 +1915,10 @@ def gerar_pdf_ficha(id):
 
     elements.append(Spacer(1, 12))
     elements.append(Paragraph(f"FICHA DE DISTRIBUIÇÃO Nº {ficha.id}", style_title))
+    
+    # --- MODIFICAÇÃO: Exibição da Escola e Zona ---
+    info_escola = f"<b>Escola:</b> {escola.nome} | <b>Zona:</b> {escola.zona or 'Não definida'}"
+    elements.append(Paragraph(info_escola, style_info))
     
     # Tabela de Itens
     data = [["PRODUTO", "UNID.", "QUANTIDADE"]]
@@ -2036,6 +2049,8 @@ def editar_ficha(id):
 
     if request.method == 'POST':
         try:
+            # Atualiza campos básicos
+            ficha.escola_id = request.form.get('escola_id')
             ficha.mes_referencia = request.form.get('mes_referencia')
             ficha.tipo_genero = request.form.get('tipo_genero')
             
@@ -2056,8 +2071,13 @@ def editar_ficha(id):
             db.session.rollback()
             flash(f'Erro ao atualizar: {str(e)}', 'danger')
 
+    # Busca escolas para o select e passa para o template
     escolas = Escola.query.order_by(Escola.nome).all()
-    return render_template('merenda/ficha_form.html', ficha=ficha, editando=True)
+    
+    return render_template('merenda/ficha_form.html', 
+                           ficha=ficha, 
+                           escolas=escolas, 
+                           editando=True)
 
 @merenda_bp.route('/solicitacoes/<int:solicitacao_id>/recibo-pdf')
 @login_required
@@ -2129,3 +2149,29 @@ def excluir_entrega(entrega_id):
         flash(f'Erro ao excluir entrega: {str(e)}', 'danger')
     
     return redirect(request.referrer)
+
+@merenda_bp.route('/fichas/clonar/<int:id>', methods=['POST'])
+@login_required
+def clonar_ficha(id):
+    original = FichaDistribuicao.query.get_or_404(id)
+    try:
+        nova = FichaDistribuicao(
+            escola_id=original.escola_id,
+            mes_referencia=original.mes_referencia,
+            ano_referencia=original.ano_referencia,
+            tipo_genero=original.tipo_genero,
+            status='Pendente'
+        )
+        db.session.add(nova)
+        db.session.flush()
+        
+        for item in original.itens:
+            novo_item = FichaDistribuicaoItem(ficha_id=nova.id, produto_id=item.produto_id, quantidade=item.quantidade)
+            db.session.add(novo_item)
+            
+        db.session.commit()
+        flash('Ficha clonada com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao clonar: {e}', 'danger')
+    return redirect(url_for('merenda.listar_fichas'))

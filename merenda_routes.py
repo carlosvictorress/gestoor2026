@@ -1870,60 +1870,43 @@ def enviar_alimentos_ficha(ficha_id):
 
 @merenda_bp.route('/fichas/pdf/<int:id>')
 @login_required
+@role_required('Merenda Escolar', 'admin')
 def gerar_pdf_ficha(id):
     ficha = FichaDistribuicao.query.get_or_404(id)
     escola = ficha.escola
     
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+    # Margens ajustadas para um visual mais profissional
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=2*cm, bottomMargin=2*cm)
     elements = []
     styles = getSampleStyleSheet()
 
-    # Criando estilos explicitamente
-    style_header = ParagraphStyle(
-        'CustomHeader', 
-        parent=styles['Normal'], 
-        fontSize=9, 
-        alignment=TA_CENTER, 
-        leading=11
-    )
-    
-    style_title = ParagraphStyle(
-        'CustomTitle', 
-        parent=styles['Normal'], 
-        fontSize=12, 
-        alignment=TA_CENTER, 
-        leading=14, 
-        fontName='Helvetica-Bold',
-        spaceAfter=10
-    )
-    
-    style_info = ParagraphStyle(
-        'CustomInfo', 
-        parent=styles['Normal'], 
-        fontSize=10, 
-        alignment=TA_CENTER, 
-        spaceAfter=20
-    )
+    # Estilos customizados
+    style_header = ParagraphStyle('Header', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER, leading=11)
+    style_title = ParagraphStyle('Title', parent=styles['Normal'], fontSize=12, alignment=TA_CENTER, fontName='Helvetica-Bold', spaceAfter=15)
+    style_info = ParagraphStyle('Info', parent=styles['Normal'], fontSize=10, alignment=TA_CENTER, spaceAfter=15)
+    style_body = ParagraphStyle('Body', parent=styles['Normal'], fontSize=10, alignment=TA_JUSTIFY, leading=14, spaceAfter=15)
 
-    # Conteúdo do cabeçalho
-    texto_cabecalho = [
-        "MUNICÍPIO DE VALENÇA DO PIAUÍ",
-        "SECRETARIA MUNICIPAL DE EDUCAÇÃO",
-        "CNPJ: 06.095.146/0001-44"
-    ]
-    
-    for linha in texto_cabecalho:
-        elements.append(Paragraph(linha, style_header))
+    # 1. Cabeçalho Institucional (Timbre)
+    # Você pode manter sua função cabecalho_e_rodape_moderno se ela já desenha o timbre
+    elements.append(Paragraph("MUNICÍPIO DE VALENÇA DO PIAUÍ", style_header))
+    elements.append(Paragraph("SECRETARIA MUNICIPAL DE EDUCAÇÃO", style_header))
+    elements.append(Paragraph("CNPJ: 06.095.146/0001-44", style_header))
+    elements.append(Spacer(1, 0.5*cm))
 
-    elements.append(Spacer(1, 12))
+    # 2. Título e Info da Escola
     elements.append(Paragraph(f"FICHA DE DISTRIBUIÇÃO Nº {ficha.id}", style_title))
-    
-    # --- MODIFICAÇÃO: Exibição da Escola e Zona ---
     info_escola = f"<b>Escola:</b> {escola.nome} | <b>Zona:</b> {escola.zona or 'Não definida'}"
     elements.append(Paragraph(info_escola, style_info))
     
-    # Tabela de Itens
+    # 3. Texto de Responsabilidade
+    texto_resp = """
+    Recebi da SECRETARIA MUNICIPAL DE EDUCAÇÃO DE VALENÇA DO PIAUÍ, os gêneros alimentícios abaixo discriminados, 
+    por cuja armazenagem, conservação e aplicação me responsabilizo conforme as normas estabelecidas pelo PNAE.
+    """
+    elements.append(Paragraph(texto_resp, style_body))
+
+    # 4. Tabela de Itens
     data = [["PRODUTO", "UNID.", "QUANTIDADE"]]
     for item in ficha.itens:
         data.append([
@@ -1932,13 +1915,27 @@ def gerar_pdf_ficha(id):
             f"{item.quantidade:,.2f}".replace('.', ',')
         ])
 
-    t = Table(data, colWidths=[10*cm, 2*cm, 4*cm])
+    t = Table(data, colWidths=[11*cm, 2*cm, 3*cm])
     t.setStyle(TableStyle([
         ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('ALIGN', (2,1), (2,-1), 'RIGHT'),
     ]))
     elements.append(t)
+
+    # 5. Assinaturas (Rodapé)
+    elements.append(Spacer(1, 2*cm))
+    assinaturas = [
+        ["__________________________________________", "__________________________________________"],
+        ["Diretora da Escola", "Supervisora da Merenda Escolar"]
+    ]
+    t_ass = Table(assinaturas, colWidths=[8*cm, 8*cm])
+    t_ass.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTSIZE', (0, 1), (-1, 1), 9),
+    ]))
+    elements.append(t_ass)
 
     doc.build(elements)
     buffer.seek(0)

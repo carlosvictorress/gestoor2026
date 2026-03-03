@@ -496,7 +496,11 @@ def detalhes_solicitacao(solicitacao_id):
             db.session.rollback()
             flash(f'Erro ao registrar entrega: {e}', 'danger')
 
-    return render_template('merenda/solicitacao_detalhes.html', solicitacao=solicitacao, servidores=servidores)
+    from datetime import timedelta # Garanta que este import esteja no topo
+    return render_template('merenda/solicitacao_detalhes.html', 
+                       solicitacao=solicitacao, 
+                       servidores=servidores, 
+                       timedelta=timedelta)
 
 @merenda_bp.route('/solicitacoes/<int:solicitacao_id>/autorizar', methods=['POST'])
 @login_required

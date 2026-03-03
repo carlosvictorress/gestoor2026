@@ -2075,3 +2075,41 @@ def pdf_recibo_solicitacao(solicitacao_id):
     response = make_response(buffer.getvalue())
     response.headers['Content-Type'] = 'application/pdf'
     return response
+
+@merenda_bp.route('/contrato-pnae/excluir-entrega/<int:entrega_id>', methods=['POST'])
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def excluir_entrega(entrega_id):
+    entrega = EntregaPNAE.query.get_or_404(entrega_id) # Certifique-se do nome do modelo (EntregaPNAE)
+    justificativa = request.form.get('justificativa')
+    
+    if not justificativa:
+        flash('Uma justificativa é obrigatória para excluir uma entrega!', 'danger')
+        return redirect(request.referrer)
+
+    try:
+        # 1. REVERSÃO DE ESTOQUE:
+        # Buscamos os movimentos de estoque criados com o lote desta entrega
+        lote_associado = f"CONT-{entrega.contrato.numero_contrato}"
+        movimentos = EstoqueMovimento.query.filter_by(lote=lote_associado, data_movimento=datetime.combine(entrega.data_entrega, datetime.min.time())).all()
+        
+        for mov in movimentos:
+            # Subtrai do produto o que foi adicionado na entrega
+            produto = ProdutoMerenda.query.get(mov.produto_id)
+            if produto:
+                produto.estoque_atual -= mov.quantidade
+            db.session.delete(mov)
+
+        # 2. Registro de log
+        registrar_log(f"Excluiu entrega ID {entrega_id}. Justificativa: {justificativa}")
+        
+        # 3. Exclui a entrega
+        db.session.delete(entrega)
+        db.session.commit()
+        
+        flash('Entrega removida, estoque estornado e saldo atualizado.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao excluir entrega: {str(e)}', 'danger')
+    
+    return redirect(request.referrer)

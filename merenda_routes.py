@@ -1944,6 +1944,7 @@ def gerar_pdf_ficha(id):
         'Content-Type': 'application/pdf',
         'Content-Disposition': f'inline; filename=Ficha_{id}.pdf'
     })
+    
 
 @merenda_bp.route('/fichas/enviar/<int:id>', methods=['POST'])
 @login_required

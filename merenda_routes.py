@@ -1101,14 +1101,19 @@ def novo_contrato_pnae(agricultor_id):
 
 @merenda_bp.route('/agricultura/contratos/<int:contrato_id>/gerenciar', methods=['GET', 'POST'])
 @login_required
+@role_required('Merenda Escolar', 'admin')
 def gerenciar_contrato_pnae(contrato_id):
     contrato = ContratoPNAE.query.get_or_404(contrato_id)
     
-    # --- BUSCA AS ESCOLAS ATIVAS (Adicionado para o Modal funcionar) ---
+    # 1. Se o formulário do modal for enviado, a lógica de registro deve vir aqui
+    # (Se você já tiver uma rota separada para registrar_entrega_pnae, 
+    # você pode remover o 'POST' e a lógica de processamento desta rota).
+    
+    # 2. Busca as escolas ativas para o select do modal
     escolas_ativas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
     
-    # Lógica para calcular o saldo de cada item
-    entregue_por_produto = {} # Ex: {'Alface': 50.0, 'Tomate': 10.0}
+    # 3. Lógica para calcular o saldo de cada item
+    entregue_por_produto = {} 
     
     for entrega in contrato.entregas:
         if entrega.status == 'Aprovado' and entrega.itens_json:
@@ -1116,18 +1121,22 @@ def gerenciar_contrato_pnae(contrato_id):
                 itens_entrega = json.loads(entrega.itens_json)
                 for item in itens_entrega:
                     prod_nome = item['nome_produto']
-                    qtd = float(item['quantidade'])
+                    # Garante que a quantidade seja tratada como float
+                    qtd = float(str(item.get('quantidade', 0)).replace(',', '.'))
+                    
                     if prod_nome in entregue_por_produto:
                         entregue_por_produto[prod_nome] += qtd
                     else:
                         entregue_por_produto[prod_nome] = qtd
-            except:
-                pass # Ignora erros de JSON antigo se houver
+            except (ValueError, TypeError, KeyError):
+                continue # Pula itens com erro de formato
 
-    return render_template('merenda/agricultura/contrato_gerenciar.html', 
-                           contrato=contrato, 
-                           entregue_por_produto=entregue_por_produto,
-                           escolas_ativas=escolas_ativas) # <--- Variável enviada aqui
+    return render_template(
+        'merenda/agricultura/contrato_gerenciar.html', 
+        contrato=contrato, 
+        entregue_por_produto=entregue_por_produto,
+        escolas_ativas=escolas_ativas
+    )
 
 @merenda_bp.route('/agricultura/contratos/<int:contrato_id>/nova-entrega', methods=['POST'])
 @login_required

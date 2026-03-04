@@ -148,5 +148,67 @@
         </div>
     </div>
 </div>
+<div class="modal fade" id="modalEntrega" tabindex="-1" aria-labelledby="modalEntregaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form action="{{ url_for('merenda.registrar_entrega_pnae', contrato_id=contrato.id) }}" method="POST" enctype="multipart/form-data">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="modalEntregaLabel"><i class="bi bi-box-seam"></i> Registrar Entrega</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Data da Entrega*</label>
+                            <input type="date" name="data_entrega" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Escola Destino*</label>
+                            <select name="escola_id" class="form-select" required>
+                                <option value="">-- Selecione --</option>
+                                {% for escola in escolas_ativas %}
+                                <option value="{{ escola.id }}">{{ escola.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Número NF/Recibo</label>
+                            <input type="text" name="numero_nota_fiscal" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Arquivo NF/Recibo (Foto/PDF)</label>
+                            <input type="file" name="arquivo_nf" class="form-control" accept="image/*,.pdf">
+                        </div>
+                    </div>
 
+                    <hr>
+                    <h6>Itens da Entrega</h6>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Produto</th>
+                                <th>Qtd. a Entregar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in contrato.itens %}
+                            <tr>
+                                <td>{{ item.nome_produto }}</td>
+                                <td>
+                                    <input type="hidden" name="item_id[]" value="{{ item.id }}">
+                                    <input type="number" name="qtd_entregue[]" step="0.01" class="form-control form-control-sm" placeholder="0.00">
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Confirmar Entrega</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}

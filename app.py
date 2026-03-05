@@ -1956,15 +1956,16 @@ def importar_servidores():
             # Importante: certifique-se que o nome das colunas aqui 
             # é IDÊNTICO ao cabeçalho do arquivo CSV
             novo_servidor = Servidor(
-                num_contrato=row.get("Nº CONTRATO"),
-                nome=row.get("NOME"),
-                funcao=row.get("FUNÇÃO"),
-                lotacao=row.get("LOTAÇÃO"),
-                carga_horaria=row.get("CARGA HORÁRIA"),
-                remuneracao=row.get("REMUNERAÇÃO"),
-                vigencia=row.get("VIGÊNCIA"),
-                secretaria_id=session.get("secretaria_id") # Garante que pertence ao RH atual
-            )
+        num_contrato=row.get("Nº CONTRATO"),
+        nome=row.get("NOME"),
+        funcao=row.get("FUNÇÃO"),
+        lotacao=row.get("LOTAÇÃO"),
+        carga_horaria=row.get("CARGA HORÁRIA"),
+        remuneracao=float(str(row.get("REMUNERAÇÃO", 0)).replace(',', '.')),
+    # Nota: Se o modelo 'Servidor' não tiver o campo 'vigencia', 
+    # remova esta linha abaixo para evitar erros:
+    
+        )
             db.session.add(novo_servidor)
             cont += 1
         

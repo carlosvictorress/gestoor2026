@@ -2185,3 +2185,33 @@ def clonar_ficha(id):
         db.session.rollback()
         flash(f'Erro ao clonar: {e}', 'danger')
     return redirect(url_for('merenda.listar_fichas'))
+
+@merenda_bp.route('/entrega/clonar/<int:entrega_id>', methods=['POST'])
+@login_required
+def clonar_entrega(entrega_id):
+    original = EntregaPNAE.query.get_or_404(entrega_id)
+    try:
+        nova_data = datetime.strptime(request.form.get('nova_data'), '%Y-%m-%d').date()
+        nova_nf = request.form.get('nova_nf')
+
+        # Cria nova entrega copiando os dados básicos e o JSON de itens
+        nova = EntregaPNAE(
+            contrato_id=original.contrato_id,
+            escola_id=original.escola_id,
+            data_entrega=nova_data,
+            numero_nota_fiscal=nova_nf,
+            valor_total=original.valor_total,
+            itens_json=original.itens_json, 
+            responsavel_recebimento=session.get('username', 'Admin'),
+            status='Aprovado'
+        )
+        
+        db.session.add(nova)
+        db.session.commit()
+        
+        flash('Registro de entrega clonado com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao clonar: {str(e)}', 'danger')
+        
+    return redirect(request.referrer)

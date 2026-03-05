@@ -21,61 +21,34 @@
     </div>
 
     <div class="row g-3 mb-4">
-        {% for titulo, valor, cor in [('Valor Contratado', contrato.valor_total, 'primary'), ('Valor Executado', contrato.valor_executado, 'success'), ('Saldo a Executar', contrato.saldo, 'warning')] %}
         <div class="col-md-4">
-            <div class="card shadow-sm border-0 border-start border-4 border-{{ cor }}">
+            <div class="card shadow-sm border-0 border-start border-4 border-primary">
                 <div class="card-body py-3">
-                    <small class="text-uppercase text-muted fw-bold">{{ titulo }}</small>
-                    <h4 class="mb-0 text-{{ cor }} fw-bold">{{ valor | currency_br }}</h4>
+                    <small class="text-uppercase text-muted fw-bold">Valor Contratado</small>
+                    <h4 class="mb-0 text-primary fw-bold">{{ contrato.valor_total | currency_br }}</h4>
                 </div>
             </div>
         </div>
-        {% endfor %}
-    </div>
-
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-white py-3">
-            <h5 class="mb-0 fw-bold"><i class="bi bi-list-check text-primary me-2"></i>Controle de Saldo de Produtos</h5>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 border-start border-4 border-success">
+                <div class="card-body py-3">
+                    <small class="text-uppercase text-muted fw-bold">Valor Executado</small>
+                    <h4 class="mb-0 text-success fw-bold">{{ contrato.valor_executado | currency_br }}</h4>
+                </div>
+            </div>
         </div>
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Produto</th>
-                        <th class="text-center">Qtd. Contratada</th>
-                        <th class="text-center">Qtd. Entregue</th>
-                        <th class="text-center">Saldo Restante</th>
-                        <th class="text-center">Execução</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in contrato.itens %}
-                        {% set entregue = entregue_por_produto.get(item.nome_produto, 0.0) %}
-                        {% set saldo = item.quantidade_total - entregue %}
-                        {% set percentual = (entregue / item.quantidade_total * 100) if item.quantidade_total > 0 else 0 %}
-                    <tr>
-                        <td>
-                            <div class="fw-bold">{{ item.nome_produto }}</div>
-                            <small class="text-muted">{{ item.unidade_medida }}</small>
-                        </td>
-                        <td class="text-center fw-bold">{{ item.quantidade_total }}</td>
-                        <td class="text-center text-success fw-bold">{{ entregue }}</td>
-                        <td class="text-center {{ 'text-danger fw-bold' if saldo <= 0 else 'text-primary' }}">{{ saldo }}</td>
-                        <td class="text-center" style="width: 200px;">
-                            <div class="progress" style="height: 10px;">
-                                <div class="progress-bar {{ 'bg-success' if percentual >= 100 else 'bg-info' }}" style="width: {{ percentual }}%"></div>
-                            </div>
-                            <small class="text-muted">{{ "%.0f"|format(percentual) }}%</small>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 border-start border-4 border-warning">
+                <div class="card-body py-3">
+                    <small class="text-uppercase text-muted fw-bold">Saldo a Executar</small>
+                    <h4 class="mb-0 text-warning fw-bold">{{ contrato.saldo | currency_br }}</h4>
+                </div>
+            </div>
         </div>
     </div>
 
     <div class="card shadow-sm border-0">
-        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <div class="card-header bg-white py-3">
             <h5 class="mb-0 fw-bold"><i class="bi bi-clock-history text-primary me-2"></i>Histórico de Entregas</h5>
         </div>
         <div class="card-body p-0">
@@ -98,29 +71,18 @@
                             <td class="fw-bold">{{ entrega.valor_total | currency_br }}</td>
                             <td><small class="text-muted">{{ entrega.responsavel_recebimento }}</small></td>
                             <td class="text-center">
-    <div class="btn-group">
-        <button type="button" class="btn btn-sm btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Imprimir Recibo">
-            <i class="bi bi-printer"></i>
-        </button>
-        <ul class="dropdown-menu">
-            <li>
-                <a class="dropdown-item" href="{{ url_for('merenda.pdf_termo_recebimento_pnae', entrega_id=entrega.id, exibir_valor='true') }}" target="_blank">
-                    <i class="bi bi-file-earmark-pdf text-success"></i> Com Valores
-                </a>
-            </li>
-            <li>
-                <a class="dropdown-item" href="{{ url_for('merenda.pdf_termo_recebimento_pnae', entrega_id=entrega.id, exibir_valor='false') }}" target="_blank">
-                    <i class="bi bi-file-earmark-pdf text-secondary"></i> Sem Valores
-                </a>
-            </li>
-        </ul>
-        
-        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalExcluir{{ entrega.id }}" title="Excluir">
-            <i class="bi bi-trash"></i>
-        </button>
-    </div>
-</td>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-sm btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-printer"></i></button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="{{ url_for('merenda.pdf_termo_recebimento_pnae', entrega_id=entrega.id, exibir_valor='true') }}" target="_blank">Com Valores</a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('merenda.pdf_termo_recebimento_pnae', entrega_id=entrega.id, exibir_valor='false') }}" target="_blank">Sem Valores</a></li>
+                                    </ul>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalClonar{{ entrega.id }}"><i class="bi bi-files"></i></button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalExcluir{{ entrega.id }}"><i class="bi bi-trash"></i></button>
+                                </div>
+                            </td>
                         </tr>
+
                         <div class="modal fade" id="modalExcluir{{ entrega.id }}" tabindex="-1">
                             <div class="modal-dialog">
                                 <form action="{{ url_for('merenda.excluir_entrega', entrega_id=entrega.id) }}" method="POST">
@@ -129,13 +91,37 @@
                                             <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Confirmar Exclusão</h5>
                                         </div>
                                         <div class="modal-body">
-                                            <p>Esta ação irá remover esta entrega e atualizar o saldo do contrato.</p>
-                                            <label class="form-label fw-bold">Justificativa da Exclusão:*</label>
-                                            <textarea name="justificativa" class="form-control" rows="3" required placeholder="Escreva o motivo..."></textarea>
+                                            <p>Esta ação irá remover esta entrega e atualizar o saldo.</p>
+                                            <label class="form-label fw-bold">Justificativa:*</label>
+                                            <textarea name="justificativa" class="form-control" rows="3" required></textarea>
                                         </div>
                                         <div class="modal-footer">
-                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                            <button type="submit" class="btn btn-danger">Confirmar Exclusão</button>
+                                            <button type="submit" class="btn btn-danger">Confirmar</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div class="modal fade" id="modalClonar{{ entrega.id }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <form action="{{ url_for('merenda.clonar_entrega', entrega_id=entrega.id) }}" method="POST">
+                                    <div class="modal-content">
+                                        <div class="modal-header bg-primary text-white">
+                                            <h5 class="modal-title">Clonar Entrega</h5>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="mb-3">
+                                                <label class="form-label">Nova Data*</label>
+                                                <input type="date" name="nova_data" class="form-control" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Novo Nº NF*</label>
+                                                <input type="text" name="nova_nf" class="form-control" required>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="submit" class="btn btn-primary">Confirmar</button>
                                         </div>
                                     </div>
                                 </form>
@@ -148,64 +134,23 @@
         </div>
     </div>
 </div>
-<div class="modal fade" id="modalEntrega" tabindex="-1" aria-labelledby="modalEntregaLabel" aria-hidden="true">
+
+<div class="modal fade" id="modalEntrega" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <form action="{{ url_for('merenda.registrar_entrega_pnae', contrato_id=contrato.id) }}" method="POST" enctype="multipart/form-data">
             <div class="modal-content">
                 <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title" id="modalEntregaLabel"><i class="bi bi-box-seam"></i> Registrar Entrega</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title">Registrar Nova Entrega</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Data da Entrega*</label>
-                            <input type="date" name="data_entrega" class="form-control" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Escola Destino*</label>
-                            <select name="escola_id" class="form-select" required>
-                                <option value="">-- Selecione --</option>
-                                {% for escola in escolas_ativas %}
-                                <option value="{{ escola.id }}">{{ escola.nome }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Número NF/Recibo</label>
-                            <input type="text" name="numero_nota_fiscal" class="form-control">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Arquivo NF/Recibo (Foto/PDF)</label>
-                            <input type="file" name="arquivo_nf" class="form-control" accept="image/*,.pdf">
-                        </div>
+                        <div class="col-md-6"><label>Data da Entrega</label><input type="date" name="data_entrega" class="form-control" required></div>
+                        <div class="col-md-6"><label>Número NF</label><input type="text" name="numero_nota" class="form-control" required></div>
                     </div>
-
-                    <hr>
-                    <h6>Itens da Entrega</h6>
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>Produto</th>
-                                <th>Qtd. a Entregar</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in contrato.itens %}
-                            <tr>
-                                <td>{{ item.nome_produto }}</td>
-                                <td>
-                                    <input type="hidden" name="item_id[]" value="{{ item.id }}">
-                                    <input type="number" name="qtd_entregue[]" step="0.01" class="form-control form-control-sm" placeholder="0.00">
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success">Confirmar Entrega</button>
+                    <button type="submit" class="btn btn-success">Registrar</button>
                 </div>
             </div>
         </form>

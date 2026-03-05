@@ -1927,33 +1927,53 @@ def delete_server(id):
 
 @app.route("/importar_servidores", methods=["POST"])
 @login_required
-@admin_required
 @role_required("RH", "admin")
 def importar_servidores():
+    # 1. Verifica se o arquivo existe
     if "csv_file" not in request.files:
-        flash("Nenhum arquivo enviado.", "danger")
+        flash("Nenhum arquivo enviado no formulário.", "danger")
         return redirect(url_for("lista_servidores"))
 
     file = request.files["csv_file"]
+    
     if file.filename == "":
         flash("Nenhum arquivo selecionado.", "danger")
         return redirect(url_for("lista_servidores"))
 
     if file and file.filename.endswith(".csv"):
         try:
-            # Lógica para ler e processar o arquivo CSV
-            # (Esta parte do seu código original)
+            # 2. Leitura com o delimitador correto ';'
+            stream = io.StringIO(file.stream.read().decode("utf-8-sig"), newline=None)
+            reader = csv.DictReader(stream, delimiter=';')
+            
+            cont = 0
+            for row in reader:
+                # 3. Mapeamento - Verifique se estes campos existem no seu modelo Servidor
+                novo_servidor = Servidor(
+                    num_contrato=row.get("Nº CONTRATO"),
+                    nome=row.get("NOME"),
+                    funcao=row.get("FUNÇÃO"),
+                    lotacao=row.get("LOTAÇÃO"),
+                    carga_horaria=row.get("CARGA HORÁRIA"),
+                    remuneracao=row.get("REMUNERAÇÃO"),
+                    vigencia=row.get("VIGÊNCIA")
+                )
+                db.session.add(novo_servidor)
+                cont += 1
+            
             db.session.commit()
-            flash("Importação concluída com sucesso!", "success")
+            flash(f"Sucesso! {cont} servidores importados.", "success")
+            
         except Exception as e:
             db.session.rollback()
-            flash(f"Ocorreu um erro ao processar o arquivo: {e}", "danger")
+            # Isso vai imprimir o erro exato no seu log e mostrar na tela
+            print(f"ERRO NA IMPORTAÇÃO: {str(e)}") 
+            flash(f"Erro ao processar: {str(e)}", "danger")
 
         return redirect(url_for("lista_servidores"))
+    
     else:
-        flash(
-            "Formato de arquivo inválido. Por favor, envie um arquivo .csv.", "warning"
-        )
+        flash("Formato inválido. Use um arquivo .csv.", "warning")
         return redirect(url_for("lista_servidores"))
 
 

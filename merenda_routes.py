@@ -1358,117 +1358,75 @@ def pdf_termo_recebimento_pnae(entrega_id):
     contrato = entrega.contrato
     agricultor = contrato.agricultor
     
-    # Formata a data da entrega para exibir no documento
     data_entrega_formatada = entrega.data_entrega.strftime('%d/%m/%Y')
-    
-    # 2. Busca a Escola de Destino pelo ID salvo na entrega
     escola_destino = Escola.query.get(entrega.escola_id) if entrega.escola_id else None
     nome_escola = escola_destino.nome if escola_destino else "Unidade Escolar não informada"
     
     # 3. Configuração do Buffer e Documento
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, 
-                            rightMargin=2*cm, leftMargin=2*cm, 
-                            topMargin=2*cm, bottomMargin=2*cm)
+    # Margens reduzidas para caberem duas vias
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=2*cm, bottomMargin=1*cm)
     
     styles = getSampleStyleSheet()
-    
-    # Estilos customizados
-    style_titulo = styles['Heading1']
-    style_titulo.alignment = 1  # Centralizado
-    style_titulo.fontSize = 14
-    
-    style_normal = styles['BodyText']
-    style_normal.alignment = 4  # Justificado
-    style_normal.fontSize = 11
-    style_normal.leading = 14
-    
-    style_assinatura = styles['BodyText']
-    style_assinatura.alignment = 1 # Centralizado
-    style_assinatura.fontSize = 10
+    style_titulo = ParagraphStyle('Titulo', parent=styles['Heading1'], alignment=1, fontSize=12, spaceAfter=6)
+    style_normal = ParagraphStyle('Normal', parent=styles['BodyText'], alignment=4, fontSize=10, leading=12)
+    style_assinatura = ParagraphStyle('Assinatura', parent=styles['BodyText'], alignment=1, fontSize=9)
 
-    story = []
-    
-    # 4. Título e Cabeçalho
-    story.append(Paragraph("TERMO DE RECEBIMENTO DA AGRICULTURA FAMILIAR", style_titulo))
-    story.append(Spacer(1, 0.8*cm))
-    
-    # 5. Texto de Atesto
-    texto_intro = f"""
-    Atesto para os devidos fins que foram entregues no dia <b>{data_entrega_formatada}</b>, 
-    pelo fornecedor <b>{agricultor.razao_social}</b> 
-    (CPF/CNPJ: {agricultor.cpf_cnpj}), referente ao Contrato/Chamada Pública nº {contrato.numero_contrato}, 
-    destinado à unidade escolar <b>{nome_escola}</b>, os gêneros alimentícios abaixo discriminados:
-    """
-    story.append(Paragraph(texto_intro, style_normal))
-    story.append(Spacer(1, 0.6*cm))
-    
-    # 6. Tabela de Itens (Dinâmica)
-    # Define colunas base
-    cabecalho = ['Produto', 'Unidade', 'Qtd. Entregue']
-    col_widths = [10.5*cm, 3*cm, 3.5*cm]
-    
-    if exibir_valor:
-        cabecalho.append('Valor Total')
-        col_widths = [8.5*cm, 2.5*cm, 3*cm, 3*cm]
-    
-    dados_tabela = [cabecalho]
-    
-    # Processa os itens
-    if entrega.itens_json:
-        try:
+    # --- FUNÇÃO GERADORA DE VIA ---
+    def gerar_conteudo_via(titulo_via):
+        via = []
+        via.append(Paragraph(f"TERMO DE RECEBIMENTO - {titulo_via}", style_titulo))
+        
+        texto_intro = f"""
+        Atesto o recebimento em <b>{data_entrega_formatada}</b>, pelo fornecedor <b>{agricultor.razao_social}</b>, 
+        referente ao Contrato {contrato.numero_contrato}, destinado à <b>{nome_escola}</b>, os itens abaixo:
+        """
+        via.append(Paragraph(texto_intro, style_normal))
+        via.append(Spacer(1, 0.3*cm))
+        
+        # Tabela
+        cabecalho = ['Produto', 'Unid.', 'Qtd.']
+        col_widths = [9.5*cm, 1.5*cm, 2*cm]
+        if exibir_valor:
+            cabecalho.append('Valor')
+            col_widths = [7.5*cm, 1.5*cm, 2*cm, 2*cm]
+            
+        dados_tabela = [cabecalho]
+        
+        if entrega.itens_json:
             itens = json.loads(entrega.itens_json)
             for item in itens:
-                linha = [
-                    item.get('nome_produto', 'N/A').upper(),
-                    "Unid.", 
-                    f"{item.get('quantidade', 0)}".replace('.', ',')
-                ]
+                linha = [item.get('nome_produto', 'N/A').upper(), "Unid.", f"{item.get('quantidade', 0)}".replace('.', ',')]
                 if exibir_valor:
                     linha.append(currency_filter_br(item.get('valor_total', 0)))
                 dados_tabela.append(linha)
-        except Exception as e:
-            dados_tabela.append([f'Erro ao processar itens: {str(e)}', '', '', ''])
-            
-    # Linha do Total Geral (apenas se exibir valores)
-    if exibir_valor:
-        dados_tabela.append(['TOTAL DA ENTREGA', '', '', currency_filter_br(entrega.valor_total)])
-    
-    # Estilização da Tabela
-    t = Table(dados_tabela, colWidths=col_widths)
-    estilo_tabela = [
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-    ]
-    
-    if exibir_valor:
-        estilo_tabela.extend([
-            ('SPAN', (0, -1), (2, -1)), # Mescla colunas na última linha
-            ('ALIGN', (0, -1), (0, -1), 'RIGHT'),
-            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        ])
         
-    t.setStyle(TableStyle(estilo_tabela))
-    story.append(t)
-    story.append(Spacer(1, 2*cm))
-    
-    # 7. Bloco de Assinaturas
-    data_hoje = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
-    assinaturas = [[
-        Paragraph("___________________________________<br/>Responsável pelo Recebimento", style_assinatura),
-        Paragraph(f"___________________________________<br/>{agricultor.razao_social}", style_assinatura)
-    ]]
-    
-    t_ass = Table(assinaturas, colWidths=[8.5*cm, 8.5*cm])
-    story.append(t_ass)
-    
+        if exibir_valor:
+            dados_tabela.append(['TOTAL', '', '', currency_filter_br(entrega.valor_total)])
+            
+        t = Table(dados_tabela, colWidths=col_widths)
+        t.setStyle(TableStyle([
+            ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+            ('FONTSIZE', (0,0), (-1,-1), 8),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER')
+        ]))
+        via.append(t)
+        
+        via.append(Spacer(1, 0.6*cm))
+        # Assinaturas compactas
+        t_ass = Table([["__________________________", "__________________________"],
+                       ["Responsável (Secretaria)", agricultor.razao_social]], colWidths=[7*cm, 7*cm])
+        t_ass.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('FONTSIZE', (0,1), (-1,1), 8)]))
+        via.append(t_ass)
+        return via
+
+    # --- MONTAGEM DO STORY ---
+    story = []
+    story.extend(gerar_conteudo_via("1ª VIA (SECRETARIA)"))
     story.append(Spacer(1, 1*cm))
-    story.append(Paragraph(f"<small>Emitido em: {data_hoje}</small>", style_normal))
+    story.append(Paragraph("----------------------------------------------------------------------------------------------------------------------------------", styles['Normal']))
+    story.append(Spacer(1, 0.5*cm))
+    story.extend(gerar_conteudo_via("2ª VIA (FORNECEDOR)"))
     
     # 8. Geração Final
     doc.build(story, onFirstPage=lambda c, d: cabecalho_e_rodape(c, d), 
@@ -1481,7 +1439,7 @@ def pdf_termo_recebimento_pnae(entrega_id):
     
     return response
 
-# --- GESTÃO DE RELATÓRIOS TÉCNICOS E OFÍCIOS ---
+# --- GESTÃO DE RELATÓRIOS TÉCNICOS E OFÍCIOS ----
 
 @merenda_bp.route('/relatorios/tecnicos', methods=['GET', 'POST'])
 @login_required

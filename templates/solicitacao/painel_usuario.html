@@ -28,7 +28,7 @@
                     <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Nova Solicitação</h5>
                 </div>
                 <div class="card-body p-4">
-                    <form action="{{ url_for('solicitacao.salvar_solicitacao') }}" method="POST">
+                   <form action="{{ url_for('solicitacao.salvar_solicitacao') }}" method="POST">
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Data Solicitada</label>
                             <input type="date" name="data_solicitada" class="form-control form-control-lg" required>
@@ -45,6 +45,15 @@
                             </div>
                         </div>
 
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Veículo Desejado</label>
+                            <select name="veiculo" class="form-select form-control-lg" required>
+                                <option value="" selected disabled>Escolha um veículo...</option>
+                                <option value="FIAT STRADA">FIAT STRADA</option>
+                                <option value="FIAT MOBI">FIAT MOBI</option>
+                                <option value="ONIBUS">ÔNIBUS</option>
+                            </select>
+                        </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Motivo da Solicitação</label>
                             <textarea name="motivo" class="form-control" rows="3" placeholder="Descreva brevemente o destino e finalidade..." required></textarea>

@@ -54,6 +54,11 @@ def gerar_pdf_autorizacao(solicitacao):
     c.drawString(50, 610, f"Data: {solicitacao.data_solicitada.strftime('%d/%m/%Y')}")
     c.drawString(50, 590, f"Horário: {solicitacao.horario_saida.strftime('%H:%M')} às {solicitacao.horario_chegada.strftime('%H:%M')}")
     c.drawString(50, 570, f"Motivo: {solicitacao.motivo}")
+    
+    # --- NOVA LINHA ADICIONADA AQUI ---
+    c.drawString(50, 550, f"Veículo Autorizado: {solicitacao.veiculo_solicitado}")
+    # ----------------------------------
+    
     c.drawString(50, 400, "__________________________________________")
     c.drawString(50, 385, "Assinatura do Administrador / Secretaria")
     c.showPage()
@@ -82,6 +87,8 @@ def painel_usuario():
     solicitacoes = SolicitacaoVeiculo.query.filter_by(setor_id=session['setor_id']).all()
     return render_template('solicitacao/painel_usuario.html', solicitacoes=solicitacoes)
 
+from datetime import datetime, timedelta # Certifique-se de importar o timedelta no topo do arquivo
+
 @solicitacao_bp.route('/painel', methods=['POST'])
 def salvar_solicitacao():
     if 'setor_id' not in session:
@@ -90,26 +97,64 @@ def salvar_solicitacao():
     # Captura os dados do formulário
     data_str = request.form.get('data_solicitada')
     motivo = request.form.get('motivo')
-    horario_saida = request.form.get('horario_saida')
-    horario_chegada = request.form.get('horario_chegada')
+    horario_saida_str = request.form.get('horario_saida')
+    horario_chegada_str = request.form.get('horario_chegada')
     responsavel = request.form.get('responsavel')
+    veiculo_escolhido = request.form.get('veiculo') # Captura o veículo selecionado
     
-    if not data_str:
-        flash('Data inválida!', 'danger')
+    if not data_str or not veiculo_escolhido:
+        flash('Por favor, preencha a data e escolha um veículo!', 'danger')
         return redirect(url_for('solicitacao.painel_usuario'))
 
-    # Converte os dados
+    # Converte as strings para objetos de data/hora
+    data_obj = datetime.strptime(data_str, '%Y-%m-%d').date()
+    horario_saida_obj = datetime.strptime(horario_saida_str, '%H:%M').time()
+    horario_chegada_obj = datetime.strptime(horario_chegada_str, '%H:%M').time()
+
+    # --- REGRA 1: LIMITE DE 2 DIAS NA SEMANA POR SETOR ---
+    # Descobre a segunda-feira e o domingo da semana solicitada
+    inicio_semana = data_obj - timedelta(days=data_obj.weekday())
+    fim_semana = inicio_semana + timedelta(days=6)
+    
+    # Busca todos os dias distintos já agendados por este setor nesta semana
+    dias_existentes = [d[0] for d in db.session.query(SolicitacaoVeiculo.data_solicitada).filter(
+        SolicitacaoVeiculo.setor_id == session['setor_id'],
+        SolicitacaoVeiculo.data_solicitada >= inicio_semana,
+        SolicitacaoVeiculo.data_solicitada <= fim_semana,
+        SolicitacaoVeiculo.status != 'Reprovada' # Não conta as reprovadas
+    ).distinct().all()]
+
+    # Se já agendou em 2 dias, e a data solicitada for um "terceiro" dia diferente, bloqueia
+    if len(dias_existentes) >= 2 and data_obj not in dias_existentes:
+        flash('Limite atingido: Seu setor só pode agendar veículos em 2 dias distintos na semana.', 'warning')
+        return redirect(url_for('solicitacao.painel_usuario'))
+
+    # --- REGRA 2: VEÍCULO INDISPONÍVEL (CONFLITO DE HORÁRIO) ---
+    # A lógica de sobreposição é: (NovaSaída < VelhaChegada) E (NovaChegada > VelhaSaída)
+    conflito = SolicitacaoVeiculo.query.filter(
+        SolicitacaoVeiculo.data_solicitada == data_obj,
+        SolicitacaoVeiculo.veiculo_solicitado == veiculo_escolhido,
+        SolicitacaoVeiculo.status != 'Reprovada', # Só avalia Pendentes e Aprovadas
+        SolicitacaoVeiculo.horario_saida < horario_chegada_obj,
+        SolicitacaoVeiculo.horario_chegada > horario_saida_obj
+    ).first()
+
+    if conflito:
+        flash(f'Veículo {veiculo_escolhido} INDISPONÍVEL POIS ESTÁ EM USO nesse horário (Ocupado das {conflito.horario_saida.strftime("%H:%M")} às {conflito.horario_chegada.strftime("%H:%M")}).', 'danger')
+        return redirect(url_for('solicitacao.painel_usuario'))
+
+    # --- SE PASSOU NAS VALIDAÇÕES, SALVA NO BANCO ---
     nova_solicitacao = SolicitacaoVeiculo(
         setor_id=session['setor_id'],
-        data_solicitada=datetime.strptime(data_str, '%Y-%m-%d').date(),
+        data_solicitada=data_obj,
         motivo=motivo,
-        horario_saida=datetime.strptime(horario_saida, '%H:%M').time(),
-        horario_chegada=datetime.strptime(horario_chegada, '%H:%M').time(),
+        horario_saida=horario_saida_obj,
+        horario_chegada=horario_chegada_obj,
         responsavel=responsavel,
+        veiculo_solicitado=veiculo_escolhido, # Salva o veículo
         status='Pendente'
     )
     
-    # Salva no banco
     db.session.add(nova_solicitacao)
     db.session.commit()
     

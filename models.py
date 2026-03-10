@@ -1514,3 +1514,7 @@ class SolicitacaoVeiculo(db.Model):
     responsavel = db.Column(db.String(100), nullable=False)
     status = db.Column(db.String(20), default='Pendente') # Pendente, Aprovada, Reprovada
     data_criacao = db.Column(db.DateTime, default=datetime.utcnow)    
+    
+    # Adicionando o server_default para evitar quebrar o banco de dados atual
+    veiculo_solicitado = db.Column(db.String(50), nullable=False, server_default='NÃO INFORMADO')
+    

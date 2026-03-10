@@ -84,8 +84,12 @@ def login_setor():
 def painel_usuario():
     if 'setor_id' not in session:
         return redirect(url_for('solicitacao.login_setor'))
-    solicitacoes = SolicitacaoVeiculo.query.filter_by(setor_id=session['setor_id']).all()
-    return render_template('solicitacao/painel_usuario.html', solicitacoes=solicitacoes)
+    
+    # Busca todas as solicitações e todos os setores para popular a tabela e os filtros
+    solicitacoes = SolicitacaoVeiculo.query.join(SetorTransporte).order_by(SolicitacaoVeiculo.data_solicitada.desc()).all()
+    setores = SetorTransporte.query.order_by(SetorTransporte.nome_setor).all()
+    
+    return render_template('solicitacao/painel_usuario.html', solicitacoes=solicitacoes, setores=setores)
 
 from datetime import datetime, timedelta # Certifique-se de importar o timedelta no topo do arquivo
 

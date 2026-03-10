@@ -151,6 +151,8 @@
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/pt-br.js'></script>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <style>
     .card { border-radius: 12px; }
     .form-control { border-radius: 8px; border: 1px solid #dee2e6; }
@@ -177,7 +179,7 @@
         });
         calendar.render();
 
-        // --- 2. LÓGICA DE FILTRO DA TABELA (NOVO) ---
+        // --- 2. LÓGICA DE FILTRO DA TABELA ---
         const filtroMes = document.getElementById('filtro-mes');
         const filtroSetor = document.getElementById('filtro-setor');
         const linhasTabela = document.querySelectorAll('#tabela-agendamentos tbody tr');
@@ -214,4 +216,24 @@
         }
     });
 </script>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                {% for category, message in messages %}
+                    Swal.fire({
+                        // Define o ícone com base na categoria da mensagem
+                        icon: '{{ "error" if category == "danger" else "warning" if category == "warning" else "success" }}',
+                        title: '{{ "Ops, não foi possível!" if category in ["danger", "warning"] else "Tudo Certo!" }}',
+                        text: '{{ message }}',
+                        confirmButtonText: 'Entendi',
+                        confirmButtonColor: '#0d6efd'
+                    });
+                {% endfor %}
+            });
+        </script>
+    {% endif %}
+{% endwith %}
+
 {% endblock %}

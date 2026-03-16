@@ -328,3 +328,13 @@ def gerar_termo_recebimento(mov_id):
     p.save()
     buffer.seek(0)
     return send_file(buffer, mimetype='application/pdf', download_name=f'termo_mov_{mov.id}.pdf')    
+
+@patrimonio_bp.route('/movimentacao/<int:mov_id>/imprimir')
+@login_required
+def imprimir_termo_transferencia(mov_id):
+    from models import MovimentacaoPatrimonio
+    # Busca a movimentação ou retorna 404
+    movimentacao = MovimentacaoPatrimonio.query.get_or_404(mov_id)
+    
+    # Renderiza um template novo que criaremos apenas para o documento
+    return render_template('patrimonio/termo_recebimento.html', mov=movimentacao)

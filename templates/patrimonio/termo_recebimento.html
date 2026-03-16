@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Termo de Transferência - #{{ mov.id }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    <style>
+        body { background: white; font-family: "Times New Roman", Times, serif; }
+        .termo-container { width: 18cm; margin: auto; padding: 1cm; border: 1px solid #eee; }
+        .timbre { text-align: center; margin-bottom: 30px; }
+        .timbre img { width: 100%; max-height: 100px; object-fit: contain; }
+        .titulo { text-align: center; font-weight: bold; text-decoration: underline; margin-bottom: 30px; }
+        .corpo { text-align: justify; line-height: 1.6; margin-bottom: 40px; }
+        .assinaturas { margin-top: 80px; }
+        .linha-assinatura { border-top: 1px solid black; text-align: center; padding-top: 5px; width: 45%; }
+        @media print {
+            .no-print { display: none; }
+            .termo-container { border: none; }
+        }
+    </style>
+</head>
+<body onload="window.print()"> <div class="termo-container">
+        <div class="timbre">
+            <img src="{{ url_for('static', filename='timbre.jpg') }}" alt="Timbre Oficial">
+            <h5 class="mt-2">ESTADO DO PIAUÍ</h5>
+            <h6>PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ</h6>
+        </div>
+
+        <div class="titulo">TERMO DE TRANSFERÊNCIA E RESPONSABILIDADE</div>
+
+        <div class="corpo">
+            <p>Pelo presente Termo de Responsabilidade, certificamos que na data de 
+            <strong>{{ mov.data_movimentacao.strftime('%d/%m/%Y') }}</strong>, às 
+            <strong>{{ mov.data_movimentacao.strftime('%H:%M') }}</strong>, o bem patrimonial abaixo descrito foi transferido 
+            de <strong>{{ mov.local_origem }}</strong> para <strong>{{ mov.local_destino }}</strong>, 
+            ficando sob a guarda e responsabilidade do setor de destino.</p>
+
+            <table class="table table-bordered mt-4">
+                <tr>
+                    <th width="30%">Nº Patrimônio:</th>
+                    <td>{{ mov.patrimonio.numero_patrimonio or 'Pendente de Tombamento' }}</td>
+                </tr>
+                <tr>
+                    <th>Descrição do Bem:</th>
+                    <td>{{ mov.patrimonio.descricao }}</td>
+                </tr>
+                <tr>
+                    <th>Marca/Modelo:</th>
+                    <td>{{ mov.patrimonio.marca or '-' }} / {{ mov.patrimonio.modelo or '-' }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="assinaturas d-flex justify-content-between">
+            <div class="linha-assinatura">
+                <small>Enviado por:</small><br>
+                <strong>{{ mov.usuario_registro }}</strong><br>
+                <small>Setor de Origem</small>
+            </div>
+            <div class="linha-assinatura">
+                <small>Recebido por:</small><br>
+                <strong>{{ mov.responsavel_novo.nome if mov.responsavel_novo else '__________________________' }}</strong><br>
+                <small>Setor de Destino</small>
+            </div>
+        </div>
+
+        <div class="mt-5 text-center no-print">
+            <hr>
+            <button onclick="window.close()" class="btn btn-secondary">Fechar Janela</button>
+        </div>
+    </div>
+</body>
+</html>

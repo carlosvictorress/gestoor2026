@@ -141,9 +141,11 @@
                                     <span class="fw-bold text-dark">{{ mov.data_movimentacao.strftime('%d/%m/%Y %H:%M') }}</span>
                                     <small class="text-muted d-block">Registrado por: {{ mov.usuario_registro }}</small>
                                 </div>
-                                <button class="btn btn-sm btn-outline-dark btn-rounded no-print" onclick="window.print()">
-                                    <i class="bi bi-printer me-1"></i> Imprimir Termo
-                                </button>
+                                <a href="{{ url_for('patrimonio.imprimir_termo_transferencia', mov_id=mov.id) }}" 
+   target="_blank" 
+   class="btn btn-sm btn-outline-dark btn-rounded no-print">
+    <i class="bi bi-printer me-1"></i> Imprimir Termo
+</a>
                             </div>
                             <div class="row g-2 bg-light p-3 rounded-3 mt-2">
                                 <div class="col-md-5">

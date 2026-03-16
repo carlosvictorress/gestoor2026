@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Itens Baixados{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-dark mb-0"><i class="bi bi-archive-fill text-warning"></i> Itens Baixados</h2>
+            <p class="text-muted">Histórico de bens retirados do inventário ativo.</p>
+        </div>
+        <a href="{{ url_for('patrimonio.listar_itens') }}" class="btn btn-outline-secondary btn-rounded">
+            <i class="bi bi-arrow-left"></i> Voltar ao Inventário
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0" style="border-radius: 20px;">
+        <div class="table-responsive p-4">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Patrimônio</th>
+                        <th>Descrição</th>
+                        <th>Justificativa da Baixa</th>
+                        <th class="text-center">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in itens %}
+                    <tr>
+                        <td><span class="badge bg-secondary">{{ item.numero_patrimonio or 'S/N' }}</span></td>
+                        <td class="fw-bold">{{ item.descricao }}</td>
+                        <td>
+                            <div class="p-2 bg-light rounded small" style="border-left: 4px solid #ffc107;">
+                                {{ item.observacoes or 'Nenhuma justificativa detalhada.' }}
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            <a href="{{ url_for('patrimonio.detalhes_item', item_id=item.id) }}" class="btn btn-sm btn-light btn-rounded">
+                                <i class="bi bi-eye"></i> Detalhes
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center py-5 text-muted">Nenhum item baixado encontrado.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

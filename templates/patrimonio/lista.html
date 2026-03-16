@@ -85,9 +85,14 @@
             </nav>
             <h2 class="fw-bold text-dark mb-0">Gestão de Bens</h2>
         </div>
-        <a href="{{ url_for('patrimonio.novo_item') }}" class="btn btn-primary btn-rounded shadow-sm">
-            <i class="bi bi-plus-lg me-2"></i>Novo Patrimônio
-        </a>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('patrimonio.listar_itens_baixados') }}" class="btn btn-outline-warning btn-rounded shadow-sm">
+                <i class="bi bi-archive me-2"></i>Ver Baixados
+            </a>
+            <a href="{{ url_for('patrimonio.novo_item') }}" class="btn btn-primary btn-rounded shadow-sm">
+                <i class="bi bi-plus-lg me-2"></i>Novo Patrimônio
+            </a>
+        </div>
     </div>
 
     <div class="row g-3 mb-4">

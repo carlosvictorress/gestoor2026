@@ -351,17 +351,31 @@ def dar_baixa_item(item_id):
         return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
     
     try:
+        # Atualiza o status e a situação para retirar do inventário ativo
         item.status = "Baixado"
         item.situacao_uso = "Inservível"
-        item.observacoes = f"{item.observacoes}\n-- BAIXA EM {datetime.now().strftime('%d/%m/%Y')}: {justificativa}"
+        
+        # Formata a justificativa com data para exibição clara na nova lista
+        data_atual = datetime.now().strftime('%d/%m/%Y')
+        nova_obs = f"BAIXA REALIZADA EM {data_atual}: {justificativa}"
+        
+        # Mantém observações antigas se existirem e adiciona a nova
+        if item.observacoes:
+            item.observacoes = f"{item.observacoes} | {nova_obs}"
+        else:
+            item.observacoes = nova_obs
         
         db.session.commit()
-        registrar_log(f"Deu baixa no item {item.numero_patrimonio}: {justificativa}")
+        
+        # Registro de log para auditoria
+        registrar_log(f"Baixa efetuada - Item: {item.descricao} (Pat: {item.numero_patrimonio or 'S/N'}) - Motivo: {justificativa}")
+        
         flash("Baixa do patrimônio realizada com sucesso!", "success")
     except Exception as e:
         db.session.rollback()
-        flash(f"Erro ao dar baixa: {e}", "danger")
+        flash(f"Erro ao processar a baixa: {str(e)}", "danger")
         
+    # Redireciona para a lista principal (que agora filtrará este item para fora)
     return redirect(url_for('patrimonio.listar_itens'))
 
 @patrimonio_bp.route('/item/excluir/<int:item_id>', methods=['POST'])
@@ -384,10 +398,10 @@ def excluir_item_patrimonio(item_id):
         
     return redirect(url_for('patrimonio.listar_itens'))
 
-@patrimonio_bp.route('/baixados')
+@patrimonio_bp.route('/itens-baixados')
 @login_required
 @role_required('admin', 'Patrimonio')
 def listar_itens_baixados():
-    itens = Patrimonio.query.filter_by(status="Baixado").order_by(Patrimonio.descricao).all()
-    # Reutiliza o template de lista, mas com título diferente
-    return render_template('patrimonio/lista.html', itens=itens, termo_busca='', titulo_pagina="Itens Baixados (Fora de Uso)")
+    # Busca apenas os itens que sofreram baixa
+    itens = Patrimonio.query.filter_by(status='Baixado').order_by(Patrimonio.descricao).all()
+    return render_template('patrimonio/itens_baixados.html', itens=itens)

@@ -338,3 +338,56 @@ def imprimir_termo_transferencia(mov_id):
     
     # Renderiza um template novo que criaremos apenas para o documento
     return render_template('patrimonio/termo_recebimento.html', mov=movimentacao)
+
+@patrimonio_bp.route('/item/baixa/<int:item_id>', methods=['POST'])
+@login_required
+@role_required('admin', 'Patrimonio')
+def dar_baixa_item(item_id):
+    item = Patrimonio.query.get_or_404(item_id)
+    justificativa = request.form.get('justificativa')
+    
+    if not justificativa:
+        flash("A justificativa é obrigatória para dar baixa.", "warning")
+        return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
+    
+    try:
+        item.status = "Baixado"
+        item.situacao_uso = "Inservível"
+        item.observacoes = f"{item.observacoes}\n-- BAIXA EM {datetime.now().strftime('%d/%m/%Y')}: {justificativa}"
+        
+        db.session.commit()
+        registrar_log(f"Deu baixa no item {item.numero_patrimonio}: {justificativa}")
+        flash("Baixa do patrimônio realizada com sucesso!", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Erro ao dar baixa: {e}", "danger")
+        
+    return redirect(url_for('patrimonio.listar_itens'))
+
+@patrimonio_bp.route('/item/excluir/<int:item_id>', methods=['POST'])
+@login_required
+@role_required('admin') # Exclusão apenas para admin
+def excluir_item_patrimonio(item_id):
+    item = Patrimonio.query.get_or_404(item_id)
+    justificativa = request.form.get('justificativa_exclusao')
+    
+    try:
+        descricao_log = f"EXCLUSÃO DEFINITIVA - Item: {item.descricao} (Tomb: {item.numero_patrimonio}) - Motivo: {justificativa}"
+        db.session.delete(item)
+        db.session.commit()
+        
+        registrar_log(descricao_log)
+        flash("Item excluído permanentemente do sistema.", "warning")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Erro ao excluir: {e}", "danger")
+        
+    return redirect(url_for('patrimonio.listar_itens'))
+
+@patrimonio_bp.route('/baixados')
+@login_required
+@role_required('admin', 'Patrimonio')
+def listar_itens_baixados():
+    itens = Patrimonio.query.filter_by(status="Baixado").order_by(Patrimonio.descricao).all()
+    # Reutiliza o template de lista, mas com título diferente
+    return render_template('patrimonio/lista.html', itens=itens, termo_busca='', titulo_pagina="Itens Baixados (Fora de Uso)")

@@ -46,6 +46,10 @@
     .btn-rounded {
         border-radius: 50px;
     }
+    .modal-content {
+        border-radius: 20px;
+        border: none;
+    }
     @media print {
         .no-print { display: none !important; }
         .card { border: none !important; box-shadow: none !important; }
@@ -142,10 +146,9 @@
                                     <small class="text-muted d-block">Registrado por: {{ mov.usuario_registro }}</small>
                                 </div>
                                 <a href="{{ url_for('patrimonio.imprimir_termo_transferencia', mov_id=mov.id) }}" 
-   target="_blank" 
-   class="btn btn-sm btn-outline-dark btn-rounded no-print">
-    <i class="bi bi-printer me-1"></i> Imprimir Termo
-</a>
+                                   target="_blank" class="btn btn-sm btn-outline-dark btn-rounded no-print">
+                                    <i class="bi bi-printer me-1"></i> Imprimir Termo
+                                </a>
                             </div>
                             <div class="row g-2 bg-light p-3 rounded-3 mt-2">
                                 <div class="col-md-5">
@@ -205,9 +208,14 @@
                         <a href="{{ url_for('patrimonio.gerar_etiqueta_qr', id=item.id) }}" class="btn btn-outline-dark btn-rounded">
                             <i class="bi bi-qr-code"></i> Imprimir Etiqueta QR
                         </a>
-                        <button class="btn btn-outline-danger btn-rounded" onclick="alert('Funcionalidade de Baixa em desenvolvimento.')">
-                            <i class="bi bi-trash"></i> Dar Baixa no Bem
+                        <button class="btn btn-outline-warning btn-rounded" data-bs-toggle="modal" data-bs-target="#baixaModal">
+                            <i class="bi bi-arrow-down-circle"></i> Dar Baixa no Bem
                         </button>
+                        {% if session.role == 'admin' %}
+                        <button class="btn btn-outline-danger btn-rounded" data-bs-toggle="modal" data-bs-target="#excluirModal">
+                            <i class="bi bi-trash"></i> Excluir Registro
+                        </button>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -217,9 +225,9 @@
 
 <div class="modal fade no-print" id="transferModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0 shadow" style="border-radius: 20px;">
+    <div class="modal-content shadow">
       <div class="modal-header border-0 pt-4 px-4">
-        <h5 class="modal-title fw-bold" id="transferModalLabel">Transferência de Patrimônio</h5>
+        <h5 class="modal-title fw-bold">Transferência de Patrimônio</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form action="{{ url_for('patrimonio.transferir_item', item_id=item.id) }}" method="POST">
@@ -227,12 +235,10 @@
             <div class="alert alert-info py-2" style="border-radius: 12px; border: none;">
                 <small><i class="bi bi-info-circle me-1"></i> Origem atual: <strong>{{ item.localizacao }}</strong></small>
             </div>
-            
             <div class="mb-3">
               <label for="local_destino" class="form-label">Destino Final*</label>
-              <input type="text" class="form-control" name="local_destino" id="local_destino" required placeholder="Ex: Secretaria de Saúde, Gabinete 02...">
+              <input type="text" class="form-control" name="local_destino" id="local_destino" required placeholder="Ex: Secretaria de Saúde...">
             </div>
-            
             <div class="mb-3">
               <label for="servidor_responsavel_cpf" class="form-label">Novo Servidor Responsável</label>
               <select class="form-select" name="servidor_responsavel_cpf" id="servidor_responsavel_cpf">
@@ -242,10 +248,6 @@
                   {% endfor %}
               </select>
             </div>
-            
-            <p class="text-muted small mt-3">
-                <i class="bi bi-exclamation-triangle"></i> Esta ação gerará um novo registro no histórico para fins de auditoria.
-            </p>
           </div>
           <div class="modal-footer border-0 pb-4 px-4">
             <button type="button" class="btn btn-light btn-rounded px-4" data-bs-dismiss="modal">Cancelar</button>
@@ -255,4 +257,55 @@
     </div>
   </div>
 </div>
+
+<div class="modal fade no-print" id="baixaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow">
+            <form action="{{ url_for('patrimonio.dar_baixa_item', item_id=item.id) }}" method="POST">
+                <div class="modal-header border-0 pt-4 px-4">
+                    <h5 class="modal-title fw-bold">Dar Baixa no Patrimônio</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted">O item passará para o status <strong>Baixado</strong>. Esta ação é irreversível no controle de inventário ativo.</p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Justificativa da Baixa*</label>
+                        <textarea class="form-control" name="justificativa" required rows="3" placeholder="Ex: Item inservível, doação conforme decreto..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pb-4 px-4">
+                    <button type="button" class="btn btn-light btn-rounded px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning btn-rounded px-4">Confirmar Baixa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade no-print" id="excluirModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow">
+            <form action="{{ url_for('patrimonio.excluir_item_patrimonio', item_id=item.id) }}" method="POST">
+                <div class="modal-header border-0 pt-4 px-4">
+                    <h5 class="modal-title fw-bold text-danger">Excluir Registro Permanente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="alert alert-danger" style="border-radius: 12px; border: none;">
+                        <small><strong>Atenção:</strong> Esta ação apagará o item e todo o seu histórico permanentemente.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Motivo da Exclusão*</label>
+                        <textarea class="form-control" name="justificativa_exclusao" required rows="3" placeholder="Ex: Cadastro em duplicidade..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pb-4 px-4">
+                    <button type="button" class="btn btn-light btn-rounded px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger btn-rounded px-4">Excluir Definitivamente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

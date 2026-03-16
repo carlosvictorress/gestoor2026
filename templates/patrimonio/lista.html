@@ -2,71 +2,197 @@
 
 {% block title %}Inventário de Patrimônio{% endblock %}
 
+{% block head_extra %}
+<style>
+    /* Animações e Efeitos Modernos */
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .animate-in {
+        animation: slideUp 0.5s ease forwards;
+    }
+
+    .dashboard-card {
+        border: none;
+        border-radius: 16px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        background: #ffffff;
+    }
+
+    .dashboard-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 24px rgba(0,0,0,0.08) !important;
+    }
+
+    .status-badge {
+        padding: 0.5em 1.2em;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .search-container {
+        background: #fff;
+        border-radius: 50px;
+        padding: 5px 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        border: 1px solid #eef0f2;
+    }
+
+    .btn-rounded {
+        border-radius: 50px;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+
+    .item-img-container {
+        width: 80px;
+        height: 80px;
+        overflow: hidden;
+        border-radius: 12px;
+        background: #f8f9fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .item-img-container img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    /* Linha decorativa lateral baseada no estado */
+    .border-bom { border-left: 5px solid #198754 !important; }
+    .border-regular { border-left: 5px solid #ffc107 !important; }
+    .border-inservivel { border-left: 5px solid #dc3545 !important; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="bi bi-box-seam-fill text-primary"></i> Gestão de Patrimônio</h2>
-        <a href="{{ url_for('patrimonio.novo_item') }}" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Novo Patrimônio
+    <div class="d-flex justify-content-between align-items-end mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Home</a></li>
+                    <li class="breadcrumb-item active">Patrimônio</li>
+                </ol>
+            </nav>
+            <h2 class="fw-bold text-dark mb-0">Gestão de Bens</h2>
+        </div>
+        <a href="{{ url_for('patrimonio.novo_item') }}" class="btn btn-primary btn-rounded shadow-sm">
+            <i class="bi bi-plus-lg me-2"></i>Novo Patrimônio
         </a>
     </div>
 
-    <div class="card shadow-sm mb-4">
-        <div class="card-body">
-            <form method="GET" action="{{ url_for('patrimonio.listar_itens') }}" class="row g-2">
-                <div class="col-md-10">
-                    <input type="text" name="q" class="form-control" placeholder="Buscar por tombamento ou descrição..." value="{{ termo_busca or '' }}">
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card dashboard-card shadow-sm p-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 p-3 rounded-circle me-3">
+                        <i class="bi bi-box-seam text-primary fs-3"></i>
+                    </div>
+                    <div>
+                        <small class="text-muted d-block">Total de Itens</small>
+                        <h3 class="fw-bold mb-0">{{ itens|length }}</h3>
+                    </div>
                 </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-dark w-100">Pesquisar</button>
-                </div>
-            </form>
+            </div>
         </div>
+        <div class="col-md-4">
+            <div class="card dashboard-card shadow-sm p-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-success bg-opacity-10 p-3 rounded-circle me-3">
+                        <i class="bi bi-cash-stack text-success fs-3"></i>
+                    </div>
+                    <div>
+                        <small class="text-muted d-block">Valor em Acervo</small>
+                        <h3 class="fw-bold mb-0">R$ {{ "%.2f"|format(itens|sum(attribute='valor_aquisicao') or 0)|replace('.', ',') }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card dashboard-card shadow-sm p-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-info bg-opacity-10 p-3 rounded-circle me-3">
+                        <i class="bi bi-geo-alt text-info fs-3"></i>
+                    </div>
+                    <div>
+                        <small class="text-muted d-block">Localizações</small>
+                        <h3 class="fw-bold mb-0">{{ itens|map(attribute='localizacao')|unique|list|length }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="search-container mb-4 d-flex align-items-center">
+        <i class="bi bi-search text-muted me-3"></i>
+        <form method="GET" action="{{ url_for('patrimonio.listar_itens') }}" class="flex-grow-1 d-flex">
+            <input type="text" name="q" class="form-control border-0 shadow-none" 
+                   placeholder="Filtrar por número de tombamento ou descrição do bem..." 
+                   value="{{ termo_busca or '' }}">
+            <button type="submit" class="btn btn-dark btn-rounded ms-2">Pesquisar</button>
+        </form>
     </div>
 
     <div class="row">
         {% for bem in itens %}
-        <div class="col-12 mb-3">
-            <div class="card shadow-sm border-0 border-start border-primary border-4">
+        <div class="col-12 mb-3 animate-in" style="animation-delay: {{ loop.index0 * 0.1 }}s;">
+            <div class="card dashboard-card shadow-sm 
+                {% if bem.estado_conservacao == 'Bom' %} border-bom 
+                {% elif bem.estado_conservacao == 'Regular' %} border-regular 
+                {% else %} border-inservivel {% endif %}">
                 <div class="card-body p-3">
                     <div class="row align-items-center">
-                        <div class="col-md-2 text-center">
-                            {% if bem.foto_url %}
-                                <img src="{{ bem.foto_url }}" class="img-fluid rounded shadow-sm" style="max-height: 90px; object-fit: cover;">
-                            {% else %}
-                                <div class="bg-light rounded p-3 d-flex align-items-center justify-content-center" style="height: 90px;">
-                                    <i class="bi bi-camera text-muted" style="font-size: 1.5rem;"></i>
-                                </div>
-                            {% endif %}
+                        <div class="col-auto">
+                            <div class="item-img-container">
+                                {% if bem.foto_url %}
+                                    <img src="{{ bem.foto_url }}" alt="Foto do bem">
+                                {% else %}
+                                    <i class="bi bi-camera text-muted fs-4"></i>
+                                {% endif %}
+                            </div>
                         </div>
 
-                        <div class="col-md-5">
-                            <h5 class="mb-1 text-dark">{{ bem.descricao }}</h5>
-                            <p class="mb-0 text-muted small">
-                                <span class="badge bg-secondary">Tombamento: {{ bem.numero_patrimonio }}</span>
-                                <span class="ms-2"><i class="bi bi-geo-alt"></i> {{ bem.localizacao }}</span>
-                            </p>
-                            <p class="mb-0 mt-1 small">
-                                <strong>Marca/Modelo:</strong> {{ bem.marca or 'N/I' }} - {{ bem.modelo or 'N/I' }}
+                        <div class="col">
+                            <div class="d-flex align-items-center mb-1">
+                                <h5 class="fw-bold mb-0 me-2">{{ bem.descricao }}</h5>
+                                <span class="badge bg-light text-dark border">{{ bem.numero_patrimonio }}</span>
+                            </div>
+                            <p class="text-muted small mb-0">
+                                <i class="bi bi-geo-alt me-1"></i>{{ bem.localizacao }} 
+                                <span class="mx-2">•</span>
+                                <i class="bi bi-tag me-1"></i>{{ bem.marca or 'S/ Marca' }}
                             </p>
                         </div>
 
-                        <div class="col-md-3 text-center">
-                            <span class="badge {{ 'bg-success' if bem.estado_conservacao == 'Bom' else 'bg-warning text-dark' if bem.estado_conservacao == 'Regular' else 'bg-danger' }} mb-1">
+                        <div class="col-md-3 text-md-center">
+                            <span class="status-badge 
+                                {% if bem.estado_conservacao == 'Bom' %} bg-success-subtle text-success
+                                {% elif bem.estado_conservacao == 'Regular' %} bg-warning-subtle text-warning-emphasis
+                                {% else %} bg-danger-subtle text-danger {% endif %} d-inline-block mb-1">
                                 {{ bem.estado_conservacao }}
                             </span>
-                            <div class="small text-muted">Uso: {{ bem.situacao_uso }}</div>
-                            <div class="fw-bold text-primary">R$ {{ "%.2f"|format(bem.valor_aquisicao or 0) }}</div>
+                            <div class="fw-bold text-dark">R$ {{ "%.2f"|format(bem.valor_aquisicao or 0)|replace('.', ',') }}</div>
                         </div>
 
-                        <div class="col-md-2 text-end">
-                            <div class="btn-group-vertical w-100">
-                               <a href="{{ url_for('patrimonio.gerar_etiqueta_qr', id=bem.id) }}" class="btn btn-sm btn-outline-dark mb-1">
-    <i class="bi bi-qr-code"></i> Etiqueta
-</a>
-                                <a href="{{ url_for('patrimonio.detalhes_item', item_id=bem.id) }}" class="btn btn-sm btn-outline-primary">
-    <i class="bi bi-eye"></i> Detalhes
-</a>
+                        <div class="col-auto">
+                            <div class="d-flex gap-2">
+                                <a href="{{ url_for('patrimonio.gerar_etiqueta_qr', id=bem.id) }}" 
+                                   class="btn btn-outline-secondary btn-sm rounded-circle" title="Etiqueta QR">
+                                    <i class="bi bi-qr-code"></i>
+                                </a>
+                                <a href="{{ url_for('patrimonio.detalhes_item', item_id=bem.id) }}" 
+                                   class="btn btn-primary btn-sm btn-rounded">
+                                    Detalhes
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -75,8 +201,9 @@
         </div>
         {% else %}
         <div class="col-12">
-            <div class="alert alert-info text-center shadow-sm">
-                <i class="bi bi-info-circle"></i> Nenhum item patrimonial encontrado com os critérios de busca.
+            <div class="text-center py-5">
+                <i class="bi bi-inbox text-muted display-1"></i>
+                <p class="mt-3 text-muted">Nenhum item encontrado no inventário.</p>
             </div>
         </div>
         {% endfor %}

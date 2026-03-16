@@ -2,67 +2,138 @@
 
 {% block title %}{{ 'Editar Bem' if patrimonio else 'Novo Patrimônio' }}{% endblock %}
 
+{% block head_extra %}
+<style>
+    .card-form {
+        border-radius: 20px;
+        border: none;
+    }
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+    }
+    .section-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #0d6efd;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .btn-rounded {
+        border-radius: 50px;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+    .input-group-text {
+        background-color: #f8f9fa;
+        border-right: none;
+    }
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.1);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
+<div class="container mt-4 mb-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>
-            <i class="bi bi-box-seam-fill text-primary"></i> 
-            {{ 'Editar Bem Patrimonial' if patrimonio else 'Cadastro de Novo Patrimônio' }}
-        </h2>
-        <a href="{{ url_for('patrimonio.listar_itens') }}" class="btn btn-secondary">
-    <i class="bi bi-arrow-left"></i> Voltar para Lista
-</a>
+        <div>
+            <h2 class="fw-bold text-dark mb-0">
+                <i class="bi bi-box-seam-fill text-primary"></i> 
+                {{ 'Editar Bem Patrimonial' if patrimonio else 'Cadastro de Novo Patrimônio' }}
+            </h2>
+            <p class="text-muted">Preencha os dados abaixo para gerenciar o acervo municipal.</p>
+        </div>
+        <a href="{{ url_for('patrimonio.listar_itens') }}" class="btn btn-outline-secondary btn-rounded">
+            <i class="bi bi-arrow-left"></i> Voltar para Lista
+        </a>
     </div>
 
-    <div class="card shadow-sm border-0">
-        <div class="card-body p-4">
+    <div class="card shadow-sm card-form">
+        <div class="card-body p-4 p-md-5">
             <form method="POST" 
-      action="{{ url_for('patrimonio.editar_item', id=patrimonio.id) if patrimonio else url_for('patrimonio.novo_item') }}" 
-      enctype="multipart/form-data">
+                  action="{{ url_for('patrimonio.editar_item', id=patrimonio.id) if patrimonio else url_for('patrimonio.novo_item') }}" 
+                  enctype="multipart/form-data">
                 
-                <h5 class="text-muted border-bottom pb-2 mb-4">1. Identificação do Bem</h5>
+                <div class="section-title mb-4">
+                    <i class="bi bi-info-circle-fill"></i> 1. Identificação e Localização Inicial
+                </div>
+                
                 <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        <label for="nome_bem" class="form-label font-weight-bold">Nome do Bem*</label>
+                    <div class="col-md-5">
+                        <label for="nome_bem" class="form-label">Nome do Bem*</label>
                         <input type="text" class="form-control" name="nome_bem" required 
                                value="{{ patrimonio.nome_bem if patrimonio else '' }}" placeholder="Ex: Notebook, Ar Condicionado, Cadeira">
                     </div>
+                    
                     <div class="col-md-3">
-                        <label for="tombamento" class="form-label font-weight-bold">Nº de Tombamento*</label>
-                        <input type="text" class="form-control" name="tombamento" required 
-                               value="{{ patrimonio.tombamento if patrimonio else '' }}" placeholder="Ex: 2026.0001">
+                        <label for="tombamento" class="form-label">Nº de Tombamento</label>
+                        <input type="text" class="form-control" name="tombamento" 
+                               value="{{ patrimonio.tombamento if patrimonio else '' }}" placeholder="Deixe vazio se for novo">
+                        <small class="text-muted">Opcional para mercadorias em depósito.</small>
                     </div>
+
+                    <div class="col-md-4">
+                        <label for="localizacao" class="form-label">Localização Inicial*</label>
+                        <input type="text" class="form-control" name="localizacao" required
+                               value="{{ patrimonio.localizacao if patrimonio else '' }}" 
+                               placeholder="Ex: Depósito Central, Secretaria, Almoxarifado">
+                    </div>
+
                     <div class="col-md-6">
-    <label for="secretaria_id" class="form-label font-weight-bold">Secretaria Responsável*</label>
-    <select class="form-select" name="secretaria_id" required>
-        <option value="">-- Selecione a Secretaria --</option>
-        {% for sec in secretarias %}
-            <option value="{{ sec.id }}" {{ 'selected' if item and item.secretaria_id == sec.id else '' }}>
-                {{ sec.nome }}
-            </option>
-        {% endfor %}
-    </select>
-</div>
+                        <label for="secretaria_id" class="form-label">Secretaria Responsável*</label>
+                        <select class="form-select" name="secretaria_id" required>
+                            <option value="">-- Selecione a Secretaria --</option>
+                            {% for sec in secretarias %}
+                                <option value="{{ sec.id }}" {{ 'selected' if patrimonio and patrimonio.secretaria_id == sec.id else '' }}>
+                                    {{ sec.nome }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label for="servidor_responsavel_cpf" class="form-label">Servidor Responsável (Opcional)</label>
+                        <select class="form-select" name="servidor_responsavel_cpf">
+                            <option value="">-- Sem responsável específico --</option>
+                            {% for s in servidores %}
+                                <option value="{{ s.cpf }}" {{ 'selected' if patrimonio and patrimonio.servidor_responsavel_cpf == s.cpf else '' }}>
+                                    {{ s.nome }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
 
-                <h5 class="text-muted border-bottom pb-2 mb-4">2. Detalhes e Especificações</h5>
+                <div class="section-title mb-4">
+                    <i class="bi bi-tags-fill"></i> 2. Detalhes e Especificações
+                </div>
+                
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
                         <label for="marca" class="form-label">Marca</label>
-                        <input type="text" class="form-control" name="marca" value="{{ patrimonio.marca if patrimonio else '' }}">
+                        <input type="text" class="form-control" name="marca" value="{{ patrimonio.marca if patrimonio else '' }}" placeholder="Ex: Samsung, Dell">
                     </div>
                     <div class="col-md-4">
                         <label for="modelo" class="form-label">Modelo</label>
-                        <input type="text" class="form-control" name="modelo" value="{{ patrimonio.modelo if patrimonio else '' }}">
+                        <input type="text" class="form-control" name="modelo" value="{{ patrimonio.modelo if patrimonio else '' }}" placeholder="Ex: Latitude 3410">
                     </div>
                     <div class="col-md-4">
                         <label for="valor_compra" class="form-label">Valor de Compra (R$)</label>
-                        <input type="number" step="0.01" class="form-control" name="valor_compra" 
-                               value="{{ patrimonio.valor_compra if patrimonio else '' }}" placeholder="0.00">
+                        <div class="input-group">
+                            <span class="input-group-text">R$</span>
+                            <input type="number" step="0.01" class="form-control" name="valor_compra" 
+                                   value="{{ patrimonio.valor_compra if patrimonio else '' }}" placeholder="0,00">
+                        </div>
                     </div>
                 </div>
 
-                <h5 class="text-muted border-bottom pb-2 mb-4">3. Estado e Evidência Visual</h5>
+                <div class="section-title mb-4">
+                    <i class="bi bi-camera-fill"></i> 3. Estado e Evidência Visual
+                </div>
+                
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
                         <label for="estado_conservacao" class="form-label font-weight-bold">Estado de Conservação</label>
@@ -84,21 +155,24 @@
                         <label for="foto_bem" class="form-label font-weight-bold">Foto do Bem (Opcional)</label>
                         <input type="file" class="form-control" name="foto_bem" accept="image/*">
                         {% if patrimonio and patrimonio.foto_url %}
-                            <small class="text-success mt-1 d-block"><i class="bi bi-check-circle"></i> Já possui foto salva</small>
+                            <div class="mt-2 p-2 bg-light rounded d-flex align-items-center">
+                                <i class="bi bi-image text-primary me-2"></i>
+                                <small class="text-success fw-bold">Já possui foto salva no sistema</small>
+                            </div>
                         {% endif %}
                     </div>
                     <div class="col-12">
                         <label for="descricao" class="form-label">Descrição Detalhada / Observações</label>
-                        <textarea class="form-control" name="descricao" rows="3">{{ patrimonio.descricao if patrimonio else '' }}</textarea>
+                        <textarea class="form-control" name="descricao" rows="3" placeholder="Detalhes técnicos, histórico de reparos ou observações relevantes...">{{ patrimonio.descricao if patrimonio else '' }}</textarea>
                     </div>
                 </div>
 
                 <hr class="my-4">
 
-                <div class="d-flex justify-content-end gap-2">
-                    <button type="reset" class="btn btn-light px-4">Limpar</button>
-                    <button type="submit" class="btn btn-primary px-5">
-                        <i class="bi bi-floppy"></i> {{ 'Salvar Alterações' if patrimonio else 'Cadastrar Patrimônio' }}
+                <div class="d-flex justify-content-end gap-3">
+                    <button type="reset" class="btn btn-light btn-rounded px-4">Limpar Campos</button>
+                    <button type="submit" class="btn btn-primary btn-rounded px-5 shadow-sm">
+                        <i class="bi bi-floppy me-2"></i> {{ 'Salvar Alterações' if patrimonio else 'Finalizar Cadastro' }}
                     </button>
                 </div>
             </form>

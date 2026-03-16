@@ -43,42 +43,70 @@ def listar_itens():
 def novo_item():
     if request.method == 'POST':
         try:
-            # Captura da foto para o Supabase
+            # 1. Tratamento do Tombamento (Opcional)
+            # Se o campo estiver vazio no formulário, salvamos como None no banco
+            tombamento = request.form.get('tombamento')
+            if not tombamento or tombamento.strip() == "":
+                tombamento = None
+
+            # 2. Captura da foto para o Supabase
             foto_file = request.files.get('foto_bem')
             foto_link = None
             if foto_file and foto_file.filename != '':
                 from utils import upload_arquivo_para_nuvem
                 foto_link = upload_arquivo_para_nuvem(foto_file, pasta="patrimonio")
 
-            # Criando o objeto com os novos campos
+            # 3. Tratamento de valores numéricos
+            # Evita erro caso o valor de compra não seja preenchido
+            valor_compra_raw = request.form.get('valor_compra')
+            valor_final = float(valor_compra_raw) if valor_compra_raw and valor_compra_raw.strip() else 0.0
+
+            # 4. Criando o objeto com as novas validações
             novo_bem = Patrimonio(
-                numero_patrimonio=request.form.get('tombamento'),
+                numero_patrimonio=tombamento,
                 descricao=request.form.get('nome_bem'),
                 categoria=request.form.get('categoria'),
                 marca=request.form.get('marca'),
                 modelo=request.form.get('modelo'),
-                valor_aquisicao=float(request.form.get('valor_compra') or 0),
+                valor_aquisicao=valor_final,
                 estado_conservacao=request.form.get('estado_conservacao'),
                 situacao_uso=request.form.get('situacao_uso'),
                 localizacao=request.form.get('localizacao', 'Não informada'),
                 observacoes=request.form.get('descricao'),
                 foto_url=foto_link,
-                servidor_responsavel_cpf=request.form.get('servidor_responsavel_cpf')
+                servidor_responsavel_cpf=request.form.get('servidor_responsavel_cpf') or None,
+                # Garante vínculo com a secretaria selecionada
+                secretaria_id=request.form.get('secretaria_id') 
             )
             
             db.session.add(novo_bem)
             db.session.commit()
+            
+            # Registrar Log (Se a função registrar_log estiver disponível no escopo)
+            try:
+                from app import registrar_log
+                registrar_log(f"Cadastrou novo patrimônio: {novo_bem.descricao} (Tomb: {tombamento or 'S/N'})")
+            except:
+                pass
+
             flash("Patrimônio cadastrado com sucesso!", "success")
             return redirect(url_for('patrimonio.listar_itens'))
             
         except Exception as e:
             db.session.rollback()
-            flash(f"Erro ao cadastrar: {str(e)}", "danger")
+            # Log técnico do erro para o desenvolvedor
+            print(f"Erro ao cadastrar patrimônio: {str(e)}")
+            flash(f"Erro ao cadastrar: Verifique os dados e tente novamente.", "danger")
 
+    # Busca de dados para carregar o formulário (GET)
     from models import Servidor, Secretaria
     servidores = Servidor.query.order_by(Servidor.nome).all()
     secretarias = Secretaria.query.order_by(Secretaria.nome).all()
-    return render_template('patrimonio/form.html', servidores=servidores, secretarias=secretarias, patrimonio=None)
+    
+    return render_template('patrimonio/form.html', 
+                           servidores=servidores, 
+                           secretarias=secretarias, 
+                           patrimonio=None)
 
 
 @patrimonio_bp.route('/item/editar/<int:item_id>', methods=['GET', 'POST'])
@@ -260,3 +288,43 @@ def gerar_etiqueta_qr(id):
     except Exception as e:
         flash(f"Erro ao gerar etiqueta: {str(e)}", "danger")
         return redirect(url_for('patrimonio.listar_itens'))
+
+@patrimonio_bp.route('/movimentacao/<int:mov_id>/termo')
+@login_required
+def gerar_termo_recebimento(mov_id):
+    from models import MovimentacaoPatrimonio
+    mov = MovimentacaoPatrimonio.query.get_or_404(mov_id)
+    bem = mov.patrimonio
+
+    buffer = BytesIO()
+    p = canvas_lib.Canvas(buffer, pagesize=A4)
+    
+    # Cabeçalho
+    p.setFont("Helvetica-Bold", 14)
+    p.drawCentredString(300, 800, "TERMO DE RESPONSABILIDADE E RECEBIMENTO")
+    p.setFont("Helvetica", 10)
+    p.drawCentredString(300, 785, "PREFEITURA DE VALENÇA DO PIAUÍ")
+
+    # Conteúdo
+    texto = f"""
+    Certifico que na data de {mov.data_movimentacao.strftime('%d/%m/%Y')}, o bem patrimonial abaixo 
+    descrito foi transferido para o local: {mov.local_destino}.
+    """
+    p.setFont("Helvetica", 12)
+    p.drawString(50, 730, "DADOS DO BEM:")
+    p.setFont("Helvetica", 10)
+    p.drawString(70, 710, f"Descrição: {bem.descricao}")
+    p.drawString(70, 695, f"Tombamento: {bem.numero_patrimonio or 'Pendente'}")
+    p.drawString(70, 680, f"Origem: {mov.local_origem}")
+
+    # Assinaturas
+    p.line(50, 500, 250, 500)
+    p.drawString(80, 485, "Quem Entregou")
+    
+    p.line(350, 500, 550, 500)
+    p.drawString(380, 485, "Quem Recebeu")
+
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+    return send_file(buffer, mimetype='application/pdf', download_name=f'termo_mov_{mov.id}.pdf')    

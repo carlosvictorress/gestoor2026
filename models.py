@@ -357,7 +357,7 @@ class Patrimonio(db.Model):
 
     # Campos de Identificação
     id = db.Column(db.Integer, primary_key=True)
-    numero_patrimonio = db.Column(db.String(50), unique=True, nullable=False) # Também conhecido como Tombamento
+    numero_patrimonio = db.Column(db.String(50), unique=True, nullable=True) # Também conhecido como Tombamento
     descricao = db.Column(db.String(300), nullable=False) # Nome principal do bem
     categoria = db.Column(db.String(100), nullable=True) # Ex: Móveis, Eletrônicos, Veículos
     

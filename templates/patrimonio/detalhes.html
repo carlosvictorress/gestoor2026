@@ -1,130 +1,253 @@
 {% extends 'base.html' %}
 
-{% block title %}Detalhes do Item: {{ item.numero_patrimonio }}{% endblock %}
+{% block title %}Detalhes: {{ item.numero_patrimonio or 'Sem Tombamento' }}{% endblock %}
+
+{% block head_extra %}
+<style>
+    .detail-card {
+        border-radius: 20px;
+        border: none;
+        background: #fff;
+    }
+    .info-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: #6c757d;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+    }
+    .info-value {
+        font-size: 1rem;
+        color: #212529;
+        margin-bottom: 1rem;
+    }
+    .img-patrimonio {
+        width: 100%;
+        max-height: 300px;
+        object-fit: cover;
+        border-radius: 15px;
+    }
+    .timeline-item {
+        border-left: 3px solid #0d6efd;
+        padding-left: 20px;
+        position: relative;
+    }
+    .timeline-item::before {
+        content: "";
+        position: absolute;
+        left: -9px;
+        top: 0;
+        width: 15px;
+        height: 15px;
+        background: #0d6efd;
+        border-radius: 50%;
+        border: 3px solid #fff;
+    }
+    .btn-rounded {
+        border-radius: 50px;
+    }
+    @media print {
+        .no-print { display: none !important; }
+        .card { border: none !important; box-shadow: none !important; }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-archive"></i> Detalhes do Item: {{ item.descricao }}</h2>
-    <a href="{{ url_for('patrimonio.listar_itens') }}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Voltar para a Lista</a>
-</div>
-
-<div class="row">
-    <div class="col-lg-8">
-        <div class="card shadow-sm mb-4">
-            <div class="card-header d-flex justify-content-between">
-                <h5>Informações Gerais</h5>
-                <a href="{{ url_for('patrimonio.editar_item', item_id=item.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil-fill"></i> Editar Informações</a>
-            </div>
-            <div class="card-body">
-                <dl class="row">
-                    <dt class="col-sm-4">Nº Patrimônio:</dt>
-                    <dd class="col-sm-8">{{ item.numero_patrimonio }}</dd>
-
-                    <dt class="col-sm-4">Descrição:</dt>
-                    <dd class="col-sm-8">{{ item.descricao }}</dd>
-                    
-                    <dt class="col-sm-4">Categoria:</dt>
-                    <dd class="col-sm-8">{{ item.categoria or 'Não informado' }}</dd>
-
-                    <dt class="col-sm-4">Data de Aquisição:</dt>
-                    <dd class="col-sm-8">{{ item.data_aquisicao.strftime('%d/%m/%Y') if item.data_aquisicao else 'Não informada' }}</dd>
-                    
-                    <dt class="col-sm-4">Valor de Aquisição:</dt>
-                    <dd class="col-sm-8">R$ {{ '%.2f'|format(item.valor_aquisicao)|replace('.', ',') if item.valor_aquisicao else 'Não informado' }}</dd>
-
-                    <dt class="col-sm-4">Observações:</dt>
-                    <dd class="col-sm-8">{{ item.observacoes or 'Nenhuma' }}</dd>
-                </dl>
-            </div>
+<div class="container mt-4 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4 no-print">
+        <div>
+            <h2 class="fw-bold text-dark mb-0">
+                <i class="bi bi-info-circle-fill text-primary"></i> Detalhes do Patrimônio
+            </h2>
+            <p class="text-muted">Visualização completa e histórico do bem municipal.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('patrimonio.listar_itens') }}" class="btn btn-outline-secondary btn-rounded">
+                <i class="bi bi-arrow-left"></i> Voltar
+            </a>
+            <a href="{{ url_for('patrimonio.editar_item', item_id=item.id) }}" class="btn btn-primary btn-rounded shadow-sm">
+                <i class="bi bi-pencil-square"></i> Editar Bem
+            </a>
         </div>
     </div>
 
-    <div class="col-lg-4">
-        <div class="card shadow-sm mb-4">
-            <div class="card-header">
-                <h5>Localização e Responsável</h5>
-            </div>
-            <div class="card-body">
-                <p><strong>Localização Atual:</strong><br>{{ item.localizacao }}</p>
-                <p><strong>Responsável Atual:</strong><br>{{ item.responsavel.nome if item.responsavel else 'Sem responsável específico' }}</p>
-                <p><strong>Status:</strong><br>
-                    <span class="badge fs-6
-                        {% if item.status == 'Ativo' %} bg-success
-                        {% elif item.status == 'Manutenção' %} bg-warning
-                        {% elif item.status == 'Baixado' %} bg-secondary
-                        {% else %} bg-info {% endif %}">
-                        {{ item.status }}
-                    </span>
-                </p>
-                <hr>
-                <button class="btn btn-info w-100" data-bs-toggle="modal" data-bs-target="#transferModal"><i class="bi bi-arrows-move"></i> Transferir Item</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="card shadow-sm">
-    <div class="card-header">
-        <h5><i class="bi bi-clock-history"></i> Histórico de Movimentações</h5>
-    </div>
-    <div class="card-body">
-        {% if movimentacoes %}
-        <ul class="list-group">
-            {% for mov in movimentacoes %}
-            <li class="list-group-item">
-                <p class="mb-1">
-                    <i class="bi bi-calendar-event"></i> <strong>Data:</strong> {{ mov.data_movimentacao.strftime('%d/%m/%Y %H:%M') }}
-                    | <i class="bi bi-person-check"></i> <strong>Registrado por:</strong> {{ mov.usuario_registro }}
-                </p>
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <small class="text-muted">DE</small>
-                        <p class="mb-0"><i class="bi bi-box-arrow-up-left"></i> <strong>Local:</strong> {{ mov.local_origem }}</p>
-                        <p class="mb-0"><i class="bi bi-person"></i> <strong>Responsável:</strong> {{ mov.responsavel_anterior.nome if mov.responsavel_anterior else 'N/A' }}</p>
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card detail-card shadow-sm mb-4">
+                <div class="card-body p-4">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            {% if item.foto_url %}
+                                <img src="{{ item.foto_url }}" class="img-patrimonio shadow-sm" alt="Foto do bem">
+                            {% else %}
+                                <div class="bg-light d-flex flex-column align-items-center justify-content-center" style="height: 200px; border-radius: 15px;">
+                                    <i class="bi bi-camera text-muted display-4"></i>
+                                    <p class="text-muted small">Sem foto cadastrada</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center mb-2">
+                                <h3 class="fw-bold mb-0 me-2">{{ item.descricao }}</h3>
+                                <span class="badge bg-light text-primary border border-primary border-opacity-25">
+                                    {{ item.numero_patrimonio if item.numero_patrimonio else 'AGUARDANDO TOMBAMENTO' }}
+                                </span>
+                            </div>
+                            
+                            <div class="row mt-4">
+                                <div class="col-6">
+                                    <p class="info-label mb-1">Categoria</p>
+                                    <p class="info-value">{{ item.categoria or 'Não informada' }}</p>
+                                </div>
+                                <div class="col-6">
+                                    <p class="info-label mb-1">Estado de Conservação</p>
+                                    <p class="info-value">
+                                        <span class="badge {% if item.estado_conservacao == 'Bom' %}bg-success{% elif item.estado_conservacao == 'Regular' %}bg-warning{% else %}bg-danger{% endif %}">
+                                            {{ item.estado_conservacao }}
+                                        </span>
+                                    </p>
+                                </div>
+                                <div class="col-6">
+                                    <p class="info-label mb-1">Valor de Aquisição</p>
+                                    <p class="info-value">R$ {{ '%.2f'|format(item.valor_aquisicao)|replace('.', ',') if item.valor_aquisicao else '0,00' }}</p>
+                                </div>
+                                <div class="col-6">
+                                    <p class="info-label mb-1">Data de Aquisição</p>
+                                    <p class="info-value">{{ item.data_aquisicao.strftime('%d/%m/%Y') if item.data_aquisicao else 'Não registrada' }}</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <i class="bi bi-arrow-right-circle-fill fs-4 text-primary mx-3"></i>
-                    <div>
-                        <small class="text-muted">PARA</small>
-                        <p class="mb-0"><i class="bi bi-box-arrow-in-down-right"></i> <strong>Local:</strong> {{ mov.local_destino }}</p>
-                        <p class="mb-0"><i class="bi bi-person"></i> <strong>Responsável:</strong> {{ mov.responsavel_novo.nome if mov.responsavel_novo else 'N/A' }}</p>
+                    <hr>
+                    <div class="mt-3">
+                        <p class="info-label mb-1">Observações Detalhadas</p>
+                        <p class="text-muted">{{ item.observacoes or 'Nenhuma observação registrada.' }}</p>
                     </div>
                 </div>
-            </li>
-            {% endfor %}
-        </ul>
-        {% else %}
-        <p class="text-muted">Nenhuma movimentação registrada para este item.</p>
-        {% endif %}
+            </div>
+
+            <div class="card detail-card shadow-sm">
+                <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-clock-history me-2"></i> Histórico de Movimentações</h5>
+                </div>
+                <div class="card-body p-4">
+                    {% if movimentacoes %}
+                    <div class="timeline">
+                        {% for mov in movimentacoes %}
+                        <div class="timeline-item mb-4 pb-2">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <span class="fw-bold text-dark">{{ mov.data_movimentacao.strftime('%d/%m/%Y %H:%M') }}</span>
+                                    <small class="text-muted d-block">Registrado por: {{ mov.usuario_registro }}</small>
+                                </div>
+                                <button class="btn btn-sm btn-outline-dark btn-rounded no-print" onclick="window.print()">
+                                    <i class="bi bi-printer me-1"></i> Imprimir Termo
+                                </button>
+                            </div>
+                            <div class="row g-2 bg-light p-3 rounded-3 mt-2">
+                                <div class="col-md-5">
+                                    <small class="info-label d-block mb-1">Origem</small>
+                                    <p class="mb-0 small"><strong>Local:</strong> {{ mov.local_origem }}</p>
+                                    <p class="mb-0 small"><strong>Resp:</strong> {{ mov.responsavel_anterior.nome if mov.responsavel_anterior else 'N/A' }}</p>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-center justify-content-center">
+                                    <i class="bi bi-arrow-right-circle-fill text-primary fs-4"></i>
+                                </div>
+                                <div class="col-md-5">
+                                    <small class="info-label d-block mb-1 text-primary">Destino</small>
+                                    <p class="mb-0 small"><strong>Local:</strong> {{ mov.local_destino }}</p>
+                                    <p class="mb-0 small"><strong>Resp:</strong> {{ mov.responsavel_novo.nome if mov.responsavel_novo else 'N/A' }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-info-circle text-muted fs-2"></i>
+                        <p class="text-muted mt-2">Nenhuma movimentação registrada.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card detail-card shadow-sm border-top border-primary border-5 mb-4">
+                <div class="card-body p-4 text-center">
+                    <div class="bg-primary bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
+                        <i class="bi bi-geo-alt-fill text-primary fs-2"></i>
+                    </div>
+                    <h5 class="fw-bold">Localização Atual</h5>
+                    <p class="fs-5 text-dark mb-1">{{ item.localizacao }}</p>
+                    <p class="text-muted small"><i class="bi bi-person-badge me-1"></i> {{ item.responsavel.nome if item.responsavel else 'Responsável não definido' }}</p>
+                    
+                    <div class="mt-4">
+                        <p class="info-label mb-1">Status de Uso</p>
+                        <span class="badge fs-6 rounded-pill {% if item.status == 'Ativo' %}bg-success{% elif item.status == 'Manutenção' %}bg-warning text-dark{% else %}bg-secondary{% endif %} w-100">
+                            {{ item.status }}
+                        </span>
+                    </div>
+
+                    <button class="btn btn-primary btn-lg w-100 btn-rounded mt-4 shadow-sm no-print" data-bs-toggle="modal" data-bs-target="#transferModal">
+                        <i class="bi bi-arrows-move"></i> Transferir Bem
+                    </button>
+                </div>
+            </div>
+
+            <div class="card detail-card shadow-sm no-print">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold mb-3">Ações Rápidas</h6>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('patrimonio.gerar_etiqueta_qr', id=item.id) }}" class="btn btn-outline-dark btn-rounded">
+                            <i class="bi bi-qr-code"></i> Imprimir Etiqueta QR
+                        </a>
+                        <button class="btn btn-outline-danger btn-rounded" onclick="alert('Funcionalidade de Baixa em desenvolvimento.')">
+                            <i class="bi bi-trash"></i> Dar Baixa no Bem
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="modal fade" id="transferModal" tabindex="-1" aria-labelledby="transferModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="transferModalLabel">Transferir Item: {{ item.descricao }}</h5>
+<div class="modal fade no-print" id="transferModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow" style="border-radius: 20px;">
+      <div class="modal-header border-0 pt-4 px-4">
+        <h5 class="modal-title fw-bold" id="transferModalLabel">Transferência de Patrimônio</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form action="{{ url_for('patrimonio.transferir_item', item_id=item.id) }}" method="POST">
-          <div class="modal-body">
-            <p><strong>Origem:</strong> {{ item.localizacao }}</p>
-            <div class="mb-3">
-              <label for="local_destino" class="form-label">Novo Local*</label>
-              <input type="text" class="form-control" name="local_destino" id="local_destino" required>
+          <div class="modal-body p-4">
+            <div class="alert alert-info py-2" style="border-radius: 12px; border: none;">
+                <small><i class="bi bi-info-circle me-1"></i> Origem atual: <strong>{{ item.localizacao }}</strong></small>
             </div>
+            
             <div class="mb-3">
-              <label for="servidor_responsavel_cpf" class="form-label">Novo Responsável (Opcional)</label>
+              <label for="local_destino" class="form-label">Destino Final*</label>
+              <input type="text" class="form-control" name="local_destino" id="local_destino" required placeholder="Ex: Secretaria de Saúde, Gabinete 02...">
+            </div>
+            
+            <div class="mb-3">
+              <label for="servidor_responsavel_cpf" class="form-label">Novo Servidor Responsável</label>
               <select class="form-select" name="servidor_responsavel_cpf" id="servidor_responsavel_cpf">
-                  <option value="">-- Sem responsável específico --</option>
+                  <option value="">-- Manter sem responsável específico --</option>
                   {% for s in servidores %}
                   <option value="{{ s.cpf }}">{{ s.nome }}</option>
                   {% endfor %}
               </select>
             </div>
+            
+            <p class="text-muted small mt-3">
+                <i class="bi bi-exclamation-triangle"></i> Esta ação gerará um novo registro no histórico para fins de auditoria.
+            </p>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-primary">Confirmar Transferência</button>
+          <div class="modal-footer border-0 pb-4 px-4">
+            <button type="button" class="btn btn-light btn-rounded px-4" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary btn-rounded px-4">Confirmar Envio</button>
           </div>
       </form>
     </div>

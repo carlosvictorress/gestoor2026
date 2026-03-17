@@ -1,4 +1,5 @@
 import io
+from flask import current_app
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file, jsonify
 from sqlalchemy import extract
@@ -45,6 +46,9 @@ def transporte_admin_required(f):
 def gerar_pdf_autorizacao(solicitacao):
     buffer = io.BytesIO()
     
+    # Define o caminho absoluto para o timbre (essencial para rodar no Docker)
+    caminho_timbre = os.path.join(current_app.root_path, 'static', 'timbre.png')
+    
     # Função interna para desenhar a marca d'água em cada página
     def on_page(canvas, doc):
         canvas.saveState()
@@ -68,15 +72,17 @@ def gerar_pdf_autorizacao(solicitacao):
     
     # 1. CABEÇALHO (TIMBRE)
     try:
-        # Tenta carregar o timbre.png da pasta static
-        img = Image("static/timbre.png", width=17*cm, height=2.5*cm)
+        # Usa o caminho absoluto construído acima
+        img = Image(caminho_timbre, width=17*cm, height=2.5*cm)
         elements.append(img)
-    except:
+    except Exception as e:
+        # Se falhar, registra o erro no log e usa texto como plano B
+        print(f"Erro ao carregar timbre no PDF: {e}")
         elements.append(Paragraph("<b>PREFEITURA DE VALENÇA DO PIAUÍ</b>", styles['Title']))
     
     elements.append(Spacer(1, 0.8*cm))
 
-    # 2. TÍTULO E IDENTIFICAÇÃO
+    # 2. TÍTULO E IDENTIFICAÇÃO (Corrigido para HexColor com H maiúsculo)
     titulo_style = ParagraphStyle(
         'TituloDoc', parent=styles['Title'], fontSize=16, 
         textColor=colors.HexColor("#2c3e50"), spaceAfter=20
@@ -84,7 +90,6 @@ def gerar_pdf_autorizacao(solicitacao):
     elements.append(Paragraph(f"AUTORIZAÇÃO DE TRANSPORTE Nº {solicitacao.id:04d}", titulo_style))
 
     # 3. TABELA DE DADOS TÉCNICOS
-    # O uso de Paragraph dentro da tabela permite negrito e quebra de linha
     data = [
         [Paragraph("<b>SETOR SOLICITANTE:</b>", styles['Normal']), solicitacao.setor.nome_setor],
         [Paragraph("<b>RESPONSÁVEL:</b>", styles['Normal']), solicitacao.responsavel],

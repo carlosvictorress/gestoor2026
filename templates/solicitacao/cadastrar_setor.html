@@ -2,54 +2,91 @@
 
 {% block content %}
 <div class="container-fluid py-4">
+    <div class="row align-items-center mb-4 pb-3 border-bottom">
+        <div class="col-md-6">
+            <h3 class="fw-bold text-dark mb-1">
+                <i class="fas fa-building text-primary me-2"></i>Gerenciamento de Setores
+            </h3>
+            <p class="text-muted mb-0">Controle de acessos e departamentos</p>
+        </div>
+        <div class="col-md-6 d-flex justify-content-md-end mt-3 mt-md-0">
+            <a href="{{ url_for('solicitacao.painel_admin') }}" class="btn btn-outline-secondary btn-sm px-3 shadow-sm">
+                <i class="fas fa-arrow-left me-2"></i>Voltar ao Painel
+            </a>
+        </div>
+    </div>
+
     <div class="row">
         <div class="col-lg-4">
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-primary text-white py-3">
-                    <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Novo Setor</h5>
+            <div class="card border-0 shadow-sm mb-4 hover-card">
+                <div class="card-header bg-primary text-white py-3 border-0">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-plus-circle me-2"></i>Novo Setor</h5>
                 </div>
                 <div class="card-body p-4">
                     <form method="POST">
                         <div class="mb-3">
-                            <label class="form-label">Nome do Setor</label>
-                            <input type="text" name="nome_setor" class="form-control" placeholder="Ex: CAEE" required>
+                            <label class="form-label small fw-bold text-muted text-uppercase">Nome do Setor</label>
+                            <input type="text" name="nome_setor" class="form-control form-control-lg border-2" placeholder="Ex: CAEE" required>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Código de Acesso</label>
-                            <input type="text" name="codigo_setor" class="form-control" placeholder="Ex: SEME022CAEE" required>
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Código de Acesso</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-2 border-end-0 text-muted"><i class="fas fa-key"></i></span>
+                                <input type="text" name="codigo_setor" class="form-control form-control-lg border-2 border-start-0" placeholder="Ex: SEME022CAEE" required>
+                            </div>
+                            <div class="form-text text-muted small mt-2">
+                                <i class="fas fa-info-circle me-1"></i>Este código será usado pelo setor para realizar login.
+                            </div>
                         </div>
-                        <button type="submit" class="btn btn-success w-100 shadow-sm">Cadastrar</button>
+                        <button type="submit" class="btn btn-primary w-100 py-3 shadow-sm fw-bold">
+                            <i class="fas fa-save me-2"></i>Finalizar Cadastro
+                        </button>
                     </form>
                 </div>
             </div>
         </div>
 
         <div class="col-lg-8">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-bottom py-3">
-                    <h5 class="mb-0 text-dark"><i class="fas fa-list-ul me-2"></i>Setores Cadastrados</h5>
+            <div class="card border-0 shadow-sm hover-card">
+                <div class="card-header bg-white border-bottom py-3 d-flex align-items-center">
+                    <h5 class="mb-0 text-dark fw-bold"><i class="fas fa-list-ul text-primary me-2"></i>Setores Cadastrados</h5>
+                    <span class="badge bg-light text-primary ms-auto border">{{ setores|length }} Ativos</span>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>Nome do Setor</th>
+                                <th class="ps-4">Nome do Setor</th>
                                 <th>Código de Acesso</th>
-                                <th class="text-end">Ações</th>
+                                <th class="text-end pe-4">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for s in setores %}
                             <tr>
-                                <td class="fw-bold">{{ s.nome_setor }}</td>
-                                <td><code>{{ s.codigo_setor }}</code></td>
-                                <td class="text-end">
-                                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-sm bg-primary-subtle text-primary me-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 35px; height: 35px;">
+                                            <i class="fas fa-users-cog"></i>
+                                        </div>
+                                        <span class="fw-bold text-dark">{{ s.nome_setor }}</span>
+                                    </div>
+                                </td>
+                                <td><code class="bg-light px-3 py-1 rounded text-danger border">{{ s.codigo_setor }}</code></td>
+                                <td class="text-end pe-4">
+                                    <button class="btn btn-sm btn-outline-danger border-2 rounded-3 hover-scale" title="Remover Setor">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
                                 </td>
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="3" class="text-center py-4 text-muted">Nenhum setor cadastrado.</td>
+                                <td colspan="3" class="text-center py-5">
+                                    <div class="text-muted">
+                                        <i class="fas fa-folder-open fa-3x mb-3 d-block opacity-25"></i>
+                                        Nenhum setor cadastrado no sistema.
+                                    </div>
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -59,4 +96,72 @@
         </div>
     </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 4000,
+                    timerProgressBar: true
+                });
+
+                {% for category, message in messages %}
+                    Toast.fire({
+                        icon: '{{ "error" if category == "danger" else "warning" if category == "warning" else "success" }}',
+                        title: '{{ message }}'
+                    });
+                {% endfor %}
+            });
+        </script>
+    {% endif %}
+{% endwith %}
+
+<style>
+    .bg-primary-subtle { background-color: #e0eaff !important; }
+    
+    .hover-card { 
+        transition: transform 0.3s ease, box-shadow 0.3s ease; 
+        border-radius: 20px !important;
+        overflow: hidden;
+    }
+    
+    .hover-card:hover { 
+        transform: translateY(-5px);
+        box-shadow: 0 1rem 3rem rgba(0,0,0,0.1) !important; 
+    }
+
+    .form-control {
+        border-radius: 12px;
+        font-size: 0.95rem;
+    }
+
+    .form-control:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.1);
+    }
+
+    .btn { 
+        border-radius: 12px; 
+        transition: all 0.2s;
+    }
+
+    .hover-scale:hover {
+        transform: scale(1.1);
+    }
+
+    .swal2-toast {
+        border-radius: 12px !important;
+    }
+
+    code {
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+</style>
 {% endblock %}

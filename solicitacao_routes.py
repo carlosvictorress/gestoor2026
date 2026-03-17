@@ -13,6 +13,12 @@ from models import SetorTransporte, SolicitacaoVeiculo
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.units import cm
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+
 solicitacao_bp = Blueprint('solicitacao', __name__, url_prefix='/solicitacao')
 
 # --- DECORADORES DE PROTEÇÃO ---
@@ -38,35 +44,97 @@ def transporte_admin_required(f):
 # --- FUNÇÃO DE PDF COM TIMBRE ---
 def gerar_pdf_autorizacao(solicitacao):
     buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
     
-    # Inserção do Timbre - Certifique-se que o arquivo existe em static/timbre.png
+    # Função interna para desenhar a marca d'água em cada página
+    def on_page(canvas, doc):
+        canvas.saveState()
+        canvas.setFont('Helvetica-Bold', 80)
+        canvas.setFillAlpha(0.1)  # Bem clarinho para não atrapalhar a leitura
+        canvas.translate(A4[0]/2, A4[1]/2)
+        canvas.rotate(45)
+        canvas.drawCentredString(0, 0, "APROVADO")
+        canvas.restoreState()
+
+    # Configuração do Documento
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4,
+        rightMargin=1.5*cm, leftMargin=1.5*cm, 
+        topMargin=1.5*cm, bottomMargin=1.5*cm
+    )
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # 1. CABEÇALHO (TIMBRE)
     try:
-        c.drawImage("static/timbre.png", 50, 750, width=500, height=80)
-    except Exception as e:
-        print(f"Erro ao carregar timbre: {e}")
+        # Tenta carregar o timbre.png da pasta static
+        img = Image("static/timbre.png", width=17*cm, height=2.5*cm)
+        elements.append(img)
+    except:
+        elements.append(Paragraph("<b>PREFEITURA DE VALENÇA DO PIAUÍ</b>", styles['Title']))
     
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(150, 700, "AUTORIZAÇÃO DE TRANSPORTE ESCOLAR")
-    c.setFont("Helvetica", 12)
-    c.drawString(50, 650, f"Solicitante: {solicitacao.setor.nome_setor}")
-    c.drawString(50, 630, f"Responsável: {solicitacao.responsavel}")
-    c.drawString(50, 610, f"Data: {solicitacao.data_solicitada.strftime('%d/%m/%Y')}")
-    c.drawString(50, 590, f"Horário: {solicitacao.horario_saida.strftime('%H:%M')} às {solicitacao.horario_chegada.strftime('%H:%M')}")
-    c.drawString(50, 570, f"Motivo: {solicitacao.motivo}")
+    elements.append(Spacer(1, 0.8*cm))
+
+    # 2. TÍTULO E IDENTIFICAÇÃO
+    titulo_style = ParagraphStyle(
+        'TituloDoc', parent=styles['Title'], fontSize=16, 
+        textColor=colors.hexColor("#2c3e50"), spaceAfter=20
+    )
+    elements.append(Paragraph(f"AUTORIZAÇÃO DE TRANSPORTE Nº {solicitacao.id:04d}", titulo_style))
+
+    # 3. TABELA DE DADOS TÉCNICOS
+    # O uso de Paragraph dentro da tabela permite negrito e quebra de linha
+    data = [
+        [Paragraph("<b>SETOR SOLICITANTE:</b>", styles['Normal']), solicitacao.setor.nome_setor],
+        [Paragraph("<b>RESPONSÁVEL:</b>", styles['Normal']), solicitacao.responsavel],
+        [Paragraph("<b>VEÍCULO AUTORIZADO:</b>", styles['Normal']), f"<b>{solicitacao.veiculo_solicitado}</b>"],
+        [Paragraph("<b>DATA DA VIAGEM:</b>", styles['Normal']), solicitacao.data_solicitada.strftime('%d/%m/%Y')],
+        [Paragraph("<b>HORÁRIO:</b>", styles['Normal']), f"{solicitacao.horario_saida.strftime('%H:%M')} às {solicitacao.horario_chegada.strftime('%H:%M')}"],
+        [Paragraph("<b>MOTIVO / DESTINO:</b>", styles['Normal']), solicitacao.motivo]
+    ]
+
+    t = Table(data, colWidths=[5*cm, 12*cm])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.whitesmoke),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+    ]))
+    elements.append(t)
+
+    # 4. ASSINATURAS ALINHADAS
+    elements.append(Spacer(1, 4*cm))
+    assinatura_data = [
+        ["_______________________________________", "_______________________________________"],
+        ["Assinatura do Responsável", "Visto da Administração / Secretaria"]
+    ]
+    t_ass = Table(assinatura_data, colWidths=[8.5*cm, 8.5*cm])
+    t_ass.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.darkgrey),
+    ]))
+    elements.append(t_ass)
+
+    # 5. RODAPÉ DE SEGURANÇA
+    elements.append(Spacer(1, 2.5*cm))
+    emissao = datetime.now().strftime("%d/%m/%Y às %H:%M")
+    footer = Paragraph(
+        f"<font color='grey' size='8'>Documento gerado pelo sistema <b>Gestor 360</b> em {emissao}.<br/>"
+        f"A autenticidade deste documento pode ser verificada na secretaria municipal.</font>", 
+        styles['Normal']
+    )
+    elements.append(footer)
+
+    # CONSTRUÇÃO DO PDF (Com a marca d'água via onFirstPage e onLaterPages)
+    doc.build(elements, onFirstPage=on_page, onLaterPages=on_page)
     
-    # --- NOVA LINHA ADICIONADA AQUI ---
-    c.drawString(50, 550, f"Veículo Autorizado: {solicitacao.veiculo_solicitado}")
-    # ----------------------------------
-    
-    c.drawString(50, 400, "__________________________________________")
-    c.drawString(50, 385, "Assinatura do Administrador / Secretaria")
-    c.showPage()
-    c.save()
     buffer.seek(0)
     return buffer
-
-# --- ROTAS ---
 
 @solicitacao_bp.route('/login', methods=['GET', 'POST'])
 def login_setor():
@@ -225,3 +293,93 @@ def api_eventos():
             'color': '#28a745' # Verde para aprovado
         })
     return jsonify(eventos)
+
+@solicitacao_bp.route('/admin/relatorio-mensal', methods=['GET', 'POST'])
+@system_login_required
+@transporte_admin_required
+def relatorio_mensal():
+    if request.method == 'POST':
+        mes = request.form.get('mes') # Formato '01', '02', etc.
+        ano = datetime.now().year
+        
+        # Busca todas as solicitações aprovadas daquele mês/ano
+        relatorio_dados = SolicitacaoVeiculo.query.filter(
+            SolicitacaoVeiculo.status == 'Aprovada',
+            extract('month', SolicitacaoVeiculo.data_solicitada) == mes,
+            extract('year', SolicitacaoVeiculo.data_solicitada) == ano
+        ).order_by(SolicitacaoVeiculo.data_solicitada.asc()).all()
+
+        if not relatorio_dados:
+            flash(f'Nenhum agendamento aprovado encontrado para o mês {mes}.', 'warning')
+            return redirect(url_for('solicitacao.painel_admin'))
+
+        return send_file(
+            gerar_pdf_relatorio_consolidado(relatorio_dados, mes, ano),
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f'Relatorio_Transporte_{mes}_{ano}.pdf'
+        )
+    
+    return render_template('solicitacao/filtro_relatorio.html')
+
+from reportlab.lib.pagesizes import landscape
+
+def gerar_pdf_relatorio_consolidado(solicitacoes, mes, ano):
+    buffer = io.BytesIO()
+    # Usamos LANDSCAPE (Paisagem) para relatórios com muitas colunas
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=landscape(A4),
+        rightMargin=1*cm, leftMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm
+    )
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Cabeçalho
+    try:
+        img = Image("static/timbre.png", width=20*cm, height=2.5*cm)
+        elements.append(img)
+    except:
+        elements.append(Paragraph("PREFEITURA DE VALENÇA DO PIAUÍ", styles['Title']))
+    
+    elements.append(Spacer(1, 0.5*cm))
+    elements.append(Paragraph(f"RELATÓRIO MENSAL DE TRANSPORTES - {mes}/{ano}", styles['Title']))
+    elements.append(Spacer(1, 0.5*cm))
+
+    # Tabela de Dados
+    data = [['DATA', 'SETOR', 'RESPONSÁVEL', 'VEÍCULO', 'HORÁRIO', 'MOTIVO']]
+    
+    for s in solicitacoes:
+        data.append([
+            s.data_solicitada.strftime('%d/%m/%Y'),
+            s.setor.nome_setor,
+            s.responsavel,
+            s.veiculo_solicitado,
+            f"{s.horario_saida.strftime('%H:%M')} - {s.horario_chegada.strftime('%H:%M')}",
+            Paragraph(s.motivo, styles['Normal']) # Paragraph permite quebra de linha na célula
+        ])
+
+    # Estilo da Tabela de Relatório
+    t = Table(data, colWidths=[2.5*cm, 4*cm, 4*cm, 4*cm, 3.5*cm, 8*cm])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.hexColor("#0d6efd")),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    
+    elements.append(t)
+    
+    # Rodapé
+    elements.append(Spacer(1, 1*cm))
+    footer = Paragraph(f"Relatório gerado pelo Gestor 360 em {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles['Normal'])
+    elements.append(footer)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+

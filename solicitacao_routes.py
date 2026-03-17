@@ -44,7 +44,7 @@ def transporte_admin_required(f):
 def gerar_pdf_autorizacao(solicitacao):
     buffer = io.BytesIO()
     
-    # Caminho absoluto robusto para o ambiente Docker
+    # Tenta localizar o timbre na pasta static na raiz do projeto
     base_dir = os.path.dirname(os.path.abspath(__file__))
     caminho_timbre = os.path.join(base_dir, 'static', 'timbre.png')
     
@@ -57,51 +57,35 @@ def gerar_pdf_autorizacao(solicitacao):
         canvas.drawCentredString(0, 0, "APROVADO")
         canvas.restoreState()
 
-    # Configuração do Documento
-    doc = SimpleDocTemplate(
-        buffer, 
-        pagesize=A4,
-        rightMargin=1.5*cm, leftMargin=1.5*cm, 
-        topMargin=1.5*cm, bottomMargin=1.5*cm
-    )
-    
+    doc = SimpleDocTemplate(buffer, pagesize=A4, margin=1.5*cm)
     elements = []
     styles = getSampleStyleSheet()
-    
-    # Estilo base para as células da tabela (necessário para renderizar as tags <b>)
-    style_tabela = styles['Normal']
-    style_tabela.fontSize = 11
+    style_n = styles['Normal']
+    style_n.fontSize = 11
 
-    # 1. CABEÇALHO (TIMBRE)
+    # Cabeçalho / Timbre
     if os.path.exists(caminho_timbre):
         try:
             img = Image(caminho_timbre, width=17*cm, height=2.5*cm)
             elements.append(img)
-        except Exception as e:
-            print(f"Erro ao processar imagem no ReportLab: {e}")
+        except:
             elements.append(Paragraph("<b>PREFEITURA DE VALENÇA DO PIAUÍ</b>", styles['Title']))
     else:
-        # Se não encontrar o arquivo, coloca o texto para não dar erro 500
         elements.append(Paragraph("<b>PREFEITURA DE VALENÇA DO PIAUÍ</b>", styles['Title']))
     
     elements.append(Spacer(1, 0.8*cm))
 
-    # 2. TÍTULO
-    titulo_style = ParagraphStyle(
-        'Tit', parent=styles['Title'], fontSize=16, 
-        textColor=colors.HexColor("#2c3e50"), spaceAfter=20
-    )
+    titulo_style = ParagraphStyle('Tit', parent=styles['Title'], fontSize=16, textColor=colors.HexColor("#2c3e50"), spaceAfter=20)
     elements.append(Paragraph(f"AUTORIZAÇÃO DE TRANSPORTE Nº {solicitacao.id:04d}", titulo_style))
 
-    # 3. TABELA DE DADOS (USANDO PARAGRAPH EM TODAS AS CÉLULAS)
-    # Isso resolve o problema das tags <b> aparecendo como texto
+    # Tabela com Paragraph para interpretar o <b>
     data = [
-        [Paragraph("<b>SETOR SOLICITANTE:</b>", style_tabela), Paragraph(solicitacao.setor.nome_setor, style_tabela)],
-        [Paragraph("<b>RESPONSÁVEL:</b>", style_tabela), Paragraph(solicitacao.responsavel, style_tabela)],
-        [Paragraph("<b>VEÍCULO AUTORIZADO:</b>", style_tabela), Paragraph(f"<b>{solicitacao.veiculo_solicitado}</b>", style_tabela)],
-        [Paragraph("<b>DATA DA VIAGEM:</b>", style_tabela), Paragraph(solicitacao.data_solicitada.strftime('%d/%m/%Y'), style_tabela)],
-        [Paragraph("<b>HORÁRIO:</b>", style_tabela), Paragraph(f"{solicitacao.horario_saida.strftime('%H:%M')} às {solicitacao.horario_chegada.strftime('%H:%M')}", style_tabela)],
-        [Paragraph("<b>MOTIVO / DESTINO:</b>", style_tabela), Paragraph(solicitacao.motivo, style_tabela)]
+        [Paragraph("<b>SETOR SOLICITANTE:</b>", style_n), Paragraph(solicitacao.setor.nome_setor, style_n)],
+        [Paragraph("<b>RESPONSÁVEL:</b>", style_n), Paragraph(solicitacao.responsavel, style_n)],
+        [Paragraph("<b>VEÍCULO AUTORIZADO:</b>", style_n), Paragraph(f"<b>{solicitacao.veiculo_solicitado}</b>", style_n)],
+        [Paragraph("<b>DATA DA VIAGEM:</b>", style_n), Paragraph(solicitacao.data_solicitada.strftime('%d/%m/%Y'), style_n)],
+        [Paragraph("<b>HORÁRIO:</b>", style_n), Paragraph(f"{solicitacao.horario_saida.strftime('%H:%M')} às {solicitacao.horario_chegada.strftime('%H:%M')}", style_n)],
+        [Paragraph("<b>MOTIVO / DESTINO:</b>", style_n), Paragraph(solicitacao.motivo, style_n)]
     ]
 
     t = Table(data, colWidths=[5*cm, 12*cm])
@@ -111,35 +95,19 @@ def gerar_pdf_autorizacao(solicitacao):
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('LEFTPADDING', (0, 0), (-1, -1), 10),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-        ('TOPPADDING', (0, 0), (-1, -1), 10),
     ]))
     elements.append(t)
 
-    # 4. ASSINATURAS
     elements.append(Spacer(1, 4*cm))
     assinatura_data = [
         ["_______________________________________", "_______________________________________"],
         ["Assinatura do Responsável", "Visto da Administração / Secretaria"]
     ]
     t_ass = Table(assinatura_data, colWidths=[8.5*cm, 8.5*cm])
-    t_ass.setStyle(TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.darkgrey),
-    ]))
+    t_ass.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER'), ('FONTSIZE', (0, 0), (-1, -1), 9)]))
     elements.append(t_ass)
 
-    # 5. RODAPÉ
-    elements.append(Spacer(1, 2.5*cm))
-    emissao = datetime.now().strftime("%d/%m/%Y às %H:%M")
-    footer = Paragraph(
-        f"<font color='grey' size='8'>Documento gerado pelo sistema <b>Gestor 360</b> em {emissao}.</font>", 
-        styles['Normal']
-    )
-    elements.append(footer)
-
     doc.build(elements, onFirstPage=on_page, onLaterPages=on_page)
-    
     buffer.seek(0)
     return buffer
 
@@ -346,3 +314,21 @@ def exportar_agenda():
         return redirect(url_for('solicitacao.painel_usuario'))
         
     return send_file(gerar_pdf_relatorio_consolidado(agendamentos, mes, ano), mimetype='application/pdf', as_attachment=True, download_name=f'Agenda_{mes}.pdf')
+
+@solicitacao_bp.route('/reimprimir/<int:id>')
+def reimprimir_comprovante(id):
+    # Busca a solicitação
+    sol = SolicitacaoVeiculo.query.get_or_404(id)
+    
+    if sol.status != 'Aprovada':
+        flash('Apenas solicitações aprovadas podem gerar comprovante.', 'warning')
+        return redirect(request.referrer or url_for('solicitacao.painel_usuario'))
+    
+    # Gera e envia o PDF usando a função robusta que criamos
+    pdf_buffer = gerar_pdf_autorizacao(sol)
+    return send_file(
+        pdf_buffer, 
+        mimetype='application/pdf', 
+        as_attachment=True, 
+        download_name=f'Comprovante_{sol.id}.pdf'
+    )

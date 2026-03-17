@@ -72,14 +72,34 @@
             </div>
         </div>
     </div>
-</div>
-<div class="row mt-5">
+
+    <div class="row mt-5">
         <div class="col-12">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center flex-wrap gap-3">
                     <h5 class="mb-0 text-primary"><i class="fas fa-list me-2"></i>Histórico Geral de Agendamentos</h5>
                     
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-2 align-items-center">
+                        <form action="{{ url_for('solicitacao.exportar_agenda') }}" method="POST" class="d-flex gap-2 border-end pe-3 me-2">
+                            <select name="mes_agenda" class="form-select form-select-sm" required>
+                                <option value="01">Janeiro</option>
+                                <option value="02">Fevereiro</option>
+                                <option value="03">Março</option>
+                                <option value="04">Abril</option>
+                                <option value="05">Maio</option>
+                                <option value="06">Junho</option>
+                                <option value="07">Julho</option>
+                                <option value="08">Agosto</option>
+                                <option value="09">Setembro</option>
+                                <option value="10">Outubro</option>
+                                <option value="11">Novembro</option>
+                                <option value="12">Dezembro</option>
+                            </select>
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-file-pdf me-1"></i>Agenda
+                            </button>
+                        </form>
+
                         <select id="filtro-mes" class="form-select form-select-sm" style="min-width: 140px;">
                             <option value="">Todos os Meses</option>
                             <option value="01">Janeiro</option>
@@ -115,6 +135,7 @@
                                     <th>Veículo</th>
                                     <th>Horário</th>
                                     <th>Responsável</th>
+                                    <th class="text-end pe-4">Ação</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -124,7 +145,7 @@
                                         {% if sol.status == 'Aprovada' %}
                                             <span class="badge bg-success">Aprovada</span>
                                         {% elif sol.status == 'Reprovada' %}
-                                            <span class="badge bg-danger">Reprovada</span>
+                                            <span class="badge bg-danger" title="{{ sol.justificativa }}">Reprovada</span>
                                         {% else %}
                                             <span class="badge bg-warning text-dark">Pendente</span>
                                         {% endif %}
@@ -134,10 +155,17 @@
                                     <td>{{ sol.veiculo_solicitado }}</td>
                                     <td><i class="far fa-clock text-muted me-1"></i> {{ sol.horario_saida.strftime('%H:%M') }} às {{ sol.horario_chegada.strftime('%H:%M') }}</td>
                                     <td>{{ sol.responsavel }}</td>
+                                    <td class="text-end pe-4">
+                                        {% if sol.status == 'Aprovada' %}
+                                            <a href="{{ url_for('solicitacao.reimprimir_comprovante', id=sol.id) }}" class="btn btn-sm btn-primary shadow-sm">
+                                                <i class="fas fa-print me-1"></i> Imprimir
+                                            </a>
+                                        {% endif %}
+                                    </td>
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="6" class="text-center py-4 text-muted">Nenhum agendamento encontrado no sistema.</td>
+                                    <td colspan="7" class="text-center py-4 text-muted">Nenhum agendamento encontrado no sistema.</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -147,16 +175,17 @@
             </div>
         </div>
     </div>
+</div>
+
 <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/pt-br.js'></script>
-
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <style>
     .card { border-radius: 12px; }
-    .form-control { border-radius: 8px; border: 1px solid #dee2e6; }
-    .btn-primary { border-radius: 8px; background-color: #0d6efd; }
+    .form-control, .form-select { border-radius: 8px; }
+    .btn-primary { border-radius: 8px; }
     #calendar { padding: 10px; }
     .fc .fc-toolbar-title { font-size: 1.2rem !important; }
 </style>
@@ -185,31 +214,20 @@
         const linhasTabela = document.querySelectorAll('#tabela-agendamentos tbody tr');
 
         function filtrarTabela() {
-            // Se os filtros não existirem na tela (ex: se a pessoa não tiver permissão de ver), a função para por aqui
             if (!filtroMes || !filtroSetor) return;
-
             const mesSelecionado = filtroMes.value;
             const setorSelecionado = filtroSetor.value.toLowerCase();
 
             linhasTabela.forEach(linha => {
-                // Pega os valores que deixamos escondidos nas tags "data-" de cada linha
                 const mesLinha = linha.getAttribute('data-mes');
                 const setorLinha = linha.getAttribute('data-setor') ? linha.getAttribute('data-setor').toLowerCase() : '';
-
-                // Verifica se a linha bate com o filtro escolhido (ou se o filtro está em "Todos")
                 const correspondeMes = (mesSelecionado === "" || mesLinha === mesSelecionado);
                 const correspondeSetor = (setorSelecionado === "" || setorLinha === setorSelecionado);
 
-                // Mostra ou esconde a linha
-                if (correspondeMes && correspondeSetor) {
-                    linha.style.display = '';
-                } else {
-                    linha.style.display = 'none';
-                }
+                linha.style.display = (correspondeMes && correspondeSetor) ? '' : 'none';
             });
         }
 
-        // Fica "escutando" as mudanças nos selects para rodar a função de filtro
         if (filtroMes && filtroSetor) {
             filtroMes.addEventListener('change', filtrarTabela);
             filtroSetor.addEventListener('change', filtrarTabela);
@@ -223,9 +241,8 @@
             document.addEventListener('DOMContentLoaded', function() {
                 {% for category, message in messages %}
                     Swal.fire({
-                        // Define o ícone com base na categoria da mensagem
                         icon: '{{ "error" if category == "danger" else "warning" if category == "warning" else "success" }}',
-                        title: '{{ "Ops, não foi possível!" if category in ["danger", "warning"] else "Tudo Certo!" }}',
+                        title: '{{ "Ops!" if category in ["danger", "warning"] else "Tudo Certo!" }}',
                         text: '{{ message }}',
                         confirmButtonText: 'Entendi',
                         confirmButtonColor: '#0d6efd'

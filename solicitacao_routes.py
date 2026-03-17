@@ -79,7 +79,7 @@ def gerar_pdf_autorizacao(solicitacao):
     # 2. TÍTULO E IDENTIFICAÇÃO
     titulo_style = ParagraphStyle(
         'TituloDoc', parent=styles['Title'], fontSize=16, 
-        textColor=colors.hexColor("#2c3e50"), spaceAfter=20
+        textColor=colors.HexColor("#2c3e50"), spaceAfter=20
     )
     elements.append(Paragraph(f"AUTORIZAÇÃO DE TRANSPORTE Nº {solicitacao.id:04d}", titulo_style))
 
@@ -363,7 +363,7 @@ def gerar_pdf_relatorio_consolidado(solicitacoes, mes, ano):
     # Estilo da Tabela de Relatório
     t = Table(data, colWidths=[2.5*cm, 4*cm, 4*cm, 4*cm, 3.5*cm, 8*cm])
     t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.hexColor("#0d6efd")),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#0d6efd")),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),

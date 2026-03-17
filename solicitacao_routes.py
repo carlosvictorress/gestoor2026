@@ -43,7 +43,9 @@ def transporte_admin_required(f):
 
 def gerar_pdf_autorizacao(solicitacao):
     buffer = io.BytesIO()
-    # Caminho absoluto para evitar erro no Docker
+    
+    # Tenta localizar o timbre na pasta static na raiz do projeto
+    # O root_path do Flask aponta para onde o app foi iniciado
     caminho_timbre = os.path.join(current_app.root_path, 'static', 'timbre.png')
     
     def on_page(canvas, doc):
@@ -55,19 +57,33 @@ def gerar_pdf_autorizacao(solicitacao):
         canvas.drawCentredString(0, 0, "APROVADO")
         canvas.restoreState()
 
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4,
+        rightMargin=1.5*cm, leftMargin=1.5*cm, 
+        topMargin=1.5*cm, bottomMargin=1.5*cm
+    )
+    
     elements = []
     styles = getSampleStyleSheet()
     
-    try:
-        img = Image(caminho_timbre, width=17*cm, height=2.5*cm)
-        elements.append(img)
-    except Exception:
+    # Validação de existência do arquivo para evitar Erro 500 no Docker
+    if os.path.exists(caminho_timbre):
+        try:
+            img = Image(caminho_timbre, width=17*cm, height=2.5*cm)
+            elements.append(img)
+        except Exception as e:
+            elements.append(Paragraph("<b>PREFEITURA DE VALENÇA DO PIAUÍ</b>", styles['Title']))
+    else:
+        # Fallback elegante se a imagem não for encontrada na raiz/static
         elements.append(Paragraph("<b>PREFEITURA DE VALENÇA DO PIAUÍ</b>", styles['Title']))
     
     elements.append(Spacer(1, 0.8*cm))
-    # Correção: HexColor com "H" maiúsculo
-    titulo_style = ParagraphStyle('Tit', parent=styles['Title'], fontSize=16, textColor=colors.HexColor("#2c3e50"), spaceAfter=20)
+
+    titulo_style = ParagraphStyle(
+        'Tit', parent=styles['Title'], fontSize=16, 
+        textColor=colors.HexColor("#2c3e50"), spaceAfter=20
+    )
     elements.append(Paragraph(f"AUTORIZAÇÃO DE TRANSPORTE Nº {solicitacao.id:04d}", titulo_style))
 
     data = [
@@ -110,10 +126,13 @@ def gerar_pdf_relatorio_consolidado(solicitacoes, mes, ano):
     elements = []
     styles = getSampleStyleSheet()
     
-    try:
-        img = Image(caminho_timbre, width=20*cm, height=2.5*cm)
-        elements.append(img)
-    except Exception:
+    if os.path.exists(caminho_timbre):
+        try:
+            img = Image(caminho_timbre, width=20*cm, height=2.5*cm)
+            elements.append(img)
+        except Exception:
+            elements.append(Paragraph("PREFEITURA DE VALENÇA DO PIAUÍ", styles['Title']))
+    else:
         elements.append(Paragraph("PREFEITURA DE VALENÇA DO PIAUÍ", styles['Title']))
     
     elements.append(Spacer(1, 0.5*cm))
@@ -186,7 +205,6 @@ def salvar_solicitacao():
     horario_saida_obj = datetime.strptime(horario_saida_str, '%H:%M').time()
     horario_chegada_obj = datetime.strptime(horario_chegada_str, '%H:%M').time()
 
-    # Validação de limite semanal
     inicio_semana = data_obj - timedelta(days=data_obj.weekday())
     fim_semana = inicio_semana + timedelta(days=6)
     dias_existentes = [d[0] for d in db.session.query(SolicitacaoVeiculo.data_solicitada).filter(
@@ -200,7 +218,6 @@ def salvar_solicitacao():
         flash('Limite de 2 dias por semana atingido.', 'warning')
         return redirect(url_for('solicitacao.painel_usuario'))
 
-    # Validação de conflito
     conflito = SolicitacaoVeiculo.query.filter(
         SolicitacaoVeiculo.data_solicitada == data_obj,
         SolicitacaoVeiculo.veiculo_solicitado == veiculo_escolhido,
@@ -267,7 +284,7 @@ def relatorio_mensal():
         flash(f'Sem dados para o mês {mes}.', 'warning')
         return redirect(url_for('solicitacao.painel_admin'))
         
-    return send_file(gerar_pdf_relatorio_consolidated(dados, mes, ano), mimetype='application/pdf', as_attachment=True, download_name=f'Relatorio_{mes}.pdf')
+    return send_file(gerar_pdf_relatorio_consolidado(dados, mes, ano), mimetype='application/pdf', as_attachment=True, download_name=f'Relatorio_{mes}.pdf')
 
 @solicitacao_bp.route('/admin/cadastrar-setor', methods=['GET', 'POST'])
 @system_login_required

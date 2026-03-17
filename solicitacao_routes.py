@@ -44,9 +44,9 @@ def transporte_admin_required(f):
 def gerar_pdf_autorizacao(solicitacao):
     buffer = io.BytesIO()
     
-    # Tenta localizar o timbre na pasta static na raiz do projeto
-    # O root_path do Flask aponta para onde o app foi iniciado
-    caminho_timbre = os.path.join(current_app.root_path, 'static', 'timbre.png')
+    # Caminho absoluto robusto para o ambiente Docker
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    caminho_timbre = os.path.join(base_dir, 'static', 'timbre.png')
     
     def on_page(canvas, doc):
         canvas.saveState()
@@ -57,6 +57,7 @@ def gerar_pdf_autorizacao(solicitacao):
         canvas.drawCentredString(0, 0, "APROVADO")
         canvas.restoreState()
 
+    # Configuração do Documento
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=A4,
@@ -67,32 +68,40 @@ def gerar_pdf_autorizacao(solicitacao):
     elements = []
     styles = getSampleStyleSheet()
     
-    # Validação de existência do arquivo para evitar Erro 500 no Docker
+    # Estilo base para as células da tabela (necessário para renderizar as tags <b>)
+    style_tabela = styles['Normal']
+    style_tabela.fontSize = 11
+
+    # 1. CABEÇALHO (TIMBRE)
     if os.path.exists(caminho_timbre):
         try:
             img = Image(caminho_timbre, width=17*cm, height=2.5*cm)
             elements.append(img)
         except Exception as e:
+            print(f"Erro ao processar imagem no ReportLab: {e}")
             elements.append(Paragraph("<b>PREFEITURA DE VALENÇA DO PIAUÍ</b>", styles['Title']))
     else:
-        # Fallback elegante se a imagem não for encontrada na raiz/static
+        # Se não encontrar o arquivo, coloca o texto para não dar erro 500
         elements.append(Paragraph("<b>PREFEITURA DE VALENÇA DO PIAUÍ</b>", styles['Title']))
     
     elements.append(Spacer(1, 0.8*cm))
 
+    # 2. TÍTULO
     titulo_style = ParagraphStyle(
         'Tit', parent=styles['Title'], fontSize=16, 
         textColor=colors.HexColor("#2c3e50"), spaceAfter=20
     )
     elements.append(Paragraph(f"AUTORIZAÇÃO DE TRANSPORTE Nº {solicitacao.id:04d}", titulo_style))
 
+    # 3. TABELA DE DADOS (USANDO PARAGRAPH EM TODAS AS CÉLULAS)
+    # Isso resolve o problema das tags <b> aparecendo como texto
     data = [
-        [Paragraph("<b>SETOR SOLICITANTE:</b>", styles['Normal']), solicitacao.setor.nome_setor],
-        [Paragraph("<b>RESPONSÁVEL:</b>", styles['Normal']), solicitacao.responsavel],
-        [Paragraph("<b>VEÍCULO AUTORIZADO:</b>", styles['Normal']), f"<b>{solicitacao.veiculo_solicitado}</b>"],
-        [Paragraph("<b>DATA DA VIAGEM:</b>", styles['Normal']), solicitacao.data_solicitada.strftime('%d/%m/%Y')],
-        [Paragraph("<b>HORÁRIO:</b>", styles['Normal']), f"{solicitacao.horario_saida.strftime('%H:%M')} às {solicitacao.horario_chegada.strftime('%H:%M')}"],
-        [Paragraph("<b>MOTIVO / DESTINO:</b>", styles['Normal']), solicitacao.motivo]
+        [Paragraph("<b>SETOR SOLICITANTE:</b>", style_tabela), Paragraph(solicitacao.setor.nome_setor, style_tabela)],
+        [Paragraph("<b>RESPONSÁVEL:</b>", style_tabela), Paragraph(solicitacao.responsavel, style_tabela)],
+        [Paragraph("<b>VEÍCULO AUTORIZADO:</b>", style_tabela), Paragraph(f"<b>{solicitacao.veiculo_solicitado}</b>", style_tabela)],
+        [Paragraph("<b>DATA DA VIAGEM:</b>", style_tabela), Paragraph(solicitacao.data_solicitada.strftime('%d/%m/%Y'), style_tabela)],
+        [Paragraph("<b>HORÁRIO:</b>", style_tabela), Paragraph(f"{solicitacao.horario_saida.strftime('%H:%M')} às {solicitacao.horario_chegada.strftime('%H:%M')}", style_tabela)],
+        [Paragraph("<b>MOTIVO / DESTINO:</b>", style_tabela), Paragraph(solicitacao.motivo, style_tabela)]
     ]
 
     t = Table(data, colWidths=[5*cm, 12*cm])
@@ -102,20 +111,35 @@ def gerar_pdf_autorizacao(solicitacao):
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('LEFTPADDING', (0, 0), (-1, -1), 10),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
     ]))
     elements.append(t)
 
+    # 4. ASSINATURAS
     elements.append(Spacer(1, 4*cm))
     assinatura_data = [
         ["_______________________________________", "_______________________________________"],
         ["Assinatura do Responsável", "Visto da Administração / Secretaria"]
     ]
     t_ass = Table(assinatura_data, colWidths=[8.5*cm, 8.5*cm])
-    t_ass.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER'), ('FONTSIZE', (0, 0), (-1, -1), 9)]))
+    t_ass.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.darkgrey),
+    ]))
     elements.append(t_ass)
 
+    # 5. RODAPÉ
+    elements.append(Spacer(1, 2.5*cm))
+    emissao = datetime.now().strftime("%d/%m/%Y às %H:%M")
+    footer = Paragraph(
+        f"<font color='grey' size='8'>Documento gerado pelo sistema <b>Gestor 360</b> em {emissao}.</font>", 
+        styles['Normal']
+    )
+    elements.append(footer)
+
     doc.build(elements, onFirstPage=on_page, onLaterPages=on_page)
+    
     buffer.seek(0)
     return buffer
 

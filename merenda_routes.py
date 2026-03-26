@@ -1422,7 +1422,7 @@ def pdf_termo_recebimento_pnae(entrega_id):
 
     # --- MONTAGEM DO STORY ---
     story = []
-    story.extend(gerar_conteudo_via("1ª VIA (SECRETARIA)"))
+    story.extend(gerar_conteudo_via("1ª VIA (ESCOLA)"))
     story.append(Spacer(1, 1*cm))
     story.append(Paragraph("----------------------------------------------------------------------------------------------------------------------------------", styles['Normal']))
     story.append(Spacer(1, 0.5*cm))

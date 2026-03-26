@@ -21,17 +21,50 @@
     </div>
 
     <div class="row g-3 mb-4">
-        {% for titulo, valor, cor in [('Valor Contratado', contrato.valor_total, 'primary'), ('Valor Executado', contrato.valor_executado, 'success'), ('Saldo a Executar', contrato.saldo, 'warning')] %}
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0 border-start border-4 border-{{ cor }}">
-                <div class="card-body py-3">
-                    <small class="text-uppercase text-muted fw-bold">{{ titulo }}</small>
-                    <h4 class="mb-0 text-{{ cor }} fw-bold">{{ valor | currency_br }}</h4>
-                </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 border-start border-4 border-primary">
+            <div class="card-body py-3">
+                <small class="text-uppercase text-muted fw-bold">Valor Contratado</small>
+                <h4 class="mb-0 text-primary fw-bold">{{ contrato.valor_total | currency_br }}</h4>
             </div>
         </div>
-        {% endfor %}
     </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 border-start border-4 border-success">
+            <div class="card-body py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-uppercase text-muted fw-bold">Valor Executado</small>
+                    <select id="filtro_mes_executado" class="form-select form-select-sm w-auto border-0 text-muted" style="font-size: 0.7rem; cursor: pointer;">
+                        <option value="total">TOTAL</option>
+                        <option value="1">Janeiro</option>
+                        <option value="2">Fevereiro</option>
+                        <option value="3">Março</option>
+                        <option value="4">Abril</option>
+                        <option value="5">Maio</option>
+                        <option value="6">Junho</option>
+                        <option value="7">Julho</option>
+                        <option value="8">Agosto</option>
+                        <option value="9">Setembro</option>
+                        <option value="10">Outubro</option>
+                        <option value="11">Novembro</option>
+                        <option value="12">Dezembro</option>
+                    </select>
+                </div>
+                <h4 class="mb-0 text-success fw-bold" id="display_valor_executado">{{ contrato.valor_executado | currency_br }}</h4>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 border-start border-4 border-warning">
+            <div class="card-body py-3">
+                <small class="text-uppercase text-muted fw-bold">Saldo a Executar</small>
+                <h4 class="mb-0 text-warning fw-bold">{{ contrato.saldo | currency_br }}</h4>
+            </div>
+        </div>
+    </div>
+</div>
 
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-header bg-white py-3">
@@ -211,4 +244,29 @@
         </form>
     </div>
 </div>
+<script>
+    // Aguarda a interação com o seletor de meses
+    document.getElementById('filtro_mes_executado').addEventListener('change', function() {
+        const mes = this.value;
+        const contratoId = "{{ contrato.id }}";
+        
+        // Exibe um efeito de carregamento simples (opcional)
+        document.getElementById('display_valor_executado').innerText = "...";
+
+        // Faz a chamada para a API no backend Python
+        fetch(`/merenda/agricultura/contrato/${contratoId}/valor_mensal?mes=${mes}`)
+            .then(response => {
+                if (!response.ok) throw new Error('Erro na rede');
+                return response.json();
+            })
+            .then(data => {
+                // Atualiza o valor no card de Valor Executado
+                document.getElementById('display_valor_executado').innerText = data.valor;
+            })
+            .catch(error => {
+                console.error('Erro ao buscar valor mensal:', error);
+                alert('Erro ao carregar o valor. Tente novamente.');
+            });
+    });
+</script>
 {% endblock %}

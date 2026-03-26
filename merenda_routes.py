@@ -7,9 +7,10 @@ import calendar
 from datetime import datetime, date, timedelta
 from functools import wraps
 
+
 # 2. Bibliotecas de Terceiros (Flask/SQLAlchemy/ReportLab)
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, make_response
-from sqlalchemy import or_, func
+from sqlalchemy import or_, func, extract
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
@@ -2173,3 +2174,22 @@ def clonar_entrega(entrega_id):
         flash(f'Erro ao clonar: {str(e)}', 'danger')
         
     return redirect(request.referrer)
+
+@merenda_bp.route('/agricultura/contrato/<int:contrato_id>/valor_mensal')
+@login_required
+def get_valor_executado_mensal(contrato_id):
+    # Pega o mês enviado pelo seletor do HTML
+    mes = request.args.get('mes')
+    
+    # Inicia a busca pelas entregas aprovadas deste contrato
+    query = EntregaPNAE.query.filter_by(contrato_id=contrato_id, status='Aprovado')
+    
+    if mes and mes != 'total':
+        # Filtra as entregas onde o mês da data_entrega corresponde ao selecionado
+        query = query.filter(func.extract('month', EntregaPNAE.data_entrega) == int(mes))
+    
+    # Soma o valor_total de todas as entregas filtradas
+    total = query.with_entities(func.sum(EntregaPNAE.valor_total)).scalar() or 0.0
+    
+    # Retorna o valor formatado como moeda brasileira (R$) para o card
+    return {"valor": currency_filter_br(total)}

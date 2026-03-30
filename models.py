@@ -876,10 +876,14 @@ class CaeeAluno(db.Model):
     cpf = db.Column(db.String(14), unique=True, nullable=True, index=True)
     escola_origem = db.Column(db.String(200), nullable=True) 
     
+    # --- NOVOS CAMPOS ESCOLARES ---
+    ano_escolar = db.Column(db.String(50), nullable=True) # Ex: 2º Ano Fundamental
+    turno = db.Column(db.String(20), nullable=True) # Manhã, Tarde ou Integral
+    
     # --- Lógica de Laudo ---
-    aluno_laudado = db.Column(db.Boolean, default=False) # Define se exibe campo CID
+    aluno_laudado = db.Column(db.Boolean, default=False) 
     cid_diagnostico = db.Column(db.String(20), nullable=True, index=True) 
-    necessidade_especifica = db.Column(db.String(200), nullable=True) # TEA, TDAH, etc.
+    necessidade_especifica = db.Column(db.String(200), nullable=True) 
     
     # --- Dados de Filiação / Contato ---
     nome_responsavel = db.Column(db.String(200), nullable=False)
@@ -890,20 +894,13 @@ class CaeeAluno(db.Model):
     status = db.Column(db.String(50), nullable=False, default='Em Avaliação')
     data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # --- Campos Ampliados (Novos) ---
-    # Armazena os profissionais selecionados (ex: Psicólogo, Assistente Social)
+    # --- Campos de Encaminhamento e Histórico ---
     profissionais_necessarios = db.Column(db.Text, nullable=True) 
-    
-    # Texto detalhado sobre o porquê do aluno chegar ao CAEE
     motivo_encaminhamento = db.Column(db.Text, nullable=True)
-    
-    # Histórico de AEE na escola regular
     atendimento_especializado_escola = db.Column(db.Text, nullable=True)
-    
-    # Histórico de saúde externo (CAPS, CRAS, Fono, Neuro, etc)
     historico_saude_externo = db.Column(db.Text, nullable=True)
 
-    # --- Campos de Texto Longo Existentes ---
+    # --- Campos de Texto Longo ---
     anamnese = db.Column(db.Text, nullable=True) 
     hipotese_diagnostica = db.Column(db.Text, nullable=True) 
     
@@ -914,7 +911,9 @@ class CaeeAluno(db.Model):
     planos = db.relationship('CaeePlanoAtendimento', backref='aluno', lazy=True, cascade="all, delete-orphan")
     laudos = db.relationship('CaeeLaudo', backref='aluno', lazy=True, cascade="all, delete-orphan")
     relatorios_periodicos = db.relationship('CaeeRelatorioPeriodico', backref='aluno', lazy=True, cascade="all, delete-orphan")
-    linha_tempo = db.relationship('CaeeLinhaTempo', backref='aluno_vinculado', lazy=True, cascade="all, delete-orphan")
+    
+    # A RELAÇÃO linha_tempo NÃO DEVE SER DECLARADA AQUI MANUALMENTE.
+    # Ela é criada automaticamente pelo backref definido na classe CaeeLinhaTempo.
 
 
 class CaeeProfissional(db.Model):
@@ -1050,10 +1049,15 @@ class CaeeLinhaTempo(db.Model):
     status = db.Column(db.String(50), default='Pendente') # Pendente, Em Andamento, Concluído
     observacao = db.Column(db.Text, nullable=True) # Motivo do encaminhamento
 
-    # Relacionamentos
-    aluno = db.relationship('CaeeAluno', backref='linha_tempo')
+    # --- RELACIONAMENTOS CORRIGIDOS ---
+    
+    # Esta linha cria o atributo '.aluno' aqui e injeta o atributo '.linha_tempo' no CaeeAluno automaticamente.
+    # O cascade garante que se o aluno for deletado, os eventos da linha do tempo dele também sejam.
+    aluno = db.relationship('CaeeAluno', backref=db.backref('linha_tempo', lazy=True, cascade="all, delete-orphan"))
+    
+    # Mantemos as chaves estrangeiras explícitas para os profissionais
     profissional_origem = db.relationship('CaeeProfissional', foreign_keys=[profissional_origem_id])
-    profissional_destino = db.relationship('CaeeProfissional', foreign_keys=[profissional_destino_id])    
+    profissional_destino = db.relationship('CaeeProfissional', foreign_keys=[profissional_destino_id])   
 
 
 class FiscalContrato(db.Model):

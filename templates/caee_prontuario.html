@@ -22,13 +22,17 @@
                 <h4 class="card-title mb-1">{{ aluno.nome_completo }}</h4>
                 <p class="text-muted small mb-2">Nascimento: {{ aluno.data_nascimento.strftime('%d/%m/%Y') }}</p>
                 
-                <div class="mb-2">
+                <div class="mb-3">
                     <span class="badge bg-{{ 'success' if aluno.status == 'Ativo' else 'warning' }}">{{ aluno.status }}</span>
+                    {% if aluno.aluno_laudado %}
+                        <span class="badge bg-info text-dark"><i class="bi bi-patch-check-fill"></i> Laudado</span>
+                    {% endif %}
                 </div>
 
                 <p class="mb-1"><strong>CPF:</strong> {{ aluno.cpf or '--' }}</p>
                 <p class="mb-1"><strong>Escola:</strong> {{ aluno.escola_origem or '--' }}</p>
-                <p class="mb-0"><strong>CID:</strong> {{ aluno.cid_diagnostico or '--' }}</p>
+                <p class="mb-1"><strong>Série/Ano:</strong> {{ aluno.ano_escolar or '--' }} ({{ aluno.turno or '--' }})</p>
+                <p class="mb-0"><strong>CID:</strong> <span class="badge bg-light text-dark border">{{ aluno.cid_diagnostico or 'N/A' }}</span></p>
             </div>
         </div>
 
@@ -37,9 +41,26 @@
                 <h5 class="mb-0">Contato e Filiação</h5>
             </div>
             <div class="card-body">
-                <p class="mb-1"><i class="bi bi-person"></i> {{ aluno.nome_responsavel }}</p>
-                <p class="mb-1"><i class="bi bi-telephone"></i> {{ aluno.telefone_responsavel }}</p>
-                <p class="mb-0"><i class="bi bi-geo-alt"></i> {{ aluno.endereco or 'Endereço não informado' }}</p>
+                <p class="mb-1"><i class="bi bi-person"></i> <strong>Responsável:</strong> {{ aluno.nome_responsavel }}</p>
+                <p class="mb-1"><i class="bi bi-telephone"></i> <strong>Telefone:</strong> {{ aluno.telefone_responsavel }}</p>
+                <p class="mb-0"><i class="bi bi-geo-alt"></i> <strong>Endereço:</strong> {{ aluno.endereco or 'Não informado' }}</p>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-3 border-start-4 border-info">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Equipe Multidisciplinar Necessária</h5>
+            </div>
+            <div class="card-body">
+                {% if aluno.profissionais_necessarios %}
+                    <div class="d-flex flex-wrap gap-1">
+                        {% for prof in aluno.profissionais_necessarios.split(', ') %}
+                            <span class="badge bg-info text-dark border">{{ prof }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted small mb-0">Nenhuma especialidade definida.</p>
+                {% endif %}
             </div>
         </div>
 
@@ -170,18 +191,41 @@
 
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-white">
-                <h5 class="mb-0">Dados Clínicos e Pedagógicos</h5>
+                <h5 class="mb-0">Histórico e Prontuário Detalhado</h5>
             </div>
             <div class="card-body">
-                <strong class="text-muted small">Necessidades Específicas:</strong>
-                <p class="mb-3">{{ aluno.necessidade_especifica or 'Não informado' }}</p>
-                
-                <strong class="text-muted small">Queixa / Hipótese:</strong>
-                <p class="mb-3 bg-light p-2 rounded small">{{ aluno.hipotese_diagnostica or 'Não preenchido' }}</p>
-                
-                <strong class="text-muted small">Anamnese:</strong>
-                <div class="bg-light p-2 rounded small" style="max-height: 100px; overflow-y: auto;">
-                    {{ aluno.anamnese or 'Não preenchido' }}
+                <div class="row">
+                    <div class="col-12 mb-3">
+                        <strong class="text-primary small d-block mb-1"><i class="bi bi-box-arrow-in-right"></i> Motivo do Encaminhamento:</strong>
+                        <p class="mb-0 bg-light p-2 rounded small border">{{ aluno.motivo_encaminhamento or 'Não informado.' }}</p>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <strong class="text-muted small d-block mb-1">AEE na Escola Regular:</strong>
+                        <p class="mb-0 small border-start ps-2">{{ aluno.atendimento_especializado_escola or 'Nenhum registro.' }}</p>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <strong class="text-muted small d-block mb-1">Histórico de Saúde Externo:</strong>
+                        <p class="mb-0 small border-start ps-2">{{ aluno.historico_saude_externo or 'Nenhum registro.' }}</p>
+                    </div>
+
+                    <div class="col-12 mb-3">
+                        <strong class="text-muted small d-block mb-1">Necessidades Específicas:</strong>
+                        <p class="mb-0">{{ aluno.necessidade_especifica or 'Não informado' }}</p>
+                    </div>
+                    
+                    <div class="col-12 mb-3">
+                        <strong class="text-muted small d-block mb-1">Queixa / Hipótese Diagnóstica:</strong>
+                        <p class="mb-0 bg-light p-2 rounded small border">{{ aluno.hipotese_diagnostica or 'Não preenchido' }}</p>
+                    </div>
+                    
+                    <div class="col-12">
+                        <strong class="text-muted small d-block mb-1">Anamnese (Histórico Familiar):</strong>
+                        <div class="bg-light p-2 rounded small border" style="max-height: 150px; overflow-y: auto;">
+                            {{ aluno.anamnese or 'Não preenchido' }}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -334,7 +378,8 @@
             </div>
         </div>
 
-    </div> </div>
+    </div>
+</div>
 
 <div class="modal fade" id="modalEncaminhar" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -395,14 +440,10 @@
 {% block scripts %}
 {{ super() }}
 <script>
-    // Quando o modal de exclusão é aberto...
     var modalConfirmarExclusao = document.getElementById('modalConfirmarExclusao');
     modalConfirmarExclusao.addEventListener('show.bs.modal', function (event) {
-        // Botão que acionou o modal
         var button = event.relatedTarget;
-        // Extrai a URL de exclusão do atributo data-url
         var urlExclusao = button.getAttribute('data-url');
-        // Atualiza o link do botão "Sim, Excluir" dentro do modal
         var btnConfirmar = modalConfirmarExclusao.querySelector('#btnConfirmarExclusaoLink');
         btnConfirmar.setAttribute('href', urlExclusao);
     });

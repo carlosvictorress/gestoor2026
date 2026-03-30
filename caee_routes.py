@@ -69,6 +69,10 @@ def adicionar_aluno():
         try:
             secretaria_id_logada = session.get('secretaria_id')
             data_nasc_str = request.form.get('data_nascimento')
+            
+            # Captura a lista de profissionais selecionados no formulário
+            profissionais_lista = request.form.getlist('profissionais_necessarios')
+            profissionais_str = ", ".join(profissionais_lista) if profissionais_lista else None
 
             novo_aluno = CaeeAluno(
                 nome_completo=request.form.get('nome_completo'),
@@ -78,30 +82,43 @@ def adicionar_aluno():
                 telefone_responsavel=request.form.get('telefone_responsavel'),
                 endereco=request.form.get('endereco'),
                 status=request.form.get('status'),
-                hipotese_diagnostica=request.form.get('hipotese_diagnostica'),
-                anamnese=request.form.get('anamnese'),
                 secretaria_id=secretaria_id_logada,
                 escola_origem=request.form.get('escola_origem'),
-                cid_diagnostico=request.form.get('cid_diagnostico'),
-                necessidade_especifica=request.form.get('necessidade_especifica')
+                necessidade_especifica=request.form.get('necessidade_especifica'),
+                
+                # --- NOVOS CAMPOS ATUALIZADOS ---
+                aluno_laudado=request.form.get('aluno_laudado') == 'true',
+                cid_diagnostico=request.form.get('cid_diagnostico') if request.form.get('aluno_laudado') == 'true' else None,
+                profissionais_necessarios=profissionais_str,
+                motivo_encaminhamento=request.form.get('motivo_encaminhamento'),
+                atendimento_especializado_escola=request.form.get('atendimento_especializado_escola'),
+                historico_saude_externo=request.form.get('historico_saude_externo'),
+                
+                # Campos de texto longo existentes
+                hipotese_diagnostica=request.form.get('hipotese_diagnostica'),
+                anamnese=request.form.get('anamnese')
             )
-            db.session.add(novo_aluno)
-            db.session.flush() 
             
+            db.session.add(novo_aluno)
+            db.session.flush() # Para gerar o ID do aluno antes do commit
+            
+            # Registra o evento na Linha do Tempo
             evento = CaeeLinhaTempo(
                 aluno_id=novo_aluno.id,
                 etapa="Cadastro Inicial",
                 status="Concluído",
-                observacao="Aluno cadastrado no sistema."
+                observacao="Aluno cadastrado no sistema com prontuário completo."
             )
             db.session.add(evento)
             
             db.session.commit()
             flash(f'Aluno "{novo_aluno.nome_completo}" cadastrado com sucesso!', 'success')
             return redirect(url_for('caee.dashboard'))
+            
         except Exception as e:
             db.session.rollback()
             flash(f'Erro ao cadastrar aluno: {e}', 'danger')
+            
     return render_template('caee_aluno_form.html')
 
 @caee_bp.route('/aluno/<int:aluno_id>/editar', methods=['GET', 'POST'])
@@ -112,6 +129,12 @@ def editar_aluno(aluno_id):
     if request.method == 'POST':
         try:
             dn = request.form.get('data_nascimento')
+            
+            # Captura a lista de profissionais selecionados e converte para string
+            profissionais_lista = request.form.getlist('profissionais_necessarios')
+            profissionais_str = ", ".join(profissionais_lista) if profissionais_lista else None
+
+            # Atualização dos campos básicos
             aluno.nome_completo = request.form.get('nome_completo')
             aluno.data_nascimento = datetime.strptime(dn, '%Y-%m-%d').date() if dn else None
             aluno.cpf = request.form.get('cpf')
@@ -119,17 +142,34 @@ def editar_aluno(aluno_id):
             aluno.telefone_responsavel = request.form.get('telefone_responsavel')
             aluno.endereco = request.form.get('endereco')
             aluno.status = request.form.get('status')
+            aluno.escola_origem = request.form.get('escola_origem')
+            aluno.necessidade_especifica = request.form.get('necessidade_especifica')
+            
+            # --- ATUALIZAÇÃO DOS NOVOS CAMPOS ---
+            aluno.aluno_laudado = request.form.get('aluno_laudado') == 'true'
+            # Se não for laudado, limpamos o CID no banco de dados
+            if aluno.aluno_laudado:
+                aluno.cid_diagnostico = request.form.get('cid_diagnostico')
+            else:
+                aluno.cid_diagnostico = None
+                
+            aluno.profissionais_necessarios = profissionais_str
+            aluno.motivo_encaminhamento = request.form.get('motivo_encaminhamento')
+            aluno.atendimento_especializado_escola = request.form.get('atendimento_especializado_escola')
+            aluno.historico_saude_externo = request.form.get('historico_saude_externo')
+            
+            # Campos de texto longo existentes
             aluno.hipotese_diagnostica = request.form.get('hipotese_diagnostica')
             aluno.anamnese = request.form.get('anamnese')
-            aluno.escola_origem = request.form.get('escola_origem')
-            aluno.cid_diagnostico = request.form.get('cid_diagnostico')
-            aluno.necessidade_especifica = request.form.get('necessidade_especifica')
+            
             db.session.commit()
-            flash('Prontuário atualizado!', 'success')
+            flash('Prontuário atualizado com sucesso!', 'success')
             return redirect(url_for('caee.prontuario_aluno', aluno_id=aluno_id))
+            
         except Exception as e:
             db.session.rollback()
-            flash(f'Erro: {e}', 'danger')
+            flash(f'Erro ao atualizar prontuário: {e}', 'danger')
+            
     return render_template('caee_aluno_form.html', aluno=aluno)
 
 # ==========================================================

@@ -41,8 +41,15 @@
                     <input type="text" class="form-control" id="escola_origem" name="escola_origem" value="{{ aluno.escola_origem if aluno }}" placeholder="Ex: U. E. Dona Antonieta">
                 </div>
                 <div class="col-md-3">
+                    <label for="aluno_laudado" class="form-label">Aluno Laudado?*</label>
+                    <select id="aluno_laudado" name="aluno_laudado" class="form-select" onchange="toggleCID()" required>
+                        <option value="false" {% if aluno and not aluno.aluno_laudado %}selected{% endif %}>Não</option>
+                        <option value="true" {% if (aluno and aluno.aluno_laudado) %}selected{% endif %}>Sim</option>
+                    </select>
+                </div>
+                <div class="col-md-3" id="campo_cid" style="display: {% if aluno and aluno.aluno_laudado %}block{% else %}none{% endif %};">
                     <label for="cid_diagnostico" class="form-label">CID (Diagnóstico)</label>
-                    <input type="text" class="form-control" id="cid_diagnostico" name="cid_diagnostico" value="{{ aluno.cid_diagnostico if aluno }}" placeholder="Ex: F84.0 (Autismo)">
+                    <input type="text" class="form-control" id="cid_diagnostico" name="cid_diagnostico" value="{{ aluno.cid_diagnostico if aluno }}" placeholder="Ex: F84.0">
                 </div>
                 <div class="col-md-3">
                     <label for="status" class="form-label">Status*</label>
@@ -71,19 +78,48 @@
                 </div>
             </div>
 
-            <h5 class="text-muted mb-3">3. Prontuário Pedagógico</h5>
+            <h5 class="text-muted mb-3">3. Encaminhamento e Equipe Necessária</h5>
+            <div class="row g-3 mb-3">
+                <div class="col-md-12">
+                    <label class="form-label">Profissionais Necessários para este Aluno:</label><br>
+                    <div class="d-flex flex-wrap gap-3 p-3 border rounded bg-light">
+                        {% set profs_opcoes = ['Assistente Social', 'Psicólogo', 'Psicopedagogo', 'Professor de AEE', 'Professor de Libras', 'Assessoria Jurídica', 'Professor de Braille'] %}
+                        {% for item in profs_opcoes %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="profissionais_necessarios" value="{{ item }}" id="check_{{ loop.index }}"
+                            {% if aluno and aluno.profissionais_necessarios and item in aluno.profissionais_necessarios %}checked{% endif %}>
+                            <label class="form-check-label" for="check_{{ loop.index }}">{{ item }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <label for="motivo_encaminhamento" class="form-label">Motivo do Encaminhamento ao CAEE</label>
+                    <textarea class="form-control" id="motivo_encaminhamento" name="motivo_encaminhamento" rows="2" placeholder="Descreva o motivo pelo qual o aluno foi enviado ao centro...">{{ aluno.motivo_encaminhamento if aluno else '' }}</textarea>
+                </div>
+            </div>
+
+            <h5 class="text-muted mb-3">4. Prontuário Pedagógico e Histórico</h5>
             <div class="row g-3 mb-3">
                 <div class="col-md-12">
                     <label for="necessidade_especifica" class="form-label">Necessidades Específicas</label>
                     <input type="text" class="form-control" id="necessidade_especifica" name="necessidade_especifica" value="{{ aluno.necessidade_especifica if aluno }}" placeholder="Ex: TEA, TDAH, DI, DF, Surdez, Altas Habilidades...">
                 </div>
                 <div class="col-md-12">
+                    <label for="atendimento_especializado_escola" class="form-label">Já possui Atendimento Especializado na própria escola? (Se sim, descreva)</label>
+                    <textarea class="form-control" id="atendimento_especializado_escola" name="atendimento_especializado_escola" rows="2">{{ aluno.atendimento_especializado_escola if aluno else '' }}</textarea>
+                </div>
+                <div class="col-md-12">
+                    <label for="historico_saude_externo" class="form-label">Já foi atendido por especialistas externos (Saúde, CAPS, CRAS, Neuro, etc)? (Se sim, descreva)</label>
+                    <textarea class="form-control" id="historico_saude_externo" name="historico_saude_externo" rows="2">{{ aluno.historico_saude_externo if aluno else '' }}</textarea>
+                </div>
+                <div class="col-md-12">
                     <label for="hipotese_diagnostica" class="form-label mt-2">Hipótese Diagnóstica / Queixa Principal</label>
-                    <textarea class="form-control" id="hipotese_diagnostica" name="hipotese_diagnostica" rows="3" placeholder="Descreva a queixa principal, motivo do encaminhamento ou diagnósticos/laudos existentes...">{{ aluno.hipotese_diagnostica if aluno else '' }}</textarea>
+                    <textarea class="form-control" id="hipotese_diagnostica" name="hipotese_diagnostica" rows="3">{{ aluno.hipotese_diagnostica if aluno else '' }}</textarea>
                 </div>
                 <div class="col-md-12">
                     <label for="anamnese" class="form-label mt-2">Anamnese (Entrevista com a família)</label>
-                    <textarea class="form-control" id="anamnese" name="anamnese" rows="8" placeholder="Registre aqui o histórico gestacional, desenvolvimento neuropsicomotor, histórico de saúde, etc...">{{ aluno.anamnese if aluno else '' }}</textarea>
+                    <textarea class="form-control" id="anamnese" name="anamnese" rows="8">{{ aluno.anamnese if aluno else '' }}</textarea>
                 </div>
             </div>
 
@@ -100,5 +136,18 @@
         </form>
     </div>
 </div>
+
+<script>
+function toggleCID() {
+    var select = document.getElementById('aluno_laudado');
+    var campoCid = document.getElementById('campo_cid');
+    if (select.value === 'true') {
+        campoCid.style.display = 'block';
+    } else {
+        campoCid.style.display = 'none';
+        document.getElementById('cid_diagnostico').value = '';
+    }
+}
+</script>
 
 {% endblock %}

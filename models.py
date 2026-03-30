@@ -874,9 +874,12 @@ class CaeeAluno(db.Model):
     nome_completo = db.Column(db.String(200), nullable=False, index=True)
     data_nascimento = db.Column(db.Date, nullable=False)
     cpf = db.Column(db.String(14), unique=True, nullable=True, index=True)
-    escola_origem = db.Column(db.String(200), nullable=True) # "Dados Escolares"
-    cid_diagnostico = db.Column(db.String(20), nullable=True, index=True) # "CID / diagnóstico"
-    necessidade_especifica = db.Column(db.String(200), nullable=True) # "TEA, TDAH, etc."
+    escola_origem = db.Column(db.String(200), nullable=True) 
+    
+    # --- Lógica de Laudo ---
+    aluno_laudado = db.Column(db.Boolean, default=False) # Define se exibe campo CID
+    cid_diagnostico = db.Column(db.String(20), nullable=True, index=True) 
+    necessidade_especifica = db.Column(db.String(200), nullable=True) # TEA, TDAH, etc.
     
     # --- Dados de Filiação / Contato ---
     nome_responsavel = db.Column(db.String(200), nullable=False)
@@ -884,29 +887,34 @@ class CaeeAluno(db.Model):
     endereco = db.Column(db.String(300))
     
     # --- Dados do Prontuário ---
-    status = db.Column(db.String(50), nullable=False, default='Em Avaliação') # Ex: Em Avaliação, Ativo, Fila de Espera, Desligado
+    status = db.Column(db.String(50), nullable=False, default='Em Avaliação')
     data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Formulário longo para a entrevista com a família
-    anamnese = db.Column(db.Text, nullable=True) 
+    # --- Campos Ampliados (Novos) ---
+    # Armazena os profissionais selecionados (ex: Psicólogo, Assistente Social)
+    profissionais_necessarios = db.Column(db.Text, nullable=True) 
     
-    # Campo para a(s) hipótese(s) diagnóstica(s)
+    # Texto detalhado sobre o porquê do aluno chegar ao CAEE
+    motivo_encaminhamento = db.Column(db.Text, nullable=True)
+    
+    # Histórico de AEE na escola regular
+    atendimento_especializado_escola = db.Column(db.Text, nullable=True)
+    
+    # Histórico de saúde externo (CAPS, CRAS, Fono, Neuro, etc)
+    historico_saude_externo = db.Column(db.Text, nullable=True)
+
+    # --- Campos de Texto Longo Existentes ---
+    anamnese = db.Column(db.Text, nullable=True) 
     hipotese_diagnostica = db.Column(db.Text, nullable=True) 
     
-    # Relacionamento com a Secretaria (para seu sistema multi-secretaria)
+    # --- Relacionamentos ---
     secretaria_id = db.Column(db.Integer, db.ForeignKey('secretaria.id'), nullable=False)
     secretaria = db.relationship('Secretaria', backref='alunos_caee')
     
     planos = db.relationship('CaeePlanoAtendimento', backref='aluno', lazy=True, cascade="all, delete-orphan")
-    
-    # Req #3: Laudos, pareceres, relatórios anexados
     laudos = db.relationship('CaeeLaudo', backref='aluno', lazy=True, cascade="all, delete-orphan")
-    # Req #6: Evolução pedagógica por período
     relatorios_periodicos = db.relationship('CaeeRelatorioPeriodico', backref='aluno', lazy=True, cascade="all, delete-orphan")
-
-    # (Futuramente, adicionaremos laudos e planos aqui)
-    # laudos = db.relationship('CaeeLaudo', backref='aluno', lazy=True, cascade="all, delete-orphan")
-    # plano = db.relationship('CaeePlanoAtendimento', backref='aluno', uselist=False, cascade="all, delete-orphan")
+    linha_tempo = db.relationship('CaeeLinhaTempo', backref='aluno_vinculado', lazy=True, cascade="all, delete-orphan")
 
 
 class CaeeProfissional(db.Model):

@@ -27,7 +27,8 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    
+    <div class="col-md-4" data-bs-toggle="modal" data-bs-target="#modalFilaEspera" style="cursor: pointer;">
         <div class="card text-white bg-warning shadow-sm h-100">
             <div class="card-body d-flex justify-content-between align-items-center">
                 <div>
@@ -38,6 +39,7 @@
             </div>
         </div>
     </div>
+
     <div class="col-md-4">
         <div class="card text-white bg-info shadow-sm h-100">
             <div class="card-body d-flex justify-content-between align-items-center">
@@ -127,6 +129,64 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalFilaEspera" tabindex="-1" aria-labelledby="modalFilaEsperaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow-lg">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title fw-bold" id="modalFilaEsperaLabel">
+                    <i class="bi bi-hourglass-split"></i> Alunos em Fila de Espera
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Nome do Aluno</th>
+                                <th>Profissionais Solicitados</th>
+                                <th class="text-center pe-3">Ver Prontuário</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for aluno in lista_fila_espera %}
+                            <tr>
+                                <td class="ps-3 fw-bold">{{ aluno.nome_completo }}</td>
+                                <td>
+                                    {% if aluno.profissionais_necessarios %}
+                                        <div class="d-flex flex-wrap gap-1">
+                                            {% for prof in aluno.profissionais_necessarios.split(', ') %}
+                                                <span class="badge bg-light text-dark border" style="font-size: 0.75rem;">{{ prof }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted small">Não especificado</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center pe-3">
+                                    <a href="{{ url_for('caee.prontuario_aluno', aluno_id=aluno.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-search"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted italic">
+                                    Nenhum aluno em fila de espera no momento.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
         </div>
     </div>
 </div>

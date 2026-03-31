@@ -44,10 +44,13 @@
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="fw-bold text-dark mb-0"><i class="bi bi-grid-1x2-fill me-2 text-primary"></i>Dashboard CAEE</h2>
+            <h2 class="fw-bold text-dark mb-0"><i class="bi bi-heart-pulse-fill me-2 text-primary"></i>Dashboard do CAEE</h2>
             <p class="text-muted">Gestão Multidisciplinar Especializada</p>
         </div>
         <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-primary px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalCadastrarEscola">
+                <i class="bi bi-bank me-2"></i>Nova Escola
+            </button>
             <a href="{{ url_for('caee.adicionar_aluno') }}" class="btn btn-primary px-4 shadow-sm">
                 <i class="bi bi-person-plus-fill me-2"></i>Novo Aluno
             </a>
@@ -142,7 +145,7 @@
                     </thead>
                     <tbody>
                         {% for aluno in ultimos_alunos %}
-                        <tr class="animate__animated animate__fadeIn">
+                        <tr>
                             <td class="ps-4">
                                 <div class="d-flex align-items-center">
                                     <div class="avatar-sm me-3 bg-primary-light rounded-circle text-primary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; background: #e7f1ff;">
@@ -172,14 +175,50 @@
                         {% else %}
                         <tr>
                             <td colspan="5" class="text-center py-5">
-                                <img src="https://illustrations.popsy.co/gray/no-results.svg" alt="Sem dados" style="width: 150px;" class="mb-3">
-                                <p class="text-muted">Nenhum registro encontrado para esta pesquisa.</p>
+                                <p class="text-muted">Nenhum registro encontrado.</p>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalCadastrarEscola" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header bg-primary text-white border-0 p-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-bank me-2"></i>Cadastrar Nova Escola</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('caee.cadastrar_escola_rapida') }}">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase">Nome da Escola*</label>
+                        <input type="text" name="nome_escola" class="form-control rounded-pill border-light bg-light" placeholder="Ex: Escola Municipal João Paulo II" required>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold small text-uppercase">Código INEP</label>
+                            <input type="text" name="inep" class="form-control rounded-pill border-light bg-light" placeholder="00000000">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold small text-uppercase">Diretor Responsável</label>
+                            <input type="text" name="diretor" class="form-control rounded-pill border-light bg-light" placeholder="Nome do Gestor">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase">Endereço Completo</label>
+                        <input type="text" name="endereco_escola" class="form-control rounded-pill border-light bg-light" placeholder="Rua, Número, Bairro">
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-3 bg-light">
+                    <button type="button" class="btn btn-white rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Salvar Escola</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -198,7 +237,6 @@
                         <input type="text" id="inputBuscaModal" class="form-control border-start-0 ps-0" placeholder="Filtrar por nome do aluno...">
                     </div>
                 </div>
-                
                 <div class="table-responsive" style="max-height: 400px;">
                     <table class="table table-hover align-middle mb-0" id="tabelaFilaEspera">
                         <thead class="table-light sticky-top">
@@ -249,10 +287,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const tabela = document.getElementById('tabelaFilaEspera');
     const linhas = tabela.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
 
-    // Filtro instantâneo em tempo real
     inputBusca.addEventListener('keyup', function() {
         const termo = inputBusca.value.toLowerCase();
-
         for (let i = 0; i < linhas.length; i++) {
             const nomeAluno = linhas[i].getElementsByTagName('td')[0];
             if (nomeAluno) {
@@ -262,7 +298,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Reseta o filtro ao fechar o modal
     const modalFila = document.getElementById('modalFilaEspera');
     modalFila.addEventListener('hidden.bs.modal', function () {
         inputBusca.value = "";

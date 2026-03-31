@@ -692,3 +692,28 @@ def excluir_evento_linha_tempo(evento_id):
         flash(f'Erro ao excluir evento: {e}', 'danger')
         
     return redirect(url_for('caee.prontuario_aluno', aluno_id=aluno_id))
+
+@caee_bp.route('/escola/rapida', methods=['POST'])
+@login_required
+@role_required('admin', 'RH', 'CAEE')
+def cadastrar_escola_rapida():
+    try:
+        secretaria_id_logada = session.get('secretaria_id')
+        from models import Escola # Importação segura
+        
+        nova_escola = Escola(
+            nome=request.form.get('nome_escola'),
+            codigo_inep=request.form.get('inep'), # Ajustado para o nome da sua coluna
+            endereco=request.form.get('endereco_escola'),
+            diretor_responsavel=request.form.get('diretor'), # Ajustado para a nova coluna
+            secretaria_id=secretaria_id_logada,
+            status="Ativa"
+        )
+        db.session.add(nova_escola)
+        db.session.commit()
+        flash(f'Escola {nova_escola.nome} cadastrada com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao cadastrar escola: {e}', 'danger')
+    
+    return redirect(request.referrer or url_for('caee.dashboard'))

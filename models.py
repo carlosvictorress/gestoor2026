@@ -435,13 +435,19 @@ class Escola(db.Model):
     endereco = db.Column(db.String(300))
     telefone = db.Column(db.String(20))
     
-    zona = db.Column(db.String(20)) # Adicione esta linha
+    zona = db.Column(db.String(20)) 
 
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)
 
     diretor_cpf = db.Column(db.String(14), db.ForeignKey("servidor.cpf"))
     responsavel_merenda_cpf = db.Column(db.String(14), db.ForeignKey("servidor.cpf"))
+    
+    # --- NOVOS CAMPOS PARA COMPATIBILIDADE ---
+    diretor_responsavel = db.Column(db.String(200)) # Nome em texto para o cadastro rápido
+    secretaria_id = db.Column(db.Integer, db.ForeignKey('secretaria.id'), nullable=True) # Essencial para o Gestor 360
+    # -----------------------------------------
+
     status = db.Column(
         db.String(20), nullable=False, default="Ativa"
     )  # Ativa / Inativa
@@ -450,7 +456,8 @@ class Escola(db.Model):
     responsavel_merenda = db.relationship(
         "Servidor", foreign_keys=[responsavel_merenda_cpf]
     )
-
+    # Relação com a secretaria
+    secretaria = db.relationship('Secretaria', backref='escolas_vinculadas')
 
 class ProdutoMerenda(db.Model):
     __tablename__ = 'produto_merenda'

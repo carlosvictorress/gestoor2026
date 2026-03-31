@@ -3,180 +3,228 @@
 {% block title %}Dashboard - CAEE{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-heart-pulse-fill"></i> Dashboard do CAEE</h2>
-    <div>
-        <a href="{{ url_for('caee.adicionar_aluno') }}" class="btn btn-primary">
-            <i class="bi bi-person-plus-fill"></i> Novo Aluno
-        </a>
-        <a href="{{ url_for('caee.listar_profissionais') }}" class="btn btn-info">
-            <i class="bi bi-person-badge"></i> Equipe Técnica
-        </a>
-    </div>
-</div>
+<style>
+    /* Animações e Estilos Premium */
+    .dashboard-card {
+        transition: all 0.3s ease;
+        border: none;
+        border-radius: 15px;
+        overflow: hidden;
+    }
+    .dashboard-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+    }
+    .icon-shape {
+        width: 60px;
+        height: 60px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .search-container {
+        border-radius: 20px;
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        transition: all 0.3s ease;
+    }
+    .search-container:focus-within {
+        box-shadow: 0 0 0 0.25 cold-primary-light;
+        border-color: #0d6efd;
+    }
+    .status-badge {
+        padding: 0.5em 1em;
+        border-radius: 30px;
+        font-weight: 500;
+    }
+</style>
 
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card text-white bg-success shadow-sm h-100">
-            <div class="card-body d-flex justify-content-between align-items-center">
-                <div>
-                    <h6 class="card-title mb-0">Alunos Ativos</h6>
-                    <span class="fs-3 fw-bold">{{ alunos_ativos }}</span>
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-dark mb-0"><i class="bi bi-grid-1x2-fill me-2 text-primary"></i>Dashboard CAEE</h2>
+            <p class="text-muted">Gestão Multidisciplinar Especializada</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('caee.adicionar_aluno') }}" class="btn btn-primary px-4 shadow-sm">
+                <i class="bi bi-person-plus-fill me-2"></i>Novo Aluno
+            </a>
+            <a href="{{ url_for('caee.listar_profissionais') }}" class="btn btn-white border px-4 shadow-sm">
+                <i class="bi bi-person-badge me-2"></i>Equipe Técnica
+            </a>
+        </div>
+    </div>
+
+    <div class="row mb-4 g-4">
+        <div class="col-md-4">
+            <div class="card dashboard-card text-white bg-primary shadow-sm h-100" style="background: linear-gradient(45deg, #0d6efd, #0dcaf0) !important;">
+                <div class="card-body d-flex justify-content-between align-items-center p-4">
+                    <div>
+                        <h6 class="text-uppercase opacity-75 small fw-bold">Alunos Ativos</h6>
+                        <span class="display-5 fw-bold">{{ alunos_ativos }}</span>
+                    </div>
+                    <div class="icon-shape">
+                        <i class="bi bi-person-check-fill fs-2"></i>
+                    </div>
                 </div>
-                <i class="bi bi-person-check-fill fs-1 opacity-50"></i>
+            </div>
+        </div>
+        
+        <div class="col-md-4" data-bs-toggle="modal" data-bs-target="#modalFilaEspera" style="cursor: pointer;">
+            <div class="card dashboard-card text-white bg-warning shadow-sm h-100" style="background: linear-gradient(45deg, #f59e0b, #fbbf24) !important;">
+                <div class="card-body d-flex justify-content-between align-items-center p-4">
+                    <div>
+                        <h6 class="text-uppercase opacity-75 small fw-bold">Fila de Espera</h6>
+                        <span class="display-5 fw-bold">{{ alunos_em_espera }}</span>
+                        <div class="small mt-2"><i class="bi bi-info-circle me-1"></i>Clique para ver detalhes</div>
+                    </div>
+                    <div class="icon-shape">
+                        <i class="bi bi-hourglass-split fs-2"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card dashboard-card text-white bg-dark shadow-sm h-100" style="background: linear-gradient(45deg, #1f2937, #4b5563) !important;">
+                <div class="card-body d-flex justify-content-between align-items-center p-4">
+                    <div>
+                        <h6 class="text-uppercase opacity-75 small fw-bold">Corpo Técnico</h6>
+                        <span class="display-5 fw-bold">{{ profissionais_ativos }}</span>
+                    </div>
+                    <div class="icon-shape">
+                        <i class="bi bi-shield-check fs-2"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    
-    <div class="col-md-4" data-bs-toggle="modal" data-bs-target="#modalFilaEspera" style="cursor: pointer;">
-        <div class="card text-white bg-warning shadow-sm h-100">
-            <div class="card-body d-flex justify-content-between align-items-center">
-                <div>
-                    <h6 class="card-title mb-0">Fila de Espera</h6>
-                    <span class="fs-3 fw-bold">{{ alunos_em_espera }}</span>
+
+    <div class="card border-0 shadow-sm mb-4" style="border-radius: 15px;">
+        <div class="card-body p-3">
+            <form method="GET" action="{{ url_for('caee.dashboard') }}" class="row g-2">
+                <div class="col-md-10">
+                    <div class="input-group search-container">
+                        <span class="input-group-text bg-transparent border-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" class="form-control border-0 shadow-none" 
+                               id="termo" name="termo" 
+                               placeholder="Buscar aluno por Nome ou CPF..." 
+                               value="{{ request.args.get('termo', '') }}">
+                    </div>
                 </div>
-                <i class="bi bi-hourglass-split fs-1 opacity-50"></i>
-            </div>
+                <div class="col-md-2 d-grid">
+                    <button type="submit" class="btn btn-primary rounded-pill">Buscar</button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <div class="col-md-4">
-        <div class="card text-white bg-info shadow-sm h-100">
-            <div class="card-body d-flex justify-content-between align-items-center">
-                <div>
-                    <h6 class="card-title mb-0">Profissionais</h6>
-                    <span class="fs-3 fw-bold">{{ profissionais_ativos }}</span>
-                </div>
-                <i class="bi bi-clipboard-data-fill fs-1 opacity-50"></i>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="card shadow-sm mb-4 border-primary">
-    <div class="card-body">
-        <form method="GET" action="{{ url_for('caee.dashboard') }}" class="row g-2 align-items-center">
-            <div class="col-auto flex-grow-1">
-                <label class="visually-hidden" for="termo">Buscar Aluno</label>
-                <div class="input-group">
-                    <span class="input-group-text bg-white text-muted"><i class="bi bi-search"></i></span>
-                    <input type="text" class="form-control form-control-lg border-start-0 ps-0" 
-                           id="termo" name="termo" 
-                           placeholder="Buscar aluno por Nome ou CPF..." 
-                           value="{{ request.args.get('termo', '') }}">
-                </div>
-            </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-primary btn-lg">Buscar</button>
-            </div>
+    <div class="card border-0 shadow-sm" style="border-radius: 15px;">
+        <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold text-secondary"><i class="bi bi-list-stars me-2"></i>{{ titulo_tabela }}</h5>
             {% if request.args.get('termo') %}
-            <div class="col-auto">
-                <a href="{{ url_for('caee.dashboard') }}" class="btn btn-outline-secondary btn-lg">Limpar</a>
-            </div>
+                <a href="{{ url_for('caee.dashboard') }}" class="btn btn-sm btn-light text-danger rounded-pill px-3">Limpar Busca</a>
             {% endif %}
-        </form>
-    </div>
-</div>
-
-<div class="card shadow-sm">
-    <div class="card-header bg-white">
-        <h5 class="mb-0 text-secondary">{{ titulo_tabela }}</h5>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>Nome do Aluno</th>
-                        <th>Responsável</th>
-                        <th>Telefone</th>
-                        <th>Status</th>
-                        <th class="text-center">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for aluno in ultimos_alunos %}
-                    <tr>
-                        <td class="fw-bold text-primary">{{ aluno.nome_completo }}</td>
-                        <td>{{ aluno.nome_responsavel }}</td>
-                        <td>{{ aluno.telefone_responsavel }}</td>
-                        <td>
-                            <span class="badge 
-                                {% if aluno.status == 'Ativo' %} bg-success
-                                {% elif aluno.status == 'Em Avaliação' %} bg-primary
-                                {% elif aluno.status == 'Fila de Espera' %} bg-warning
-                                {% else %} bg-secondary {% endif %}">
-                                {{ aluno.status }}
-                            </span>
-                        </td>
-                        <td class="text-center">
-                            <a href="{{ url_for('caee.prontuario_aluno', aluno_id=aluno.id) }}" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-folder2-open"></i> Ver Prontuário
-                            </a>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="5" class="text-center py-4 text-muted">
-                            {% if request.args.get('termo') %}
-                                <i class="bi bi-emoji-frown fs-4 d-block mb-2"></i>
-                                Nenhum aluno encontrado com o nome "<strong>{{ request.args.get('termo') }}</strong>".
-                            {% else %}
-                                Nenhum aluno cadastrado no CAEE ainda.
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Nome do Aluno</th>
+                            <th>Responsável</th>
+                            <th>Contato</th>
+                            <th>Status</th>
+                            <th class="text-end pe-4">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for aluno in ultimos_alunos %}
+                        <tr class="animate__animated animate__fadeIn">
+                            <td class="ps-4">
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm me-3 bg-primary-light rounded-circle text-primary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; background: #e7f1ff;">
+                                        <i class="bi bi-person-fill"></i>
+                                    </div>
+                                    <span class="fw-bold">{{ aluno.nome_completo }}</span>
+                                </div>
+                            </td>
+                            <td>{{ aluno.nome_responsavel }}</td>
+                            <td><i class="bi bi-whatsapp text-success me-1"></i> {{ aluno.telefone_responsavel }}</td>
+                            <td>
+                                <span class="badge status-badge 
+                                    {% if aluno.status == 'Ativo' %} bg-success-light text-success
+                                    {% elif aluno.status == 'Em Avaliação' %} bg-primary-light text-primary
+                                    {% elif aluno.status == 'Fila de Espera' %} bg-warning-light text-warning
+                                    {% else %} bg-light text-secondary {% endif %}" 
+                                    style="background-color: #f8f9fa; border: 1px solid currentColor;">
+                                    {{ aluno.status }}
+                                </span>
+                            </td>
+                            <td class="text-end pe-4">
+                                <a href="{{ url_for('caee.prontuario_aluno', aluno_id=aluno.id) }}" class="btn btn-sm btn-primary rounded-pill px-3">
+                                    Abrir Prontuário
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5">
+                                <img src="https://illustrations.popsy.co/gray/no-results.svg" alt="Sem dados" style="width: 150px;" class="mb-3">
+                                <p class="text-muted">Nenhum registro encontrado para esta pesquisa.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="modalFilaEspera" tabindex="-1" aria-labelledby="modalFilaEsperaLabel" aria-hidden="true">
+<div class="modal fade" id="modalFilaEspera" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content shadow-lg">
-            <div class="modal-header bg-warning text-dark">
-                <h5 class="modal-title fw-bold" id="modalFilaEsperaLabel">
-                    <i class="bi bi-hourglass-split"></i> Alunos em Fila de Espera
-                </h5>
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header bg-warning text-dark border-0 p-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-hourglass-split me-2"></i>Fila de Espera Ativa</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
+                <div class="p-3 bg-light">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-filter"></i></span>
+                        <input type="text" id="inputBuscaModal" class="form-control border-start-0 ps-0" placeholder="Filtrar por nome do aluno...">
+                    </div>
+                </div>
+                
+                <div class="table-responsive" style="max-height: 400px;">
+                    <table class="table table-hover align-middle mb-0" id="tabelaFilaEspera">
+                        <thead class="table-light sticky-top">
                             <tr>
-                                <th class="ps-3">Nome do Aluno</th>
-                                <th>Profissionais Solicitados</th>
-                                <th class="text-center pe-3">Ver Prontuário</th>
+                                <th class="ps-4">Aluno</th>
+                                <th>Solicitações</th>
+                                <th class="text-center">Prontuário</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for aluno in lista_fila_espera %}
                             <tr>
-                                <td class="ps-3 fw-bold">{{ aluno.nome_completo }}</td>
+                                <td class="ps-4 fw-bold">{{ aluno.nome_completo }}</td>
                                 <td>
                                     {% if aluno.profissionais_necessarios %}
-                                        <div class="d-flex flex-wrap gap-1">
-                                            {% for prof in aluno.profissionais_necessarios.split(', ') %}
-                                                <span class="badge bg-light text-dark border" style="font-size: 0.75rem;">{{ prof }}</span>
-                                            {% endfor %}
-                                        </div>
+                                        {% for prof in aluno.profissionais_necessarios.split(', ') %}
+                                            <span class="badge bg-white text-dark border fw-normal mb-1">{{ prof }}</span>
+                                        {% endfor %}
                                     {% else %}
-                                        <span class="text-muted small">Não especificado</span>
+                                        <span class="text-muted small">Pendente de avaliação</span>
                                     {% endif %}
                                 </td>
-                                <td class="text-center pe-3">
-                                    <a href="{{ url_for('caee.prontuario_aluno', aluno_id=aluno.id) }}" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-search"></i>
+                                <td class="text-center">
+                                    <a href="{{ url_for('caee.prontuario_aluno', aluno_id=aluno.id) }}" class="btn btn-sm btn-outline-primary rounded-circle">
+                                        <i class="bi bi-arrow-right"></i>
                                     </a>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="3" class="text-center py-4 text-muted italic">
-                                    Nenhum aluno em fila de espera no momento.
                                 </td>
                             </tr>
                             {% endfor %}
@@ -184,11 +232,44 @@
                     </table>
                 </div>
             </div>
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            <div class="modal-footer border-0 p-3">
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Fechar</button>
             </div>
         </div>
     </div>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const inputBusca = document.getElementById('inputBuscaModal');
+    const tabela = document.getElementById('tabelaFilaEspera');
+    const linhas = tabela.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+    // Filtro instantâneo em tempo real
+    inputBusca.addEventListener('keyup', function() {
+        const termo = inputBusca.value.toLowerCase();
+
+        for (let i = 0; i < linhas.length; i++) {
+            const nomeAluno = linhas[i].getElementsByTagName('td')[0];
+            if (nomeAluno) {
+                const texto = nomeAluno.textContent || nomeAluno.innerText;
+                linhas[i].style.display = texto.toLowerCase().includes(termo) ? "" : "none";
+            }
+        }
+    });
+
+    // Reseta o filtro ao fechar o modal
+    const modalFila = document.getElementById('modalFilaEspera');
+    modalFila.addEventListener('hidden.bs.modal', function () {
+        inputBusca.value = "";
+        for (let i = 0; i < linhas.length; i++) {
+            linhas[i].style.display = "";
+        }
+    });
+});
+</script>
 {% endblock %}

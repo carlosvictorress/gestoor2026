@@ -406,7 +406,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         tabelaCorpo.innerHTML = '<tr><td colspan="6" class="py-4"><div class="spinner-border text-info" role="status"></div><br>Buscando dados...</td></tr>';
 
-        fetch(`/caee/get_horario_profissional/${profId}`)
+        fetch(`/caee/consultar_horario_profissional/${profId}`) // Atualizado de get_horario para consultar_horario
             .then(response => response.json())
             .then(data => {
                 tabelaCorpo.innerHTML = '';

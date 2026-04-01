@@ -758,24 +758,26 @@ def cadastrar_escola_rapida():
 
 from sqlalchemy import extract
 
-@caee_bp.route('/get_horario_profissional/<int:profissional_id>')
+@caee_bp.route('/consultar_horario_profissional/<int:profissional_id>')
 @login_required
-def get_horario_profissional(profissional_id):
-    # Buscamos todas as sessões desse profissional
-    # Opcional: filtrar por um período específico (ex: mês atual)
-    sessoes = CaeeSessao.query.filter_by(profissional_id=profissional_id).all()
+def consultar_horario_profissional(profissional_id):
+    # Buscamos as sessões através do plano de atendimento para vincular ao profissional correto 
+    sessoes = CaeeSessao.query.join(CaeePlanoAtendimento).filter(
+        CaeePlanoAtendimento.profissional_id == profissional_id
+    ).order_by(CaeeSessao.data_sessao.desc()).all() [cite: 1]
     
     dados = []
     dias_semana = {0: 'Segunda', 1: 'Terça', 2: 'Quarta', 3: 'Quinta', 4: 'Sexta', 5: 'Sábado', 6: 'Domingo'}
     
     for s in sessoes:
-        # Pegamos a escola através do aluno vinculado ao plano da sessão
-        escola_nome = s.plano.aluno.escola_atual if s.plano and s.plano.aluno else "N/A"
+        # Pegamos os dados do aluno e escola vinculados à sessão 
+        aluno_nome = s.plano.aluno.nome_completo if s.plano and s.plano.aluno else "---" [cite: 1]
+        escola_nome = s.plano.aluno.escola_origem if s.plano and s.plano.aluno else "N/A" [cite: 1]
         
         dados.append({
             'dia': dias_semana[s.data_sessao.weekday()],
             'horario': s.data_sessao.strftime('%H:%M'),
-            'aluno': s.plano.aluno.nome_completo if s.plano and s.plano.aluno else "---",
+            'aluno': aluno_nome,
             'escola': escola_nome,
             'presenca': 'P' if s.presenca else 'F'
         })

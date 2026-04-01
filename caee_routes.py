@@ -33,19 +33,25 @@ caee_bp = Blueprint('caee', __name__, url_prefix='/caee')
 def dashboard():
     secretaria_id_logada = session.get('secretaria_id')
     
+    # Importação local para evitar importação circular se necessário
+    from models import Escola 
+
     # Contagem de Alunos Ativos e Profissionais
     alunos_ativos = CaeeAluno.query.filter_by(secretaria_id=secretaria_id_logada, status='Ativo').count()
     profissionais_ativos = CaeeProfissional.query.filter_by(secretaria_id=secretaria_id_logada, status='Ativo').count()
     
     # BUSCA DA LISTA DE FILA DE ESPERA (Para o Modal)
-    # Buscamos todos os dados dos alunos para exibir nome e profissionais solicitados
     lista_fila_espera = CaeeAluno.query.filter_by(
         secretaria_id=secretaria_id_logada, 
         status='Fila de Espera'
     ).order_by(CaeeAluno.nome_completo).all()
     
-    # A contagem para o card agora é baseada no tamanho da lista recuperada
     alunos_em_espera = len(lista_fila_espera)
+
+    # BUSCA DAS ESCOLAS CADASTRADAS (Para o Novo Modal de Escola)
+    lista_escolas = Escola.query.filter_by(
+        secretaria_id=secretaria_id_logada
+    ).order_by(Escola.nome).all()
     
     # Lógica de Busca e Listagem na Tabela Principal
     termo = request.args.get('termo')
@@ -69,7 +75,8 @@ def dashboard():
         alunos_ativos=alunos_ativos,
         alunos_em_espera=alunos_em_espera,
         profissionais_ativos=profissionais_ativos,
-        lista_fila_espera=lista_fila_espera, # Enviando a lista para o modal
+        lista_fila_espera=lista_fila_espera,
+        lista_escolas=lista_escolas, # Nova variável enviada ao template
         ultimos_alunos=alunos_listados,
         titulo_tabela=titulo_tabela
     )

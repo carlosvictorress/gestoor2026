@@ -33,7 +33,7 @@ caee_bp = Blueprint('caee', __name__, url_prefix='/caee')
 def dashboard():
     secretaria_id_logada = session.get('secretaria_id')
     
-    # Importação local para evitar importação circular se necessário
+    # Importação local para evitar importação circular
     from models import Escola 
 
     # Contagem de Alunos Ativos e Profissionais
@@ -48,10 +48,16 @@ def dashboard():
     
     alunos_em_espera = len(lista_fila_espera)
 
-    # BUSCA DAS ESCOLAS CADASTRADAS (Para o Novo Modal de Escola)
+    # BUSCA DAS ESCOLAS CADASTRADAS (Para o Modal de Escola)
     lista_escolas = Escola.query.filter_by(
         secretaria_id=secretaria_id_logada
     ).order_by(Escola.nome).all()
+
+    # NOVA BUSCA: Profissionais Ativos (Para o Modal de Horários)
+    profissionais_lista = CaeeProfissional.query.filter_by(
+        secretaria_id=secretaria_id_logada,
+        status='Ativo'
+    ).order_by(CaeeProfissional.nome_completo).all()
     
     # Lógica de Busca e Listagem na Tabela Principal
     termo = request.args.get('termo')
@@ -76,10 +82,35 @@ def dashboard():
         alunos_em_espera=alunos_em_espera,
         profissionais_ativos=profissionais_ativos,
         lista_fila_espera=lista_fila_espera,
-        lista_escolas=lista_escolas, # Nova variável enviada ao template
+        lista_escolas=lista_escolas,
+        profissionais=profissionais_lista, # Variável necessária para o select de horários
         ultimos_alunos=alunos_listados,
         titulo_tabela=titulo_tabela
     )
+
+# NOVA ROTA DE API PARA O HORÁRIO DINÂMICO
+@caee_bp.route('/get_horario_profissional/<int:profissional_id>')
+@login_required
+def get_horario_profissional(profissional_id):
+    # Busca as sessões (Diário de Bordo) vinculadas ao profissional através do PAI (Plano)
+    sessoes = CaeeSessao.query.join(CaeePlanoAtendimento).filter(
+        CaeePlanoAtendimento.profissional_id == profissional_id
+    ).order_by(CaeeSessao.data_sessao.desc()).all()
+
+    dias_semana = {0: 'Segunda', 1: 'Terça', 2: 'Quarta', 3: 'Quinta', 4: 'Sexta', 5: 'Sábado', 6: 'Domingo'}
+    
+    atendimentos = []
+    for s in sessoes:
+        # Organiza os dados para a tabela do modal
+        atendimentos.append({
+            'dia': dias_semana[s.data_sessao.weekday()],
+            'horario': s.data_sessao.strftime('%H:%M'),
+            'aluno': s.plano.aluno.nome_completo if s.plano and s.plano.aluno else "N/A",
+            'escola': s.plano.aluno.escola_origem if s.plano and s.plano.aluno else "N/A",
+            'presenca': 'P' if s.presenca else 'F'
+        })
+    
+    return {"atendimentos": atendimentos}
 
 @caee_bp.route('/aluno/novo', methods=['GET', 'POST'])
 @login_required
@@ -724,3 +755,29 @@ def cadastrar_escola_rapida():
         flash(f'Erro ao cadastrar escola: {e}', 'danger')
     
     return redirect(request.referrer or url_for('caee.dashboard'))
+
+from sqlalchemy import extract
+
+@caee_bp.route('/get_horario_profissional/<int:profissional_id>')
+@login_required
+def get_horario_profissional(profissional_id):
+    # Buscamos todas as sessões desse profissional
+    # Opcional: filtrar por um período específico (ex: mês atual)
+    sessoes = CaeeSessao.query.filter_by(profissional_id=profissional_id).all()
+    
+    dados = []
+    dias_semana = {0: 'Segunda', 1: 'Terça', 2: 'Quarta', 3: 'Quinta', 4: 'Sexta', 5: 'Sábado', 6: 'Domingo'}
+    
+    for s in sessoes:
+        # Pegamos a escola através do aluno vinculado ao plano da sessão
+        escola_nome = s.plano.aluno.escola_atual if s.plano and s.plano.aluno else "N/A"
+        
+        dados.append({
+            'dia': dias_semana[s.data_sessao.weekday()],
+            'horario': s.data_sessao.strftime('%H:%M'),
+            'aluno': s.plano.aluno.nome_completo if s.plano and s.plano.aluno else "---",
+            'escola': escola_nome,
+            'presenca': 'P' if s.presenca else 'F'
+        })
+    
+    return {"atendimentos": dados}

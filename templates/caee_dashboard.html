@@ -39,6 +39,16 @@
         border-radius: 30px;
         font-weight: 500;
     }
+    /* Estilo para a tabela de horário tipo PDF */
+    .table-horario th {
+        background-color: #f2f2f2 !important;
+        color: #333;
+        font-weight: bold;
+        border: 1px solid #dee2e6 !important;
+    }
+    .table-horario td {
+        border: 1px solid #dee2e6 !important;
+    }
 </style>
 
 <div class="container-fluid py-4">
@@ -48,6 +58,9 @@
             <p class="text-muted">Gestão Multidisciplinar Especializada</p>
         </div>
         <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-info px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalHorarioProfissional">
+                <i class="bi bi-calendar3 me-2"></i>Horários
+            </button>
             <button type="button" class="btn btn-outline-primary px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalCadastrarEscola">
                 <i class="bi bi-bank me-2"></i>Nova Escola
             </button>
@@ -186,6 +199,50 @@
     </div>
 </div>
 
+<div class="modal fade" id="modalHorarioProfissional" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header bg-info text-white border-0 p-4 text-center d-block">
+                <button type="button" class="btn-close btn-close-white float-end" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title fw-bold mb-1">CAEE – CENTRO DE ATENDIMENTO EDUCACIONAL ESPECIALIZADO</h5>
+                <div class="d-flex justify-content-center align-items-center gap-2">
+                    <span class="fs-6">Horário de atendimento:</span>
+                    <select id="selectProfissionalHorario" class="form-select form-select-sm w-auto rounded-pill border-0 shadow-sm">
+                        <option value="">Escolha o Profissional...</option>
+                        {% for prof in profissionais %}
+                            <option value="{{ prof.id }}">{{ prof.especialidade }} - {{ prof.nome_completo }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="modal-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-bordered text-center align-middle table-horario" id="tabelaHorarioCorpo">
+                        <thead>
+                            <tr>
+                                <th width="15%">DIA</th>
+                                <th width="15%">HORÁRIO</th>
+                                <th width="30%">ALUNO</th>
+                                <th width="30%">ESCOLA</th>
+                                <th width="5%">P</th>
+                                <th width="5%">F</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="6" class="py-4 text-muted">Selecione um profissional acima para visualizar a grade de atendimentos.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-3 bg-light">
+                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="modalCadastrarEscola" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
@@ -312,6 +369,7 @@
 {{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Busca na Fila de Espera
     const inputBusca = document.getElementById('inputBuscaModal');
     const tabela = document.getElementById('tabelaFilaEspera');
     const linhas = tabela.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
@@ -333,6 +391,46 @@ document.addEventListener('DOMContentLoaded', function() {
         for (let i = 0; i < linhas.length; i++) {
             linhas[i].style.display = "";
         }
+    });
+
+    // Lógica Dinâmica para o Horário de Atendimento
+    const selectProf = document.getElementById('selectProfissionalHorario');
+    const tabelaCorpo = document.querySelector('#tabelaHorarioCorpo tbody');
+
+    selectProf.addEventListener('change', function() {
+        const profId = this.value;
+        if (!profId) {
+            tabelaCorpo.innerHTML = '<tr><td colspan="6" class="py-4 text-muted">Selecione um profissional acima para visualizar a grade de atendimentos.</td></tr>';
+            return;
+        }
+
+        tabelaCorpo.innerHTML = '<tr><td colspan="6" class="py-4"><div class="spinner-border text-info" role="status"></div><br>Buscando dados...</td></tr>';
+
+        fetch(`/caee/get_horario_profissional/${profId}`)
+            .then(response => response.json())
+            .then(data => {
+                tabelaCorpo.innerHTML = '';
+                if (data.atendimentos.length === 0) {
+                    tabelaCorpo.innerHTML = '<tr><td colspan="6" class="py-4 text-muted">Nenhum atendimento registrado no diário de bordo para este profissional.</td></tr>';
+                    return;
+                }
+
+                data.atendimentos.forEach(item => {
+                    tabelaCorpo.innerHTML += `
+                        <tr>
+                            <td>${item.dia}</td>
+                            <td>${item.horario}</td>
+                            <td class="text-start ps-3">${item.aluno}</td>
+                            <td>${item.escola}</td>
+                            <td class="${item.presenca === 'P' ? 'bg-success-light fw-bold text-success' : ''}">${item.presenca === 'P' ? 'X' : ''}</td>
+                            <td class="${item.presenca === 'F' ? 'bg-danger-light fw-bold text-danger' : ''}">${item.presenca === 'F' ? 'X' : ''}</td>
+                        </tr>
+                    `;
+                });
+            })
+            .catch(err => {
+                tabelaCorpo.innerHTML = '<tr><td colspan="6" class="py-4 text-danger">Erro ao carregar dados. Verifique a conexão.</td></tr>';
+            });
     });
 });
 </script>

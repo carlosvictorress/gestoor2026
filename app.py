@@ -88,6 +88,7 @@ from reportlab.pdfgen import canvas as canvas_lib
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
 from reportlab.lib.units import cm, inch
+from models import User, Servidor, ConfiguracaoSistema
 
 # Configura o locale para o português do Brasil
 try:
@@ -3591,23 +3592,25 @@ def exportar_frequencia_individual_excel(cpf):
 
 @app.route('/admin/controle-sistema', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@role_required('admin')
 def painel_controle_sistema():
-    # Busca a configuração ou cria uma inicial se não existir
+    # Busca a única linha de configuração no banco
     config = ConfiguracaoSistema.query.filter_by(chave_unica="GLOBAL").first()
+    
+    # Se por algum motivo não existir, cria a linha inicial
     if not config:
-        config = ConfiguracaoSistema(chave_unica="GLOBAL", mensagem_alerta="Bem-vindo ao sistema!")
+        config = ConfiguracaoSistema(chave_unica="GLOBAL", mensagem_alerta="Bem-vindo!")
         db.session.add(config)
         db.session.commit()
 
     if request.method == 'POST':
-        # No Flask, checkboxes só aparecem no form se estiverem marcados
+        # Captura os dados do formulário (os 'names' que ajustamos no HTML)
         config.manutencao_ativa = 'manutencao' in request.form
         config.exibir_alerta = 'exibir_alerta' in request.form
         config.mensagem_alerta = request.form.get('mensagem_alerta')
         
         db.session.commit()
-        flash("Configurações atualizadas com sucesso!", "success")
+        flash("Configurações do sistema atualizadas!", "success")
         return redirect(url_for('painel_controle_sistema'))
 
     return render_template('admin_controle.html', config=config)
@@ -3615,47 +3618,31 @@ def painel_controle_sistema():
 # MIDDLEWARE PARA BLOQUEIO E POP-UP
 @app.before_request
 def verificar_status_sistema():
-    # Não bloqueia rotas essenciais para o admin não ficar trancado do lado de fora
+    # 1. Não bloqueia rotas de login, estáticos ou a própria página de controle
     vias_livres = ['static', 'login', 'logout', 'painel_controle_sistema']
-    if request.endpoint in vias_livres or not current_user.is_authenticated:
+    if request.endpoint in vias_livres:
         return
 
+    # 2. Busca a configuração no banco de dados
     config = ConfiguracaoSistema.query.filter_by(chave_unica="GLOBAL").first()
     if not config:
         return
 
-    # 1. Bloqueio de Manutenção (Apenas o admin passa)
-    if config.manutencao_ativa and current_user.role != 'admin':
-        return render_template('manutencao.html'), 503
+    # 3. VERIFICAÇÃO DE MANUTENÇÃO
+    # Se estiver ativa e o usuário NÃO for admin, bloqueia
+    if config.manutencao_ativa:
+        if current_user.is_authenticated and current_user.role != 'admin':
+            return render_template('manutencao.html'), 503
 
-    # 2. Lógica do Pop-up (Exibe apenas uma vez por dia por usuário)
-    if config.exibir_alerta:
-        hoje = datetime.now().strftime('%Y-%m-%d')
-        chave_visto = f"alerta_visto_{current_user.id}_{hoje}"
-        if session.get(chave_visto) is not True:
-            flash(config.mensagem_alerta, "info_popup")
-            session[chave_visto] = True
-
-@app.before_request
-def verificar_status_sistema():
-    # Ignora verificação para rotas estáticas ou de logout para não travar o admin
-    if request.endpoint in ['static', 'login', 'logout', 'painel_controle_sistema']:
-        return
-
-    config = ConfiguracaoSistema.query.filter_by(chave_unica="GLOBAL").first()
-    if not config: return
-
-    # 1. Bloqueio de Manutenção (Admin continua acessando)
-    if config.manutencao_ativa and current_user.is_authenticated and current_user.role != 'admin':
-        return render_template('manutencao.html'), 503
-
-    # 2. Lógica de Alerta Único por Dia (via Session)
+    # 4. VERIFICAÇÃO DE ALERTA POP-UP
+    # Mostra apenas para usuários logados e uma vez por dia
     if config.exibir_alerta and current_user.is_authenticated:
         hoje = datetime.now().strftime('%Y-%m-%d')
-        # Verifica se o usuário já viu essa mensagem específica hoje
-        chave_visto = f"alerta_visto_{hoje}"
-        if session.get(chave_visto) != True:
-            flash(config.mensagem_alerta, "info_popup") # Categoria especial para o JS pegar
+        # Cria uma chave única na sessão para este usuário e este dia
+        chave_visto = f"alerta_visto_{current_user.id}_{hoje}"
+        
+        if session.get(chave_visto) is not True:
+            flash(config.mensagem_alerta, "info_popup")
             session[chave_visto] = True
 
 

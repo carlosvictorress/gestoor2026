@@ -396,7 +396,7 @@
     }
     
     document.addEventListener('DOMContentLoaded', function () {
-        // Inicializa Toasts
+        // Inicializa Toasts (Mensagens rápidas do sistema)
         var toastElList = [].slice.call(document.querySelectorAll('.toast'));
         toastElList.map(function (toastEl) {
             var toast = new bootstrap.Toast(toastEl, { delay: 5000 });
@@ -410,6 +410,20 @@
                 link.addEventListener('click', toggleSidebar);
             });
         }
+
+        // --- LÓGICA DE ALERTA POP-UP (MENSAGEM DO DIA) ---
+        // Verifica se existem mensagens flash da categoria 'info_popup' enviadas pelo servidor
+        {% with messages = get_flashed_messages(category_filter=["info_popup"]) %}
+            {% if messages %}
+                // Exibe a mensagem em um alerta (ou você pode trocar por um Modal do Bootstrap)
+                const mensagemDoDia = "{{ messages[0] | replace('\n', '\\n') | safe }}";
+                
+                // Pequeno delay para não conflitar com o carregamento da página
+                setTimeout(() => {
+                    alert("📢 COMUNICADO IMPORTANTE:\n\n" + mensagemDoDia);
+                }, 800);
+            {% endif %}
+        {% endwith %}
     });
 </script>
 

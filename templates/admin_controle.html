@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container py-4">
+    <h2 class="fw-bold mb-4"><i class="bi bi-gear-fill me-2"></i>Controle Geral do Sistema</h2>
+    <div class="card shadow border-0">
+        <form method="POST" class="card-body p-4">
+            <div class="mb-4 p-3 bg-light rounded border">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" name="manutencao" id="manutencao" {% if config.manutencao_ativa %}checked{% endif %}>
+                    <label class="form-check-label fw-bold" for="manutencao">ATIVAR MODO DE MANUTENÇÃO</label>
+                </div>
+                <small class="text-muted">Ao ativar, apenas administradores poderão navegar no sistema. Usuários comuns verão uma tela de aviso.</small>
+            </div>
+
+            <div class="mb-3">
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" name="exibir_alerta" id="exibir_alerta" {% if config.exibir_alerta %}checked{% endif %}>
+                    <label class="form-check-label fw-bold" for="exibir_alerta">EXIBIR ALERTA POP-UP</label>
+                </div>
+                <label class="form-label small text-uppercase fw-bold">Mensagem Personalizada</label>
+                <textarea name="mensagem_alerta" class="form-control" rows="4" placeholder="Ex: Bom dia! Por favor, não esqueçam de atualizar os dados do PNAE hoje.">{{ config.mensagem_alerta }}</textarea>
+                <small class="text-muted">Aparecerá apenas uma vez por dia no primeiro acesso de cada usuário.</small>
+            </div>
+
+            <button type="submit" class="btn btn-primary px-5 rounded-pill shadow-sm">Salvar Configurações</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

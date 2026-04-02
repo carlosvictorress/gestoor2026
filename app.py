@@ -3589,6 +3589,48 @@ def exportar_frequencia_individual_excel(cpf):
     registrar_log(f"Gerou relatório Excel de frequência para {servidor.nome}.")
     return response
 
+@app.route('/admin/controle-sistema', methods=['GET', 'POST'])
+@login_required
+@role_required('admin') # Garante acesso apenas ao admin
+def painel_controle_sistema():
+    config = ConfiguracaoSistema.query.filter_by(chave_unica="GLOBAL").first()
+    if not config:
+        config = ConfiguracaoSistema(chave_unica="GLOBAL")
+        db.session.add(config)
+        db.session.commit()
+
+    if request.method == 'POST':
+        config.manutencao_ativa = 'manutencao' in request.form
+        config.exibir_alerta = 'exibir_alerta' in request.form
+        config.mensagem_alerta = request.form.get('mensagem_alerta')
+        db.session.commit()
+        flash("Configurações atualizadas com sucesso!", "success")
+        return redirect(url_for('painel_controle_sistema'))
+
+    return render_template('admin_controle.html', config=config)
+
+@app.before_request
+def verificar_status_sistema():
+    # Ignora verificação para rotas estáticas ou de logout para não travar o admin
+    if request.endpoint in ['static', 'login', 'logout', 'painel_controle_sistema']:
+        return
+
+    config = ConfiguracaoSistema.query.filter_by(chave_unica="GLOBAL").first()
+    if not config: return
+
+    # 1. Bloqueio de Manutenção (Admin continua acessando)
+    if config.manutencao_ativa and current_user.is_authenticated and current_user.role != 'admin':
+        return render_template('manutencao.html'), 503
+
+    # 2. Lógica de Alerta Único por Dia (via Session)
+    if config.exibir_alerta and current_user.is_authenticated:
+        hoje = datetime.now().strftime('%Y-%m-%d')
+        # Verifica se o usuário já viu essa mensagem específica hoje
+        chave_visto = f"alerta_visto_{hoje}"
+        if session.get(chave_visto) != True:
+            flash(config.mensagem_alerta, "info_popup") # Categoria especial para o JS pegar
+            session[chave_visto] = True
+
 
 @app.route("/servidor/<string:cpf>/exportar/pdf")
 @login_required

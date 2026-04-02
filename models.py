@@ -1537,3 +1537,12 @@ class SolicitacaoVeiculo(db.Model):
     # Adicionando o server_default para evitar quebrar o banco de dados atual
     veiculo_solicitado = db.Column(db.String(50), nullable=False, server_default='NÃO INFORMADO')
     
+class ConfiguracaoSistema(db.Model):
+    __tablename__ = 'configuracao_sistema'
+    id = db.Column(db.Integer, primary_key=True)
+    manutencao_ativa = db.Column(db.Boolean, default=False)
+    mensagem_alerta = db.Column(db.Text, nullable=True)
+    exibir_alerta = db.Column(db.Boolean, default=False)
+    # Identificador para garantir que apenas uma linha de config exista
+    chave_unica = db.Column(db.String(50), default="GLOBAL", unique=True)
+    

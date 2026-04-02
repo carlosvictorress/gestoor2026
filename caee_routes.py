@@ -409,20 +409,25 @@ def adicionar_sessao(plano_id):
     try:
         dt = request.form.get('data_sessao')
         prof_nome = plano.profissional.nome_completo if plano.profissional else "N/A"
+        
+        # Ajuste no formato da data para suportar o campo datetime-local (Data e Hora)
+        # O formato '%Y-%m-%dT%H:%M' é o padrão enviado pelo navegador
         nova = CaeeSessao(
             plano_id=plano_id,
-            data_sessao=datetime.strptime(dt, '%Y-%m-%d') if dt else datetime.utcnow(),
+            data_sessao=datetime.strptime(dt, '%Y-%m-%dT%H:%M') if dt else datetime.utcnow(),
             presenca=request.form.get('presenca') == 'true',
             atividades_realizadas=request.form.get('atividades_realizadas'),
             observacoes_evolucao=request.form.get('observacoes_evolucao'),
             profissional_nome=prof_nome
         )
+        
         db.session.add(nova)
         db.session.commit()
         flash('Sessão registrada!', 'success')
     except Exception as e:
         db.session.rollback()
-        flash(f'Erro: {e}', 'danger')
+        flash(f'Erro ao registrar sessão: {e}', 'danger')
+        
     return redirect(url_for('caee.prontuario_aluno', aluno_id=plano.aluno_id))
 
 @caee_bp.route('/sessao/<int:sessao_id>/editar', methods=['GET', 'POST'])
@@ -761,25 +766,34 @@ from sqlalchemy import extract
 @caee_bp.route('/consultar_horario_profissional/<int:profissional_id>')
 @login_required
 def consultar_horario_profissional(profissional_id):
-    # Buscamos as sessões através do plano de atendimento para vincular ao profissional correto 
-    sessoes = CaeeSessao.query.join(CaeePlanoAtendimento).filter(
-        CaeePlanoAtendimento.profissional_id == profissional_id
-    ).order_by(CaeeSessao.data_sessao.desc()).all() [cite: 1]
-    
-    dados = []
-    dias_semana = {0: 'Segunda', 1: 'Terça', 2: 'Quarta', 3: 'Quinta', 4: 'Sexta', 5: 'Sábado', 6: 'Domingo'}
-    
-    for s in sessoes:
-        # Pegamos os dados do aluno e escola vinculados à sessão 
-        aluno_nome = s.plano.aluno.nome_completo if s.plano and s.plano.aluno else "---" [cite: 1]
-        escola_nome = s.plano.aluno.escola_origem if s.plano and s.plano.aluno else "N/A" [cite: 1]
+    try:
+        # Importações locais para garantir que o contexto do banco esteja disponível
+        from models import CaeeSessao, CaeePlanoAtendimento
         
-        dados.append({
-            'dia': dias_semana[s.data_sessao.weekday()],
-            'horario': s.data_sessao.strftime('%H:%M'),
-            'aluno': aluno_nome,
-            'escola': escola_nome,
-            'presenca': 'P' if s.presenca else 'F'
-        })
-    
-    return {"atendimentos": dados}
+        # Busca as sessões vinculadas ao profissional através do Plano (PAI)
+        sessoes = CaeeSessao.query.join(CaeePlanoAtendimento).filter(
+            CaeePlanoAtendimento.profissional_id == profissional_id
+        ).order_by(CaeeSessao.data_sessao.desc()).all()
+        
+        dados = []
+        dias_semana = {0: 'Segunda', 1: 'Terça', 2: 'Quarta', 3: 'Quinta', 4: 'Sexta', 5: 'Sábado', 6: 'Domingo'}
+        
+        for s in sessoes:
+            # Pegamos os dados do aluno e escola com verificações de segurança para não dar erro se faltar dado
+            aluno_nome = s.plano.aluno.nome_completo if (s.plano and s.plano.aluno) else "---"
+            escola_nome = s.plano.aluno.escola_origem if (s.plano and s.plano.aluno) else "N/A"
+            
+            dados.append({
+                'dia': dias_semana[s.data_sessao.weekday()],
+                'horario': s.data_sessao.strftime('%H:%M'),
+                'aluno': aluno_nome,
+                'escola': escola_nome,
+                'presenca': 'P' if s.presenca else 'F'
+            })
+        
+        return {"atendimentos": dados}
+        
+    except Exception as e:
+        # Se algo der errado no servidor, isso ajuda a debugar no console do navegador
+        print(f"Erro na rota de horários: {str(e)}")
+        return {"error": str(e)}, 500

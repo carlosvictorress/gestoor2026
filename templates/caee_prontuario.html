@@ -27,7 +27,7 @@
         <div class="col-md-4">
             <div class="card shadow-sm mb-4 border-start-4 border-primary">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-                    <h5 class=\"mb-0 fw-bold text-primary\">Identificação</h5>
+                    <h5 class="mb-0 fw-bold text-primary">Identificação</h5>
                     <a href="{{ url_for('caee.editar_aluno', aluno_id=aluno.id) }}" class="btn btn-outline-warning btn-sm rounded-pill">
                         <i class="bi bi-pencil-fill"></i> Editar
                     </a>
@@ -39,7 +39,7 @@
                     <div class="mb-3 d-flex flex-wrap gap-1">
                         <span class="badge bg-{{ 'success' if aluno.status == 'Ativo' else 'warning' }} px-3">{{ aluno.status }}</span>
                         {% if aluno.aluno_laudado %}
-                            <span class="badge bg-info text-dark px-3"><i class=\"bi bi-patch-check-fill\"></i> Laudado</span>
+                            <span class="badge bg-info text-dark px-3"><i class="bi bi-patch-check-fill"></i> Laudado</span>
                         {% endif %}
                     </div>
 
@@ -109,7 +109,7 @@
                                 <div class="btn-group btn-group-sm">
                                     <a href="{{ url_for('caee.download_laudo', laudo_id=laudo.id) }}" class="btn btn-light text-success"><i class="bi bi-download"></i></a>
                                     <button class="btn btn-light text-danger" data-bs-toggle="modal" data-bs-target="#modalConfirmarExclusao" data-url="{{ url_for('caee.excluir_laudo', laudo_id=laudo.id) }}">
-                                        <i class=\"bi bi-trash\"></i>
+                                        <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
                             </div>
@@ -268,8 +268,8 @@
                                 <div class="modal-body p-4">
                                     <div class="row g-3 mb-3">
                                         <div class="col-md-6">
-                                            <label class="form-label small fw-bold">DATA</label>
-                                            <input type="date" class="form-control" name="data_sessao" value="{{ '' | today_date }}" required>
+                                            <label class="form-label small fw-bold">DATA E HORA DO ATENDIMENTO</label>
+                                            <input type="datetime-local" class="form-control" name="data_sessao" required>
                                         </div>
                                         <div class="col-md-6 d-flex align-items-end">
                                             <div class="form-check form-switch mb-2">
@@ -394,7 +394,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold small text-muted">PROFISSIONAL RESPONSÁVEL</label>
-                        <select class="form-select rounded-pill shadow-none" name=\"profissional_destino_id\">
+                        <select class="form-select rounded-pill shadow-none" name="profissional_destino_id">
                             <option value="">-- Selecione o profissional técnico --</option>
                             {% for prof in profissionais %}
                             <option value="{{ prof.id }}">{{ prof.nome_completo }} - {{ prof.especialidade }}</option>
@@ -418,12 +418,12 @@
     <div class="modal-dialog modal-sm modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-body text-center py-4">
-                <i class=\"bi bi-exclamation-circle text-danger fs-1 mb-3 d-block\"></i>
-                <h6 class=\"fw-bold mb-2\">Deseja realmente excluir?</h6>
-                <p class=\"text-muted small mb-4\">Esta ação removerá o registro permanentemente do prontuário digital.</p>
-                <div class=\"d-flex gap-2\">
-                    <button type=\"button\" class=\"btn btn-light rounded-pill flex-fill\" data-bs-dismiss=\"modal\">Cancelar</button>
-                    <a href=\"#\" id=\"btnConfirmarExclusaoLink\" class=\"btn btn-danger rounded-pill flex-fill shadow-sm\">Excluir</a>
+                <i class="bi bi-exclamation-circle text-danger fs-1 mb-3 d-block"></i>
+                <h6 class="fw-bold mb-2">Deseja realmente excluir?</h6>
+                <p class="text-muted small mb-4">Esta ação removerá o registro permanentemente do prontuário digital.</p>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-light rounded-pill flex-fill" data-bs-dismiss="modal">Cancelar</button>
+                    <a href="#" id="btnConfirmarExclusaoLink" class="btn btn-danger rounded-pill flex-fill shadow-sm">Excluir</a>
                 </div>
             </div>
         </div>

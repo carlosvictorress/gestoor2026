@@ -16,9 +16,9 @@
 
             <div class="row g-3">
                 <div class="col-md-4">
-                    <label for="data_sessao" class="form-label">Data da Sessão</label>
-                    <input type="date" class="form-control" id="data_sessao" name="data_sessao" 
-                           value="{{ sessao.data_sessao.strftime('%Y-%m-%d') }}" required>
+                    <label for="data_sessao" class="form-label">Data e Hora da Sessão</label>
+                    <input type="datetime-local" class="form-control" id="data_sessao" name="data_sessao" 
+                           value="{{ sessao.data_sessao.strftime('%Y-%m-%dT%H:%M') }}" required>
                 </div>
                 <div class="col-md-8 d-flex align-items-end">
                     <div class="form-check form-switch">

@@ -1543,6 +1543,5 @@ class ConfiguracaoSistema(db.Model):
     manutencao_ativa = db.Column(db.Boolean, default=False)
     mensagem_alerta = db.Column(db.Text, nullable=True)
     exibir_alerta = db.Column(db.Boolean, default=False)
-    # Identificador para garantir que apenas uma linha de config exista
     chave_unica = db.Column(db.String(50), default="GLOBAL", unique=True)
     

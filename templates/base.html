@@ -307,20 +307,23 @@
             {% endif %}
 
             {% if session.get('role') == 'admin' %}
-            <li class="nav-item mt-3">
-                <small class="px-4 text-muted small fw-bold text-uppercase" style="font-size: 0.6rem;">Configurações Avançadas</small>
-                <a class="nav-link dropdown-toggle" data-bs-toggle="collapse" href="#adminCollapse">
-                    <i class="bi bi-gear-fill"></i> Administração
-                </a>
-                <div class="collapse" id="adminCollapse">
-                    <div class="dropdown-menu-custom">
-                        <a class="dropdown-item" href="{{ url_for('lista_usuarios') }}">Gestão de Usuários</a>
-                        <a class="dropdown-item" href="{{ url_for('ver_logs') }}">Audit de Logs</a>
-                        <a class="dropdown-item" href="{{ url_for('admin_licenca') }}">Licença do Sistema</a>
-                        <a class="dropdown-item" href="{{ url_for('backup.index') }}">Backup de Dados</a>
-                    </div>
-                </div>
-            </li>
+           <li class="nav-item mt-3">
+    <small class="px-4 text-muted small fw-bold text-uppercase" style="font-size: 0.6rem;">Configurações Avançadas</small>
+    <a class="nav-link dropdown-toggle" data-bs-toggle="collapse" href="#adminCollapse">
+        <i class="bi bi-gear-fill"></i> Administração
+    </a>
+    <div class="collapse" id="adminCollapse">
+        <div class="dropdown-menu-custom">
+            <a class="dropdown-item" href="{{ url_for('painel_controle_sistema') }}">
+                <i class="bi bi-shield-lock-fill me-2"></i>Controle do Sistema
+            </a>
+            <a class="dropdown-item" href="{{ url_for('lista_usuarios') }}">Gestão de Usuários</a>
+            <a class="dropdown-item" href="{{ url_for('ver_logs') }}">Audit de Logs</a>
+            <a class="dropdown-item" href="{{ url_for('admin_licenca') }}">Licença do Sistema</a>
+            <a class="dropdown-item" href="{{ url_for('backup.index') }}">Backup de Dados</a>
+        </div>
+    </div>
+</li>
             {% endif %}
         </ul>
     </div>

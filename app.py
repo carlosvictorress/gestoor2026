@@ -3591,23 +3591,50 @@ def exportar_frequencia_individual_excel(cpf):
 
 @app.route('/admin/controle-sistema', methods=['GET', 'POST'])
 @login_required
-@role_required('admin') # Garante acesso apenas ao admin
+@admin_required
 def painel_controle_sistema():
+    # Busca a configuração ou cria uma inicial se não existir
     config = ConfiguracaoSistema.query.filter_by(chave_unica="GLOBAL").first()
     if not config:
-        config = ConfiguracaoSistema(chave_unica="GLOBAL")
+        config = ConfiguracaoSistema(chave_unica="GLOBAL", mensagem_alerta="Bem-vindo ao sistema!")
         db.session.add(config)
         db.session.commit()
 
     if request.method == 'POST':
+        # No Flask, checkboxes só aparecem no form se estiverem marcados
         config.manutencao_ativa = 'manutencao' in request.form
         config.exibir_alerta = 'exibir_alerta' in request.form
         config.mensagem_alerta = request.form.get('mensagem_alerta')
+        
         db.session.commit()
         flash("Configurações atualizadas com sucesso!", "success")
         return redirect(url_for('painel_controle_sistema'))
 
     return render_template('admin_controle.html', config=config)
+
+# MIDDLEWARE PARA BLOQUEIO E POP-UP
+@app.before_request
+def verificar_status_sistema():
+    # Não bloqueia rotas essenciais para o admin não ficar trancado do lado de fora
+    vias_livres = ['static', 'login', 'logout', 'painel_controle_sistema']
+    if request.endpoint in vias_livres or not current_user.is_authenticated:
+        return
+
+    config = ConfiguracaoSistema.query.filter_by(chave_unica="GLOBAL").first()
+    if not config:
+        return
+
+    # 1. Bloqueio de Manutenção (Apenas o admin passa)
+    if config.manutencao_ativa and current_user.role != 'admin':
+        return render_template('manutencao.html'), 503
+
+    # 2. Lógica do Pop-up (Exibe apenas uma vez por dia por usuário)
+    if config.exibir_alerta:
+        hoje = datetime.now().strftime('%Y-%m-%d')
+        chave_visto = f"alerta_visto_{current_user.id}_{hoje}"
+        if session.get(chave_visto) is not True:
+            flash(config.mensagem_alerta, "info_popup")
+            session[chave_visto] = True
 
 @app.before_request
 def verificar_status_sistema():

@@ -1,61 +1,137 @@
 {% extends 'base.html' %}
 
-{% block title %}Logs do Sistema{% endblock %}
+{% block title %}Logs de Auditoria - Gestor 360{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2><i class="bi bi-journal-text"></i> Logs de Atividade do Sistema</h2>
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-dark mb-1"><i class="bi bi-shield-lock-fill text-primary"></i> Logs de Auditoria</h2>
+            <p class="text-muted small mb-0">Rastreamento detalhado de todas as atividades realizadas no sistema.</p>
+        </div>
+        <div class="text-end">
+            <span class="badge bg-light text-dark border p-2">
+                <i class="bi bi-info-circle me-1"></i> Total de registros: {{ logs.total }}
+            </span>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 rounded-3">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light border-bottom">
+                        <tr>
+                            <th class="ps-4 py-3 text-uppercase small fw-bold text-muted" style="width: 18%;">Data e Hora</th>
+                            <th class="py-3 text-uppercase small fw-bold text-muted" style="width: 15%;">Usuário</th>
+                            <th class="py-3 text-uppercase small fw-bold text-muted" style="width: 52%;">Ação Realizada</th>
+                            <th class="py-3 text-uppercase small fw-bold text-muted text-center" style="width: 15%;">Endereço IP</th>
+                        </tr>
+                    </thead>
+                    <tbody class="border-top-0">
+                        {% for log in logs.items %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="d-flex flex-column">
+                                    <span class="fw-bold text-dark">{{ log.timestamp.strftime('%d/%m/%Y') }}</span>
+                                    <small class="text-muted">{{ log.timestamp.strftime('%H:%M:%S') }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm me-2 bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                        <i class="bi bi-person-fill small"></i>
+                                    </div>
+                                    <span class="fw-semibold">{{ log.username }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                {# Lógica visual para destacar palavras-chave de auditoria #}
+                                {% if 'Excluiu' in log.action or 'Remover' in log.action or 'Deletou' in log.action %}
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle me-2">EXCLUSÃO</span>
+                                {% elif 'Editou' in log.action or 'Atualizou' in log.action %}
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle me-2">EDIÇÃO</span>
+                                {% elif 'Cadastrou' in log.action or 'Criou' in log.action %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle me-2">CADASTRO</span>
+                                {% else %}
+                                    <span class="badge bg-info-subtle text-info border border-info-subtle me-2">SISTEMA</span>
+                                {% endif %}
+                                <span class="text-dark">{{ log.action }}</span>
+                            </td>
+                            <td class="text-center">
+                                <code class="bg-light px-2 py-1 rounded text-primary small">{{ log.ip_address }}</code>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5">
+                                <i class="bi bi-inbox display-4 text-muted d-block mb-3"></i>
+                                <span class="text-muted">Nenhuma atividade registrada no período.</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if logs.pages > 1 %}
+        <div class="card-footer bg-white py-3 border-top-0">
+            <nav aria-label="Navegação dos logs">
+                <ul class="pagination pagination-sm justify-content-center mb-0">
+                    <li class="page-item {% if not logs.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('ver_logs', page=logs.prev_num) if logs.has_prev else '#' }}" aria-label="Anterior">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+
+                    {% for page_num in logs.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if page_num %}
+                            <li class="page-item {% if logs.page == page_num %}active{% endif %}">
+                                <a class="page-link shadow-none" href="{{ url_for('ver_logs', page=page_num) }}">{{ page_num }}</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    <li class="page-item {% if not logs.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('ver_logs', page=logs.next_num) if logs.has_next else '#' }}" aria-label="Próximo">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
 </div>
 
-<div class="table-responsive">
-    <table class="table table-striped table-hover table-bordered align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th style="width: 20%;">Data e Hora</th>
-                <th style="width: 15%;">Usuário</th>
-                <th style="width: 55%;">Ação Realizada</th>
-                <th style="width: 10%;">Endereço IP</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for log in logs.items %}
-            <tr>
-                <td>{{ log.timestamp.strftime('%d/%m/%Y %H:%M:%S') }}</td>
-                <td>{{ log.username }}</td>
-                <td>{{ log.action }}</td>
-                <td>{{ log.ip_address }}</td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="4" class="text-center">Nenhuma atividade registrada ainda.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-
-{% if logs.pages > 1 %}
-<nav aria-label="Navegação dos logs">
-    <ul class="pagination justify-content-center">
-        <li class="page-item {% if not logs.has_prev %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('ver_logs', page=logs.prev_num) if logs.has_prev else '#' }}">Anterior</a>
-        </li>
-
-        {% for page_num in logs.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-            {% if page_num %}
-                <li class="page-item {% if logs.page == page_num %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('ver_logs', page=page_num) }}">{{ page_num }}</a>
-                </li>
-            {% else %}
-                <li class="page-item disabled"><span class="page-link">...</span></li>
-            {% endif %}
-        {% endfor %}
-
-        <li class="page-item {% if not logs.has_next %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('ver_logs', page=logs.next_num) if logs.has_next else '#' }}">Próximo</a>
-        </li>
-    </ul>
-</nav>
-{% endif %}
-
+<style>
+    /* Estilos para passar mais seriedade e detalhes */
+    .table thead th {
+        letter-spacing: 0.05em;
+        font-size: 0.75rem;
+    }
+    .table tbody tr:hover {
+        background-color: rgba(25, 127, 230, 0.02) !important;
+    }
+    .badge {
+        font-weight: 700;
+        letter-spacing: 0.02em;
+    }
+    .pagination .page-link {
+        color: #6c757d;
+        border: none;
+        margin: 0 3px;
+        border-radius: 4px !important;
+    }
+    .pagination .page-item.active .page-link {
+        background-color: #0d6efd;
+        color: white;
+    }
+    code {
+        font-family: 'Courier New', Courier, monospace;
+    }
+</style>
 {% endblock %}

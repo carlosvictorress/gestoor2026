@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>Login - Gestoor360</title>
+    <title>Login - Gestor 360</title>
     <link href="data:image/x-icon;base64," rel="icon" type="image/x-icon"/>
     <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
     <script>
@@ -12,218 +12,174 @@
             theme: {
                 extend: {
                     colors: {
-                        primary: "#197fe6",
-                        "primary-hover": "#136ac5",
-                        "background-light": "#f6f7f8",
-                        "background-dark": "#111921",
-                        "card-light": "#ffffff",
-                        "card-dark": "#1f2937",
-                        "foreground-light": "#111418",
-                        "foreground-dark": "#e5e7eb",
-                        "subtle-light": "#637588",
-                        "subtle-dark": "#9ca3af",
-                        "border-light": "#e5e7eb",
-                        "border-dark": "#4b5563",
+                        primary: {
+                            DEFAULT: "#1e40af",
+                            hover: "#1e3a8a",
+                            light: "#3b82f6"
+                        },
+                        brand: "#197fe6"
                     },
                     fontFamily: {
-                        display: ["Public Sans", "sans-serif"],
+                        display: ["Inter", "Public Sans", "sans-serif"],
                     },
-                    borderRadius: { DEFAULT: "0.5rem", lg: "0.75rem", xl: "1rem", full: "9999px" },
-                    boxShadow: {
-                        'card': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-                    }
                 },
             },
-            corePlugins: {
-               preflight: true, // Mantém o reset do Tailwind
-            }
         };
     </script>
     <link href="https://fonts.googleapis.com" rel="preconnect"/>
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;700;800;900&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Public+Sans:wght@400;700&display=swap" rel="stylesheet"/>
     <style>
-        body { font-family: "Public Sans", sans-serif; }
-        #logo-img { max-height: 50px; width: auto; margin-bottom: 1rem; }
-        body.modal-open { overflow: hidden; }
-        .transition-all { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 300ms; }
+        body { font-family: "Inter", sans-serif; }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .dark .glass-effect {
+            background: rgba(31, 41, 55, 0.95);
+            border: 1px solid rgba(75, 85, 99, 0.3);
+        }
+        .bg-gradient-brand {
+            background: linear-gradient(135deg, #1e40af 0%, #197fe6 100%);
+        }
+        .transition-soft { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
     </style>
 </head>
-<body class="bg-background-light dark:bg-background-dark text-foreground-light dark:text-foreground-dark">
+<body class="bg-gray-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden">
 
-{# Fundo escuro do modal #}
-<div id="secretaria-modal-backdrop" class="fixed inset-0 z-40 bg-gray-900/50 dark:bg-black/60 hidden opacity-0 transition-opacity duration-300 ease-in-out"></div>
+<div id="secretaria-modal-backdrop" class="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-500"></div>
 
-{# Conteúdo do Modal de Seleção de Secretaria #}
-<div id="secretaria-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden opacity-0 scale-95 transition-all duration-300 ease-in-out" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-    <div class="w-full max-w-md overflow-hidden rounded-xl bg-card-light dark:bg-card-dark shadow-card border border-border-light dark:border-border-dark">
-        <div class="p-8 text-center">
-            <img src="{{ url_for('static', filename='timbre.jpg') }}" alt="Logo Gestoor360" class="mx-auto" id="logo-img">
-            <div class="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h6.375M9 12h6.375m-6.375 5.25h6.375M5.25 21v-2.25a2.25 2.25 0 0 1 2.25-2.25h8.25a2.25 2.25 0 0 1 2.25 2.25V21" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<div id="secretaria-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-500">
+    <div class="w-full max-w-lg glass-effect rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-800">
+        <div class="bg-gradient-brand p-8 text-center text-white">
+            <div class="inline-flex p-3 rounded-xl bg-white/10 mb-4">
+                <svg class="h-8 w-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
             </div>
-            <h1 id="modal-title" class="text-2xl font-bold text-foreground-light dark:text-foreground-dark">Selecione seu Departamento</h1>
-            <p class="mt-2 text-sm text-subtle-light dark:text-subtle-dark">Escolha o departamento na qual deseja entrar.</p>
+            <h1 class="text-2xl font-extrabold tracking-tight">Gestor 360</h1>
+            <p class="text-blue-100 mt-1">Acesso Governamental Integrado</p>
         </div>
-        <div class="px-8 pb-8 pt-0">
-             {# *** INÍCIO DA ÁREA MODIFICADA: Caixa de Seleção e Botão *** #}
-            <div class="space-y-4">
-                {# Caixa de seleção para as secretarias #}
+        <div class="p-8">
+            <label class="block text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Selecione o Departamento</label>
+            <select id="secretaria-select" class="w-full rounded-xl border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-4 text-lg focus:ring-4 focus:ring-blue-500/20 transition-soft outline-none">
+                <option value="" disabled selected>Escolha uma secretaria...</option>
+                {% for sec in secretarias %}
+                    <option value="{{ sec }}">{{ sec }}</option>
+                {% endfor %}
+            </select>
+            <p id="select-error" class="hidden mt-3 text-sm text-red-500 font-medium">● Por favor, selecione um departamento válido.</p>
+            <button id="confirmar-secretaria-btn" class="w-full mt-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/30 transition-soft transform hover:-translate-y-1">
+                Acessar Painel
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="flex min-h-screen">
+    <div class="hidden lg:flex w-1/2 bg-gradient-brand items-center justify-center p-12 relative overflow-hidden">
+        <div class="absolute inset-0 opacity-10">
+            <svg class="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0 100 C 20 0 50 0 100 100 Z" fill="white"></path></svg>
+        </div>
+        <div class="relative z-10 text-center text-white max-w-md">
+            <img src="{{ url_for('static', filename='timbre.jpg') }}" class="h-20 mx-auto mb-8 rounded-lg shadow-xl brightness-0 invert" alt="Logo">
+            <h2 class="text-4xl font-black mb-4">Inteligência em Gestão Pública</h2>
+            <p class="text-blue-100 text-lg">Plataforma centralizada para monitoramento, controle e transparência municipal.</p>
+        </div>
+    </div>
+
+    <div class="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white dark:bg-slate-950">
+        <div id="login-form-container" class="w-full max-w-md hidden opacity-0 translate-y-4 transition-all duration-700">
+            <div class="mb-10">
+                <h1 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Bem-vindo</h1>
+                <p class="text-slate-500 mt-2">Você está acessando: <span id="secretaria-display" class="font-bold text-blue-600 underline decoration-blue-200 decoration-4 underline-offset-4"></span></p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+               {% if messages %}
+                   <div class="mb-6">
+                   {% for category, message in messages %}
+                       <div class="flex items-center gap-3 rounded-xl p-4 text-sm font-medium border {% if category == 'danger' %} bg-red-50 text-red-700 border-red-100 {% else %} bg-blue-50 text-blue-700 border-blue-100 {% endif %}">
+                           <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
+                           {{ message }}
+                       </div>
+                   {% endfor %}
+                   </div>
+               {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('login') }}" class="space-y-5">
+                <input type="hidden" name="secretaria" id="secretaria-input">
+                
                 <div>
-                    <label for="secretaria-select" class="sr-only">Selecione a Secretaria</label>
-                    <select id="secretaria-select" name="secretaria_selecionada_modal" class="form-select w-full rounded-lg border-border-light dark:border-border-dark bg-background-light dark:bg-gray-700 p-3 text-foreground-light dark:text-white focus:border-primary focus:ring-primary transition-all">
-                        <option value="" disabled selected>-- Selecione uma Secretaria --</option>
-                        {# Loop para popular as opções #}
-                        {% for sec in secretarias %}
-                            <option value="{{ sec }}">{{ sec }}</option>
-                        {% endfor %}
-                    </select>
+                    <label class="block text-xs font-bold uppercase text-slate-400 mb-1 ml-1">Usuário</label>
+                    <input class="w-full rounded-xl border-slate-200 dark:border-slate-800 dark:bg-slate-900 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 p-4 transition-soft" id="usuario" name="usuario" placeholder="ex: admin.valenca" type="text" required/>
                 </div>
 
-                {# Mensagem de erro específica para a seleção #}
-                <p id="select-error" class="hidden text-center text-sm text-red-600 dark:text-red-400">Por favor, selecione uma secretaria da lista.</p>
+                <div>
+                    <div class="flex justify-between mb-1 ml-1">
+                        <label class="block text-xs font-bold uppercase text-slate-400">Senha Corporativa</label>
+                        <a class="text-xs font-bold text-blue-600 hover:text-blue-700" href="{{ url_for('reset_request') }}">Esqueceu?</a>
+                    </div>
+                    <input class="w-full rounded-xl border-slate-200 dark:border-slate-800 dark:bg-slate-900 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 p-4 transition-soft" id="senha" name="senha" placeholder="••••••••" type="password" required/>
+                </div>
 
-                {# Botão para confirmar a seleção #}
-                <button id="confirmar-secretaria-btn" class="w-full rounded-lg bg-primary py-3 font-semibold text-white transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:focus:ring-offset-card-dark">
-                    Confirmar e Continuar
+                <button class="w-full bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-xl transition-soft transform hover:scale-[1.02]" type="submit">
+                    Autenticar no Sistema
                 </button>
-            </div>
-             {# *** FIM DA ÁREA MODIFICADA *** #}
-        </div>
-    </div>
-</div>
-
-{# Container Principal para o Formulário de Login #}
-<div class="flex min-h-screen items-center justify-center p-4">
-    {# Cartão do Formulário de Login (Começa escondido) #}
-    <div class="w-full max-w-md rounded-xl bg-card-light dark:bg-card-dark p-8 shadow-card border border-border-light dark:border-border-dark hidden opacity-0 scale-95 transition-all duration-300 ease-in-out" id="login-form-container">
-        <div class="mb-8 text-center">
-            <img src="{{ url_for('static', filename='timbre.jpg') }}" alt="Logo Gestoor360" class="mx-auto" id="logo-img">
-            <h1 class="text-2xl font-bold text-foreground-light dark:text-foreground-dark">Acesso ao Sistema</h1>
-            <p class="mt-2 text-sm text-subtle-light dark:text-subtle-dark">
-                Secretaria: <strong id="secretaria-display" class="text-primary dark:text-primary-light"></strong><br/>
-                Digite as suas credenciais.
+            </form>
+            
+            <p class="mt-8 text-center text-sm text-slate-400">
+                &copy; 2026 Gestor 360 - Prefeitura de Valença do Piauí
             </p>
         </div>
-
-        {# Mensagens Flash #}
-        {% with messages = get_flashed_messages(with_categories=true) %}
-           {% if messages %}
-               <div class="mb-4 space-y-2">
-               {% for category, message in messages %}
-                   <div class="rounded-md p-3 text-sm {% if category == 'danger' %} bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800/50 {% elif category == 'success' %} bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800/50 {% else %} bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50 {% endif %}">
-                       {{ message }}
-                   </div>
-               {% endfor %}
-               </div>
-           {% endif %}
-        {% endwith %}
-
-        {# Formulário de Login #}
-        <form class="space-y-6" method="POST" action="{{ url_for('login') }}">
-            <input type="hidden" name="secretaria" id="secretaria-input">
-            <div>
-                <label class="sr-only" for="usuario">Usuário</label>
-                <input class="form-input w-full rounded-lg border-border-light dark:border-border-dark bg-background-light dark:bg-gray-700 p-3 text-foreground-light dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary focus:ring-primary transition-all" id="usuario" name="usuario" placeholder="Nome de usuário" type="text" required/>
-            </div>
-            <div>
-                <label class="sr-only" for="senha">Senha</label>
-                <input class="form-input w-full rounded-lg border-border-light dark:border-border-dark bg-background-light dark:bg-gray-700 p-3 text-foreground-light dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary focus:ring-primary transition-all" id="senha" name="senha" placeholder="Senha" type="password" required/>
-            </div>
-            <div>
-                <button class="w-full rounded-lg bg-primary py-3 font-semibold text-white transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:focus:ring-offset-card-dark" type="submit">Entrar</button>
-            </div>
-            <div class="text-center">
-                <a class="text-sm text-subtle-light dark:text-subtle-dark hover:text-primary dark:hover:text-primary/80 hover:underline" href="{{ url_for('reset_request') }}"> Esqueceu a senha? </a>
-            </div>
-        </form>
     </div>
 </div>
 
-{# *** SCRIPT MODIFICADO PARA USAR A CAIXA DE SELEÇÃO *** #}
 <script>
     document.addEventListener("DOMContentLoaded", () => {
         const backdrop = document.getElementById("secretaria-modal-backdrop");
         const modal = document.getElementById("secretaria-modal");
-        const loginFormContainer = document.getElementById("login-form-container");
-        // Seleciona a caixa de seleção e o botão confirmar
-        const secretariaSelect = document.getElementById("secretaria-select");
-        const confirmarBtn = document.getElementById("confirmar-secretaria-btn");
-        const selectErrorMsg = document.getElementById("select-error"); // Mensagem de erro da seleção
-        // Restantes elementos
-        const secretariaHiddenInput = document.getElementById("secretaria-input");
-        const secretariaDisplaySpan = document.getElementById("secretaria-display");
-        const body = document.body;
+        const loginContainer = document.getElementById("login-form-container");
+        const select = document.getElementById("secretaria-select");
+        const btn = document.getElementById("confirmar-secretaria-btn");
+        const error = document.getElementById("select-error");
+        
+        const inputHidden = document.getElementById("secretaria-input");
+        const displaySpan = document.getElementById("secretaria-display");
 
-        function closeModal() {
-            if (backdrop) backdrop.classList.add("opacity-0");
-            if (modal) modal.classList.add("scale-95", "opacity-0");
-            setTimeout(() => {
-                if (backdrop) backdrop.classList.add("hidden");
-                if (modal) modal.classList.add("hidden");
-                if (body) body.classList.remove('modal-open');
-            }, 300);
-        }
-
-        function showLoginForm() {
-             if (loginFormContainer) {
-                 loginFormContainer.classList.remove("hidden");
-                 void loginFormContainer.offsetWidth; // Force reflow
-                 loginFormContainer.classList.remove("opacity-0", "scale-95");
-                 loginFormContainer.classList.add("opacity-100", "scale-100");
-             }
-        }
-
-        function showModal() {
-            if (backdrop && modal && loginFormContainer) {
-                backdrop.classList.remove("hidden", "opacity-0");
-                modal.classList.remove("hidden", "scale-95", "opacity-0");
-                void modal.offsetWidth; // Force reflow
-                backdrop.classList.remove("opacity-0");
-                modal.classList.remove("opacity-0", "scale-95");
-                modal.classList.add("opacity-100", "scale-100");
-
-                if (body) body.classList.add('modal-open');
-                loginFormContainer.classList.add("hidden", "opacity-0", "scale-95");
-                // Esconde mensagem de erro ao mostrar modal
-                if(selectErrorMsg) selectErrorMsg.classList.add('hidden');
-            } else {
-                 console.error("Erro crítico: Elementos essenciais do modal ou formulário não encontrados no HTML.");
+        btn.addEventListener("click", () => {
+            const val = select.value;
+            if (!val) {
+                error.classList.remove("hidden");
+                select.classList.add("border-red-500");
+                return;
             }
-        }
 
-        // Adiciona event listener para o botão Confirmar
-        if (confirmarBtn && secretariaSelect) {
-            confirmarBtn.addEventListener("click", () => {
-                const nomeSecretaria = secretariaSelect.value; // Pega o valor selecionado
+            // Transição Modal -> Login
+            backdrop.style.opacity = "0";
+            modal.style.opacity = "0";
+            modal.style.transform = "scale(0.95)";
+            
+            setTimeout(() => {
+                backdrop.classList.add("hidden");
+                modal.classList.add("hidden");
+                
+                inputHidden.value = val;
+                displaySpan.textContent = val;
+                
+                loginContainer.classList.remove("hidden");
+                // Trigger animation
+                setTimeout(() => {
+                    loginContainer.classList.remove("opacity-0", "translate-y-4");
+                    loginContainer.classList.add("opacity-100", "translate-y-0");
+                }, 50);
+            }, 500);
+        });
 
-                // Validação
-                if (!nomeSecretaria) {
-                     if(selectErrorMsg) selectErrorMsg.classList.remove('hidden'); // Mostra erro
-                    secretariaSelect.focus(); // Foca na caixa
-                    return; // Para aqui
-                }
-
-                // Se selecionou, esconde erro (se visível)
-                 if(selectErrorMsg) selectErrorMsg.classList.add('hidden');
-
-                // Continua o processo
-                if (secretariaHiddenInput) secretariaHiddenInput.value = nomeSecretaria;
-                if (secretariaDisplaySpan) secretariaDisplaySpan.textContent = nomeSecretaria;
-                closeModal();
-                showLoginForm();
-            });
-        } else if(modal) { // Verifica se pelo menos o modal foi encontrado
-             // Verifica se o problema é o botão ou o select
-             if (!confirmarBtn) console.error("Erro: Botão #confirmar-secretaria-btn não encontrado.");
-             if (!secretariaSelect) console.error("Erro: Caixa de seleção #secretaria-select não encontrada.");
-        }
-
-        // Inicia mostrando o modal
-        showModal();
+        // Efeito de hover profissional no select
+        select.addEventListener("change", () => error.classList.add("hidden"));
     });
 </script>
-{# *** FIM DO SCRIPT MODIFICADO *** #}
 
 </body>
 </html>

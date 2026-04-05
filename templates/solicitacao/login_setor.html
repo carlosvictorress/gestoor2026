@@ -3,49 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agendamento de Veículos - Valença do Piauí</title>
+    <title>Acesso Restrito - Gestor 360</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        .bg-blue-custom { background-color: #4A76B8; }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: radial-gradient(circle at top right, #1e40af, #111827);
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .input-futuristic {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .input-futuristic:focus {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #fbbf24;
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.2);
+        }
+        .animate-glow {
+            animation: glow 4s infinite alternate;
+        }
+        @keyframes glow {
+            from { filter: drop-shadow(0 0 10px rgba(30, 64, 175, 0.4)); }
+            to { filter: drop-shadow(0 0 30px rgba(30, 64, 175, 0.8)); }
+        }
     </style>
 </head>
-<body class="h-full w-full flex overflow-hidden font-sans">
+<body class="h-full w-full flex items-center justify-center overflow-hidden">
 
-    <div class="w-1/2 bg-blue-custom flex flex-col justify-center items-center p-12 text-white">
-        <h1 class="text-3xl md:text-4xl font-bold mb-10 text-center uppercase tracking-wide">
-            Sistema para Agendar Veículo
-        </h1>
+    <div class="absolute top-0 left-0 w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+    <div class="absolute bottom-0 right-0 w-96 h-96 bg-amber-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse"></div>
+
+    <div class="relative z-10 w-full max-w-5xl flex flex-col md:flex-row items-center gap-12 p-6">
         
-        <form action="{{ url_for('solicitacao.login_setor') }}" method="POST" class="w-full max-w-sm">
-            <div class="flex shadow-2xl rounded-lg overflow-hidden bg-white">
-                <input type="text" 
-                       name="codigo_setor" 
-                       placeholder="Digite o código único do setor" 
-                       required
-                       class="w-full px-5 py-4 text-gray-700 focus:outline-none text-lg">
-                <button type="submit" class="bg-amber-400 hover:bg-amber-500 px-8 py-4 text-white font-bold text-2xl transition duration-200">
-                    &gt;
-                </button>
+        <div class="w-full md:w-1/2 flex flex-col justify-center text-center md:text-left">
+            <div class="mb-8">
+                <span class="inline-block px-4 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest mb-4">
+                    Módulo de Transportes
+                </span>
+                <h1 class="text-4xl md:text-5xl font-black text-white leading-tight mb-4">
+                    Agendamento <br> <span class="text-amber-400">Inteligente.</span>
+                </h1>
+                <p class="text-gray-400 text-lg max-w-sm mx-auto md:mx-0">
+                    Acesse o painel do seu setor para gerenciar solicitações de veículos oficiais.
+                </p>
             </div>
-        </form>
-
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="mt-6 w-full max-w-sm">
-                    {% for category, message in messages %}
-                        <p class="text-white font-semibold bg-red-600/80 px-4 py-3 rounded-lg text-center backdrop-blur-sm">
-                            {{ message }}
-                        </p>
-                    {% endfor %}
+            
+            <form action="{{ url_for('solicitacao.login_setor') }}" method="POST" class="w-full max-w-md mx-auto md:mx-0">
+                <div class="relative group">
+                    <label class="block text-gray-500 text-xs font-bold uppercase mb-2 ml-1">Token de Acesso do Setor</label>
+                    <div class="flex items-center glass-panel rounded-2xl overflow-hidden p-1 focus-within:ring-2 focus-within:ring-amber-400/50 transition-all">
+                        <input type="text" 
+                               name="codigo_setor" 
+                               placeholder="Digite o código único" 
+                               required
+                               autocomplete="off"
+                               class="input-futuristic w-full px-6 py-4 text-white placeholder-gray-500 outline-none rounded-xl text-lg">
+                        <button type="submit" class="ml-2 bg-amber-400 hover:bg-amber-500 text-blue-900 font-black text-2xl w-14 h-14 flex items-center justify-center rounded-xl transition-all active:scale-95 shadow-lg shadow-amber-400/20">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                        </button>
+                    </div>
                 </div>
-            {% endif %}
-        {% endwith %}
+            </form>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="mt-6">
+                        {% for category, message in messages %}
+                            <div class="flex items-center gap-3 bg-red-500/10 border border-red-500/20 px-4 py-3 rounded-xl text-red-400 text-sm font-medium backdrop-blur-md animate-bounce">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="hidden md:flex w-1/2 justify-center items-center relative">
+            <div class="absolute inset-0 bg-blue-500/5 rounded-full blur-3xl"></div>
+            <img src="{{ url_for('static', filename='marcadagua.png') }}" 
+                 alt="Brasão Valença do Piauí" 
+                 class="relative z-10 max-w-md w-full object-contain animate-glow opacity-80 brightness-110 contrast-125">
+        </div>
+
     </div>
 
-    <div class="w-1/2 bg-white flex justify-center items-center p-12">
-        <img src="{{ url_for('static', filename='marcadagua.png') }}" 
-             alt="Brasão Valença do Piauí" 
-             class="max-w-xs md:max-w-sm object-contain drop-shadow-xl">
+    <div class="absolute bottom-8 w-full text-center text-gray-600 text-xs tracking-widest uppercase">
+        &copy; 2026 Gestor 360 &bull; Prefeitura de Valença do Piauí
     </div>
 
 </body>

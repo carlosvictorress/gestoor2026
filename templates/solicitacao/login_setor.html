@@ -26,12 +26,13 @@
             border-color: #fbbf24;
             box-shadow: 0 0 20px rgba(251, 191, 36, 0.2);
         }
+        /* Efeito de brilho pulsante ajustado para branco/azul claro */
         .animate-glow {
             animation: glow 4s infinite alternate;
         }
         @keyframes glow {
-            from { filter: drop-shadow(0 0 10px rgba(30, 64, 175, 0.4)); }
-            to { filter: drop-shadow(0 0 30px rgba(30, 64, 175, 0.8)); }
+            from { filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.5)); }
+            to { filter: drop-shadow(0 0 35px rgba(255, 255, 255, 0.9)); }
         }
     </style>
 </head>
@@ -87,10 +88,12 @@
         </div>
 
         <div class="hidden md:flex w-1/2 justify-center items-center relative">
-            <div class="absolute inset-0 bg-blue-500/5 rounded-full blur-3xl"></div>
+            
+            <div class="absolute w-[120%] h-[120%] bg-white/20 rounded-full filter blur-[80px] opacity-60"></div>
+            
             <img src="{{ url_for('static', filename='marcadagua.png') }}" 
                  alt="Brasão Valença do Piauí" 
-                 class="relative z-10 max-w-md w-full object-contain animate-glow opacity-80 brightness-110 contrast-125">
+                 class="relative z-10 max-w-md w-full object-contain animate-glow brightness-125 contrast-110">
         </div>
 
     </div>

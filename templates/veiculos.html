@@ -5,9 +5,9 @@
 {% block content %}
 
 {% if veiculos_com_alerta %}
-<div class="alert alert-warning border-warning shadow-sm" role="alert">
+<div class="alert alert-warning border-warning shadow-sm mb-4" role="alert">
     <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> Atenção: Documentação a Vencer</h4>
-    <p>Os seguintes veículos possuem documentos vencidos ou que irão vencer nos próximos 30 dias. Por favor, verifique e regularize a situação.</p>
+    <p>Os seguintes veículos possuem documentos vencidos ou que irão vencer nos próximos 30 dias. Por favor, regularize a situação.</p>
     <hr>
     <ul class="mb-0">
         {% for veiculo in veiculos_com_alerta %}
@@ -27,130 +27,196 @@
 </div>
 {% endif %}
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2><i class="bi bi-truck"></i> Gerenciamento de Veículos</h2>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-truck"></i> Frota Municipal</h2>
+    <span class="text-muted">Total de {{ veiculos|length }} veículos cadastrados</span>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 border-start border-4 border-primary">
+            <div class="card-body">
+                <h6 class="text-muted small text-uppercase fw-bold">Total Frota</h6>
+                <h3 class="mb-0">{{ veiculos|length }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 border-start border-4 border-warning">
+            <div class="card-body">
+                <h6 class="text-muted small text-uppercase fw-bold">Alertas Ativos</h6>
+                <h3 class="mb-0 text-warning">{{ veiculos_com_alerta|length }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 border-start border-4 border-success">
+            <div class="card-body">
+                <h6 class="text-muted small text-uppercase fw-bold">Admins/Leves</h6>
+                <h3 class="mb-0 text-success">
+                    {{ veiculos|selectattr("tipo", "equalto", "Carro Administrativo")|list|length }}
+                </h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 border-start border-4 border-info">
+            <div class="card-body">
+                <h6 class="text-muted small text-uppercase fw-bold">Pesados/Escolar</h6>
+                <h3 class="mb-0 text-info">
+                    {{ veiculos|rejectattr("tipo", "equalto", "Carro Administrativo")|list|length }}
+                </h3>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="row">
-    <div class="col-lg-4">
-        <div class="card shadow-sm">
-            <div class="card-header">
-                <h5>Cadastrar Novo Veículo</h5>
+    <div class="col-lg-4 mb-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-dark text-white border-0 py-3">
+                <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Cadastrar Veículo</h5>
             </div>
             <div class="card-body">
                 <form action="{{ url_for('gerenciar_veiculos') }}" method="POST">
-                    <div class="mb-3">
-                        <label for="placa" class="form-label">Placa*</label>
-                        <input type="text" class="form-control" name="placa" required style="text-transform: uppercase;">
-                    </div>
-                    <div class="mb-3">
-                        <label for="modelo" class="form-label">Modelo*</label>
-                        <input type="text" class="form-control" name="modelo" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="renavam" class="form-label">Renavam</label>
-                        <input type="text" class="form-control" name="renavam">
-                    </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="ano_fabricacao" class="form-label">Ano de Fabricação</label>
-                            <input type="number" class="form-control" name="ano_fabricacao" placeholder="Ex: 2020">
+                            <label for="placa" class="form-label small fw-bold">Placa*</label>
+                            <input type="text" class="form-control" name="placa" required style="text-transform: uppercase;" placeholder="ABC1D23">
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="ano_modelo" class="form-label">Ano do Modelo</label>
-                            <input type="number" class="form-control" name="ano_modelo" placeholder="Ex: 2021">
+                            <label for="tipo" class="form-label small fw-bold">Tipo*</label>
+                            <select class="form-select" name="tipo" id="tipoVeiculo" required>
+                                <option value="">-- Tipo --</option>
+                                <option value="Carro Administrativo">Carro Administrativo</option>
+                                <option value="Ônibus">Ônibus</option>
+                                <option value="Micro-ônibus">Micro-ônibus</option>
+                                <option value="Van">Van</option>
+                                <option value="Outro">Outro</option>
+                            </select>
                         </div>
                     </div>
+
                     <div class="mb-3">
-                        <label for="tipo" class="form-label">Tipo*</label>
-                        <select class="form-select" name="tipo" id="tipoVeiculo" required>
-                            <option value="">-- Selecione --</option>
-                            <option value="Carro Administrativo">Carro Administrativo</option>
-                            <option value="Ônibus">Ônibus</option>
-                            <option value="Micro-ônibus">Micro-ônibus</option>
-                            <option value="Van">Van</option>
-                            <option value="Outro">Outro</option>
-                        </select>
+                        <label for="modelo" class="form-label small fw-bold">Modelo*</label>
+                        <input type="text" class="form-control" name="modelo" required placeholder="Ex: VW Gol 1.0">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="renavam" class="form-label small fw-bold">Renavam</label>
+                        <input type="text" class="form-control" name="renavam" placeholder="Número do Renavam">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="ano_fabricacao" class="form-label small fw-bold">Ano Fab.</label>
+                            <input type="number" class="form-control" name="ano_fabricacao" placeholder="2020">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="ano_modelo" class="form-label small fw-bold">Ano Mod.</label>
+                            <input type="number" class="form-control" name="ano_modelo" placeholder="2021">
+                        </div>
                     </div>
                     
                     <div class="mb-3">
-                         <label for="secretaria_id" class="form-label">Secretaria*</label>
+                         <label for="secretaria_id" class="form-label small fw-bold">Secretaria Responsável*</label>
                         <select class="form-select" name="secretaria_id" id="secretaria_id" required>
-                            <option value="" disabled selected>-- Selecione uma Secretaria --</option>
+                            <option value="" disabled selected>Selecione a Secretaria</option>
                             {% for sec in secretarias %}
                             <option value="{{ sec.id }}">{{ sec.nome }}</option>
                             {% endfor %}
                         </select>
                     </div>
 
-                    <div id="campos_onibus" style="display: none;">
-                        <hr>
-                        <h6 class="text-muted mb-3">Documentação Específica para Ônibus</h6>
-                        <div class="mb-3">
-                            <label for="autorizacao_detran" class="form-label">Nº Autorização Detran</label>
-                            <input type="text" class="form-control" name="autorizacao_detran">
+                    <div id="campos_onibus" class="p-3 border rounded bg-light" style="display: none;">
+                        <h6 class="text-primary mb-3 small fw-bold"><i class="bi bi-file-earmark-lock"></i> Documentação Escolar</h6>
+                        <div class="mb-2">
+                            <label for="autorizacao_detran" class="form-label small">Nº Autorização Detran</label>
+                            <input type="text" class="form-control form-control-sm" name="autorizacao_detran">
                         </div>
-                        <div class="mb-3">
-                            <label for="validade_autorizacao" class="form-label">Validade da Autorização</label>
-                            <input type="date" class="form-control" name="validade_autorizacao">
+                        <div class="mb-2">
+                            <label for="validade_autorizacao" class="form-label small">Validade Autorização</label>
+                            <input type="date" class="form-control form-control-sm" name="validade_autorizacao">
                         </div>
-                        <div class="mb-3">
-                            <label for="certificado_tacografo" class="form-label">Nº Certificado Tacógrafo</label>
-                            <input type="text" class="form-control" name="certificado_tacografo">
+                        <div class="mb-2">
+                            <label for="certificado_tacografo" class="form-label small">Nº Certificado Tacógrafo</label>
+                            <input type="text" class="form-control form-control-sm" name="certificado_tacografo">
                         </div>
-                        <div class="mb-3">
-                            <label for="data_emissao_tacografo" class="form-label">Emissão do Tacógrafo</label>
-                            <input type="date" class="form-control" name="data_emissao_tacografo">
-                        </div>
-                        <div class="mb-3">
-                            <label for="validade_tacografo" class="form-label">Validade do Tacógrafo</label>
-                            <input type="date" class="form-control" name="validade_tacografo">
+                        <div class="row">
+                            <div class="col-6 mb-2">
+                                <label for="data_emissao_tacografo" class="form-label small">Emissão Tacog.</label>
+                                <input type="date" class="form-control form-control-sm" name="data_emissao_tacografo">
+                            </div>
+                            <div class="col-6 mb-2">
+                                <label for="validade_tacografo" class="form-label small">Validade Tacog.</label>
+                                <input type="date" class="form-control form-control-sm" name="validade_tacografo">
+                            </div>
                         </div>
                     </div>
 
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary">Cadastrar Veículo</button>
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary shadow-sm">
+                            <i class="bi bi-save"></i> Finalizar Cadastro
+                        </button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
-    <div class="col-lg-8">
-        <div class="card shadow-sm">
-            <div class="card-header">
-                <h5>Veículos Cadastrados</h5>
+
+    <div class="col-lg-8 mb-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white py-3 border-bottom">
+                <h5 class="mb-0">Veículos em Operação</h5>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
                             <tr>
-                                <th>Placa</th>
-                                <th>Modelo</th>
-                                <th>Tipo</th>
-                                <th>Secretaria</th>
+                                <th>Identificação</th>
+                                <th>Categoria</th>
+                                <th>Vínculo</th>
                                 <th class="text-center">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for veiculo in veiculos %}
                             <tr>
-                                <td><span class="badge bg-secondary">{{ veiculo.placa }}</span></td>
-                                <td>{{ veiculo.modelo }}</td>
-                                <td>{{ veiculo.tipo }}</td>
-                                <td>{{ veiculo.secretaria.nome if veiculo.secretaria else 'N/A' }}</td>
+                                <td>
+                                    <div class="fw-bold">{{ veiculo.modelo }}</div>
+                                    <span class="badge bg-secondary font-monospace">{{ veiculo.placa }}</span>
+                                </td>
+                                <td>
+                                    <div class="small">{{ veiculo.tipo }}</div>
+                                    {% if veiculo.ano_modelo %}
+                                        <div class="text-muted x-small">Ano: {{ veiculo.ano_modelo }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="text-truncate d-inline-block" style="max-width: 150px;">
+                                        {{ veiculo.secretaria.nome if veiculo.secretaria else 'Sem Secretaria' }}
+                                    </span>
+                                </td>
                                 <td class="text-center">
-                                    <a href="{{ url_for('detalhes_veiculo', placa=veiculo.placa) }}" class="btn btn-sm btn-info" title="Ver Detalhes e Histórico">
-                                        <i class="bi bi-graph-up"></i> Detalhes
-                                    </a>
-                                    <a href="{{ url_for('excluir_veiculo', placa=veiculo.placa) }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza?');" title="Excluir">
-                                        <i class="bi bi-trash-fill"></i>
-                                    </a>
+                                    <div class="btn-group shadow-sm">
+                                        <a href="{{ url_for('detalhes_veiculo', placa=veiculo.placa) }}" class="btn btn-sm btn-outline-info" title="Ver Painel do Veículo">
+                                            <i class="bi bi-pie-chart"></i> Gestão
+                                        </a>
+                                        <a href="{{ url_for('excluir_veiculo', placa=veiculo.placa) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Tem certeza que deseja excluir o veículo {{ veiculo.placa }}?');" title="Excluir">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="5" class="text-center">Nenhum veículo encontrado para a sua secretaria.</td>
+                                <td colspan="4" class="text-center py-5">
+                                    <div class="text-muted">
+                                        <i class="bi bi-inbox h1 d-block"></i>
+                                        Nenhum veículo encontrado para o seu acesso.
+                                    </div>
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -161,13 +227,18 @@
     </div>
 </div>
 
+<style>
+    .x-small { font-size: 0.75rem; }
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const tipoSelect = document.getElementById('tipoVeiculo');
     const camposOnibus = document.getElementById('campos_onibus');
 
     function toggleCamposOnibus() {
-        if (tipoSelect.value === 'Ônibus') {
+        const tiposEspeciais = ['Ônibus', 'Micro-ônibus', 'Van'];
+        if (tiposEspeciais.includes(tipoSelect.value)) {
             camposOnibus.style.display = 'block';
         } else {
             camposOnibus.style.display = 'none';
@@ -175,7 +246,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     tipoSelect.addEventListener('change', toggleCamposOnibus);
-    // Roda a função uma vez no início para verificar o estado inicial
     toggleCamposOnibus();
 });
 </script>

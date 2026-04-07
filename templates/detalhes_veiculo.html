@@ -8,39 +8,94 @@
         <h2><i class="bi bi-truck"></i> {{ veiculo.modelo }}</h2>
         <h4 class="text-muted"><span class="badge bg-secondary">{{ veiculo.placa }}</span></h4>
     </div>
-    <a href="{{ url_for('gerenciar_veiculos') }}" class="btn btn-secondary"><i class="bi bi-arrow-left-circle"></i> Voltar para a Lista</a>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('gerenciar_veiculos') }}" class="btn btn-secondary shadow-sm">
+            <i class="bi bi-arrow-left-circle"></i> Voltar para a Lista
+        </a>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4 border-start border-4 border-primary">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-primary"><i class="bi bi-card-list"></i> Informações do Cadastro</h5>
+        <span class="badge bg-light text-dark border">{{ veiculo.tipo }}</span>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="text-muted small d-block">Secretaria Responsável</label>
+                <span class="fw-bold text-dark">{{ veiculo.secretaria.nome if veiculo.secretaria else 'Não vinculada' }}</span>
+            </div>
+            <div class="col-md-2">
+                <label class="text-muted small d-block">Renavam</label>
+                <span class="fw-bold text-dark">{{ veiculo.renavam or '---' }}</span>
+            </div>
+            <div class="col-md-2">
+                <label class="text-muted small d-block">Ano Fab/Modelo</label>
+                <span class="fw-bold text-dark">{{ veiculo.ano_fabricacao or '---' }} / {{ veiculo.ano_modelo or '---' }}</span>
+            </div>
+            <div class="col-md-5">
+                <label class="text-muted small d-block">Órgão / Lotação</label>
+                <span class="fw-bold text-dark">{{ veiculo.orgao or 'Prefeitura Municipal' }}</span>
+            </div>
+        </div>
+
+        {% if veiculo.tipo == 'Ônibus' or veiculo.tipo == 'Micro-ônibus' or veiculo.tipo == 'Van' %}
+        <hr class="my-3">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="p-2 border rounded bg-light">
+                    <label class="text-muted small d-block">Autorização DETRAN</label>
+                    <span class="fw-bold">{{ veiculo.autorizacao_detran or 'Não cadastrada' }}</span>
+                    {% if veiculo.validade_autorizacao %}
+                    <div class="small mt-1">Vencimento: <span class="badge bg-info text-dark">{{ veiculo.validade_autorizacao.strftime('%d/%m/%Y') }}</span></div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-2 border rounded bg-light">
+                    <label class="text-muted small d-block">Certificado Tacógrafo</label>
+                    <span class="fw-bold">{{ veiculo.certificado_tacografo or 'Não cadastrado' }}</span>
+                    {% if veiculo.validade_tacografo %}
+                    <div class="small mt-1">Vencimento: <span class="badge bg-info text-dark">{{ veiculo.validade_tacografo.strftime('%d/%m/%Y') }}</span></div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
 </div>
 
 <div class="row mb-4">
     <div class="col-md-3">
-        <div class="card shadow-sm text-center">
+        <div class="card shadow-sm text-center border-0 bg-white">
             <div class="card-body">
-                <h6 class="card-subtitle mb-2 text-muted">Gasto Total (Comb. + Manut.)</h6>
-                <h4 class="card-title text-danger">R$ {{ "%.2f"|format(indicadores.gasto_total)|replace('.', ',') }}</h4>
+                <h6 class="card-subtitle mb-2 text-muted small uppercase">Gasto Total (Acumulado)</h6>
+                <h4 class="card-title text-danger mb-0">R$ {{ "%.2f"|format(indicadores.gasto_total)|replace('.', ',') }}</h4>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card shadow-sm text-center">
+        <div class="card shadow-sm text-center border-0 bg-white">
             <div class="card-body">
-                <h6 class="card-subtitle mb-2 text-muted">Distância Total</h6>
-                <h4 class="card-title">{{ "%.1f"|format(indicadores.total_km_rodado)|replace('.', ',') }} km</h4>
+                <h6 class="card-subtitle mb-2 text-muted small uppercase">Distância Total</h6>
+                <h4 class="card-title text-dark mb-0">{{ "%.1f"|format(indicadores.total_km_rodado)|replace('.', ',') }} km</h4>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card shadow-sm text-center">
+        <div class="card shadow-sm text-center border-0 bg-white">
             <div class="card-body">
-                <h6 class="card-subtitle mb-2 text-muted">Consumo Médio</h6>
-                <h4 class="card-title text-primary">{{ "%.2f"|format(indicadores.consumo_medio_geral)|replace('.', ',') }} km/L</h4>
+                <h6 class="card-subtitle mb-2 text-muted small uppercase">Consumo Médio</h6>
+                <h4 class="card-title text-primary mb-0">{{ "%.2f"|format(indicadores.consumo_medio_geral)|replace('.', ',') }} km/L</h4>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card shadow-sm text-center">
+        <div class="card shadow-sm text-center border-0 bg-white">
             <div class="card-body">
-                <h6 class="card-subtitle mb-2 text-muted">Custo Médio Total</h6>
-                <h4 class="card-title text-success">R$ {{ "%.2f"|format(indicadores.custo_medio_km)|replace('.', ',') }}/km</h4>
+                <h6 class="card-subtitle mb-2 text-muted small uppercase">Custo Médio / KM</h6>
+                <h4 class="card-title text-success mb-0">R$ {{ "%.2f"|format(indicadores.custo_medio_km)|replace('.', ',') }}/km</h4>
             </div>
         </div>
     </div>
@@ -48,80 +103,94 @@
 
 <div class="row mb-4">
     <div class="col-md-6">
-        <div class="card shadow-sm">
-            <div class="card-body"><h5>Evolução do Consumo (km/L)</h5><canvas id="consumoChart"></canvas></div>
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h5 class="card-title mb-3">Evolução do Consumo (km/L)</h5>
+                <canvas id="consumoChart" style="max-height: 250px;"></canvas>
+            </div>
         </div>
     </div>
     <div class="col-md-6">
-        <div class="card shadow-sm">
-            <div class="card-body"><h5>Evolução do Custo por KM (R$)</h5><canvas id="custoKmChart"></canvas></div>
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h5 class="card-title mb-3">Evolução do Custo por KM (R$)</h5>
+                <canvas id="custoKmChart" style="max-height: 250px;"></canvas>
+            </div>
         </div>
     </div>
 </div>
 
 <div class="row mb-4">
     <div class="col-md-4">
-        <div class="card shadow-sm">
-            <div class="card-header"><h5><i class="bi bi-wrench-adjustable-circle"></i> Registrar Manutenção</h5></div>
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="bi bi-wrench-adjustable-circle"></i> Registrar Manutenção</h5>
+            </div>
             <div class="card-body">
                 <form action="{{ url_for('add_manutencao', placa=veiculo.placa) }}" method="POST">
                     <div class="mb-2">
-                        <label for="data_manutencao" class="form-label">Data*</label>
+                        <label for="data_manutencao" class="form-label small fw-bold">Data*</label>
                         <input type="date" class="form-control" name="data_manutencao" required>
                     </div>
                     <div class="mb-2">
-                        <label for="km_manutencao" class="form-label">Quilometragem*</label>
-                        <input type="text" class="form-control" name="km_manutencao" placeholder="KM no momento do serviço" required>
+                        <label for="km_manutencao" class="form-label small fw-bold">Quilometragem*</label>
+                        <input type="text" class="form-control" name="km_manutencao" placeholder="KM atual" required>
                     </div>
                     <div class="mb-2">
-                        <label for="tipo_servico" class="form-label">Tipo de Serviço*</label>
-                        <input type="text" class="form-control" name="tipo_servico" placeholder="Ex: Troca de Óleo e Filtro" required>
+                        <label for="tipo_servico" class="form-label small fw-bold">Tipo de Serviço*</label>
+                        <input type="text" class="form-control" name="tipo_servico" placeholder="Ex: Freios, Óleo..." required>
                     </div>
                     <div class="mb-2">
-                        <label for="custo_manutencao" class="form-label">Custo (R$)*</label>
-                        <input type="text" class="form-control" name="custo_manutencao" placeholder="Ex: 250,00" required>
+                        <label for="custo_manutencao" class="form-label small fw-bold">Custo (R$)*</label>
+                        <input type="text" class="form-control" name="custo_manutencao" placeholder="0.00" required>
                     </div>
-                     <div class="mb-2">
-                        <label for="oficina" class="form-label">Oficina/Fornecedor</label>
+                    <div class="mb-2">
+                        <label for="oficina" class="form-label small fw-bold">Oficina/Fornecedor</label>
                         <input type="text" class="form-control" name="oficina">
                     </div>
                     <div class="mb-2">
-                        <label for="descricao" class="form-label">Descrição/Peças</label>
+                        <label for="descricao" class="form-label small fw-bold">Descrição/Peças</label>
                         <textarea class="form-control" name="descricao" rows="2"></textarea>
                     </div>
-                    <button type="submit" class="btn btn-success mt-2">Salvar Manutenção</button>
+                    <div class="d-grid mt-3">
+                        <button type="submit" class="btn btn-success">Salvar Registro</button>
+                    </div>
                 </form>
             </div>
         </div>
     </div>
     <div class="col-md-8">
-        <div class="card shadow-sm">
-            <div class="card-header"><h5>Histórico de Manutenções</h5></div>
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-bottom">
+                <h5 class="mb-0">Histórico de Manutenções</h5>
+            </div>
             <div class="card-body">
-                 <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
                             <tr>
                                 <th>Data</th>
                                 <th>KM</th>
                                 <th>Serviço</th>
                                 <th>Custo</th>
-                                <th>Ações</th>
+                                <th class="text-center">Ação</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for m in manutencoes %}
                             <tr>
                                 <td>{{ m.data.strftime('%d/%m/%Y') }}</td>
-                                <td>{{ "%.1f"|format(m.quilometragem)|replace('.', ',') }}</td>
+                                <td>{{ "%.0f"|format(m.quilometragem)|replace('.', ',') }}</td>
                                 <td>{{ m.tipo_servico }}</td>
-                                <td>R$ {{ "%.2f"|format(m.custo)|replace('.', ',') }}</td>
-                                <td>
-                                    <a href="{{ url_for('excluir_manutencao', id=m.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza?')"><i class="bi bi-trash-fill"></i></a>
+                                <td class="fw-bold">R$ {{ "%.2f"|format(m.custo)|replace('.', ',') }}</td>
+                                <td class="text-center">
+                                    <a href="{{ url_for('excluir_manutencao', id=m.id) }}" class="btn btn-sm btn-outline-danger border-0" onclick="return confirm('Excluir esta manutenção?')">
+                                        <i class="bi bi-trash-fill"></i>
+                                    </a>
                                 </td>
                             </tr>
                             {% else %}
-                            <tr><td colspan="5" class="text-center">Nenhum registro de manutenção.</td></tr>
+                            <tr><td colspan="5" class="text-center py-3 text-muted small">Nenhuma manutenção registrada até o momento.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -131,31 +200,43 @@
     </div>
 </div>
 
-<div class="card shadow-sm">
-    <div class="card-header"><h5>Histórico de Abastecimentos</h5></div>
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white border-bottom">
+        <h5 class="mb-0">Histórico de Abastecimentos (Eficiência)</h5>
+    </div>
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-hover">
-                <thead><tr><th>Data</th><th>Motorista</th><th>KM Atual</th><th>KM Rodado</th><th>Litros</th><th>Consumo (km/L)</th><th>Valor Total</th></tr></thead>
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Data</th>
+                        <th>Motorista</th>
+                        <th>KM Atual</th>
+                        <th>KM Rodado</th>
+                        <th>Litros</th>
+                        <th>Consumo (km/L)</th>
+                        <th>Valor Total</th>
+                    </tr>
+                </thead>
                 <tbody>
                     {% for item in abastecimentos_com_analise %}
                     {% set r = item.abastecimento %}
                     <tr>
-                        <td>{{ r.data.strftime('%d/%m/%Y') }}</td>
+                        <td class="small">{{ r.data.strftime('%d/%m/%Y') }}</td>
                         <td>{{ r.motorista.nome }}</td>
-                        <td>{{ "%.1f"|format(r.quilometragem)|replace('.', ',') }}</td>
-                        <td>{{ "%.1f"|format(item.km_rodado)|replace('.', ',') }}</td>
+                        <td>{{ "%.0f"|format(r.quilometragem)|replace('.', ',') }}</td>
+                        <td class="text-center">{{ "%.1f"|format(item.km_rodado)|replace('.', ',') }}</td>
                         <td>{{ "%.2f"|format(r.litros)|replace('.', ',') }}</td>
                         <td>
                             {% if item.consumo_kml > 0 and item.consumo_kml < 7.0 %}
-                                <span class="badge bg-danger">{{ "%.2f"|format(item.consumo_kml)|replace('.', ',') }}</span>
+                                <span class="badge bg-danger rounded-pill">{{ "%.2f"|format(item.consumo_kml)|replace('.', ',') }}</span>
                             {% elif item.consumo_kml > 0 %}
-                                {{ "%.2f"|format(item.consumo_kml)|replace('.', ',') }}
+                                <span class="fw-bold text-success">{{ "%.2f"|format(item.consumo_kml)|replace('.', ',') }}</span>
                             {% else %}
-                                --
+                                <span class="text-muted small">--</span>
                             {% endif %}
                         </td>
-                        <td>R$ {{ "%.2f"|format(r.valor_total)|replace('.', ',') }}</td>
+                        <td class="fw-bold">R$ {{ "%.2f"|format(r.valor_total)|replace('.', ',') }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -170,15 +251,53 @@ document.addEventListener('DOMContentLoaded', function () {
     const labels = {{ chart_labels|tojson }};
     const consumoData = {{ chart_consumo_data|tojson }};
     const custoKmData = {{ chart_custo_km_data|tojson }};
+
+    const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: false, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } }
+    };
+
     const ctxConsumo = document.getElementById('consumoChart');
     if (ctxConsumo) {
-        new Chart(ctxConsumo.getContext('2d'), {type: 'line', data: {labels: labels, datasets: [{label: 'Consumo (km/L)', data: consumoData, borderColor: 'rgba(0, 77, 64, 1)', backgroundColor: 'rgba(0, 77, 64, 0.1)', fill: true, tension: 0.1}]}});
+        new Chart(ctxConsumo.getContext('2d'), {
+            type: 'line', 
+            data: {
+                labels: labels, 
+                datasets: [{
+                    label: 'Consumo (km/L)', 
+                    data: consumoData, 
+                    borderColor: '#004d40', 
+                    backgroundColor: 'rgba(0, 77, 64, 0.1)', 
+                    fill: true, 
+                    tension: 0.3,
+                    pointRadius: 4
+                }]
+            },
+            options: commonOptions
+        });
     }
+
     const ctxCustoKm = document.getElementById('custoKmChart');
     if (ctxCustoKm) {
-        new Chart(ctxCustoKm.getContext('2d'), {type: 'line', data: {labels: labels, datasets: [{label: 'Custo por KM (R$)', data: custoKmData, borderColor: 'rgba(220, 53, 69, 1)', backgroundColor: 'rgba(220, 53, 69, 0.1)', fill: true, tension: 0.1}]}});
+        new Chart(ctxCustoKm.getContext('2d'), {
+            type: 'line', 
+            data: {
+                labels: labels, 
+                datasets: [{
+                    label: 'Custo por KM (R$)', 
+                    data: custoKmData, 
+                    borderColor: '#dc3545', 
+                    backgroundColor: 'rgba(220, 53, 69, 0.1)', 
+                    fill: true, 
+                    tension: 0.3,
+                    pointRadius: 4
+                }]
+            },
+            options: commonOptions
+        });
     }
 });
 </script>
-
 {% endblock %}

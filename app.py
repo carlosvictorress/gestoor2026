@@ -1930,54 +1930,70 @@ def delete_server(id):
 @login_required
 @role_required("RH", "admin")
 def importar_servidores():
-    # 1. Validações iniciais
     if "csv_file" not in request.files:
         flash("Nenhum arquivo enviado.", "danger")
         return redirect(url_for("lista_servidores"))
 
     file = request.files["csv_file"]
-    if file.filename == "":
-        flash("Nenhum arquivo selecionado.", "danger")
-        return redirect(url_for("lista_servidores"))
+    secretaria_id_sessao = session.get("secretaria_id")
 
-    if not file.filename.endswith(".csv"):
-        flash("Formato inválido. Use um arquivo .csv.", "warning")
+    if not secretaria_id_sessao:
+        flash("Erro de sessão. Identifique sua secretaria novamente.", "danger")
         return redirect(url_for("lista_servidores"))
 
     try:
-        # 2. Leitura segura com UTF-8-SIG (ignora o BOM do Excel)
         stream = io.StringIO(file.stream.read().decode("utf-8-sig"), newline=None)
         reader = csv.DictReader(stream, delimiter=';')
         
-        # DEBUG: Imprime as colunas encontradas no arquivo para você ver no log do Railway
-        print(f"Colunas detectadas no CSV: {reader.fieldnames}")
-        
         cont = 0
         for row in reader:
-            # Importante: certifique-se que o nome das colunas aqui 
-            # é IDÊNTICO ao cabeçalho do arquivo CSV
+            # Tratamento de datas (evita erro se a data estiver vazia)
+            def converter_data(data_str):
+                try:
+                    return datetime.strptime(data_str, "%Y-%m-%d").date() if data_str else None
+                except:
+                    return None
+
+            # Limpeza de valores numéricos
+            remuneracao_raw = str(row.get("REMUNERAÇÃO", "0")).replace('.', '').replace(',', '.')
+            
             novo_servidor = Servidor(
-        num_contrato=row.get("Nº CONTRATO"),
-        nome=row.get("NOME"),
-        funcao=row.get("FUNÇÃO"),
-        lotacao=row.get("LOTAÇÃO"),
-        carga_horaria=row.get("CARGA HORÁRIA"),
-        remuneracao=float(str(row.get("REMUNERAÇÃO", 0)).replace(',', '.')),
-    # Nota: Se o modelo 'Servidor' não tiver o campo 'vigencia', 
-    # remova esta linha abaixo para evitar erros:
-    
-        )
+                num_contrato=row.get("Nº CONTRATO"),
+                nome=row.get("NOME"),
+                cpf=limpar_cpf(row.get("CPF")),
+                rg=row.get("RG"),
+                data_nascimento=converter_data(row.get("DATA NASCIMENTO")),
+                nome_mae=row.get("NOME DA MÃE"),
+                email=row.get("EMAIL"),
+                pis_pasep=row.get("PIS/PASEP"),
+                tipo_vinculo=row.get("VÍNCULO"),
+                local_trabalho=row.get("LOCAL"),
+                escola_id=row.get("ESCOLA_ID") if row.get("ESCOLA_ID") else None,
+                classe_nivel=row.get("CLASSE/NÍVEL"),
+                num_contra_cheque=row.get("Nº CONTRA CHEQUE"),
+                nacionalidade=row.get("NACIONALIDADE"),
+                estado_civil=row.get("ESTADO CIVIL"),
+                telefone=row.get("TELEFONE"),
+                endereco=row.get("ENDEREÇO"),
+                funcao=row.get("FUNÇÃO"),
+                lotacao=row.get("LOTAÇÃO"),
+                carga_horaria=row.get("CARGA HORÁRIA"),
+                remuneracao=float(remuneracao_raw) if remuneracao_raw else 0.0,
+                dados_bancarios=row.get("DADOS BANCÁRIOS"),
+                data_inicio=converter_data(row.get("DATA INÍCIO")),
+                data_saida=converter_data(row.get("DATA SAÍDA")),
+                observacoes=row.get("OBSERVAÇÕES"),
+                secretaria_id=secretaria_id_sessao # Garante que entra na secretaria certa
+            )
             db.session.add(novo_servidor)
             cont += 1
         
         db.session.commit()
-        flash(f"Sucesso! {cont} servidores importados.", "success")
+        flash(f"Sucesso! {cont} servidores importados com todos os campos.", "success")
         
     except Exception as e:
         db.session.rollback()
-        # ESTE PRINT VAI APARECER NO LOG DO RAILWAY
-        print(f"--- ERRO CRÍTICO NA IMPORTAÇÃO ---")
-        print(f"Detalhes do erro: {str(e)}")
+        print(f"Erro na importação: {str(e)}")
         flash(f"Erro ao processar: {str(e)}", "danger")
 
     return redirect(url_for("lista_servidores"))

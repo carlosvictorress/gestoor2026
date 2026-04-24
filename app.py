@@ -2195,7 +2195,7 @@ def add_server():
 
     return redirect(url_for("lista_servidores"))
 
-@app.route("/editar/<id>", methods=["GET", "POST"])
+@app.route("/editar/<path:id>", methods=["GET", "POST"])
 @login_required
 @role_required("RH", "admin")
 def editar_servidor(id):

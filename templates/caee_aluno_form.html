@@ -1,139 +1,214 @@
 {% extends 'base.html' %}
 
 {% block title %}
-    {% if aluno %}
-        Editar Prontuário - CAEE
-    {% else %}
-        Cadastrar Aluno - CAEE
-    {% endif %}
+    {% if aluno %} Editar Prontuário - CAEE {% else %} Cadastrar Aluno - CAEE {% endif %}
 {% endblock %}
 
 {% block content %}
+<style>
+    /* Estilo Premium Gestoor 360º */
+    .form-section-title {
+        border-left: 4px solid #0d6efd;
+        padding-left: 15px;
+        margin-bottom: 25px;
+        color: #495057;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.9rem;
+        letter-spacing: 1px;
+    }
+    .premium-card {
+        border: none;
+        border-radius: 15px;
+        background: #ffffff;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.05) !important;
+    }
+    .form-label {
+        font-weight: 600;
+        color: #555;
+        font-size: 0.85rem;
+    }
+    .form-control, .form-select {
+        border-radius: 10px;
+        padding: 0.6rem 1rem;
+        border: 1px solid #e0e0e0;
+        transition: all 0.3s ease;
+    }
+    .form-control:focus, .form-select:focus {
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.1);
+        border-color: #0d6efd;
+    }
+    .bg-light-soft {
+        background-color: #f8f9fa;
+        border-radius: 12px;
+    }
+    .btn-save {
+        padding: 10px 30px;
+        border-radius: 12px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+    .badge-check {
+        padding: 10px 15px;
+        border-radius: 8px;
+        background: white;
+        border: 1px solid #dee2e6;
+        transition: all 0.2s;
+    }
+    .form-check-input:checked + .form-check-label {
+        color: #0d6efd;
+        font-weight: bold;
+    }
+</style>
 
-{% if aluno %}
-    <h2><i class="bi bi-pencil-fill"></i> Editar Prontuário de Aluno (CAEE)</h2>
-    <p class="lead">{{ aluno.nome_completo }}</p>
-{% else %}
-    <h2><i class="bi bi-person-plus-fill"></i> Novo Prontuário de Aluno (CAEE)</h2>
-{% endif %}
-<hr>
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">
+                {% if aluno %}
+                    <i class="bi bi-pencil-square text-primary"></i> Editar Prontuário
+                {% else %}
+                    <i class="bi bi-person-plus-fill text-primary"></i> Novo Prontuário
+                {% endif %}
+            </h2>
+            <p class="text-muted">{% if aluno %}{{ aluno.nome_completo }}{% else %}Centro de Atendimento Educacional Especializado{% endif %}</p>
+        </div>
+    </div>
 
-<div class="card shadow-sm">
-    <div class="card-body">
-        <form method="POST" action="{% if aluno %}{{ url_for('caee.editar_aluno', aluno_id=aluno.id) }}{% else %}{{ url_for('caee.adicionar_aluno') }}{% endif %}">
-            
-            <h5 class="text-muted mb-3">1. Dados de Identificação e Escolares</h5>
-            <div class="row g-3 mb-3">
-                <div class="col-md-6">
-                    <label for="nome_completo" class="form-label">Nome Completo do Aluno*</label>
-                    <input type="text" class="form-control" id="nome_completo" name="nome_completo" value="{{ aluno.nome_completo if aluno }}" required>
-                </div>
-                <div class="col-md-3">
-                    <label for="data_nascimento" class="form-label">Data de Nascimento*</label>
-                    <input type="date" class="form-control" id="data_nascimento" name="data_nascimento" value="{{ aluno.data_nascimento.strftime('%Y-%m-%d') if aluno and aluno.data_nascimento }}" required>
-                </div>
-                <div class="col-md-3">
-                    <label for="cpf" class="form-label">CPF (Opcional)</label>
-                    <input type="text" class="form-control" id="cpf" name="cpf" value="{{ aluno.cpf if aluno }}">
-                </div>
-                <div class="col-md-6">
-                    <label for="escola_origem" class="form-label">Escola de Origem (Rede Regular)</label>
-                    <input type="text" class="form-control" id="escola_origem" name="escola_origem" value="{{ aluno.escola_origem if aluno }}" placeholder="Ex: U. E. Dona Antonieta">
-                </div>
-                <div class="col-md-3">
-                    <label for="aluno_laudado" class="form-label">Aluno Laudado?*</label>
-                    <select id="aluno_laudado" name="aluno_laudado" class="form-select" onchange="toggleCID()" required>
-                        <option value="false" {% if aluno and not aluno.aluno_laudado %}selected{% endif %}>Não</option>
-                        <option value="true" {% if (aluno and aluno.aluno_laudado) %}selected{% endif %}>Sim</option>
-                    </select>
-                </div>
-                <div class="col-md-3" id="campo_cid" style="display: {% if aluno and aluno.aluno_laudado %}block{% else %}none{% endif %};">
-                    <label for="cid_diagnostico" class="form-label">CID (Diagnóstico)</label>
-                    <input type="text" class="form-control" id="cid_diagnostico" name="cid_diagnostico" value="{{ aluno.cid_diagnostico if aluno }}" placeholder="Ex: F84.0">
-                </div>
-                <div class="col-md-3">
-                    <label for="status" class="form-label">Status*</label>
-                    <select id="status" name="status" class="form-select" required>
-                        <option value="Em Avaliação" {% if (aluno and aluno.status == 'Em Avaliação') or not aluno %}selected{% endif %}>Em Avaliação</option>
-                        <option value="Fila de Espera" {% if aluno and aluno.status == 'Fila de Espera' %}selected{% endif %}>Fila de Espera</option>
-                        <option value="Ativo" {% if aluno and aluno.status == 'Ativo' %}selected{% endif %}>Ativo</option>
-                        <option value="Desligado" {% if aluno and aluno.status == 'Desligado' %}selected{% endif %}>Desligado</option>
-                    </select>
-                </div>
-            </div>
+    <div class="card premium-card">
+        <div class="card-body p-4 p-md-5">
+            <form method="POST" action="{% if aluno %}{{ url_for('caee.editar_aluno', aluno_id=aluno.id) }}{% else %}{{ url_for('caee.adicionar_aluno') }}{% endif %}">
+                
+                <div class="form-section-title">1. Dados de Identificação e Escolares</div>
+                <div class="row g-3 mb-5">
+                    <div class="col-md-6">
+                        <label for="nome_completo" class="form-label">Nome Completo do Aluno*</label>
+                        <input type="text" class="form-control" id="nome_completo" name="nome_completo" value="{{ aluno.nome_completo if aluno }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="data_nascimento" class="form-label">Data de Nascimento*</label>
+                        <input type="date" class="form-control" id="data_nascimento" name="data_nascimento" value="{{ aluno.data_nascimento.strftime('%Y-%m-%d') if aluno and aluno.data_nascimento }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="cpf" class="form-label">CPF (Opcional)</label>
+                        <input type="text" class="form-control" id="cpf" name="cpf" value="{{ aluno.cpf if aluno }}" placeholder="000.000.000-00">
+                    </div>
 
-            <h5 class="text-muted mb-3">2. Dados de Filiação e Contato</h5>
-            <div class="row g-3 mb-3">
-                <div class="col-md-6">
-                    <label for="nome_responsavel" class="form-label">Nome do Responsável*</label>
-                    <input type="text" class="form-control" id="nome_responsavel" name="nome_responsavel" value="{{ aluno.nome_responsavel if aluno }}" required>
-                </div>
-                <div class="col-md-6">
-                    <label for="telefone_responsavel" class="form-label">Telefone do Responsável*</label>
-                    <input type="text" class="form-control" id="telefone_responsavel" name="telefone_responsavel" value="{{ aluno.telefone_responsavel if aluno }}" required>
-                </div>
-                <div class="col-md-12">
-                    <label for="endereco" class="form-label">Endereço Completo</label>
-                    <input type="text" class="form-control" id="endereco" name="endereco" value="{{ aluno.endereco if aluno }}">
-                </div>
-            </div>
+                    <div class="col-md-6">
+                        <label for="escola_origem" class="form-label">Escola de Origem (Rede Regular)</label>
+                        <select class="form-select" id="escola_origem" name="escola_origem">
+                            <option value="">-- Selecione a Escola do CAEE --</option>
+                            {% for escola in lista_escolas %}
+                                <option value="{{ escola.nome }}" 
+                                    {% if aluno and aluno.escola_origem == escola.nome %}selected{% endif %}>
+                                    {{ escola.nome }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text small">Selecione entre as escolas exclusivas do CAEE.</div>
+                    </div>
 
-            <h5 class="text-muted mb-3">3. Encaminhamento e Equipe Necessária</h5>
-            <div class="row g-3 mb-3">
-                <div class="col-md-12">
-                    <label class="form-label">Profissionais Necessários para este Aluno:</label><br>
-                    <div class="d-flex flex-wrap gap-3 p-3 border rounded bg-light">
-                        {% set profs_opcoes = ['Assistente Social', 'Psicólogo', 'Psicopedagogo', 'Professor de AEE', 'Professor de Libras', 'Assessoria Jurídica', 'Professor de Braille'] %}
-                        {% for item in profs_opcoes %}
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="profissionais_necessarios" value="{{ item }}" id="check_{{ loop.index }}"
-                            {% if aluno and aluno.profissionais_necessarios and item in aluno.profissionais_necessarios %}checked{% endif %}>
-                            <label class="form-check-label" for="check_{{ loop.index }}">{{ item }}</label>
-                        </div>
-                        {% endfor %}
+                    <div class="col-md-3">
+                        <label for="aluno_laudado" class="form-label">Possui Laudo?*</label>
+                        <select id="aluno_laudado" name="aluno_laudado" class="form-select" onchange="toggleCID()" required>
+                            <option value="false" {% if aluno and not aluno.aluno_laudado %}selected{% endif %}>Não</option>
+                            <option value="true" {% if (aluno and aluno.aluno_laudado) %}selected{% endif %}>Sim, possui laudo</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3" id="campo_cid" style="display: {% if aluno and aluno.aluno_laudado %}block{% else %}none{% endif %};">
+                        <label for="cid_diagnostico" class="form-label">CID (Diagnóstico)</label>
+                        <input type="text" class="form-control border-primary" id="cid_diagnostico" name="cid_diagnostico" value="{{ aluno.cid_diagnostico if aluno }}" placeholder="Ex: F84.0">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="status" class="form-label">Status do Atendimento*</label>
+                        <select id="status" name="status" class="form-select fw-bold {% if aluno and aluno.status == 'Ativo' %}text-success{% endif %}" required>
+                            <option value="Em Avaliação" {% if (aluno and aluno.status == 'Em Avaliação') or not aluno %}selected{% endif %}>Em Avaliação</option>
+                            <option value="Fila de Espera" {% if aluno and aluno.status == 'Fila de Espera' %}selected{% endif %}>Fila de Espera</option>
+                            <option value="Ativo" {% if aluno and aluno.status == 'Ativo' %}selected{% endif %}>Ativo</option>
+                            <option value="Desligado" {% if aluno and aluno.status == 'Desligado' %}selected{% endif %}>Desligado</option>
+                        </select>
                     </div>
                 </div>
-                <div class="col-md-12">
-                    <label for="motivo_encaminhamento" class="form-label">Motivo do Encaminhamento ao CAEE</label>
-                    <textarea class="form-control" id="motivo_encaminhamento" name="motivo_encaminhamento" rows="2" placeholder="Descreva o motivo pelo qual o aluno foi enviado ao centro...">{{ aluno.motivo_encaminhamento if aluno else '' }}</textarea>
-                </div>
-            </div>
 
-            <h5 class="text-muted mb-3">4. Prontuário Pedagógico e Histórico</h5>
-            <div class="row g-3 mb-3">
-                <div class="col-md-12">
-                    <label for="necessidade_especifica" class="form-label">Necessidades Específicas</label>
-                    <input type="text" class="form-control" id="necessidade_especifica" name="necessidade_especifica" value="{{ aluno.necessidade_especifica if aluno }}" placeholder="Ex: TEA, TDAH, DI, DF, Surdez, Altas Habilidades...">
+                <div class="form-section-title">2. Filiação e Localização</div>
+                <div class="row g-3 mb-5">
+                    <div class="col-md-6">
+                        <label for="nome_responsavel" class="form-label">Nome do Responsável Legal*</label>
+                        <input type="text" class="form-control" id="nome_responsavel" name="nome_responsavel" value="{{ aluno.nome_responsavel if aluno }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="telefone_responsavel" class="form-label">WhatsApp / Telefone*</label>
+                        <input type="text" class="form-control" id="telefone_responsavel" name="telefone_responsavel" value="{{ aluno.telefone_responsavel if aluno }}" required>
+                    </div>
+                    <div class="col-md-12">
+                        <label for="endereco" class="form-label">Endereço de Residência</label>
+                        <input type="text" class="form-control" id="endereco" name="endereco" value="{{ aluno.endereco if aluno }}" placeholder="Rua, Número, Bairro e Ponto de Referência">
+                    </div>
                 </div>
-                <div class="col-md-12">
-                    <label for="atendimento_especializado_escola" class="form-label">Já possui Atendimento Especializado na própria escola? (Se sim, descreva)</label>
-                    <textarea class="form-control" id="atendimento_especializado_escola" name="atendimento_especializado_escola" rows="2">{{ aluno.atendimento_especializado_escola if aluno else '' }}</textarea>
-                </div>
-                <div class="col-md-12">
-                    <label for="historico_saude_externo" class="form-label">Já foi atendido por especialistas externos (Saúde, CAPS, CRAS, Neuro, etc)? (Se sim, descreva)</label>
-                    <textarea class="form-control" id="historico_saude_externo" name="historico_saude_externo" rows="2">{{ aluno.historico_saude_externo if aluno else '' }}</textarea>
-                </div>
-                <div class="col-md-12">
-                    <label for="hipotese_diagnostica" class="form-label mt-2">Hipótese Diagnóstica / Queixa Principal</label>
-                    <textarea class="form-control" id="hipotese_diagnostica" name="hipotese_diagnostica" rows="3">{{ aluno.hipotese_diagnostica if aluno else '' }}</textarea>
-                </div>
-                <div class="col-md-12">
-                    <label for="anamnese" class="form-label mt-2">Anamnese (Entrevista com a família)</label>
-                    <textarea class="form-control" id="anamnese" name="anamnese" rows="8">{{ aluno.anamnese if aluno else '' }}</textarea>
-                </div>
-            </div>
 
-            <hr>
-            <div class="d-flex justify-content-end">
-                {% if aluno %}
-                    <a href="{{ url_for('caee.prontuario_aluno', aluno_id=aluno.id) }}" class="btn btn-secondary me-2">Cancelar</a>
-                {% else %}
-                    <a href="{{ url_for('caee.dashboard') }}" class="btn btn-secondary me-2">Cancelar</a>
-                {% endif %}
-                <button type="submit" class="btn btn-primary">Salvar Prontuário</button>
-            </div>
+                <div class="form-section-title">3. Necessidades e Encaminhamento</div>
+                <div class="row g-3 mb-5">
+                    <div class="col-md-12">
+                        <label class="form-label mb-2">Equipe Multidisciplinar Recomendada:</label>
+                        <div class="d-flex flex-wrap gap-2 p-3 bg-light-soft border border-dashed">
+                            {% set profs_opcoes = ['Assistente Social', 'Psicólogo', 'Psicopedagogo', 'Professor de AEE', 'Professor de Libras', 'Assessoria Jurídica', 'Professor de Braille'] %}
+                            {% for item in profs_opcoes %}
+                            <div class="form-check badge-check">
+                                <input class="form-check-input" type="checkbox" name="profissionais_necessarios" value="{{ item }}" id="check_{{ loop.index }}"
+                                {% if aluno and aluno.profissionais_necessarios and item in aluno.profissionais_necessarios %}checked{% endif %}>
+                                <label class="form-check-label ms-1" for="check_{{ loop.index }}">{{ item }}</label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="col-md-12 mt-3">
+                        <label for="motivo_encaminhamento" class="form-label">Motivo do Encaminhamento</label>
+                        <textarea class="form-control" id="motivo_encaminhamento" name="motivo_encaminhamento" rows="2" placeholder="Breve relato da queixa inicial...">{{ aluno.motivo_encaminhamento if aluno else '' }}</textarea>
+                    </div>
+                </div>
 
-        </form>
+                <div class="form-section-title">4. Prontuário Pedagógico e Clínico</div>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-12">
+                        <label for="necessidade_especifica" class="form-label">Deficiências / Transtornos</label>
+                        <input type="text" class="form-control" id="necessidade_especifica" name="necessidade_especifica" value="{{ aluno.necessidade_especifica if aluno }}" placeholder="Ex: Autismo (TEA), TDAH, Síndrome de Down...">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="atendimento_especializado_escola" class="form-label">AEE na Escola de Origem?</label>
+                        <textarea class="form-control" id="atendimento_especializado_escola" name="atendimento_especializado_escola" rows="2">{{ aluno.atendimento_especializado_escola if aluno else '' }}</textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="historico_saude_externo" class="form-label">Atendimentos Externos (CAPS, Neuro, etc)</label>
+                        <textarea class="form-control" id="historico_saude_externo" name="historico_saude_externo" rows="2">{{ aluno.historico_saude_externo if aluno else '' }}</textarea>
+                    </div>
+                    <div class="col-md-12">
+                        <label for="hipotese_diagnostica" class="form-label mt-2">Observações Adicionais</label>
+                        <textarea class="form-control" id="hipotese_diagnostica" name="hipotese_diagnostica" rows="3">{{ aluno.hipotese_diagnostica if aluno else '' }}</textarea>
+                    </div>
+                    <div class="col-md-12">
+                        <label for="anamnese" class="form-label mt-2 text-primary">Anamnese Completa (Entrevista Familiar)</label>
+                        <textarea class="form-control bg-light" id="anamnese" name="anamnese" rows="8">{{ aluno.anamnese if aluno else '' }}</textarea>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mt-5 pt-4 border-top">
+                    {% if aluno %}
+                        <a href="{{ url_for('caee.prontuario_aluno', aluno_id=aluno.id) }}" class="btn btn-light btn-save text-muted">
+                            <i class="bi bi-x-circle"></i> Cancelar
+                        </a>
+                    {% else %}
+                        <a href="{{ url_for('caee.dashboard') }}" class="btn btn-light btn-save text-muted">
+                            <i class="bi bi-x-circle"></i> Cancelar
+                        </a>
+                    {% endif %}
+                    
+                    <button type="submit" class="btn btn-primary btn-save shadow">
+                        <i class="bi bi-check2-circle me-1"></i> Finalizar Prontuário
+                    </button>
+                </div>
+
+            </form>
+        </div>
     </div>
 </div>
 

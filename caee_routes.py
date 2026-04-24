@@ -4,7 +4,7 @@ import os
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, send_from_directory, make_response
 from models import (
     CaeeAluno, CaeeProfissional, Secretaria, CaeePlanoAtendimento, 
-    CaeeSessao, CaeeLaudo, CaeeRelatorioPeriodico, CaeeLinhaTempo
+    CaeeSessao, CaeeLaudo, CaeeRelatorioPeriodico, CaeeLinhaTempo, CaeeEscola
 )
 from extensions import db
 # --- IMPORTANTE: Adicionado upload_arquivo_para_nuvem ---
@@ -21,6 +21,7 @@ from reportlab.lib import colors
 from reportlab.lib.units import cm
 from sqlalchemy import or_
 
+
 caee_bp = Blueprint('caee', __name__, url_prefix='/caee')
 
 # ==========================================================
@@ -33,8 +34,8 @@ caee_bp = Blueprint('caee', __name__, url_prefix='/caee')
 def dashboard():
     secretaria_id_logada = session.get('secretaria_id')
     
-    # Importação local para evitar importação circular
-    from models import Escola 
+    # Importação da nova model vinculada à tabela caee_escolas
+    from models import CaeeEscola 
 
     # Contagem de Alunos Ativos e Profissionais
     alunos_ativos = CaeeAluno.query.filter_by(secretaria_id=secretaria_id_logada, status='Ativo').count()
@@ -48,10 +49,10 @@ def dashboard():
     
     alunos_em_espera = len(lista_fila_espera)
 
-    # BUSCA DAS ESCOLAS CADASTRADAS (Para o Modal de Escola)
-    lista_escolas = Escola.query.filter_by(
+    # BUSCA DAS ESCOLAS CADASTRADAS (Agora usando a tabela exclusiva do CAEE)
+    lista_escolas = CaeeEscola.query.filter_by(
         secretaria_id=secretaria_id_logada
-    ).order_by(Escola.nome).all()
+    ).order_by(CaeeEscola.nome).all()
 
     # NOVA BUSCA: Profissionais Ativos (Para o Modal de Horários)
     profissionais_lista = CaeeProfissional.query.filter_by(
@@ -116,9 +117,13 @@ def get_horario_profissional(profissional_id):
 @login_required
 @role_required('admin', 'RH', 'CAEE')
 def adicionar_aluno():
+    secretaria_id_logada = session.get('secretaria_id')
+    
+    # Importação da nova model para carregar as escolas exclusivas do CAEE
+    from models import CaeeEscola 
+
     if request.method == 'POST':
         try:
-            secretaria_id_logada = session.get('secretaria_id')
             data_nasc_str = request.form.get('data_nascimento')
             
             # Captura a lista de profissionais selecionados no formulário
@@ -134,7 +139,7 @@ def adicionar_aluno():
                 endereco=request.form.get('endereco'),
                 status=request.form.get('status'),
                 secretaria_id=secretaria_id_logada,
-                escola_origem=request.form.get('escola_origem'),
+                escola_origem=request.form.get('escola_origem'), # Agora receberá o valor do select
                 necessidade_especifica=request.form.get('necessidade_especifica'),
                 
                 # --- NOVOS CAMPOS ATUALIZADOS ---
@@ -170,13 +175,24 @@ def adicionar_aluno():
             db.session.rollback()
             flash(f'Erro ao cadastrar aluno: {e}', 'danger')
             
-    return render_template('caee_aluno_form.html')
+    # No GET (carregamento inicial da página), buscamos as escolas do CAEE para o formulário
+    lista_escolas = CaeeEscola.query.filter_by(
+        secretaria_id=secretaria_id_logada,
+        status='Ativa'
+    ).order_by(CaeeEscola.nome).all()
+
+    return render_template('caee_aluno_form.html', lista_escolas=lista_escolas)
 
 @caee_bp.route('/aluno/<int:aluno_id>/editar', methods=['GET', 'POST'])
 @login_required
 @role_required('admin', 'RH', 'CAEE')
 def editar_aluno(aluno_id):
     aluno = CaeeAluno.query.get_or_404(aluno_id)
+    secretaria_id_logada = session.get('secretaria_id')
+    
+    # Importação da nova model para carregar as escolas exclusivas do CAEE
+    from models import CaeeEscola 
+
     if request.method == 'POST':
         try:
             dn = request.form.get('data_nascimento')
@@ -193,11 +209,12 @@ def editar_aluno(aluno_id):
             aluno.telefone_responsavel = request.form.get('telefone_responsavel')
             aluno.endereco = request.form.get('endereco')
             aluno.status = request.form.get('status')
-            aluno.escola_origem = request.form.get('escola_origem')
+            aluno.escola_origem = request.form.get('escola_origem') # Agora recebe o valor do select
             aluno.necessidade_especifica = request.form.get('necessidade_especifica')
             
             # --- ATUALIZAÇÃO DOS NOVOS CAMPOS ---
             aluno.aluno_laudado = request.form.get('aluno_laudado') == 'true'
+            
             # Se não for laudado, limpamos o CID no banco de dados
             if aluno.aluno_laudado:
                 aluno.cid_diagnostico = request.form.get('cid_diagnostico')
@@ -221,7 +238,13 @@ def editar_aluno(aluno_id):
             db.session.rollback()
             flash(f'Erro ao atualizar prontuário: {e}', 'danger')
             
-    return render_template('caee_aluno_form.html', aluno=aluno)
+    # No GET, buscamos as escolas do CAEE para preencher o select no formulário
+    lista_escolas = CaeeEscola.query.filter_by(
+        secretaria_id=secretaria_id_logada,
+        status='Ativa'
+    ).order_by(CaeeEscola.nome).all()
+
+    return render_template('caee_aluno_form.html', aluno=aluno, lista_escolas=lista_escolas)
 
 # ==========================================================
 # 2. PRONTUÁRIO E GESTÃO DE PLANOS (PAI)
@@ -742,26 +765,31 @@ def excluir_evento_linha_tempo(evento_id):
 def cadastrar_escola_rapida():
     try:
         secretaria_id_logada = session.get('secretaria_id')
-        from models import Escola # Importação segura
         
-        nova_escola = Escola(
+        # Importação da nova model vinculada à tabela caee_escolas
+        from models import CaeeEscola 
+        
+        # Criando o registro na tabela exclusiva do CAEE
+        nova_escola = CaeeEscola(
             nome=request.form.get('nome_escola'),
-            codigo_inep=request.form.get('inep'), # Ajustado para o nome da sua coluna
+            codigo_inep=request.form.get('inep'),
             endereco=request.form.get('endereco_escola'),
-            diretor_responsavel=request.form.get('diretor'), # Ajustado para a nova coluna
+            diretor_responsavel=request.form.get('diretor'),
             secretaria_id=secretaria_id_logada,
             status="Ativa"
         )
+        
         db.session.add(nova_escola)
         db.session.commit()
-        flash(f'Escola {nova_escola.nome} cadastrada com sucesso!', 'success')
+        
+        flash(f'Escola {nova_escola.nome} cadastrada com sucesso no CAEE!', 'success')
+        
     except Exception as e:
         db.session.rollback()
-        flash(f'Erro ao cadastrar escola: {e}', 'danger')
+        flash(f'Erro ao cadastrar escola no CAEE: {e}', 'danger')
     
+    # Redireciona de volta para onde o usuário estava (geralmente o dashboard)
     return redirect(request.referrer or url_for('caee.dashboard'))
-
-from sqlalchemy import extract
 
 @caee_bp.route('/consultar_horario_profissional/<int:profissional_id>')
 @login_required

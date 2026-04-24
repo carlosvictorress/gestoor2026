@@ -1545,3 +1545,18 @@ class ConfiguracaoSistema(db.Model):
     exibir_alerta = db.Column(db.Boolean, default=False)
     chave_unica = db.Column(db.String(50), default="GLOBAL", unique=True)
     
+class CaeeEscola(db.Model):
+    __tablename__ = 'caee_escolas'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(255), nullable=False)
+    codigo_inep = db.Column(db.String(50))
+    endereco = db.Column(db.String(255))
+    diretor_responsavel = db.Column(db.String(255))
+    secretaria_id = db.Column(db.Integer) # Vinculo com a prefeitura logada
+    status = db.Column(db.String(50), default='Ativa')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<CaeeEscola {self.nome}>'    
+    

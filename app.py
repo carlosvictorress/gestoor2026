@@ -2194,11 +2194,23 @@ def add_server():
 
     return redirect(url_for("lista_servidores"))
 
-@app.route("/editar/<int:id>", methods=["GET", "POST"]) #
+@app.route("/editar/<id>", methods=["GET", "POST"])
 @login_required
 @role_required("RH", "admin")
 def editar_servidor(id):
-    servidor = Servidor.query.get_or_404(id)
+    # Proteção contra ID vazio ou inválido que causa erro na lista
+    if not id or id == "" or id == "None":
+        flash("ID de servidor inválido ou não encontrado.", "warning")
+        return redirect(url_for("lista_servidores"))
+
+    try:
+        # Busca o servidor pelo ID (que agora pode ser tratado como string ou int pelo SQLAlchemy)
+        servidor = Servidor.query.get_or_404(id)
+    except Exception as e:
+        print(f"Erro ao buscar servidor: {e}")
+        return redirect(url_for("lista_servidores"))
+
+    # Busca listas para os selects do formulário
     secretarias = Secretaria.query.order_by(Secretaria.nome).all()
     escolas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
     
@@ -2229,26 +2241,34 @@ def editar_servidor(id):
             servidor.endereco = request.form.get("endereco")
             servidor.funcao = request.form.get("funcao")
             servidor.lotacao = request.form.get("lotacao")
+            servidor.num_contrato = request.form.get("num_contrato") # Mantendo campo de contrato
             
-            # Vinculo de Escola e Secretaria
+            # Vínculo de Escola e Secretaria com tratamento de erro
             id_esc = request.form.get("escola_id_vinculo")
             servidor.escola_id = int(id_esc) if id_esc and id_esc.isdigit() else None
+            
+            id_sec = request.form.get("secretaria_id")
+            servidor.secretaria_id = int(id_sec) if id_sec and id_sec.isdigit() else None
             
             servidor.tipo_vinculo = request.form.get("tipo_vinculo")
             servidor.carga_horaria = request.form.get("carga_horaria")
             servidor.dados_bancarios = request.form.get("dados_bancarios")
             servidor.observacoes = request.form.get("observacoes")
 
-            # 3. Tratamento de Remuneração
-            rem_raw = request.form.get("remuneracao", "0").replace(".", "").replace(",", ".")
-            try:
-                servidor.remuneracao = float(rem_raw)
-            except:
+            # 3. Tratamento de Remuneração Blindado
+            rem_raw = request.form.get("remuneracao", "0")
+            if rem_raw:
+                rem_raw = rem_raw.replace(".", "").replace(",", ".")
+                try:
+                    servidor.remuneracao = float(rem_raw)
+                except:
+                    servidor.remuneracao = 0.0
+            else:
                 servidor.remuneracao = 0.0
 
             # 4. Tratamento de Datas Blindado
             def tratar_data(data_str):
-                if not data_str or data_str == "": return None
+                if not data_str or data_str.strip() == "": return None
                 try:
                     return datetime.strptime(data_str, "%Y-%m-%d").date()
                 except:

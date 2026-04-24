@@ -1937,29 +1937,31 @@ def importar_servidores():
     file = request.files["csv_file"]
     secretaria_id_sessao = session.get("secretaria_id")
 
-    if not secretaria_id_sessao:
-        flash("Erro de sessão. Identifique sua secretaria novamente.", "danger")
-        return redirect(url_for("lista_servidores"))
-
     try:
         stream = io.StringIO(file.stream.read().decode("utf-8-sig"), newline=None)
         reader = csv.DictReader(stream, delimiter=';')
         
+        def converter_data(data_str):
+            try:
+                return datetime.strptime(data_str, "%Y-%m-%d").date() if data_str else None
+            except:
+                return None
+
         cont = 0
         for row in reader:
-            # Tratamento de datas (evita erro se a data estiver vazia)
-            def converter_data(data_str):
-                try:
-                    return datetime.strptime(data_str, "%Y-%m-%d").date() if data_str else None
-                except:
-                    return None
-
-            # Limpeza de valores numéricos
+            # --- TRAVA DE SEGURANÇA (Resolve o NotNullViolation) ---
+            # Se a linha não tiver NOME ou Nº CONTRATO, pula para a próxima
+            nome_limpo = row.get("NOME")
+            contrato_limpo = row.get("Nº CONTRATO")
+            
+            if not nome_limpo or not contrato_limpo or str(nome_limpo).strip() == "":
+                continue # Ignora linhas vazias ou incompletas
+            
             remuneracao_raw = str(row.get("REMUNERAÇÃO", "0")).replace('.', '').replace(',', '.')
             
             novo_servidor = Servidor(
-                num_contrato=row.get("Nº CONTRATO"),
-                nome=row.get("NOME"),
+                num_contrato=contrato_limpo,
+                nome=nome_limpo.upper(),
                 cpf=limpar_cpf(row.get("CPF")),
                 rg=row.get("RG"),
                 data_nascimento=converter_data(row.get("DATA NASCIMENTO")),
@@ -1983,13 +1985,13 @@ def importar_servidores():
                 data_inicio=converter_data(row.get("DATA INÍCIO")),
                 data_saida=converter_data(row.get("DATA SAÍDA")),
                 observacoes=row.get("OBSERVAÇÕES"),
-                secretaria_id=secretaria_id_sessao # Garante que entra na secretaria certa
+                secretaria_id=secretaria_id_sessao
             )
             db.session.add(novo_servidor)
             cont += 1
         
         db.session.commit()
-        flash(f"Sucesso! {cont} servidores importados com todos os campos.", "success")
+        flash(f"Sucesso! {cont} servidores importados.", "success")
         
     except Exception as e:
         db.session.rollback()
@@ -1997,7 +1999,6 @@ def importar_servidores():
         flash(f"Erro ao processar: {str(e)}", "danger")
 
     return redirect(url_for("lista_servidores"))
-
 
 @app.route("/baixar_modelo_csv")
 @login_required

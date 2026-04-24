@@ -353,3 +353,51 @@ def editar_contrato(contrato_id):
             flash(f'Erro ao atualizar o contrato: {e}', 'danger')
             return redirect(url_for('contratos.editar_contrato', contrato_id=contrato_id))
     return render_template('editar_contrato.html', contrato=contrato)
+
+@contratos_bp.route('/servidor/<int:id>/gerar-contrato')
+@login_required
+@role_required('RH', 'admin')
+def gerar_contrato_direto_pdf(id):
+    # 1. Busca o servidor pelo ID que veio do HTML
+    servidor = Servidor.query.get_or_404(id)
+    ano = request.args.get('ano', datetime.now().year, type=int)
+    
+    # 2. Gera o número do contrato
+    numero_contrato = gerar_numero_contrato(ano)
+    
+    # 3. Lógica de Extenso (Copiada da sua função original)
+    remuneracao_extenso = "zero reais"
+    if servidor.remuneracao:
+        try:
+            remuneracao_float = float(servidor.remuneracao)
+            reais = int(remuneracao_float)
+            centavos = int(round((remuneracao_float - reais) * 100))
+            remuneracao_extenso = num2words(reais, lang='pt_BR') + " reais"
+            if centavos > 0:
+                remuneracao_extenso += " e " + num2words(centavos, lang='pt_BR') + " centavos"
+        except:
+            pass
+
+    # 4. Texto do Contrato (Copiado da sua lógica)
+    cnpj_municipio = "00.000.000/0001-00"
+    endereco_municipio = "Praça da Independência, nº 123, Centro, Valença do Piauí - PI"
+    secretaria_nome = "NOME COMPLETO DA SECRETÁRIA"
+
+    texto_contrato = f"""
+<title>CONTRATO ADMINISTRATIVO Nº {numero_contrato}</title>
+<right_title>CONTRATO DE PRESTAÇÃO DE SERVIÇOS TEMPORÁRIO FIRMADO ENTRE O MUNICÍPIO DE VALENÇA DO PIAUÍ - SECRETARIA DE EDUCAÇÃO E {(servidor.nome or '[NOME EM FALTA]').upper()} PARA ATUAÇÃO DE {(servidor.funcao or '[FUNÇÃO EM FALTA]').upper()}, NOS TERMOS DO ART. 37, INCISO IX DA CONSTITUIÇÃO FEDERAL.</right_title>
+<preamble>Pelo presente instrumento... [RESTANTE DO SEU TEXTO IGUAL AO ORIGINAL]</preamble>
+...
+"""
+    # 5. Cria o registro no banco para ficar salvo
+    novo_contrato = Contrato(
+        numero=numero_contrato,
+        ano=ano,
+        servidor_cpf=servidor.cpf,
+        conteudo=texto_contrato.strip()
+    )
+    db.session.add(novo_contrato)
+    db.session.commit()
+
+    # 6. Redireciona para a função que já gera o PDF (visualizar_contrato_pdf)
+    return redirect(url_for('contratos.visualizar_contrato_pdf', contrato_id=novo_contrato.id))

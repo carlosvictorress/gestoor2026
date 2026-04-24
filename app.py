@@ -2194,41 +2194,35 @@ def add_server():
 
     return redirect(url_for("lista_servidores"))
 
-@app.route("/editar/<path:id>", methods=["GET", "POST"])
+@app.route("/editar/<int:id>", methods=["GET", "POST"]) #
 @login_required
 @role_required("RH", "admin")
 def editar_servidor(id):
     servidor = Servidor.query.get_or_404(id)
     secretarias = Secretaria.query.order_by(Secretaria.nome).all()
-    
-    # 1. IMPORTANTE: Carrega escolas para o dropdown de edição
     escolas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
     
     if request.method == "POST":
         try:
-            # --- Lógica de Foto e Biometria ---
+            # 1. Tratamento de Foto e Biometria
             foto = request.files.get("foto")
             if foto and foto.filename != "":
-                # 1. Calcula biometria nova
                 try:
                     image_file = face_recognition.load_image_file(foto)
                     encodings = face_recognition.face_encodings(image_file)
                     if len(encodings) > 0:
                         servidor.face_encoding = json.dumps(encodings[0].tolist())
-                        flash("Biometria facial atualizada com sucesso!", "info")
                     
-                    foto.seek(0) # Reseta ponteiro para upload
+                    foto.seek(0)
+                    url_foto = upload_arquivo_para_nuvem(foto, pasta="fotos_servidores")
+                    if url_foto:
+                        servidor.foto_filename = url_foto
                 except Exception as e:
-                    print(f"Erro ao processar face na edição: {e}")
-                
-                # 2. Faz upload
-                url_foto = upload_arquivo_para_nuvem(foto, pasta="fotos_servidores")
-                if url_foto:
-                    servidor.foto_filename = url_foto
+                    print(f"Erro biometria: {e}")
 
-            # --- Atualização de Dados Cadastrais ---
-            servidor.nome = request.form.get("nome")
-            servidor.cpf = limpar_cpf(request.form.get("cpf"))
+            # 2. Atualização de Dados (com proteção contra None)
+            servidor.nome = request.form.get("nome", "").upper()
+            servidor.cpf = limpar_cpf(request.form.get("cpf", ""))
             servidor.rg = request.form.get("rg")
             servidor.email = request.form.get("email")
             servidor.telefone = request.form.get("telefone")
@@ -2236,34 +2230,33 @@ def editar_servidor(id):
             servidor.funcao = request.form.get("funcao")
             servidor.lotacao = request.form.get("lotacao")
             
-            # ATUALIZA O VÍNCULO DA ESCOLA
-            servidor.escola_id = request.form.get("escola_id_vinculo", type=int)
-
+            # Vinculo de Escola e Secretaria
+            id_esc = request.form.get("escola_id_vinculo")
+            servidor.escola_id = int(id_esc) if id_esc and id_esc.isdigit() else None
+            
             servidor.tipo_vinculo = request.form.get("tipo_vinculo")
             servidor.carga_horaria = request.form.get("carga_horaria")
             servidor.dados_bancarios = request.form.get("dados_bancarios")
             servidor.observacoes = request.form.get("observacoes")
 
-            # --- Tratamento de Valores ---
-            remuneracao_str = request.form.get("remuneracao", "0").replace(".", "").replace(",", ".")
+            # 3. Tratamento de Remuneração
+            rem_raw = request.form.get("remuneracao", "0").replace(".", "").replace(",", ".")
             try:
-                servidor.remuneracao = float(remuneracao_str)
+                servidor.remuneracao = float(rem_raw)
             except:
-                pass # Mantém o valor antigo se der erro
+                servidor.remuneracao = 0.0
 
-            # --- Tratamento de Datas ---
-            data_nasc = request.form.get("data_nascimento")
-            data_ini = request.form.get("data_inicio")
-            data_sai = request.form.get("data_saida")
+            # 4. Tratamento de Datas Blindado
+            def tratar_data(data_str):
+                if not data_str or data_str == "": return None
+                try:
+                    return datetime.strptime(data_str, "%Y-%m-%d").date()
+                except:
+                    return None
 
-            if data_nasc:
-                servidor.data_nascimento = datetime.strptime(data_nasc, "%Y-%m-%d").date()
-            if data_ini:
-                servidor.data_inicio = datetime.strptime(data_ini, "%Y-%m-%d").date()
-            if data_sai:
-                servidor.data_saida = datetime.strptime(data_sai, "%Y-%m-%d").date()
-            else:
-                servidor.data_saida = None # Permite limpar a data de saída
+            servidor.data_nascimento = tratar_data(request.form.get("data_nascimento"))
+            servidor.data_inicio = tratar_data(request.form.get("data_inicio"))
+            servidor.data_saida = tratar_data(request.form.get("data_saida"))
 
             db.session.commit()
             flash("Servidor atualizado com sucesso!", "success")
@@ -2271,11 +2264,9 @@ def editar_servidor(id):
             
         except Exception as e:
             db.session.rollback()
-            print(f"Erro na edição: {e}")
-            flash(f"Erro ao atualizar servidor: {e}", "danger")
-            return redirect(url_for("editar_servidor", id=id))
+            print(f"Erro crítico na edição: {e}")
+            flash(f"Erro ao atualizar: {e}", "danger")
 
-    # --- Renderiza enviando 'escolas' ---
     return render_template("editar.html", servidor=servidor, secretarias=secretarias, escolas=escolas)
 
 @app.route('/uploads/<path:filename>')

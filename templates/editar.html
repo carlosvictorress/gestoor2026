@@ -6,7 +6,7 @@
 <h2>Editar Servidor: {{ servidor.nome }}</h2>
 <hr>
 
-<form action="{{ url_for('editar_servidor', id=servidor.num_contrato) }}" method="POST" enctype="multipart/form-data">
+<form action="{{ url_for('editar_servidor', id=servidor.id) }}" method="POST" enctype="multipart/form-data">
     
     <h5 class="mb-3 text-muted">Dados Pessoais</h5>
     <div class="row mb-3">
@@ -55,20 +55,19 @@
     <h5 class="mb-3 text-muted">Dados Profissionais e Vínculo</h5>
     <div class="row mb-3">
         <div class="col-md-4"><label for="funcao" class="form-label">Função</label><input type="text" class="form-control" id="funcao" name="funcao" value="{{ servidor.funcao or '' }}"></div>
-        <div class="col-md-4"><label for="lotacao" class="form-label">Lotação</label><input type="text" class="form-control" id="lotacao" name="lotacao" value="{{ servidor.lotacao or '' }}">
-		<select name="secretaria_id" id="secretaria_id" class="form-select" required>
-            <option value="" disabled>-- Selecione a secretaria --</option>
-            {% for sec in secretarias %}
-                <option value="{{ sec.id }}" {% if servidor.secretaria_id == sec.id %}selected{% endif %}>
-                    {{ sec.nome }}
-                </option>
-            {% endfor %}
-        </select>
-		</div>
-       
-	   
-		
-		<div class="col-md-4"><label for="num_contrato" class="form-label">Nº do Vínculo*</label><input type="text" class="form-control" id="num_contrato" name="num_contrato" value="{{ servidor.num_contrato }}" readonly></div>
+        <div class="col-md-4">
+            <label for="secretaria_id" class="form-label">Secretaria Vinculada</label>
+            <select name="secretaria_id" id="secretaria_id" class="form-select" required>
+                <option value="" disabled>-- Selecione a secretaria --</option>
+                {% for sec in secretarias %}
+                    <option value="{{ sec.id }}" {% if servidor.secretaria_id == sec.id %}selected{% endif %}>
+                        {{ sec.nome }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="col-md-4"><label for="num_contrato" class="form-label">Nº do Vínculo*</label><input type="text" class="form-control" id="num_contrato" name="num_contrato" value="{{ servidor.num_contrato or '' }}" readonly></div>
     </div>
 
     <div class="row mb-3">
@@ -76,17 +75,20 @@
             <label for="local_trabalho" class="form-label">Local de Trabalho</label>
             <input type="text" class="form-control" id="local_trabalho" name="local_trabalho" value="{{ servidor.local_trabalho or '' }}">
         </div>
-        <div class="mb-3">
-    <label class="form-label">Vincular a uma Escola Específica (Ponto Eletrônico)</label>
-    <select class="form-select" name="escola_id_vinculo">
-        <option value="">-- Sem vínculo fixo (Pode bater em qualquer escola) --</option>
-        {% for escola in escolas %}
-            <option value="{{ escola.id }}" {% if servidor.escola_id == escola.id %}selected{% endif %}>
-                {{ escola.nome }}
-            </option>
-        {% endfor %}
-    </select>
-</div>
+        <div class="col-md-6">
+            <label class="form-label">Vincular a uma Escola Específica (Ponto Eletrônico)</label>
+            <select class="form-select" name="escola_id_vinculo">
+                <option value="">-- Sem vínculo fixo (Pode bater em qualquer escola) --</option>
+                {% for escola in escolas %}
+                    <option value="{{ escola.id }}" {% if servidor.escola_id == escola.id %}selected{% endif %}>
+                        {{ escola.nome }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <div class="row mb-3">
         <div class="col-md-6">
             <label for="tipo_vinculo" class="form-label">Vínculo do Servidor</label>
             <select class="form-select" id="tipo_vinculo" name="tipo_vinculo">
@@ -97,19 +99,16 @@
                 <option value="Outros" {% if servidor.tipo_vinculo == 'Outros' %}selected{% endif %}>Outros</option>
             </select>
         </div>
-    </div>
-
-    <div class="row mb-3">
-        <div class="col-md-4">
+        <div class="col-md-2">
             <label for="classe_nivel" class="form-label">Classe/Nível</label>
             <input type="text" class="form-control" id="classe_nivel" name="classe_nivel" value="{{ servidor.classe_nivel or '' }}">
         </div>
-        <div class="col-md-4">
-            <label for="num_contra_cheque" class="form-label">Nº do Contra Cheque</label>
+        <div class="col-md-2">
+            <label for="num_contra_cheque" class="form-label">Nº Contra Cheque</label>
             <input type="text" class="form-control" id="num_contra_cheque" name="num_contra_cheque" value="{{ servidor.num_contra_cheque or '' }}">
         </div>
-        <div class="col-md-4">
-            <label for="carga_horaria" class="form-label">Carga Horária Semanal</label>
+        <div class="col-md-2">
+            <label for="carga_horaria" class="form-label">Carga Horária</label>
             <input type="text" class="form-control" id="carga_horaria" name="carga_horaria" value="{{ servidor.carga_horaria or '40' }}">
         </div>
     </div>
@@ -146,7 +145,8 @@
 
     <a href="{{ url_for('lista_servidores') }}" class="btn btn-secondary">Cancelar</a>
     <button type="submit" class="btn btn-primary">Salvar Alterações do Servidor</button>
-	<button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#gerarContratoModal" data-servidor-id="{{ servidor.num_contrato }}">
+    
+    <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#gerarContratoModal" data-servidor-id="{{ servidor.id }}">
         <i class="bi bi-file-earmark-text-fill"></i> Gerar Contrato
     </button>
 </form>
@@ -159,7 +159,7 @@
         Anexar Novo Documento
     </div>
     <div class="card-body">
-        <form action="{{ url_for('upload_documento', servidor_id=servidor.num_contrato) }}" method="POST" enctype="multipart/form-data">
+        <form action="{{ url_for('upload_documento', servidor_id=servidor.id) }}" method="POST" enctype="multipart/form-data">
             <div class="row g-3">
                 <div class="col-md-5">
                     <label for="descricao" class="form-label">Descrição do Documento*</label>
@@ -217,7 +217,7 @@
                 <p>Por favor, digite o ano em que este contrato será válido.</p>
                 <div class="mb-3">
                     <label for="ano_contrato" class="form-label">Ano do Contrato*</label>
-                    <input type="number" class="form-control" id="ano_contrato" name="ano_contrato" placeholder="Ex: 2025" value="{{ current_year }}" required>
+                    <input type="number" class="form-control" id="ano_contrato" name="ano_contrato" placeholder="Ex: 2026" value="2026" required>
                     <div class="invalid-feedback" id="ano-error" style="display:none;">
                         Por favor, insira um ano válido.
                     </div>
@@ -251,6 +251,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const triggerButton = document.querySelector(`[data-bs-target="#gerarContratoModal"]`);
             const servidorId = triggerButton.getAttribute('data-servidor-id');
+            
+            // ALTERAÇÃO: Rota atualizada para usar o ID físico
             const url = `/servidor/${servidorId}/gerar-contrato?ano=${ano}`;
             window.open(url, '_blank');
 

@@ -825,3 +825,35 @@ def consultar_horario_profissional(profissional_id):
         # Se algo der errado no servidor, isso ajuda a debugar no console do navegador
         print(f"Erro na rota de horários: {str(e)}")
         return {"error": str(e)}, 500
+    
+@caee_bp.route('/escolas/navegacao')
+@login_required
+@role_required('admin', 'RH', 'CAEE')
+def navegar_por_escolas():
+    from models import CaeeEscola, CaeeAluno
+    secretaria_id_logada = session.get('secretaria_id')
+    
+    # Busca todas as escolas do CAEE
+    escolas = CaeeEscola.query.filter_by(
+        secretaria_id=secretaria_id_logada, 
+        status='Ativa'
+    ).order_by(CaeeEscola.nome).all()
+
+    # Se o usuário clicou em uma escola, buscamos os alunos dela
+    escola_id = request.args.get('escola_id')
+    alunos = []
+    escola_selecionada = None
+    
+    if escola_id:
+        escola_selecionada = CaeeEscola.query.get(escola_id)
+        if escola_selecionada:
+            # Filtramos os alunos pelo nome da escola (escola_origem)
+            alunos = CaeeAluno.query.filter_by(
+                secretaria_id=secretaria_id_logada,
+                escola_origem=escola_selecionada.nome
+            ).order_by(CaeeAluno.nome_completo).all()
+
+    return render_template('caee_navegacao_escolas.html', 
+                           escolas=escolas, 
+                           alunos=alunos, 
+                           escola_selecionada=escola_selecionada)    

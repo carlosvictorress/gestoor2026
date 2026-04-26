@@ -73,6 +73,36 @@
             gap: 6px;
         }
 
+        /* Toast de Feedback (Aparece após bater o ponto) */
+        .feedback-toast {
+            position: fixed;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 350px;
+            background: white;
+            padding: 20px;
+            border-radius: 25px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 3001;
+            transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .feedback-toast.show { top: 30px; }
+        .icon-circle {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+        }
+
         /* Interface da Câmera */
         .camera-wrapper {
             position: relative;
@@ -80,105 +110,62 @@
             width: 100%;
             background: #000;
         }
-        #video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
+        #video { width: 100%; height: 100%; object-fit: cover; }
 
-        /* Botões Flutuantes (Floating Action Buttons) */
         .fab-container {
             position: absolute;
-            bottom: 50px;
-            left: 0;
-            right: 0;
-            display: flex;
-            justify-content: space-between;
-            padding: 0 30px;
-            z-index: 100;
+            bottom: 50px; left: 0; right: 0;
+            display: flex; justify-content: space-between;
+            padding: 0 30px; z-index: 100;
             pointer-events: none;
         }
         .fab-btn {
-            width: 85px;
-            height: 85px;
-            border-radius: 50%;
-            border: none;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-            font-size: 0.75rem;
+            width: 85px; height: 85px; border-radius: 50%; border: none;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: white; font-weight: 600; font-size: 0.75rem;
             box-shadow: 0 8px 20px rgba(0,0,0,0.4);
-            pointer-events: auto;
-            transition: transform 0.2s;
+            pointer-events: auto; transition: transform 0.2s;
         }
-        .fab-btn:active { transform: scale(0.9); }
         .fab-entrada { background: var(--apple-green); }
         .fab-saida { background: var(--apple-red); }
-        .fab-btn i { font-size: 1.8rem; margin-bottom: 2px; }
 
-        /* Seletor de Local Flutuante */
         .location-picker {
-            position: absolute;
-            top: 60px;
-            left: 20px;
-            right: 20px;
-            z-index: 100;
+            position: absolute; top: 60px; left: 20px; right: 20px; z-index: 100;
         }
         .form-select-apple {
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(10px);
-            border: none;
-            border-radius: 15px;
-            padding: 15px;
-            font-weight: 600;
-            color: #1d1d1f;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px);
+            border: none; border-radius: 15px; padding: 15px; font-weight: 600;
         }
 
-        /* Máscara e Mensagens */
         .face-guide {
-            position: absolute;
-            top: 45%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 260px;
-            height: 320px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 130px;
-            box-shadow: 0 0 0 2000px rgba(0,0,0,0.5);
-        }
-        #feedback-msg {
-            position: absolute;
-            top: 25%;
-            width: 100%;
-            text-align: center;
-            color: white;
-            font-weight: 500;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%);
+            width: 260px; height: 320px; border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 130px; box-shadow: 0 0 0 2000px rgba(0,0,0,0.5);
         }
 
-        /* Fallback CPF */
         #cpf-section {
-            position: absolute;
-            bottom: 0;
-            background: white;
-            width: 100%;
-            padding: 30px 20px;
-            border-radius: 30px 30px 0 0;
-            display: none;
-            z-index: 1000;
+            position: absolute; bottom: 0; background: white; width: 100%;
+            padding: 30px 20px; border-radius: 30px 30px 0 0; display: none; z-index: 1000;
         }
 
         .loading-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
             display: none; flex-direction: column; align-items: center; justify-content: center;
-            color: white; z-index: 3000;
+            color: white; z-index: 4000;
         }
     </style>
 </head>
 <body>
+
+    <div id="feedbackToast" class="feedback-toast">
+        <div id="toastIcon" class="icon-circle">
+            <i id="toastIconI" class="bi"></i>
+        </div>
+        <div>
+            <h6 class="mb-0" id="toastTitle">Registro Realizado</h6>
+            <small class="text-muted" id="toastMsg">Seu ponto foi enviado com sucesso.</small>
+        </div>
+    </div>
 
     <div id="initialModal">
         <h1 id="big-clock">00:00:00</h1>
@@ -205,10 +192,9 @@
             <video id="video" autoplay playsinline muted></video>
             <canvas id="canvas" style="display:none;"></canvas>
             <div class="face-guide"></div>
-            <div id="feedback-msg">Aguardando local...</div>
 
             <div class="location-picker">
-                <select class="form-select form-select-apple" id="escola_id" name="escola_id" required onchange="handleLocationChange(this)">
+                <select class="form-select form-select-apple" id="escola_id" name="escola_id" required>
                     <option value="" selected disabled>Selecione seu local de trabalho</option>
                     {% for escola in escolas %}
                         <option value="{{ escola.id }}">📍 {{ escola.nome }}</option>
@@ -218,20 +204,17 @@
 
             <div class="fab-container" id="biometry-buttons">
                 <button type="button" class="fab-btn fab-entrada" onclick="captureAndSubmit('entrada')">
-                    <i class="bi bi-geo-alt-fill"></i>
-                    ENTRADA
+                    <i class="bi bi-geo-alt-fill fs-3"></i>ENTRADA
                 </button>
                 <button type="button" class="fab-btn fab-saida" onclick="captureAndSubmit('saida')">
-                    <i class="bi bi-door-open-fill"></i>
-                    SAÍDA
+                    <i class="bi bi-door-open-fill fs-3"></i>SAÍDA
                 </button>
             </div>
         </div>
 
         <div id="cpf-section">
             <div class="alert alert-danger border-0 rounded-4 mb-3" style="font-size: 0.85rem;">
-                <b>Biometria não reconhecida.</b><br>
-                Use o CPF e procure o RH para atualizar sua foto.
+                <b>Biometria não reconhecida.</b><br>Registre via CPF e atualize sua foto no RH.
             </div>
             <input type="tel" class="form-control form-control-lg mb-3 border-0 bg-light" id="cpf_visible" placeholder="000.000.000-00" style="border-radius: 12px;">
             <div class="row g-2">
@@ -242,8 +225,9 @@
     </form>
 
     <div class="loading-overlay" id="loading">
-        <div class="spinner-border text-primary mb-3"></div>
-        <div class="fw-bold">Processando Registro...</div>
+        <div class="spinner-grow text-primary mb-3"></div>
+        <div class="fw-bold">REGISTRANDO...</div>
+        <small class="text-white-50">Não feche a página</small>
     </div>
 
     <script>
@@ -251,17 +235,44 @@
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
 
-        // Relógio com Segundos
+        // Relógio
         function updateClock() {
             const now = new Date();
-            const h = String(now.getHours()).padStart(2, '0');
-            const m = String(now.getMinutes()).padStart(2, '0');
-            const s = String(now.getSeconds()).padStart(2, '0');
-            document.getElementById('big-clock').textContent = `${h}:${m}:${s}`;
+            const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            document.getElementById('big-clock').textContent = timeStr;
             document.getElementById('current-date').textContent = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
         }
         setInterval(updateClock, 1000);
         updateClock();
+
+        // 1. LÓGICA DE MENSAGEM PÓS-REGISTRO
+        function checkStatus() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const toast = document.getElementById('feedbackToast');
+            const icon = document.getElementById('toastIcon');
+            const iconI = document.getElementById('toastIconI');
+            
+            // Se o seu backend redirecionar com ?status=success ou ?status=error
+            if (urlParams.has('status')) {
+                const status = urlParams.get('status');
+                
+                if (status === 'success') {
+                    icon.style.backgroundColor = 'var(--apple-green)';
+                    iconI.className = 'bi bi-check-lg';
+                    document.getElementById('toastTitle').innerText = "Ponto Registrado!";
+                    document.getElementById('toastMsg').innerText = "Operação realizada com sucesso.";
+                } else {
+                    icon.style.backgroundColor = 'var(--apple-red)';
+                    iconI.className = 'bi bi-x-lg';
+                    document.getElementById('toastTitle').innerText = "Erro no Registro";
+                    document.getElementById('toastMsg').innerText = "Não foi possível bater o ponto.";
+                }
+
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 4000);
+            }
+        }
+        window.onload = checkStatus;
 
         function startApp() {
             document.getElementById('initialModal').style.transform = 'translateY(-100%)';
@@ -271,14 +282,9 @@
 
         async function initCamera() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'user' }, 
-                    audio: false 
-                });
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
                 video.srcObject = stream;
-            } catch (err) {
-                alert("Acesse a câmera para registrar o ponto.");
-            }
+            } catch (err) { alert("Acesso à câmera negado."); }
         }
 
         function initGPS() {
@@ -290,21 +296,10 @@
             }
         }
 
-        // Lógica automática ao escolher local
-        function handleLocationChange(select) {
-            if(select.value) {
-                document.getElementById('feedback-msg').innerHTML = "<span class='badge bg-primary px-3 py-2'>LOCAL DEFINIDO!</span><br><small class='text-white-50'>Escolha a ação nos botões flutuantes</small>";
-                // Feedback visual de vibração simples se suportado
-                if (window.navigator.vibrate) window.navigator.vibrate(50);
-            }
-        }
-
         function captureAndSubmit(tipoPonto, isManual = false) {
             if (!document.getElementById('escola_id').value) {
-                alert("Selecione o local antes!");
-                return;
+                alert("Selecione o local primeiro!"); return;
             }
-
             if (isManual) {
                 const cpfVal = document.getElementById('cpf_visible').value;
                 if (!cpfVal) { alert("Informe seu CPF"); return; }
@@ -312,28 +307,20 @@
             }
 
             document.getElementById('loading').style.display = 'flex';
-
-            // Captura
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video, 0, 0);
             document.getElementById('foto_b64').value = canvas.toDataURL('image/jpeg', 0.7);
             document.getElementById('tipo').value = tipoPonto;
 
-            // Simulação de controle de tentativas (lógica de front-end)
             attemptCount++;
-            
-            // Se for a segunda tentativa sem sucesso (simulado), abre o CPF
-            // No mundo real, você enviaria via AJAX e checaria o retorno, 
-            // mas como mantemos o submit direto, aqui mostramos o fluxo:
             if (attemptCount >= 2 && !isManual) {
                 setTimeout(() => {
                     document.getElementById('loading').style.display = 'none';
                     document.getElementById('biometry-buttons').style.display = 'none';
                     document.getElementById('cpf-section').style.display = 'block';
                     document.querySelector('.face-guide').style.borderColor = 'red';
-                    document.getElementById('feedback-msg').innerText = "BIOMETRIA FALHOU";
-                }, 1000);
+                }, 1200);
             } else {
                 document.getElementById('pontoForm').submit();
             }

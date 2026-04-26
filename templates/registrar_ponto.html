@@ -13,6 +13,7 @@
             --apple-blue: #007AFF;
             --apple-green: #34C759;
             --apple-red: #FF3B30;
+            --glass-bg: rgba(255, 255, 255, 0.8);
         }
         body {
             background: #000;
@@ -22,7 +23,7 @@
             overflow: hidden;
         }
 
-        /* Modal Inicial Fullscreen */
+        /* Modal Inicial Estilo Apple */
         #initialModal {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -36,8 +37,28 @@
             transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
+        /* Alerta de Status no Modal do Relógio */
+        .status-alert {
+            width: 100%;
+            max-width: 320px;
+            padding: 15px;
+            border-radius: 18px;
+            margin-bottom: 20px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            animation: slideDown 0.5s ease;
+        }
+        .status-success { background: #E8F5E9; color: #2E7D32; border: 1px solid #C8E6C9; }
+        .status-error { background: #FFEBEE; color: #C62828; border: 1px solid #FFCDD2; }
+
+        @keyframes slideDown {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
         #big-clock {
-            font-size: 4.5rem;
+            font-size: 5rem;
             font-weight: 300;
             color: #1d1d1f;
             letter-spacing: -2px;
@@ -47,7 +68,7 @@
         #current-date {
             font-size: 1.1rem;
             color: #86868b;
-            margin-bottom: 50px;
+            margin-bottom: 40px;
             text-transform: capitalize;
         }
 
@@ -62,7 +83,9 @@
             width: 100%;
             max-width: 320px;
             box-shadow: 0 10px 25px rgba(0, 122, 255, 0.2);
+            transition: transform 0.2s;
         }
+        .btn-apple-main:active { transform: scale(0.96); }
 
         .selo-portaria {
             margin-top: 30px;
@@ -71,36 +94,6 @@
             display: flex;
             align-items: center;
             gap: 6px;
-        }
-
-        /* Toast de Feedback (Aparece após bater o ponto) */
-        .feedback-toast {
-            position: fixed;
-            top: -100px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 90%;
-            max-width: 350px;
-            background: white;
-            padding: 20px;
-            border-radius: 25px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.15);
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            z-index: 3001;
-            transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .feedback-toast.show { top: 30px; }
-        .icon-circle {
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.5rem;
         }
 
         /* Interface da Câmera */
@@ -157,17 +150,15 @@
 </head>
 <body>
 
-    <div id="feedbackToast" class="feedback-toast">
-        <div id="toastIcon" class="icon-circle">
-            <i id="toastIconI" class="bi"></i>
-        </div>
-        <div>
-            <h6 class="mb-0" id="toastTitle">Registro Realizado</h6>
-            <small class="text-muted" id="toastMsg">Seu ponto foi enviado com sucesso.</small>
-        </div>
-    </div>
-
     <div id="initialModal">
+        <div id="statusBox" class="status-alert">
+            <i id="statusIcon" class="bi fs-4"></i>
+            <div>
+                <strong id="statusTitle"></strong><br>
+                <small id="statusMsg"></small>
+            </div>
+        </div>
+
         <h1 id="big-clock">00:00:00</h1>
         <p id="current-date">...</p>
         
@@ -227,7 +218,6 @@
     <div class="loading-overlay" id="loading">
         <div class="spinner-grow text-primary mb-3"></div>
         <div class="fw-bold">REGISTRANDO...</div>
-        <small class="text-white-50">Não feche a página</small>
     </div>
 
     <script>
@@ -235,7 +225,7 @@
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
 
-        // Relógio
+        // Relógio Digital
         function updateClock() {
             const now = new Date();
             const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -245,34 +235,35 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // 1. LÓGICA DE MENSAGEM PÓS-REGISTRO
-        function checkStatus() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const toast = document.getElementById('feedbackToast');
-            const icon = document.getElementById('toastIcon');
-            const iconI = document.getElementById('toastIconI');
-            
-            // Se o seu backend redirecionar com ?status=success ou ?status=error
-            if (urlParams.has('status')) {
-                const status = urlParams.get('status');
-                
+        // LÓGICA DE VERIFICAÇÃO DE MENSAGEM (NO MODAL DO RELÓGIO)
+        function checkUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            const statusBox = document.getElementById('statusBox');
+            const icon = document.getElementById('statusIcon');
+            const title = document.getElementById('statusTitle');
+            const msg = document.getElementById('statusMsg');
+
+            if (params.has('status')) {
+                const status = params.get('status');
+                statusBox.style.display = 'flex';
+
                 if (status === 'success') {
-                    icon.style.backgroundColor = 'var(--apple-green)';
-                    iconI.className = 'bi bi-check-lg';
-                    document.getElementById('toastTitle').innerText = "Ponto Registrado!";
-                    document.getElementById('toastMsg').innerText = "Operação realizada com sucesso.";
+                    statusBox.className = 'status-alert status-success';
+                    icon.className = 'bi bi-check-circle-fill';
+                    title.innerText = "Sucesso!";
+                    msg.innerText = "Seu ponto foi registrado corretamente.";
                 } else {
-                    icon.style.backgroundColor = 'var(--apple-red)';
-                    iconI.className = 'bi bi-x-lg';
-                    document.getElementById('toastTitle').innerText = "Erro no Registro";
-                    document.getElementById('toastMsg').innerText = "Não foi possível bater o ponto.";
+                    statusBox.className = 'status-alert status-error';
+                    icon.className = 'bi bi-exclamation-triangle-fill';
+                    title.innerText = "Atenção!";
+                    msg.innerText = "Não foi possível registrar seu ponto.";
                 }
 
-                toast.classList.add('show');
-                setTimeout(() => toast.classList.remove('show'), 4000);
+                // Remove o parâmetro da URL sem recarregar a página para limpar o histórico
+                window.history.replaceState({}, document.title, window.location.pathname);
             }
         }
-        window.onload = checkStatus;
+        window.onload = checkUrlParams;
 
         function startApp() {
             document.getElementById('initialModal').style.transform = 'translateY(-100%)';

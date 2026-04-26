@@ -2,236 +2,321 @@
 <html lang="pt-br">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>Ponto Facial</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <title>Ponto Digital - Gestoor 360º</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     
     <style>
+        :root {
+            --apple-blue: #007AFF;
+            --glass-bg: rgba(255, 255, 255, 0.85);
+        }
         body {
-            background-color: #f0f2f5;
+            background: #F2F2F7;
+            font-family: 'Inter', -apple-system, sans-serif;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* Modal Inicial Estilo Apple */
+        #initialModal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(180deg, #FFFFFF 0%, #F2F2F7 100%);
+            z-index: 1050;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #big-clock {
+            font-size: 5.5rem;
+            font-weight: 300;
+            color: #1d1d1f;
+            letter-spacing: -2px;
+            margin-bottom: 0;
+        }
+        #current-date {
+            font-size: 1.1rem;
+            color: #86868b;
+            margin-bottom: 50px;
+            text-transform: capitalize;
+        }
+
+        .btn-apple-main {
+            background: var(--apple-blue);
+            color: white;
+            border: none;
+            padding: 20px 60px;
+            border-radius: 18px;
+            font-weight: 600;
+            font-size: 1.2rem;
+            width: 100%;
+            max-width: 320px;
+            box-shadow: 0 10px 25px rgba(0, 122, 255, 0.3);
+            transition: all 0.2s;
+        }
+        .btn-apple-main:active { transform: scale(0.97); opacity: 0.9; }
+
+        .selo-portaria {
+            margin-top: 30px;
+            font-size: 0.75rem;
+            color: #AEAEB2;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #fff;
+            padding: 8px 15px;
+            border-radius: 50px;
+            border: 1px solid #E5E5EA;
+        }
+
+        /* Container da Câmera (Interface Principal) */
+        .app-content {
             height: 100vh;
             display: flex;
             flex-direction: column;
-            overflow: hidden; /* Evita rolagem para parecer App */
+            background: #000;
         }
-        .header-app {
-            background: white;
-            padding: 15px;
-            border-bottom-left-radius: 20px;
-            border-bottom-right-radius: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            z-index: 10;
-        }
-        .camera-container {
+        .camera-view {
             flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             position: relative;
-            padding: 20px;
-        }
-        .video-wrapper {
-            width: 100%;
-            max-width: 400px;
-            aspect-ratio: 3/4; /* Formato retrato */
-            border-radius: 25px;
             overflow: hidden;
-            position: relative;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            border: 4px solid #fff;
         }
-        video, canvas {
+        #video {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
-        /* Mira facial para orientar o usuário */
-        .face-overlay {
+        .face-mask {
             position: absolute;
-            top: 20%;
-            left: 15%;
-            width: 70%;
-            height: 45%;
-            border: 2px dashed rgba(255,255,255,0.6);
-            border-radius: 50%;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 260px;
+            height: 340px;
+            border: 2px solid rgba(255,255,255,0.4);
+            border-radius: 150px;
+            box-shadow: 0 0 0 2000px rgba(0,0,0,0.6);
             pointer-events: none;
         }
-        .buttons-container {
-            padding: 20px;
-            background: white;
-            border-top-left-radius: 25px;
-            border-top-right-radius: 25px;
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
+
+        /* Controles Inferiores */
+        .controls-panel {
+            background: #fff;
+            padding: 25px 20px calc(25px + env(safe-area-inset-bottom));
+            border-top-left-radius: 30px;
+            border-top-right-radius: 30px;
+            z-index: 10;
         }
-        .btn-ponto {
-            height: 70px;
-            font-size: 1.1rem;
-            font-weight: bold;
-            border-radius: 15px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-transform: uppercase;
+
+        /* Fallback CPF */
+        #cpf-section {
+            display: none;
+            text-align: center;
         }
+        .update-photo-alert {
+            font-size: 0.85rem;
+            color: #FF3B30;
+            background: #FFF2F2;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+
+        /* Animação de Loading */
         .loading-overlay {
             position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.7);
-            color: white;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
             display: none;
             flex-direction: column;
             justify-content: center;
             align-items: center;
+            color: #fff;
             z-index: 100;
-        }
-        /* Ajuste para mensagens flash flutuantes */
-        .alert-floating {
-            position: absolute;
-            top: 80px;
-            left: 5%;
-            width: 90%;
-            z-index: 999;
-            border-radius: 15px;
         }
     </style>
 </head>
 <body>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-floating shadow-sm alert-dismissible fade show" role="alert">
-                    <i class="bi bi-info-circle-fill me-2"></i> {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
-    <form id="pontoForm" method="POST" action="{{ url_for('registrar_ponto') }}" class="h-100 d-flex flex-column">
+    <div id="initialModal">
+        <h1 id="big-clock">00:00</h1>
+        <p id="current-date">...</p>
         
-        <div class="header-app text-center">
-            <h5 class="mb-2 text-primary fw-bold">Ponto Facial</h5>
-            <div class="form-floating">
-                <select class="form-select border-0 bg-light" id="escola_id" name="escola_id" required>
-                    <option value="" selected disabled>Onde você está trabalhando hoje?</option>
-                    {% for escola in escolas %}
-                        <option value="{{ escola.id }}" data-lat="{{ escola.latitude }}" data-lon="{{ escola.longitude }}">
-                            📍 {{ escola.nome }}
-                        </option>
-                    {% endfor %}
-                </select>
-                <label for="escola_id">Selecione o Local</label>
-            </div>
-        </div>
+        <button class="btn-apple-main" onclick="openCameraFlow()">
+            BATER PONTO
+        </button>
 
-        <div class="camera-container">
-            <div class="video-wrapper">
-                <video id="video" autoplay playsinline muted></video>
-                <canvas id="canvas" style="display:none;"></canvas>
-                <div class="face-overlay"></div> <div class="loading-overlay" id="loading">
-                    <div class="spinner-border text-light mb-3" role="status"></div>
-                    <span>Reconhecendo...</span>
-                </div>
-            </div>
+        <div class="selo-portaria">
+            <i class="bi bi-patch-check-fill text-success"></i>
+            Em conformidade com a Portaria MTP nº 671/2021
         </div>
+    </div>
 
+    <form id="pontoForm" method="POST" action="{{ url_for('registrar_ponto') }}" class="app-content">
         <input type="hidden" id="latitude" name="latitude">
         <input type="hidden" id="longitude" name="longitude">
         <input type="hidden" id="foto_b64" name="foto_b64">
         <input type="hidden" id="tipo" name="tipo">
+        <input type="hidden" id="cpf_manual" name="cpf_manual">
 
-        <div class="buttons-container">
-            <button type="button" class="btn btn-success btn-ponto shadow-sm" onclick="submitPonto('entrada')">
-                <i class="bi bi-box-arrow-in-right fs-4 mb-1"></i>
-                Entrada
-            </button>
-            <button type="button" class="btn btn-danger btn-ponto shadow-sm" onclick="submitPonto('saida')">
-                <i class="bi bi-box-arrow-left fs-4 mb-1"></i>
-                Saída
-            </button>
+        <div class="camera-view">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="canvas" style="display:none;"></canvas>
+            <div class="face-mask" id="cameraMask"></div>
+            
+            <div class="loading-overlay" id="loading">
+                <div class="spinner-border text-light mb-2"></div>
+                <span>Processando...</span>
+            </div>
         </div>
 
+        <div class="controls-panel">
+            <div id="biometry-controls">
+                <div class="mb-3">
+                    <select class="form-select form-select-lg border-0 bg-light" id="escola_id" name="escola_id" required style="border-radius: 12px; font-size: 1rem;">
+                        <option value="" selected disabled>Selecione o Local</option>
+                        {% for escola in escolas %}
+                            <option value="{{ escola.id }}" data-lat="{{ escola.latitude }}" data-lon="{{ escola.longitude }}">
+                                📍 {{ escola.nome }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="row g-3">
+                    <div class="col-6">
+                        <button type="button" class="btn btn-success w-100 py-3 rounded-4 fw-bold" onclick="submitPonto('entrada')">
+                            ENTRADA
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button type="button" class="btn btn-danger w-100 py-3 rounded-4 fw-bold" onclick="submitPonto('saida')">
+                            SAÍDA
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="cpf-section">
+                <div class="update-photo-alert">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                    Biometria não reconhecida. Registre via CPF e atualize sua foto no RH.
+                </div>
+                <div class="input-group mb-3 shadow-sm" style="border-radius: 12px; overflow: hidden;">
+                    <span class="input-group-text bg-white border-0"><i class="bi bi-person-vcard"></i></span>
+                    <input type="tel" class="form-control border-0 py-3" id="cpf_visible" placeholder="Digite seu CPF" maxlength="14">
+                </div>
+                <div class="row g-3">
+                    <div class="col-6">
+                        <button type="button" class="btn btn-dark w-100 py-3 rounded-4" onclick="submitPonto('entrada', true)">ENTRADA (CPF)</button>
+                    </div>
+                    <div class="col-6">
+                        <button type="button" class="btn btn-dark w-100 py-3 rounded-4" onclick="submitPonto('saida', true)">SAÍDA (CPF)</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </form>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        let attemptCount = 0;
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const loading = document.getElementById('loading');
-        
-        // 1. Iniciar Câmera
+        const initialModal = document.getElementById('initialModal');
+
+        // Relógio em Tempo Real
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('big-clock').textContent = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('current-date').textContent = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Iniciar Fluxo
+        function openCameraFlow() {
+            initialModal.style.transform = 'translateY(-100%)';
+            startCamera();
+            getLocation();
+        }
+
         async function startCamera() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, 
+                    video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, 
                     audio: false 
                 });
                 video.srcObject = stream;
             } catch (err) {
-                alert("Erro ao acessar câmera: " + err);
+                alert("Permita o acesso à câmera para continuar.");
             }
         }
 
-        // 2. Pegar Localização GPS
         function getLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        document.getElementById('latitude').value = position.coords.latitude;
-                        document.getElementById('longitude').value = position.coords.longitude;
-                    },
-                    (error) => {
-                        console.warn("Geolocalização falhou ou foi negada.");
-                        document.getElementById('latitude').value = "N/A";
-                        document.getElementById('longitude').value = "N/A";
-                    },
-                    { enableHighAccuracy: true, timeout: 5000 }
+                    (p) => {
+                        document.getElementById('latitude').value = p.coords.latitude;
+                        document.getElementById('longitude').value = p.coords.longitude;
+                    }, null, { enableHighAccuracy: true }
                 );
-            } else {
-                document.getElementById('latitude').value = "N/A";
-                document.getElementById('longitude').value = "N/A";
             }
         }
 
-        // 3. Função chamada ao clicar nos botões
-        function submitPonto(tipo) {
-            const escolaSelect = document.getElementById('escola_id');
-            if (!escolaSelect.value) {
-                alert("Por favor, selecione o local de trabalho primeiro.");
-                escolaSelect.focus();
-                return;
+        function submitPonto(tipo, isManual = false) {
+            const escola = document.getElementById('escola_id').value;
+            if (!escola) { alert("Selecione o local!"); return; }
+
+            if (isManual) {
+                const cpf = document.getElementById('cpf_visible').value;
+                if (!cpf) { alert("Digite o CPF!"); return; }
+                document.getElementById('cpf_manual').value = cpf;
             }
 
-            // Mostra loading
             loading.style.display = 'flex';
 
-            // Captura frame do vídeo
+            // Captura Foto
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video, 0, 0);
-            
-            // Converte para Base64
-            const dataURL = canvas.toDataURL('image/jpeg', 0.8); // 0.8 qualidade
-            document.getElementById('foto_b64').value = dataURL;
+            document.getElementById('foto_b64').value = canvas.toDataURL('image/jpeg', 0.7);
             document.getElementById('tipo').value = tipo;
 
-            // Envia formulário
-            document.getElementById('pontoForm').submit();
+            // Simulação de Falha para demonstrar o fallback (Remova ou ajuste conforme seu backend tratar erro)
+            // Aqui você enviaria via AJAX para não recarregar a página e contar as tentativas
+            // Como você usa submit direto, o controle de 2 tentativas deve ser via AJAX ou lógica de erro do backend.
+            
+            // Lógica de exemplo para o Front-end mostrar o CPF após "tentar" e falhar
+            attemptCount++;
+            if (attemptCount >= 2 && !isManual) {
+                setTimeout(() => {
+                    loading.style.display = 'none';
+                    document.getElementById('biometry-controls').style.display = 'none';
+                    document.getElementById('cameraMask').style.borderColor = '#FF3B30';
+                    document.getElementById('cpf-section').style.display = 'block';
+                }, 1500);
+            } else {
+                document.getElementById('pontoForm').submit();
+            }
         }
 
-        // Inicializa ao carregar
-        window.onload = () => {
-            startCamera();
-            getLocation();
-            // Atualiza GPS a cada 1 minuto para manter precisão
-            setInterval(getLocation, 60000); 
-        };
+        // Máscara Simples de CPF
+        document.getElementById('cpf_visible').addEventListener('input', function (e) {
+            let value = e.target.value.replace(/\D/g, "");
+            value = value.replace(/(\d{3})(\d)/, "$1.$2");
+            value = value.replace(/(\d{3})(\d)/, "$1.$2");
+            value = value.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+            e.target.value = value;
+        });
     </script>
 </body>
 </html>

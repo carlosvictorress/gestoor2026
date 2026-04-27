@@ -1,154 +1,131 @@
 {% extends 'base.html' %}
 
-{% block title %}Dashboard de Gestão de Frequência{% endblock %}
+{% block title %}Dashboard de Frequência | Gestoor 360º{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 <style>
-    :root {
-        --glass-bg: rgba(255, 255, 255, 0.95);
-        --primary-accent: #004d40;
+    :root { 
+        --primary-accent: #004d40; 
+        --bg-light: #f4f7f6;
     }
-    body { background-color: #f1f3f5; }
+    body { background-color: var(--bg-light); }
     
-    /* Layout Estilo Apple/Moderno */
-    .dashboard-card {
-        border: none;
-        border-radius: 16px;
-        background: var(--glass-bg);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-        transition: all 0.3s ease;
-    }
-    .dashboard-card:hover { transform: translateY(-3px); }
-
-    .search-bar {
-        background: white;
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 30px;
-        border-left: 5px solid var(--primary-accent);
-    }
-
-    #mapaEscolas {
-        height: 480px;
-        border-radius: 14px;
-        border: 1px solid #dee2e6;
-    }
-
-    .status-indicator {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 8px;
-    }
-
-    .metric-value { font-size: 1.8rem; font-weight: 700; color: #212529; }
-    .metric-label { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: #6c757d; }
-
-    .list-faltosos {
-        max-height: 400px;
-        overflow-y: auto;
+    /* Estilo de Cards SaaS */
+    .dashboard-card { 
+        border: none; 
+        border-radius: 16px; 
+        background: #fff; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+        transition: all 0.3s ease; 
     }
     
-    /* Scrollbar elegante */
-    .list-faltosos::-webkit-scrollbar { width: 5px; }
+    .search-bar { 
+        background: white; 
+        border-radius: 12px; 
+        padding: 20px; 
+        margin-bottom: 30px; 
+        border-left: 6px solid var(--primary-accent); 
+    }
+
+    #mapaEscolas { 
+        height: 480px; 
+        border-radius: 14px; 
+        border: 1px solid #e2e8f0; 
+    }
+
+    .metric-value { font-size: 1.8rem; font-weight: 700; color: #1a202c; }
+    .metric-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.2px; color: #718096; font-weight: 600; }
+
+    .list-faltosos { 
+        max-height: 400px; 
+        overflow-y: auto; 
+    }
+    
+    .list-faltosos::-webkit-scrollbar { width: 4px; }
     .list-faltosos::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 10px; }
+
+    .badge-soft-danger { background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
     <div class="row align-items-center mb-4">
-        <div class="col-md-6">
-            <h2 class="fw-bold"><i class="bi bi-shield-check text-success"></i> Gestoor 360º <span class="fw-light text-muted">| Frequência</span></h2>
+        <div class="col-md-7">
+            <h2 class="fw-bold mb-0">Painel de Monitoramento</h2>
+            <p class="text-muted">Acompanhamento de presença e banco de horas municipal</p>
         </div>
-        <div class="col-md-6 text-end">
+        <div class="col-md-5 text-end">
             <div class="btn-group shadow-sm">
-                <button class="btn btn-white border"><i class="bi bi-download me-2"></i>Exportar</button>
-                <button class="btn btn-dark"><i class="bi bi-file-earmark-pdf me-2"></i>Relatório Consolidado</button>
+                <button class="btn btn-white border bg-white" onclick="window.print()"><i class="bi bi-printer me-2"></i>Imprimir</button>
+                <button class="btn btn-dark px-4"><i class="bi bi-file-earmark-pdf me-2"></i>Relatório PDF</button>
             </div>
         </div>
     </div>
 
     <div class="search-bar shadow-sm">
         <div class="row g-3">
-            <div class="col-md-4">
-                <label class="metric-label mb-2 d-block text-dark">Localizar Servidor / CPF</label>
+            <div class="col-md-5">
+                <label class="metric-label mb-2 d-block text-dark">Pesquisar Unidade ou Servidor</label>
                 <div class="input-group">
-                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-                    <input type="text" id="filtroServidor" class="form-control border-start-0 ps-0" placeholder="Ex: 000.000.000-00 ou Nome...">
+                    <span class="input-group-text bg-light border-0"><i class="bi bi-search"></i></span>
+                    <input type="text" id="inputFiltro" class="form-control border-0 bg-light" placeholder="Digite o nome da unidade para filtrar..." onkeyup="executarFiltro()">
                 </div>
             </div>
-            <div class="col-md-3">
-                <label class="metric-label mb-2 d-block text-dark">Filtrar por Unidade</label>
-                <select id="filtroEscola" class="form-select border-0 bg-light">
+            <div class="col-md-4">
+                <label class="metric-label mb-2 d-block text-dark">Filtrar por Unidade Cadastrada</label>
+                <select id="selectFiltro" class="form-select border-0 bg-light" onchange="executarFiltro()">
                     <option value="">Todas as Unidades</option>
                     {% for escola in faltosos_por_escola.keys()|sort %}
                         <option value="{{ escola }}">{{ escola }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-3">
-                <label class="metric-label mb-2 d-block text-dark">Período</label>
-                <input type="month" class="form-control border-0 bg-light" value="{{ now.strftime('%Y-%m') if now else '' }}">
-            </div>
-            <div class="col-md-2 d-flex align-items-end">
-                <button class="btn btn-primary w-100 py-2 rounded-3" onclick="aplicarFiltros()"><i class="bi bi-funnel"></i> Filtrar</button>
+            <div class="col-md-3 d-flex align-items-end">
+                <button class="btn btn-primary w-100 py-2 fw-bold" onclick="limparFiltros()"><i class="bi bi-eraser me-2"></i>Limpar Filtros</button>
             </div>
         </div>
     </div>
 
     <div class="row g-4 mb-4">
         <div class="col-md-3">
-            <div class="dashboard-card p-3">
-                <span class="metric-label">Banco de Horas (Semana)</span>
-                <div class="d-flex align-items-baseline gap-2">
-                    <span class="metric-value">1.240h</span>
-                    <span class="badge bg-soft-success text-success">+4.2%</span>
-                </div>
-                <div class="progress mt-2" style="height: 6px;">
-                    <div class="progress-bar bg-success" style="width: 75%"></div>
-                </div>
+            <div class="dashboard-card p-3 border-start border-success border-4 stat-card">
+                <span class="metric-label">Banco Semanal</span>
+                <div class="metric-value text-success">1.240h</div>
+                <small class="text-muted">Acumulado das unidades</small>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="dashboard-card p-3">
-                <span class="metric-label">Acumulado Mensal</span>
-                <div class="d-flex align-items-baseline gap-2">
-                    <span class="metric-value">4.890h</span>
-                </div>
-                <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Previsão de fechamento OK</small>
+            <div class="dashboard-card p-3 border-start border-primary border-4 stat-card">
+                <span class="metric-label">Banco Mensal</span>
+                <div class="metric-value text-primary">4.890h</div>
+                <small class="text-muted">Total gerido no mês</small>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="dashboard-card p-3 border-start border-danger border-4">
-                <span class="metric-label text-danger">Ausências Críticas (Hoje)</span>
-                <div class="d-flex align-items-baseline">
-                    <span class="metric-value text-danger">{% set total_faltas = faltosos_por_escola.values()|sum %}{{ total_faltas }}</span>
+            <div class="dashboard-card p-3 border-start border-danger border-4 stat-card">
+                <span class="metric-label text-danger">Faltas Críticas</span>
+                <div class="metric-value text-danger" id="totalFaltas">
+                    {% set total_faltas = faltosos_por_escola.values()|sum %}{{ total_faltas }}
                 </div>
-                <small class="text-muted">Servidores não localizados</small>
+                <small class="text-muted">Ausências detectadas hoje</small>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="dashboard-card p-3 border-start border-primary border-4">
-                <span class="metric-label text-primary">Índice de Presença</span>
-                <div class="d-flex align-items-baseline">
-                    <span class="metric-value text-primary">92%</span>
-                </div>
-                <div class="mt-2">
-                    <span class="status-indicator bg-primary"></span><small>Dentro da média municipal</small>
-                </div>
+            <div class="dashboard-card p-3 border-start border-dark border-4 stat-card">
+                <span class="metric-label">Unidades Totais</span>
+                <div class="metric-value">{{ faltosos_por_escola|length }}</div>
+                <small class="text-muted">Escolas monitoradas</small>
             </div>
         </div>
     </div>
 
     <div class="row g-4">
         <div class="col-lg-8">
-            <div class="dashboard-card shadow-sm h-100 overflow-hidden">
-                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0 fw-bold"><i class="bi bi-geo-fill text-primary"></i> Visão Geográfica de Atividades</h5>
-                    <span class="badge bg-light text-dark">{{ escolas_json|length }} Unidades Ativas</span>
+            <div class="dashboard-card shadow-sm h-100">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-geo-alt-fill text-primary"></i> Geovizualização das Unidades</h5>
                 </div>
                 <div class="card-body p-0">
                     <div id="mapaEscolas"></div>
@@ -158,35 +135,26 @@
 
         <div class="col-lg-4">
             <div class="dashboard-card shadow-sm h-100">
-                <div class="card-header bg-white border-0 py-3">
-                    <h5 class="mb-0 fw-bold"><i class="bi bi-exclamation-triangle-fill text-warning"></i> Faltas por Unidade</h5>
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-person-x-fill text-danger"></i> Faltas por Unidade</h5>
                 </div>
                 <div class="card-body p-0">
-                    <div class="list-faltosos" id="listaFaltasContainer">
-                        {% if faltosos_por_escola %}
-                            <div class="list-group list-group-flush">
-                                {% for escola, total in faltosos_por_escola.items()|sort %}
-                                <div class="list-group-item d-flex justify-content-between align-items-center py-3 item-faltoso" data-escola="{{ escola }}">
-                                    <div>
-                                        <h6 class="mb-0 fw-bold">{{ escola }}</h6>
-                                        <small class="text-muted">Clique para ver detalhes</small>
-                                    </div>
-                                    <div class="text-end">
-                                        <span class="badge rounded-pill bg-soft-danger text-danger fs-6 p-2">{{ total }}</span>
-                                    </div>
+                    <div class="list-faltosos" id="containerLista">
+                        <div class="list-group list-group-flush">
+                            {% for escola, total in faltosos_por_escola.items()|sort %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center py-3 item-escola" data-nome="{{ escola }}">
+                                <div>
+                                    <h6 class="mb-0 fw-bold">{{ escola }}</h6>
+                                    <small class="text-muted">Registros pendentes</small>
                                 </div>
-                                {% endfor %}
+                                <span class="badge badge-soft-danger px-3 py-2 rounded-pill fs-6">{{ total }}</span>
                             </div>
-                        {% else %}
-                            <div class="p-5 text-center">
-                                <i class="bi bi-check-circle-fill text-success fs-1"></i>
-                                <p class="mt-3 text-muted">Nenhuma falta registrada hoje!</p>
-                            </div>
-                        {% endif %}
+                            {% endfor %}
+                        </div>
                     </div>
                 </div>
-                <div class="card-footer bg-light border-0 text-center py-3">
-                    <a href="#" class="text-decoration-none small fw-bold">Ver Auditoria Completa <i class="bi bi-arrow-right"></i></a>
+                <div class="card-footer bg-white border-0 text-center py-3">
+                    <a href="/frequencia" class="text-primary text-decoration-none small fw-bold">Ver Auditoria em Tempo Real <i class="bi bi-arrow-right"></i></a>
                 </div>
             </div>
         </div>
@@ -195,9 +163,7 @@
     <div class="row mt-4">
         <div class="col-12">
             <div class="dashboard-card p-4">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h5 class="fw-bold mb-0"><i class="bi bi-graph-up me-2 text-primary"></i> Fluxo de Frequência - Últimos 7 Dias</h5>
-                </div>
+                <h5 class="fw-bold mb-4"><i class="bi bi-graph-up-arrow me-2 text-primary"></i> Volume de Frequência (Últimos 7 dias)</h5>
                 <canvas id="graficoPontosDiarios" height="70"></canvas>
             </div>
         </div>
@@ -208,14 +174,18 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-    // Função de Filtro Discreto via JavaScript (Sem recarregar página)
-    function aplicarFiltros() {
-        const valorEscola = document.getElementById('filtroEscola').value.toLowerCase();
-        const itens = document.querySelectorAll('.item-faltoso');
+    // LÓGICA DE FILTRAGEM (CONSERTO DO FILTRAR)
+    function executarFiltro() {
+        const txt = document.getElementById('inputFiltro').value.toLowerCase();
+        const sel = document.getElementById('selectFiltro').value.toLowerCase();
+        const itens = document.querySelectorAll('.item-escola');
         
         itens.forEach(item => {
-            const escolaItem = item.getAttribute('data-escola').toLowerCase();
-            if (valorEscola === "" || escolaItem.includes(valorEscola)) {
+            const nome = item.getAttribute('data-nome').toLowerCase();
+            const matchTxt = nome.includes(txt);
+            const matchSel = sel === "" || nome === sel;
+
+            if (matchTxt && matchSel) {
                 item.style.display = 'flex';
             } else {
                 item.style.display = 'none';
@@ -223,50 +193,47 @@
         });
     }
 
+    function limparFiltros() {
+        document.getElementById('inputFiltro').value = "";
+        document.getElementById('selectFiltro').value = "";
+        executarFiltro();
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
-        // --- CONFIGURAÇÃO DO MAPA ---
-        const mapa = L.map('mapaEscolas').setView([-8.45, -37.58], 10);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; CartoDB'
-        }).addTo(mapa);
+        // --- MAPA (ESTILO CLEAN) ---
+        const mapa = L.map('mapaEscolas').setView([-8.45, -37.58], 11);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(mapa);
 
         const escolas = JSON.parse('{{ escolas_json | safe }}');
-        escolas.forEach(escola => {
-            L.circleMarker([escola.lat, escola.lon], {
-                radius: 8,
-                fillColor: "#004d40",
-                color: "#fff",
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.8
-            }).addTo(mapa).bindPopup(`<b>${escola.nome}</b><br>Unidade Monitorada`);
+        escolas.forEach(e => {
+            L.circleMarker([e.lat, e.lon], { 
+                radius: 8, fillColor: '#004d40', color: '#fff', weight: 2, fillOpacity: 0.8 
+            }).addTo(mapa).bindPopup(`<b>${e.nome}</b>`);
         });
 
-        // --- CONFIGURAÇÃO DO GRÁFICO ---
+        // --- GRÁFICO (MODERNO) ---
         const ctx = document.getElementById('graficoPontosDiarios');
         new Chart(ctx, {
             type: 'line',
             data: {
                 labels: JSON.parse('{{ labels_dias | safe }}'),
                 datasets: [{
-                    label: 'Registros',
+                    label: 'Pontos Batidos',
                     data: JSON.parse('{{ dados_dias | safe }}'),
                     borderColor: '#004d40',
                     backgroundColor: 'rgba(0, 77, 64, 0.05)',
-                    borderWidth: 4,
                     tension: 0.4,
                     fill: true,
-                    pointBackgroundColor: '#004d40',
-                    pointBorderColor: '#fff',
-                    pointRadius: 5
+                    pointRadius: 4,
+                    borderWidth: 3
                 }]
             },
-            options: {
-                responsive: true,
+            options: { 
+                responsive: true, 
                 plugins: { legend: { display: false } },
                 scales: {
-                    y: { grid: { color: '#f0f0f0' }, beginAtZero: true },
-                    x: { grid: { display: false } }
+                    x: { grid: { display: false } },
+                    y: { grid: { borderDash: [5, 5] }, beginAtZero: true }
                 }
             }
         });

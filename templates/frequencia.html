@@ -2,20 +2,80 @@
 
 {% block title %}Frequência de Ponto{% endblock %}
 
+{% block extra_head %}
+<style>
+    :root {
+        --primary-accent: #004d40;
+        --secondary-bg: #f8f9fa;
+    }
+    .page-header {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        margin-bottom: 2rem;
+    }
+    .filter-card {
+        border: none;
+        border-radius: 12px;
+        background: #ffffff;
+    }
+    .table-container {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    .table thead {
+        background-color: var(--primary-accent);
+        color: white;
+    }
+    .badge-ponto {
+        padding: 0.5em 1em;
+        border-radius: 6px;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+    }
+    .btn-verify {
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
+    .btn-verify:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .export-btn-group .btn {
+        border-radius: 8px;
+        font-weight: 600;
+        padding: 0.6rem 1.2rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2><i class="bi bi-clock-history"></i> Frequência de Ponto dos Servidores</h2>
-    <a href="{{ url_for('exibir_qrcode_ponto') }}" class="btn btn-dark"><i class="bi bi-qr-code"></i> Exibir QR Code</a>
+<div class="page-header d-flex flex-column flex-md-row justify-content-between align-items-md-center">
+    <div>
+        <h2 class="fw-bold mb-0 text-dark">
+            <i class="bi bi-calendar2-check text-success me-2"></i>Frequência de Ponto
+        </h2>
+        <p class="text-muted mb-0">Gestão e auditoria de registros de servidores</p>
+    </div>
+    <div class="mt-3 mt-md-0">
+        <a href="{{ url_for('exibir_qrcode_ponto') }}" class="btn btn-dark shadow-sm px-4">
+            <i class="bi bi-qr-code me-2"></i>Exibir QR Code
+        </a>
+    </div>
 </div>
 
-<div class="card shadow-sm mb-4">
-    <div class="card-body">
+<div class="card filter-card shadow-sm mb-4">
+    <div class="card-body p-4">
         <form method="GET" action="{{ url_for('visualizar_frequencia') }}" id="filtroForm">
-            <div class="row g-3 align-items-end">
+            <div class="row g-3">
                 <div class="col-md-3">
-                    <label for="mes" class="form-label">Mês:</label>
-                    <select name="mes" id="mes" class="form-select">
-                        <option value="">Todos</option>
+                    <label for="mes" class="form-label fw-bold small text-uppercase">Mês</label>
+                    <select name="mes" id="mes" class="form-select border-0 bg-light">
+                        <option value="">Todos os Meses</option>
                         {% for i in range(1, 13) %}
                             <option value="{{ i }}" {% if filtros_atuais.mes == i %}selected{% endif %}>
                                 {{ ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"][i-1] }}
@@ -25,9 +85,9 @@
                 </div>
                 
                 <div class="col-md-3">
-                    <label for="ano" class="form-label">Ano:</label>
-                    <select name="ano" id="ano" class="form-select">
-                        <option value="">Todos</option>
+                    <label for="ano" class="form-label fw-bold small text-uppercase">Ano</label>
+                    <select name="ano" id="ano" class="form-select border-0 bg-light">
+                        <option value="">Todos os Anos</option>
                         {% for ano in anos_disponiveis %}
                             <option value="{{ ano }}" {% if filtros_atuais.ano == ano %}selected{% endif %}>{{ ano }}</option>
                         {% endfor %}
@@ -35,9 +95,9 @@
                 </div>
 
                 <div class="col-md-3">
-                    <label for="escola_id" class="form-label">Local de Trabalho (Escola):</label>
-                    <select name="escola_id" id="escola_id" class="form-select">
-                        <option value="">Todos</option>
+                    <label for="escola_id" class="form-label fw-bold small text-uppercase">Unidade / Escola</label>
+                    <select name="escola_id" id="escola_id" class="form-select border-0 bg-light">
+                        <option value="">Todas as Unidades</option>
                         {% for escola in escolas %}
                             <option value="{{ escola.id }}" {% if filtros_atuais.escola_id == escola.id %}selected{% endif %}>
                                 {{ escola.nome }}
@@ -46,143 +106,151 @@
                     </select>
                 </div>
 
-                <div class="col-md-3">
-                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-filter"></i> Filtrar</button>
+                <div class="col-md-3 d-grid">
+                    <label class="form-label d-none d-md-block">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary fw-bold shadow-sm">
+                        <i class="bi bi-funnel-fill me-2"></i>Aplicar Filtros
+                    </button>
                 </div>
             </div>
         </form>
         
-        <hr>
+        <hr class="my-4 opacity-50">
         
-        <div class="row g-2">
-            <div class="col-md-6">
-                <button type="button" id="btnExportarExcel" class="btn btn-success w-100">
-                    <i class="bi bi-file-earmark-excel-fill"></i> Exportar para Excel
-                </button>
-            </div>
-            <div class="col-md-6">
-                <button type="button" id="btnExportarPDF" class="btn btn-danger w-100">
-                    <i class="bi bi-file-earmark-pdf-fill"></i> Exportar para PDF
-                </button>
-            </div>
+        <div class="export-btn-group d-flex flex-column flex-md-row gap-3">
+            <button type="button" id="btnExportarExcel" class="btn btn-success flex-grow-1">
+                <i class="bi bi-file-earmark-spreadsheet me-2"></i>Excel
+            </button>
+            <button type="button" id="btnExportarPDF" class="btn btn-danger flex-grow-1">
+                <i class="bi bi-file-earmark-pdf me-2"></i>PDF
+            </button>
         </div>
     </div>
 </div>
-<div class="table-responsive">
-    <table class="table table-striped table-hover table-bordered align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th>Servidor</th>
-                <th>CPF</th>
-                <th>Local (Escola)</th>
-                <th>Data</th>
-                <th>Hora</th>
-                <th>Tipo</th>
-                <th class="text-center">Auditoria</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for registro in registros.items %}
-            <tr>
-                <td>{{ registro.servidor_ponto.nome if registro.servidor_ponto else 'Servidor não encontrado' }}</td>
-                <td>{{ registro.servidor_cpf }}</td>
-                <td>{{ registro.escola.nome if registro.escola else 'N/A' }}</td>
-                <td>{{ registro.timestamp.strftime('%d/%m/%Y') }}</td>
-                <td>{{ registro.timestamp.strftime('%H:%M:%S') }}</td>
-                <td>
-                    {% if registro.tipo == 'entrada' %}
-                        <span class="badge bg-success">Entrada</span>
-                    {% else %}
-                        <span class="badge bg-danger">Saída</span>
-                    {% endif %}
-                </td>
-                
-                <td class="text-center">
-                    {% if registro.servidor_ponto and registro.servidor_ponto.foto_filename and registro.foto_filename %}
-                        
-                        {# --- LÓGICA CORRIGIDA PARA SUPABASE --- #}
-                        {# Define as variáveis iniciais #}
-                        {% set foto_perfil = registro.servidor_ponto.foto_filename %}
-                        {% set foto_ponto = registro.foto_filename %}
 
-                        {# Se a foto de perfil NÃO for um link (http), usa o url_for local (legado) #}
-                        {% if 'http' not in foto_perfil %}
-                            {% set foto_perfil = url_for('uploaded_file', filename=foto_perfil) %}
+<div class="table-container shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th class="ps-4">Servidor</th>
+                    <th>CPF</th>
+                    <th>Unidade</th>
+                    <th>Data</th>
+                    <th>Hora</th>
+                    <th>Status</th>
+                    <th class="text-center pe-4">Auditoria</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for registro in registros.items %}
+                <tr>
+                    <td class="ps-4">
+                        <span class="fw-bold text-dark">{{ registro.servidor_ponto.nome if registro.servidor_ponto else 'Servidor não encontrado' }}</span>
+                    </td>
+                    <td><code class="text-muted">{{ registro.servidor_cpf }}</code></td>
+                    <td><small class="fw-semibold">{{ registro.escola.nome if registro.escola else 'N/A' }}</small></td>
+                    <td>{{ registro.timestamp.strftime('%d/%m/%Y') }}</td>
+                    <td class="fw-bold">{{ registro.timestamp.strftime('%H:%M:%S') }}</td>
+                    <td>
+                        {% if registro.tipo == 'entrada' %}
+                            <span class="badge-ponto bg-success text-white">Entrada</span>
+                        {% else %}
+                            <span class="badge-ponto bg-danger text-white">Saída</span>
                         {% endif %}
+                    </td>
+                    <td class="text-center pe-4">
+                        {% if registro.servidor_ponto and registro.servidor_ponto.foto_filename and registro.foto_filename %}
+                            
+                            {% set foto_perfil = registro.servidor_ponto.foto_filename %}
+                            {% set foto_ponto = registro.foto_filename %}
 
-                        {# Se a foto do ponto NÃO for um link (http), usa o url_for local (legado) #}
-                        {% if 'http' not in foto_ponto %}
-                            {# Assume que fotos locais antigas estão na pasta 'pontos/' #}
-                            {% set foto_ponto = url_for('uploaded_file', filename='pontos/' ~ foto_ponto) %}
+                            {% if 'http' not in foto_perfil %}
+                                {% set foto_perfil = url_for('uploaded_file', filename=foto_perfil) %}
+                            {% endif %}
+
+                            {% if 'http' not in foto_ponto %}
+                                {% set foto_ponto = url_for('uploaded_file', filename='pontos/' ~ foto_ponto) %}
+                            {% endif %}
+
+                            <button class="btn btn-outline-info btn-sm btn-verify" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#modalAuditoria"
+                                    data-servidor-nome="{{ registro.servidor_ponto.nome }}"
+                                    data-ref-foto="{{ foto_perfil }}"
+                                    data-ponto-foto="{{ foto_ponto }}">
+                                <i class="bi bi-camera-fill me-1"></i>Verificar
+                            </button>
+                        {% else %}
+                            <span class="text-muted small">Sem mídia</span>
                         {% endif %}
-
-                        <button class="btn btn-info btn-sm" 
-                                data-bs-toggle="modal" 
-                                data-bs-target="#modalAuditoria"
-                                data-servidor-nome="{{ registro.servidor_ponto.nome }}"
-                                data-ref-foto="{{ foto_perfil }}"
-                                data-ponto-foto="{{ foto_ponto }}">
-                            <i class="bi bi-images"></i> Verificar
-                        </button>
-                    {% else %}
-                        <span class="badge bg-secondary">N/A</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="7" class="text-center">Nenhum registro de ponto encontrado para os filtros selecionados.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center py-5">
+                        <i class="bi bi-search fs-1 text-muted d-block mb-2"></i>
+                        <span class="text-muted">Nenhum registro encontrado para este período.</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 
 {% if registros.pages > 1 %}
-<nav aria-label="Navegação da frequência">
+<nav class="mt-4">
     <ul class="pagination justify-content-center">
         <li class="page-item {% if not registros.has_prev %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('visualizar_frequencia', page=registros.prev_num, **filtros_atuais) }}">Anterior</a>
+            <a class="page-link shadow-sm border-0 rounded-start" href="{{ url_for('visualizar_frequencia', page=registros.prev_num, **filtros_atuais) }}">
+                <i class="bi bi-chevron-left"></i>
+            </a>
         </li>
         {% for page_num in registros.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
             {% if page_num %}
-                <li class="page-item {% if registros.page == page_num %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('visualizar_frequencia', page=page_num, **filtros_atuais) }}">{{ page_num }}</a>
+                <li class="page-item mx-1">
+                    <a class="page-link shadow-sm border-0 rounded-3 {% if registros.page == page_num %}bg-primary text-white{% endif %}" href="{{ url_for('visualizar_frequencia', page=page_num, **filtros_atuais) }}">{{ page_num }}</a>
                 </li>
             {% else %}
-                <li class="page-item disabled"><span class="page-link">...</span></li>
+                <li class="page-item disabled"><span class="page-link border-0">...</span></li>
             {% endif %}
         {% endfor %}
         <li class="page-item {% if not registros.has_next %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('visualizar_frequencia', page=registros.next_num, **filtros_atuais) }}">Próximo</a>
+            <a class="page-link shadow-sm border-0 rounded-end" href="{{ url_for('visualizar_frequencia', page=registros.next_num, **filtros_atuais) }}">
+                <i class="bi bi-chevron-right"></i>
+            </a>
         </li>
     </ul>
 </nav>
 {% endif %}
 
-
-<div class="modal fade" id="modalAuditoria" tabindex="-1" aria-labelledby="modalAuditoriaLabel" aria-hidden="true">
+<div class="modal fade" id="modalAuditoria" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalAuditoriaLabel">Auditoria de Ponto</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header bg-dark text-white border-0" style="border-radius: 15px 15px 0 0;">
+                <h5 class="modal-title fw-bold">Auditoria Visual</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <h6 id="modalServidorNome" class="text-center mb-3"></h6>
-                <div class="row">
+            <div class="modal-body p-4">
+                <h6 id="modalServidorNome" class="text-center fw-bold mb-4 fs-5 text-primary"></h6>
+                <div class="row g-4">
                     <div class="col-md-6 text-center">
-                        <h6 class="text-muted">Foto de Cadastro (Referência)</h6>
-                        <img id="fotoReferencia" src="" alt="Foto de Referência" class="img-fluid img-thumbnail" style="max-height: 400px;">
+                        <div class="p-2 border rounded-4 bg-light h-100">
+                            <label class="d-block mb-2 fw-bold text-muted small text-uppercase">Foto de Cadastro</label>
+                            <img id="fotoReferencia" src="" alt="Referência" class="img-fluid rounded-3 shadow-sm" style="max-height: 350px; object-fit: cover;">
+                        </div>
                     </div>
                     <div class="col-md-6 text-center">
-                        <h6 class="text-muted">Foto do Registro de Ponto</h6>
-                        <img id="fotoPonto" src="" alt="Foto do Ponto" class="img-fluid img-thumbnail" style="max-height: 400px;">
+                        <div class="p-2 border rounded-4 bg-light h-100">
+                            <label class="d-block mb-2 fw-bold text-muted small text-uppercase">Foto do Registro</label>
+                            <img id="fotoPonto" src="" alt="Ponto" class="img-fluid rounded-3 shadow-sm" style="max-height: 350px; object-fit: cover;">
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            <div class="modal-footer border-0 bg-light rounded-bottom">
+                <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Fechar Auditoria</button>
             </div>
         </div>
     </div>
@@ -197,7 +265,6 @@ document.addEventListener('DOMContentLoaded', function () {
     modalAuditoria.addEventListener('show.bs.modal', function (event) {
         var button = event.relatedTarget;
         var nomeServidor = button.getAttribute('data-servidor-nome');
-        // Agora as URLs já vêm resolvidas do HTML (Jinja2), seja local ou nuvem
         var urlFotoRef = button.getAttribute('data-ref-foto');
         var urlFotoPonto = button.getAttribute('data-ponto-foto');
         
@@ -205,18 +272,16 @@ document.addEventListener('DOMContentLoaded', function () {
         var imgRef = modalAuditoria.querySelector('#fotoReferencia');
         var imgPonto = modalAuditoria.querySelector('#fotoPonto');
         
-        modalNome.textContent = 'Servidor: ' + nomeServidor;
+        modalNome.textContent = nomeServidor;
         imgRef.src = urlFotoRef;
         imgPonto.src = urlFotoPonto;
     });
     
-    // Limpa as imagens ao fechar para não mostrar a anterior enquanto carrega a próxima
     modalAuditoria.addEventListener('hidden.bs.modal', function () {
         modalAuditoria.querySelector('#fotoReferencia').src = '';
         modalAuditoria.querySelector('#fotoPonto').src = '';
     });
 
-    // --- SCRIPT PARA OS BOTÕES DE EXPORTAÇÃO ---
     function exportarComFiltros(baseUrl) {
         const mes = document.getElementById('mes').value;
         const ano = document.getElementById('ano').value;

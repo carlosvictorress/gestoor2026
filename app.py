@@ -3064,7 +3064,7 @@ def registrar_ponto():
 
             if not foto_b64 or not escola_id_form:
                 flash("Foto ou local de trabalho não detectados.", "danger")
-                return redirect(url_for("registrar_ponto"))
+                return redirect(url_for("registrar_ponto", status="error")) # Adicionado status
 
             # 2. Identificação
             todos_servidores = Servidor.query.filter(Servidor.face_encoding.isnot(None)).all()
@@ -3072,20 +3072,20 @@ def registrar_ponto():
 
             if not servidor_identificado:
                 flash(f"Falha na identificação: {msg_identificacao}", "danger")
-                return redirect(url_for("registrar_ponto"))
+                return redirect(url_for("registrar_ponto", status="error")) # Adicionado status
 
             # 3. Vínculo
             if servidor_identificado.escola_id and servidor_identificado.escola_id != escola_id_form:
                 escola_vinculada = Escola.query.get(servidor_identificado.escola_id)
                 nome_escola = escola_vinculada.nome if escola_vinculada else "outra unidade"
-                flash(f"ACESSO NEGADO: Você está lotado na '{nome_escola}'. Não é permitido registrar ponto nesta localização.", "danger")
-                return redirect(url_for("registrar_ponto"))
+                flash(f"ACESSO NEGADO: Você está lotado na '{nome_escola}'.", "danger")
+                return redirect(url_for("registrar_ponto", status="error"))
 
             # 4. GPS
             escola_local = Escola.query.get(escola_id_form)
             if not lat_user_str or lat_user_str == 'N/A' or not lon_user_str or lon_user_str == 'N/A':
-                flash("Erro: GPS não detectado. Ative a localização.", "warning")
-                return redirect(url_for("registrar_ponto"))
+                flash("Erro: GPS não detectado.", "warning")
+                return redirect(url_for("registrar_ponto", status="error"))
 
             if escola_local and escola_local.latitude:
                 try:
@@ -3095,21 +3095,21 @@ def registrar_ponto():
                     limite_metros = app.config.get('RAIO_PERMITIDO_METROS', 100)
 
                     if distancia > limite_metros:
-                        flash(f"Fora do perímetro! Distância: {distancia:.0f}m. Limite: {limite_metros}m.", "danger")
-                        return redirect(url_for("registrar_ponto"))
+                        flash(f"Fora do perímetro! Distância: {distancia:.0f}m.", "danger")
+                        return redirect(url_for("registrar_ponto", status="error"))
                 except Exception as e:
-                    print(f"Erro GPS: {e}")
                     flash("Erro ao validar GPS.", "danger")
-                    return redirect(url_for("registrar_ponto"))
+                    return redirect(url_for("registrar_ponto", status="error"))
 
             # 5. Processamento da Foto (Supabase)
             url_foto_final = None
-            
-            # --- PREPARA A DATA CORRETA AQUI PARA O NOME DO ARQUIVO ---
             fuso_brasil = pytz.timezone('America/Sao_Paulo')
             agora_brasil = datetime.now(fuso_brasil)
             
             try:
+                from io import BytesIO # Certifique-se de que está importado
+                import base64
+
                 if "," in foto_b64:
                     _, encoded = foto_b64.split(",", 1)
                 else:
@@ -3125,23 +3125,14 @@ def registrar_ponto():
                     pasta="pontos", 
                     nome_arquivo_personalizado=filename_ponto
                 )
-
-                if url_foto_supabase:
-                    url_foto_final = url_foto_supabase
-                else:
-                    print("Erro: Upload retornou None.")
+                url_foto_final = url_foto_supabase if url_foto_supabase else None
 
             except Exception as e:
                 print(f"Erro foto: {e}")
                 url_foto_final = None
 
-            # 6. Salvar no Banco (CORREÇÃO DO FUSO HORÁRIO)
-            
-            # Passo A: Pega a hora certa do Brasil (Ex: 17:30 -03:00)
+            # 6. Salvar no Banco
             agora_brasil = datetime.now(pytz.timezone('America/Sao_Paulo'))
-            
-            # Passo B: O TRUQUE! Remove a informação de fuso (-03:00) mantendo a hora (17:30)
-            # Isso impede que o banco converta para UTC (que viraria 20:30)
             agora_sem_fuso = agora_brasil.replace(tzinfo=None)
 
             novo_ponto = Ponto(
@@ -3151,23 +3142,25 @@ def registrar_ponto():
                 latitude=float(lat_user_str),
                 longitude=float(lon_user_str),
                 foto_filename=url_foto_final,
-                timestamp=agora_sem_fuso  # <--- USAMOS A DATA "INGÊNUA" (NAIVE)
+                timestamp=agora_sem_fuso
             )
             
             db.session.add(novo_ponto)
             db.session.commit()
 
-            # Exibe a hora para o usuário (aqui usamos a variável original que tem fuso, só pra formatar)
+            # --- PARTE ALTERADA PARA FUNCIONAR COM O SEU HTML ---
             hora_formatada = agora_brasil.strftime('%H:%M')
             nome_curto = servidor_identificado.nome.split()[0]
             flash(f"Sucesso, {nome_curto}! {tipo_registro.capitalize()} registrada às {hora_formatada}.", "success")
+            
+            # Redireciona passando o parâmetro 'status' para o JavaScript ativar o alerta
+            return redirect(url_for("registrar_ponto", status="success"))
             
         except Exception as e:
             db.session.rollback()
             print(f"Erro geral: {e}")
             flash(f"Erro no sistema: {e}", "danger")
-
-        return redirect(url_for("registrar_ponto"))
+            return redirect(url_for("registrar_ponto", status="error"))
 
     escolas = Escola.query.filter_by(status="Ativa").order_by(Escola.nome).all()
     return render_template("registrar_ponto.html", escolas=escolas)

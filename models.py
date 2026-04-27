@@ -194,19 +194,21 @@ class License(db.Model):
 
 class Ponto(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    # Garanta que o String(14) seja idêntico ao definido no modelo Servidor
     servidor_cpf = db.Column(
         db.String(14), db.ForeignKey("servidor.cpf"), nullable=False
     )
     timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     tipo = db.Column(db.String(10), nullable=False)
 
-    # --- VERIFIQUE SE ESTES CAMPOS ESTÃO AQUI ---
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)
     ip_address = db.Column(db.String(45), nullable=True)
-    foto_filename = db.Column(db.String(100), nullable=True)
+    
+    # AUMENTE AQUI: URLs do Supabase são longas. Use 255 ou mais.
+    foto_filename = db.Column(db.String(255), nullable=True) 
+    
     escola_id = db.Column(db.Integer, db.ForeignKey("escola.id"), nullable=True)
-    # -------------------------------------------
 
     servidor_ponto = db.relationship(
         "Servidor",

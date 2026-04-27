@@ -48,9 +48,11 @@
             align-items: center;
             gap: 12px;
             animation: slideDown 0.5s ease;
+            z-index: 2100; /* Garante que fique acima de tudo */
         }
         .status-success { background: #E8F5E9; color: #2E7D32; border: 1px solid #C8E6C9; }
         .status-error { background: #FFEBEE; color: #C62828; border: 1px solid #FFCDD2; }
+        .status-warning { background: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2; }
 
         @keyframes slideDown {
             from { transform: translateY(-20px); opacity: 0; }
@@ -235,14 +237,39 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // LÓGICA DE VERIFICAÇÃO DE MENSAGEM (NO MODAL DO RELÓGIO)
-        function checkUrlParams() {
+        // LÓGICA DE VERIFICAÇÃO DE MENSAGENS (URL E FLASH)
+        function checkStatus() {
             const params = new URLSearchParams(window.location.search);
             const statusBox = document.getElementById('statusBox');
             const icon = document.getElementById('statusIcon');
             const title = document.getElementById('statusTitle');
             const msg = document.getElementById('statusMsg');
 
+            // 1. Prioridade para mensagens vindas do backend via Flask Flash
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        statusBox.style.display = 'flex';
+                        msg.innerText = "{{ message }}";
+                        if ("{{ category }}" === "success") {
+                            statusBox.className = 'status-alert status-success';
+                            icon.className = 'bi bi-check-circle-fill';
+                            title.innerText = "Sucesso!";
+                        } else if ("{{ category }}" === "danger" || "{{ category }}" === "error") {
+                            statusBox.className = 'status-alert status-error';
+                            icon.className = 'bi bi-exclamation-triangle-fill';
+                            title.innerText = "Erro!";
+                        } else {
+                            statusBox.className = 'status-alert status-warning';
+                            icon.className = 'bi bi-info-circle-fill';
+                            title.innerText = "Aviso";
+                        }
+                        return; // Se houver flash, ignora params da URL
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            // 2. Fallback para parâmetros da URL (caso o redirect passe status=success)
             if (params.has('status')) {
                 const status = params.get('status');
                 statusBox.style.display = 'flex';
@@ -258,12 +285,11 @@
                     title.innerText = "Atenção!";
                     msg.innerText = "Não foi possível registrar seu ponto.";
                 }
-
-                // Remove o parâmetro da URL sem recarregar a página para limpar o histórico
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
         }
-        window.onload = checkUrlParams;
+        
+        window.onload = checkStatus;
 
         function startApp() {
             document.getElementById('initialModal').style.transform = 'translateY(-100%)';
@@ -283,7 +309,9 @@
                 navigator.geolocation.getCurrentPosition(p => {
                     document.getElementById('latitude').value = p.coords.latitude;
                     document.getElementById('longitude').value = p.coords.longitude;
-                });
+                }, (error) => {
+                    console.error("Erro GPS:", error);
+                }, { enableHighAccuracy: true });
             }
         }
 
@@ -305,6 +333,7 @@
             document.getElementById('tipo').value = tipoPonto;
 
             attemptCount++;
+            // Se falhar biometria na primeira tentativa, ou se for manual, processa
             if (attemptCount >= 2 && !isManual) {
                 setTimeout(() => {
                     document.getElementById('loading').style.display = 'none';

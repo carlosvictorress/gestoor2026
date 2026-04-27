@@ -4,6 +4,13 @@
 
 {% block content %}
 <h2>Editar Servidor: {{ servidor.nome }}</h2>
+
+<div class="alert alert-info shadow-sm">
+    <strong>Painel de Depuração (Debug):</strong><br>
+    <i class="bi bi-fingerprint"></i> ID Físico (Banco): <strong>{{ servidor.id }}</strong><br>
+    <i class="bi bi-link-45deg"></i> URL de Destino do Form: <code>/editar/{{ servidor.id }}</code>
+</div>
+
 <hr>
 
 <form action="/editar/{{ servidor.id }}" method="POST" enctype="multipart/form-data">

@@ -1862,7 +1862,6 @@ def lista_servidores():
         escolas=escolas
     )
 
-
 @app.route("/delete/<path:id>")
 @login_required
 @admin_required

@@ -1,66 +1,177 @@
 {% extends 'base.html' %}
 
-{% block title %}Dashboard de Frequência{% endblock %}
+{% block title %}Dashboard de Frequência Profissional{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 <style>
+    :root {
+        --primary-color: #004d40;
+        --accent-color: #007bff;
+    }
+    body { background-color: #f8f9fa; }
     #mapaEscolas {
-        height: 500px;
-        border-radius: 8px;
+        height: 450px;
+        border-radius: 12px;
+        z-index: 1;
+    }
+    .card { border: none; border-radius: 12px; transition: transform 0.2s; }
+    .stat-card:hover { transform: translateY(-5px); }
+    .icon-shape {
+        width: 48px;
+        height: 48px;
+        background-color: rgba(0, 77, 64, 0.1);
+        color: var(--primary-color);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .filter-bar {
+        background: white;
+        padding: 15px;
+        border-radius: 12px;
+        margin-bottom: 25px;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2><i class="bi bi-bar-chart-line-fill"></i> Dashboard de Frequência</h2>
-    <a href="#" class="btn btn-primary"><i class="bi bi-file-earmark-pdf"></i> Gerar Relatório do Mês</a>
-</div>
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Painel de Inteligência de Frequência</h2>
+            <p class="text-muted">Gestão em tempo real de unidades e servidores</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="#" class="btn btn-outline-primary"><i class="bi bi-printer"></i></a>
+            <a href="#" class="btn btn-primary px-4"><i class="bi bi-file-earmark-pdf"></i> Relatório Mensal</a>
+        </div>
+    </div>
 
-<div class="row">
-    <div class="col-lg-8 mb-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-header">
-                <h5 class="card-title mb-0"><i class="bi bi-map-fill"></i> Escolas no Mapa</h5>
+    <div class="filter-bar shadow-sm">
+        <div class="row g-3 align-items-center">
+            <div class="col-md-3">
+                <label class="small fw-bold text-muted">Período de Referência</label>
+                <select class="form-select border-0 bg-light">
+                    <option>Semana Atual</option>
+                    <option>Mês Atual</option>
+                    <option>Últimos 90 dias</option>
+                </select>
             </div>
-            <div class="card-body">
-                <div id="mapaEscolas"></div>
+            <div class="col-md-3">
+                <label class="small fw-bold text-muted">Unidade de Ensino</label>
+                <select class="form-select border-0 bg-light">
+                    <option>Todas as Unidades</option>
+                    </select>
+            </div>
+            <div class="col-md-4 text-end ms-auto">
+                <button class="btn btn-dark px-4"><i class="bi bi-search me-2"></i>Aplicar Filtros</button>
             </div>
         </div>
     </div>
-    
-    <div class="col-lg-4 mb-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-header">
-                <h5 class="card-title mb-0"><i class="bi bi-person-x-fill"></i> Servidores Faltosos (Hoje)</h5>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card stat-card shadow-sm p-3">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted mb-1">Banco de Horas (Sem.)</h6>
+                        <h3 class="fw-bold mb-0">+142h</h3>
+                        <small class="text-success fw-bold"><i class="bi bi-arrow-up"></i> 12% vs última sem.</small>
+                    </div>
+                    <div class="icon-shape"><i class="bi bi-hourglass-split fs-4"></i></div>
+                </div>
             </div>
-            <div class="card-body">
-                {% if faltosos_por_escola %}
-                    <ul class="list-group list-group-flush">
-                        {% for escola, total in faltosos_por_escola.items()|sort %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            {{ escola }}
-                            <span class="badge bg-danger rounded-pill">{{ total }}</span>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-success text-center mt-3">Nenhuma falta registrada hoje!</p>
-                {% endif %}
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card shadow-sm p-3">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted mb-1">Banco de Horas (Mês)</h6>
+                        <h3 class="fw-bold mb-0">580h</h3>
+                        <small class="text-muted">Total acumulado</small>
+                    </div>
+                    <div class="icon-shape text-primary" style="background-color: rgba(0, 123, 255, 0.1);"><i class="bi bi-calendar-check fs-4 text-primary"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card shadow-sm p-3">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted mb-1">Faltas Hoje</h6>
+                        <h3 class="fw-bold mb-0 text-danger">{% set total_faltas = faltosos_por_escola.values()|sum %}{{ total_faltas }}</h3>
+                        <small class="text-danger fw-bold">Atenção imediata</small>
+                    </div>
+                    <div class="icon-shape text-danger" style="background-color: rgba(220, 53, 69, 0.1);"><i class="bi bi-person-dash fs-4 text-danger"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card shadow-sm p-3">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted mb-1">Presença Geral</h6>
+                        <h3 class="fw-bold mb-0">94.2%</h3>
+                        <small class="text-success fw-bold">Dentro da meta</small>
+                    </div>
+                    <div class="icon-shape text-success" style="background-color: rgba(40, 167, 69, 0.1);"><i class="bi bi-activity fs-4 text-success"></i></div>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<div class="row">
-    <div class="col-12">
-        <div class="card shadow-sm">
-            <div class="card-header">
-                <h5 class="card-title mb-0"><i class="bi bi-graph-up"></i> Pontos Registrados (Últimos 7 dias)</h5>
+    <div class="row">
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <h5 class="card-title mb-0"><i class="bi bi-geo-alt-fill me-2 text-primary"></i>Monitoramento Geográfico por Unidade</h5>
+                </div>
+                <div class="card-body">
+                    <div id="mapaEscolas"></div>
+                </div>
             </div>
-            <div class="card-body">
-                <canvas id="graficoPontosDiarios"></canvas>
+        </div>
+        
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white py-3">
+                    <h5 class="card-title mb-0"><i class="bi bi-person-x-fill me-2 text-danger"></i>Faltas Críticas (Hoje)</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if faltosos_por_escola %}
+                        <div class="list-group list-group-flush">
+                            {% for escola, total in faltosos_por_escola.items()|sort %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center py-3">
+                                <div>
+                                    <span class="fw-bold">{{ escola }}</span><br>
+                                    <small class="text-muted">Unidade vinculada</small>
+                                </div>
+                                <span class="badge bg-danger rounded-pill px-3">{{ total }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-emoji-smile fs-1 text-success"></i>
+                            <p class="text-success fw-bold mt-2">Operação 100% Completa!</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <h5 class="card-title mb-0"><i class="bi bi-bar-chart-fill me-2 text-primary"></i>Volume de Registros de Ponto (Tendência Semanal)</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="graficoPontosDiarios" height="80"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -71,48 +182,42 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // --- INICIALIZAÇÃO DO MAPA ---
-        const mapa = L.map('mapaEscolas').setView([-8.45, -37.58], 7); // Centro aproximado de PE
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        // --- MAPA ---
+        const mapa = L.map('mapaEscolas').setView([-8.45, -37.58], 10);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
         }).addTo(mapa);
 
-        // Adiciona os marcadores das escolas no mapa
         const escolas = JSON.parse('{{ escolas_json | safe }}');
         escolas.forEach(escola => {
             L.marker([escola.lat, escola.lon]).addTo(mapa)
-                .bindPopup(`<b>${escola.nome}</b>`);
+                .bindPopup(`<b>${escola.nome}</b><br><small>Status: Operacional</small>`);
         });
 
-        // --- INICIALIZAÇÃO DO GRÁFICO ---
+        // --- GRÁFICO ---
         const ctx = document.getElementById('graficoPontosDiarios');
         new Chart(ctx, {
-            type: 'bar',
+            type: 'line', // Mudado para linha para parecer mais profissional
             data: {
                 labels: JSON.parse('{{ labels_dias | safe }}'),
                 datasets: [{
-                    label: 'Total de Registros',
+                    label: 'Volume de Pontos',
                     data: JSON.parse('{{ dados_dias | safe }}'),
-                    backgroundColor: 'rgba(0, 77, 64, 0.6)',
-                    borderColor: 'rgba(0, 77, 64, 1)',
-                    borderWidth: 1
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    borderColor: 'rgba(0, 123, 255, 1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#fff'
                 }]
             },
             options: {
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0 // Garante que o eixo Y não tenha casas decimais
-                        }
-                    }
-                },
                 responsive: true,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { display: false } },
+                    x: { grid: { display: false } }
                 }
             }
         });

@@ -1793,6 +1793,7 @@ def get_servidor_details(num_contrato):
 @login_required
 @role_required("RH", "admin")
 def lista_servidores():
+    # Recupera dados da sessão com fallback para evitar erros de None em filtros
     user_role = session.get("role")
     secretaria_id_logada = session.get("secretaria_id")
 
@@ -1800,16 +1801,17 @@ def lista_servidores():
     if user_role == 'admin':
         query = Servidor.query
     else:
-        query = Servidor.query.filter_by(secretaria_id=secretaria_id_logada)
+        # Se por algum motivo o id da secretaria não estiver na sessão, 
+        # filtramos por um valor inexistente para não expor dados indevidos
+        query = Servidor.query.filter_by(secretaria_id=secretaria_id_logada if secretaria_id_logada else -1)
 
-    # 2. Captura os filtros da URL (busca, função, lotação)
+    # 2. Captura os filtros da URL
     termo_busca = request.args.get("termo")
     funcao_filtro = request.args.get("funcao")
     lotacao_filtro = request.args.get("lotacao")
 
     # 3. Aplica os filtros na Query
     if termo_busca:
-        # Cria padrão de busca parcial (ilike)
         search_pattern = f"%{termo_busca}%"
         query = query.filter(
             or_(
@@ -1828,32 +1830,36 @@ def lista_servidores():
     # 4. Executa a busca final
     servidores = query.order_by(Servidor.nome).all()
 
-    # 5. Prepara listas para os dropdowns de filtro
+    # 5. Prepara listas para os dropdowns de filtro (Consultas otimizadas)
     funcoes_disponiveis = [r[0] for r in db.session.query(Servidor.funcao).distinct().order_by(Servidor.funcao).all() if r[0]]
     lotacoes_disponiveis = [r[0] for r in db.session.query(Servidor.lotacao).distinct().order_by(Servidor.lotacao).all() if r[0]]
 
-    # 6. IMPORTANTE: Busca escolas para o modal de cadastro novo
+    # 6. Busca escolas para o modal de cadastro
     escolas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
 
-    # 7. Verifica status (férias/licença)
+    # 7. Verifica status (férias/licença) usando a data atual do sistema
     hoje = datetime.now().date()
     status_servidores = {}
+    
+    # Filtra apenas requerimentos aprovados e que já iniciaram
     requerimentos_ativos = Requerimento.query.filter(
-        Requerimento.status == "Aprovado", Requerimento.data_inicio_requerimento <= hoje
+        Requerimento.status == "Aprovado", 
+        Requerimento.data_inicio_requerimento <= hoje
     ).all()
 
     for req in requerimentos_ativos:
+        # Verifica se o servidor ainda está afastado (sem data de retorno ou retorno futuro)
         if not req.data_retorno_trabalho or req.data_retorno_trabalho > hoje:
             status_servidores[req.servidor_cpf] = req.natureza
 
-    # 8. Renderiza o template enviando TUDO
+    # 8. Renderiza o template enviando todas as variáveis necessárias
     return render_template(
         "index.html",
         servidores=servidores,
         funcoes_disponiveis=funcoes_disponiveis,
         lotacoes_disponiveis=lotacoes_disponiveis,
         status_servidores=status_servidores,
-        escolas=escolas  # <--- Essencial para o cadastro funcionar
+        escolas=escolas
     )
 
 

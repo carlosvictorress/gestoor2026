@@ -12,7 +12,7 @@
     /* Círculo interno dinâmico */
     .timeline-steps .timeline-content .inner-circle { border-radius: 1.5rem; height: 1.2rem; width: 1.2rem; margin: 0 auto 0.5rem; border: 3px solid #dee2e6; background-color: #fff; z-index: 1; position: relative; }
     
-    /* Cores de Status */
+    /* Cores de Status para a Linha do Tempo */
     .status-success { border-color: #198754 !important; background-color: #198754 !important; }
     .status-danger { border-color: #dc3545 !important; background-color: #dc3545 !important; }
 
@@ -73,37 +73,37 @@
         {% if veiculo.tipo in ['Ônibus', 'Micro-ônibus', 'Van'] %}
         <div class="row g-3">
             <div class="col-md-4">
-                {% set detran_pendente = veiculo.validade_autorizacao < hoje if veiculo.validade_autorizacao else True %}
-                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 {% if detran_pendente %}border-danger{% else %}border-success{% endif %}">
+                {% set detran_vencido = veiculo.validade_autorizacao < hoje if veiculo.validade_autorizacao else True %}
+                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 {% if detran_vencido %}border-danger{% else %}border-success{% endif %}">
                     <label class="text-muted small fw-bold text-uppercase d-block mb-2">Autorização DETRAN</label>
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="fw-bold">{{ veiculo.autorizacao_detran or 'Não cadastrada' }}</span>
                         {% if veiculo.validade_autorizacao %}
-                        <span class="badge {% if detran_pendente %}bg-danger{% else %}bg-success{% endif %}">{{ veiculo.validade_autorizacao.strftime('%d/%m/%Y') }}</span>
+                        <span class="badge {% if detran_vencido %}bg-danger{% else %}bg-success{% endif %}">{{ veiculo.validade_autorizacao.strftime('%d/%m/%Y') }}</span>
                         {% endif %}
                     </div>
                 </div>
             </div>
             <div class="col-md-4">
-                {% set tacografo_pendente = veiculo.validade_tacografo < hoje if veiculo.validade_tacografo else True %}
-                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 {% if tacografo_pendente %}border-danger{% else %}border-success{% endif %}">
+                {% set tacografo_vencido = veiculo.validade_tacografo < hoje if veiculo.validade_tacografo else True %}
+                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 {% if tacografo_vencido %}border-danger{% else %}border-success{% endif %}">
                     <label class="text-muted small fw-bold text-uppercase d-block mb-2">Certificado Tacógrafo</label>
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="fw-bold">{{ veiculo.certificado_tacografo or 'Não cadastrado' }}</span>
                         {% if veiculo.validade_tacografo %}
-                        <span class="badge {% if tacografo_pendente %}bg-danger{% else %}bg-success{% endif %}">{{ veiculo.validade_tacografo.strftime('%d/%m/%Y') }}</span>
+                        <span class="badge {% if tacografo_vencido %}bg-danger{% else %}bg-success{% endif %}">{{ veiculo.validade_tacografo.strftime('%d/%m/%Y') }}</span>
                         {% endif %}
                     </div>
                 </div>
             </div>
             <div class="col-md-4">
-                {% set extintor_pendente = veiculo.validade_extintor < hoje if veiculo.validade_extintor else True %}
-                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 {% if extintor_pendente %}border-danger{% else %}border-success{% endif %}">
+                {% set extintor_vencido = veiculo.validade_extintor < hoje if veiculo.validade_extintor else True %}
+                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 {% if extintor_vencido %}border-danger{% else %}border-success{% endif %}">
                     <label class="text-muted small fw-bold text-uppercase d-block mb-2">Extintor de Incêndio</label>
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="fw-bold">{{ veiculo.extintor_incendio or 'Não cadastrado' }}</span>
                         {% if veiculo.validade_extintor %}
-                        <span class="badge {% if extintor_pendente %}bg-danger{% else %}bg-success{% endif %}">{{ veiculo.validade_extintor.strftime('%d/%m/%Y') }}</span>
+                        <span class="badge {% if extintor_vencido %}bg-danger{% else %}bg-success{% endif %}">{{ veiculo.validade_extintor.strftime('%d/%m/%Y') }}</span>
                         {% endif %}
                     </div>
                 </div>
@@ -152,27 +152,30 @@
         <div class="timeline-steps">
             <div class="timeline-step">
                 <div class="timeline-content">
-                    <div class="inner-circle {% if veiculo.validade_tacografo and veiculo.validade_tacografo >= hoje %}status-success{% else %}status-danger{% endif %}"></div>
+                    {% set taco_status = veiculo.validade_tacografo and veiculo.validade_tacografo >= hoje %}
+                    <div class="inner-circle {% if taco_status %}status-success{% else %}status-danger{% endif %}"></div>
                     <p class="h6 mt-3 mb-1">Tacógrafo</p>
-                    <p class="small mb-0 {% if veiculo.validade_tacografo and veiculo.validade_tacografo >= hoje %}text-success{% else %}text-danger{% endif %}">
+                    <p class="small mb-0 {% if taco_status %}text-success{% else %}text-danger{% endif %}">
                         <b>{{ veiculo.validade_tacografo.strftime('%d/%m/%Y') if veiculo.validade_tacografo else 'Pendente' }}</b>
                     </p>
                 </div>
             </div>
             <div class="timeline-step">
                 <div class="timeline-content">
-                    <div class="inner-circle {% if veiculo.validade_autorizacao and veiculo.validade_autorizacao >= hoje %}status-success{% else %}status-danger{% endif %}"></div>
+                    {% set detran_status = veiculo.validade_autorizacao and veiculo.validade_autorizacao >= hoje %}
+                    <div class="inner-circle {% if detran_status %}status-success{% else %}status-danger{% endif %}"></div>
                     <p class="h6 mt-3 mb-1">Autorização DETRAN</p>
-                    <p class="small mb-0 {% if veiculo.validade_autorizacao and veiculo.validade_autorizacao >= hoje %}text-success{% else %}text-danger{% endif %}">
+                    <p class="small mb-0 {% if detran_status %}text-success{% else %}text-danger{% endif %}">
                         <b>{{ veiculo.validade_autorizacao.strftime('%d/%m/%Y') if veiculo.validade_autorizacao else 'Pendente' }}</b>
                     </p>
                 </div>
             </div>
             <div class="timeline-step">
                 <div class="timeline-content">
-                    <div class="inner-circle {% if veiculo.validade_extintor and veiculo.validade_extintor >= hoje %}status-success{% else %}status-danger{% endif %}"></div>
+                    {% set ext_status = veiculo.validade_extintor and veiculo.validade_extintor >= hoje %}
+                    <div class="inner-circle {% if ext_status %}status-success{% else %}status-danger{% endif %}"></div>
                     <p class="h6 mt-3 mb-1">Extintor de Incêndio</p>
-                    <p class="small mb-0 {% if veiculo.validade_extintor and veiculo.validade_extintor >= hoje %}text-success{% else %}text-danger{% endif %}">
+                    <p class="small mb-0 {% if ext_status %}text-success{% else %}text-danger{% endif %}">
                         <b>{{ veiculo.validade_extintor.strftime('%d/%m/%Y') if veiculo.validade_extintor else 'Pendente' }}</b>
                     </p>
                 </div>
@@ -248,10 +251,10 @@
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th class="ps-3">Data</th>
-                                <th>Serviço</th>
-                                <th class="text-end pe-3">Valor</th>
-                                <th class="text-center">Ação</th>
+                                <th class="ps-3 border-0">Data</th>
+                                <th class="border-0">Serviço</th>
+                                <th class="border-0 text-end pe-3">Valor</th>
+                                <th class="border-0 text-center">Ação</th>
                             </tr>
                         </thead>
                         <tbody>

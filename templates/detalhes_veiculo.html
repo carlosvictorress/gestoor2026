@@ -22,6 +22,28 @@
 {% endblock %}
 
 {% block content %}
+
+<div class="alert alert-secondary shadow-sm mb-4">
+    <h6 class="fw-bold"><i class="bi bi-bug"></i> Painel de Diagnóstico de Dados</h6>
+    <hr class="my-2">
+    <div class="row small font-monospace">
+        <div class="col-md-4">
+            <strong>Data Hoje (Python):</strong> {{ hoje }}<br>
+            <strong>Tacógrafo (Banco):</strong> {{ veiculo.validade_tacografo }}
+        </div>
+        <div class="col-md-4">
+            <strong>DETRAN (Banco):</strong> {{ veiculo.validade_autorizacao }}<br>
+            <strong>Extintor (Banco):</strong> {{ veiculo.validade_extintor }}
+        </div>
+        <div class="col-md-4 text-end">
+            <strong>Variáveis Disponíveis no Objeto Veículo:</strong><br>
+            <span class="badge bg-dark">Consulte os nomes exatos acima</span>
+        </div>
+    </div>
+</div>
+
+
+ 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <nav aria-label="breadcrumb">

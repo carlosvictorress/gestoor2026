@@ -2038,6 +2038,11 @@ def baixar_modelo_csv():
 @role_required("Combustivel", "admin")
 def detalhes_veiculo(placa):
     veiculo = Veiculo.query.get_or_404(placa)
+    
+    # Adicionando as variáveis de data para as verificações de status/pendência
+    hoje = datetime.now().date()
+    data_limite = hoje + timedelta(days=30) # Útil para alertas de "Vence em breve"
+
     abastecimentos = (
         Abastecimento.query.filter_by(veiculo_placa=placa)
         .order_by(Abastecimento.quilometragem.asc())
@@ -2048,6 +2053,7 @@ def detalhes_veiculo(placa):
         .order_by(Manutencao.data.desc())
         .all()
     )
+    
     indicadores = {
         "gasto_combustivel": sum(a.valor_total for a in abastecimentos),
         "gasto_manutencao": sum(m.custo for m in manutencoes),
@@ -2056,13 +2062,16 @@ def detalhes_veiculo(placa):
         "consumo_medio_geral": 0,
         "custo_medio_km": 0,
     }
+    
     indicadores["gasto_total"] = (
         indicadores["gasto_combustivel"] + indicadores["gasto_manutencao"]
     )
+    
     chart_labels = []
     chart_consumo_data = []
     chart_custo_km_data = []
     abastecimentos_com_analise = []
+    
     if len(abastecimentos) > 1:
         indicadores["total_km_rodado"] = (
             abastecimentos[-1].quilometragem - abastecimentos[0].quilometragem
@@ -2077,11 +2086,13 @@ def detalhes_veiculo(placa):
                 indicadores["custo_medio_km"] = (
                     indicadores["gasto_total"] / indicadores["total_km_rodado"]
                 )
+        
         for i in range(1, len(abastecimentos)):
             anterior = abastecimentos[i - 1]
             atual = abastecimentos[i]
             analise = {"abastecimento": atual, "km_rodado": 0, "consumo_kml": 0}
             km_rodado = atual.quilometragem - anterior.quilometragem
+            
             if km_rodado > 0 and anterior.litros > 0:
                 consumo_kml = km_rodado / anterior.litros
                 custo_km = anterior.valor_total / km_rodado
@@ -2089,7 +2100,9 @@ def detalhes_veiculo(placa):
                 chart_labels.append(atual.data.strftime("%d/%m"))
                 chart_consumo_data.append(round(consumo_kml, 2))
                 chart_custo_km_data.append(round(custo_km, 2))
+            
             abastecimentos_com_analise.append(analise)
+            
     abastecimentos_com_analise.reverse()
 
     return render_template(
@@ -2101,6 +2114,8 @@ def detalhes_veiculo(placa):
         chart_labels=chart_labels,
         chart_consumo_data=chart_consumo_data,
         chart_custo_km_data=chart_custo_km_data,
+        hoje=hoje,           # Enviando a data atual para o HTML
+        data_limite=data_limite # Enviando a data de alerta para o HTML
     )
 
 

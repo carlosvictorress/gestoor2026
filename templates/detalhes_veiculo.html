@@ -8,8 +8,15 @@
     .timeline-steps { display: flex; justify-content: center; flex-wrap: wrap; margin-top: 2rem; }
     .timeline-steps .timeline-step { align-items: center; display: flex; flex-direction: column; position: relative; margin: 1rem; width: 250px; }
     .timeline-steps .timeline-content { width: 100%; text-align: center; }
-    .timeline-steps .timeline-content .inner-circle { border-radius: 1.5rem; height: 1rem; width: 1rem; margin: 0 auto 0.5rem; border: 3px solid var(--bs-primary); background-color: #fff; z-index: 1; }
-    .timeline-steps .timeline-step:not(:last-child):after { content: ""; border-top: 3px dashed #dee2e6; width: 100%; position: absolute; left: 50%; top: 0.35rem; z-index: 0; }
+    
+    /* Círculo interno dinâmico */
+    .timeline-steps .timeline-content .inner-circle { border-radius: 1.5rem; height: 1.2rem; width: 1.2rem; margin: 0 auto 0.5rem; border: 3px solid #dee2e6; background-color: #fff; z-index: 1; position: relative; }
+    
+    /* Cores de Status */
+    .status-success { border-color: #198754 !important; background-color: #198754 !important; }
+    .status-danger { border-color: #dc3545 !important; background-color: #dc3545 !important; }
+
+    .timeline-steps .timeline-step:not(:last-child):after { content: ""; border-top: 3px dashed #dee2e6; width: 100%; position: absolute; left: 50%; top: 0.45rem; z-index: 0; }
     .timeline-steps .timeline-content .h6 { font-weight: 700; margin-bottom: 0.25rem; color: #1a202c; }
 </style>
 {% endblock %}
@@ -66,34 +73,37 @@
         {% if veiculo.tipo in ['Ônibus', 'Micro-ônibus', 'Van'] %}
         <div class="row g-3">
             <div class="col-md-4">
-                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 border-primary">
-                    <label class="text-muted small fw-bold text-uppercase d-block mb-2"><i class="bi bi-shield-lock me-1 text-primary"></i>Autorização DETRAN</label>
+                {% set detran_pendente = veiculo.validade_autorizacao < hoje if veiculo.validade_autorizacao else True %}
+                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 {% if detran_pendente %}border-danger{% else %}border-success{% endif %}">
+                    <label class="text-muted small fw-bold text-uppercase d-block mb-2">Autorização DETRAN</label>
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="fw-bold">{{ veiculo.autorizacao_detran or 'Não cadastrada' }}</span>
                         {% if veiculo.validade_autorizacao %}
-                        <span class="badge bg-info text-dark">{{ veiculo.validade_autorizacao.strftime('%d/%m/%Y') }}</span>
+                        <span class="badge {% if detran_pendente %}bg-danger{% else %}bg-success{% endif %}">{{ veiculo.validade_autorizacao.strftime('%d/%m/%Y') }}</span>
                         {% endif %}
                     </div>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 border-info">
-                    <label class="text-muted small fw-bold text-uppercase d-block mb-2"><i class="bi bi-speedometer me-1 text-info"></i>Certificado Tacógrafo</label>
+                {% set tacografo_pendente = veiculo.validade_tacografo < hoje if veiculo.validade_tacografo else True %}
+                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 {% if tacografo_pendente %}border-danger{% else %}border-success{% endif %}">
+                    <label class="text-muted small fw-bold text-uppercase d-block mb-2">Certificado Tacógrafo</label>
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="fw-bold">{{ veiculo.certificado_tacografo or 'Não cadastrado' }}</span>
                         {% if veiculo.validade_tacografo %}
-                        <span class="badge bg-info text-dark">{{ veiculo.validade_tacografo.strftime('%d/%m/%Y') }}</span>
+                        <span class="badge {% if tacografo_pendente %}bg-danger{% else %}bg-success{% endif %}">{{ veiculo.validade_tacografo.strftime('%d/%m/%Y') }}</span>
                         {% endif %}
                     </div>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 border-warning">
-                    <label class="text-muted small fw-bold text-uppercase d-block mb-2"><i class="bi bi-fire me-1 text-warning"></i>Extintor de Incêndio</label>
+                {% set extintor_pendente = veiculo.validade_extintor < hoje if veiculo.validade_extintor else True %}
+                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 {% if extintor_pendente %}border-danger{% else %}border-success{% endif %}">
+                    <label class="text-muted small fw-bold text-uppercase d-block mb-2">Extintor de Incêndio</label>
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="fw-bold">{{ veiculo.extintor_incendio or 'Não cadastrado' }}</span>
                         {% if veiculo.validade_extintor %}
-                        <span class="badge bg-warning text-dark">{{ veiculo.validade_extintor.strftime('%d/%m/%Y') }}</span>
+                        <span class="badge {% if extintor_pendente %}bg-danger{% else %}bg-success{% endif %}">{{ veiculo.validade_extintor.strftime('%d/%m/%Y') }}</span>
                         {% endif %}
                     </div>
                 </div>
@@ -142,23 +152,29 @@
         <div class="timeline-steps">
             <div class="timeline-step">
                 <div class="timeline-content">
-                    <div class="inner-circle"></div>
+                    <div class="inner-circle {% if veiculo.validade_tacografo and veiculo.validade_tacografo >= hoje %}status-success{% else %}status-danger{% endif %}"></div>
                     <p class="h6 mt-3 mb-1">Tacógrafo</p>
-                    <p class="small text-muted mb-0">Validade: <b>{{ veiculo.validade_tacografo.strftime('%d/%m/%Y') if veiculo.validade_tacografo else 'Pendente' }}</b></p>
+                    <p class="small mb-0 {% if veiculo.validade_tacografo and veiculo.validade_tacografo >= hoje %}text-success{% else %}text-danger{% endif %}">
+                        <b>{{ veiculo.validade_tacografo.strftime('%d/%m/%Y') if veiculo.validade_tacografo else 'Pendente' }}</b>
+                    </p>
                 </div>
             </div>
             <div class="timeline-step">
                 <div class="timeline-content">
-                    <div class="inner-circle"></div>
+                    <div class="inner-circle {% if veiculo.validade_autorizacao and veiculo.validade_autorizacao >= hoje %}status-success{% else %}status-danger{% endif %}"></div>
                     <p class="h6 mt-3 mb-1">Autorização DETRAN</p>
-                    <p class="small text-muted mb-0">Validade: <b>{{ veiculo.validade_autorizacao.strftime('%d/%m/%Y') if veiculo.validade_autorizacao else 'Pendente' }}</b></p>
+                    <p class="small mb-0 {% if veiculo.validade_autorizacao and veiculo.validade_autorizacao >= hoje %}text-success{% else %}text-danger{% endif %}">
+                        <b>{{ veiculo.validade_autorizacao.strftime('%d/%m/%Y') if veiculo.validade_autorizacao else 'Pendente' }}</b>
+                    </p>
                 </div>
             </div>
             <div class="timeline-step">
                 <div class="timeline-content">
-                    <div class="inner-circle"></div>
+                    <div class="inner-circle {% if veiculo.validade_extintor and veiculo.validade_extintor >= hoje %}status-success{% else %}status-danger{% endif %}"></div>
                     <p class="h6 mt-3 mb-1">Extintor de Incêndio</p>
-                    <p class="small text-muted mb-0">Validade: <b>{{ veiculo.validade_extintor.strftime('%d/%m/%Y') if veiculo.validade_extintor else 'Pendente' }}</b></p>
+                    <p class="small mb-0 {% if veiculo.validade_extintor and veiculo.validade_extintor >= hoje %}text-success{% else %}text-danger{% endif %}">
+                        <b>{{ veiculo.validade_extintor.strftime('%d/%m/%Y') if veiculo.validade_extintor else 'Pendente' }}</b>
+                    </p>
                 </div>
             </div>
         </div>
@@ -204,7 +220,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label small fw-bold text-muted">SERVIÇO/PEÇA*</label>
-                        <input type="text" class="form-control" name="tipo_servico" placeholder="Ex: Troca de pastilhas" required>
+                        <input type="text" class="form-control" name="tipo_servico" placeholder="Ex: Freios" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label small fw-bold text-muted">CUSTO TOTAL (R$)*</label>
@@ -232,10 +248,10 @@
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th class="ps-3 border-0">Data</th>
-                                <th class="border-0">Serviço</th>
-                                <th class="border-0 text-end pe-3">Valor</th>
-                                <th class="border-0 text-center">Ação</th>
+                                <th class="ps-3">Data</th>
+                                <th>Serviço</th>
+                                <th class="text-end pe-3">Valor</th>
+                                <th class="text-center">Ação</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -248,13 +264,13 @@
                                 </td>
                                 <td class="text-end pe-3 fw-bold text-primary">R$ {{ "%.2f"|format(m.custo)|replace('.', ',') }}</td>
                                 <td class="text-center">
-                                    <a href="{{ url_for('excluir_manutencao', id=m.id) }}" class="btn btn-link text-danger p-0" onclick="return confirm('Excluir esta manutenção?')">
+                                    <a href="{{ url_for('excluir_manutencao', id=m.id) }}" class="btn btn-link text-danger p-0" onclick="return confirm('Excluir?')">
                                         <i class="bi bi-trash3"></i>
                                     </a>
                                 </td>
                             </tr>
                             {% else %}
-                            <tr><td colspan="4" class="text-center py-5 text-muted small">Sem manutenções registradas.</td></tr>
+                            <tr><td colspan="4" class="text-center py-5 text-muted small">Sem registros.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -294,8 +310,6 @@
                                 <span class="badge {% if item.consumo_kml < 7.0 %}bg-danger{% else %}bg-success{% endif %} rounded-pill px-3 py-2">
                                     {{ "%.2f"|format(item.consumo_kml)|replace('.', ',') }} km/L
                                 </span>
-                            {% else %}
-                                <span class="text-muted small">--</span>
                             {% endif %}
                         </td>
                         <td class="pe-3 fw-bold">R$ {{ "%.2f"|format(r.valor_total)|replace('.', ',') }}</td>
@@ -315,29 +329,16 @@ document.addEventListener('DOMContentLoaded', function () {
     const custoKmData = {{ chart_custo_km_data|tojson }};
 
     const commonOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
-        scales: { 
-            y: { grid: { display: false }, ticks: { font: { size: 11 } } }, 
-            x: { grid: { display: false }, ticks: { font: { size: 11 } } } 
-        }
+        scales: { y: { grid: { display: false }, ticks: { font: { size: 11 } } }, x: { grid: { display: false }, ticks: { font: { size: 11 } } } }
     };
 
     const ctxConsumo = document.getElementById('consumoChart');
     if (ctxConsumo) {
         new Chart(ctxConsumo.getContext('2d'), {
             type: 'line', 
-            data: {
-                labels: labels, 
-                datasets: [{
-                    label: 'Consumo (km/L)', 
-                    data: consumoData, 
-                    borderColor: '#004d40', 
-                    backgroundColor: 'rgba(0, 77, 64, 0.05)', 
-                    fill: true, tension: 0.4, pointRadius: 5, borderWidth: 3
-                }]
-            },
+            data: { labels: labels, datasets: [{ label: 'Consumo', data: consumoData, borderColor: '#004d40', backgroundColor: 'rgba(0, 77, 64, 0.05)', fill: true, tension: 0.4, pointRadius: 5, borderWidth: 3 }] },
             options: commonOptions
         });
     }
@@ -346,16 +347,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (ctxCustoKm) {
         new Chart(ctxCustoKm.getContext('2d'), {
             type: 'line', 
-            data: {
-                labels: labels, 
-                datasets: [{
-                    label: 'Custo por KM (R$)', 
-                    data: custoKmData, 
-                    borderColor: '#dc3545', 
-                    backgroundColor: 'rgba(220, 53, 69, 0.05)', 
-                    fill: true, tension: 0.4, pointRadius: 5, borderWidth: 3
-                }]
-            },
+            data: { labels: labels, datasets: [{ label: 'Custo', data: custoKmData, borderColor: '#dc3545', backgroundColor: 'rgba(220, 53, 69, 0.05)', fill: true, tension: 0.4, pointRadius: 5, borderWidth: 3 }] },
             options: commonOptions
         });
     }

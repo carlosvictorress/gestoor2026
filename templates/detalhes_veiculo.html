@@ -174,31 +174,41 @@
 <div class="timeline-steps">
     <div class="timeline-step">
         <div class="timeline-content">
-            {% set taco_ok = veiculo.validade_tacografo and veiculo.validade_tacografo >= hoje %}
+            {# Compara como string se o dado não for objeto de data #}
+            {% set taco_data = veiculo.validade_tacografo|string %}
+            {% set hoje_str = hoje|string %}
+            {% set taco_ok = veiculo.validade_tacografo and taco_data >= hoje_str %}
+            
             <div class="inner-circle {% if taco_ok %}status-success{% else %}status-danger{% endif %}"></div>
             <p class="h6 mt-3 mb-1">Tacógrafo</p>
             <p class="small mb-0 {% if taco_ok %}text-success{% else %}text-danger{% endif %}">
-                <b>{{ veiculo.validade_tacografo.strftime('%d/%m/%Y') if veiculo.validade_tacografo else 'Pendente' }}</b>
+                <b>{{ veiculo.validade_tacografo if veiculo.validade_tacografo else 'Pendente' }}</b>
             </p>
         </div>
     </div>
+
     <div class="timeline-step">
         <div class="timeline-content">
-            {% set detran_ok = veiculo.validade_autorizacao and veiculo.validade_autorizacao >= hoje %}
+            {% set detran_data = veiculo.validade_autorizacao|string %}
+            {% set detran_ok = veiculo.validade_autorizacao and detran_data >= hoje_str %}
+            
             <div class="inner-circle {% if detran_ok %}status-success{% else %}status-danger{% endif %}"></div>
             <p class="h6 mt-3 mb-1">Autorização DETRAN</p>
             <p class="small mb-0 {% if detran_ok %}text-success{% else %}text-danger{% endif %}">
-                <b>{{ veiculo.validade_autorizacao.strftime('%d/%m/%Y') if veiculo.validade_autorizacao else 'Pendente' }}</b>
+                <b>{{ veiculo.validade_autorizacao if veiculo.validade_autorizacao else 'Pendente' }}</b>
             </p>
         </div>
     </div>
+
     <div class="timeline-step">
         <div class="timeline-content">
-            {% set ext_ok = veiculo.validade_extintor and veiculo.validade_extintor >= hoje %}
+            {% set ext_data = veiculo.validade_extintor|string %}
+            {% set ext_ok = veiculo.validade_extintor and ext_data >= hoje_str %}
+            
             <div class="inner-circle {% if ext_ok %}status-success{% else %}status-danger{% endif %}"></div>
             <p class="h6 mt-3 mb-1">Extintor de Incêndio</p>
             <p class="small mb-0 {% if ext_ok %}text-success{% else %}text-danger{% endif %}">
-                <b>{{ veiculo.validade_extintor.strftime('%d/%m/%Y') if veiculo.validade_extintor else 'Pendente' }}</b>
+                <b>{{ veiculo.validade_extintor if veiculo.validade_extintor else 'Pendente' }}</b>
             </p>
         </div>
     </div>

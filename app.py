@@ -2200,7 +2200,7 @@ def add_server():
 
     return redirect(url_for("lista_servidores"))
 
-@app.route("/editar/<id>", methods=["GET", "POST"]) #
+@app.route("/editar/<id>", methods=["GET", "POST"])
 @login_required
 @role_required("RH", "admin")
 def editar_servidor(id):
@@ -2409,6 +2409,50 @@ def excluir_veiculo(placa):
     except Exception as e:
         db.session.rollback()
         flash(f"Não foi possível excluir o veículo. Erro: {e}", "danger")
+    return redirect(url_for("gerenciar_veiculos"))
+
+@app.route("/veiculos/editar/<path:placa>", methods=["POST"])
+@login_required
+@role_required("Combustivel", "admin")
+def editar_veiculo(placa):
+    veiculo = Veiculo.query.get_or_404(placa)
+    try:
+        # Atualizando campos básicos
+        veiculo.modelo = request.form.get("modelo")
+        veiculo.tipo = request.form.get("tipo")
+        veiculo.renavam = request.form.get("renavam")
+        veiculo.ano_fabricacao = request.form.get("ano_fabricacao", type=int)
+        veiculo.ano_modelo = request.form.get("ano_modelo", type=int)
+        veiculo.secretaria_id = request.form.get("secretaria_id", type=int)
+        
+        # Atualizando Extintor
+        veiculo.extintor_incendio = request.form.get("extintor_incendio")
+        if request.form.get("validade_extintor"):
+            veiculo.validade_extintor = datetime.strptime(request.form.get("validade_extintor"), "%Y-%m-%d").date()
+        else:
+            veiculo.validade_extintor = None
+
+        # Atualizando Detran
+        veiculo.autorizacao_detran = request.form.get("autorizacao_detran")
+        if request.form.get("validade_autorizacao"):
+            veiculo.validade_autorizacao = datetime.strptime(request.form.get("validade_autorizacao"), "%Y-%m-%d").date()
+        else:
+            veiculo.validade_autorizacao = None
+
+        # Atualizando Tacógrafo
+        veiculo.certificado_tacografo = request.form.get("certificado_tacografo")
+        if request.form.get("validade_tacografo"):
+            veiculo.validade_tacografo = datetime.strptime(request.form.get("validade_tacografo"), "%Y-%m-%d").date()
+        else:
+            veiculo.validade_tacografo = None
+
+        db.session.commit()
+        registrar_log(f"Editou o veículo: {veiculo.placa}")
+        flash("Veículo atualizado com sucesso!", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Erro ao editar veículo: {e}", "danger")
+    
     return redirect(url_for("gerenciar_veiculos"))
 
 

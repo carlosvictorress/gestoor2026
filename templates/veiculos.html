@@ -120,7 +120,7 @@
                     
                     <div class="mb-3">
                          <label for="secretaria_id" class="form-label small fw-bold">Secretaria Responsável*</label>
-                        <select class="form-select" name="secretaria_id" id="secretaria_id" required>
+                        <select class="form-select" name="secretaria_id" required>
                             <option value="" disabled selected>Selecione a Secretaria</option>
                             {% for sec in secretarias %}
                             <option value="{{ sec.id }}">{{ sec.nome }}</option>
@@ -129,41 +129,37 @@
                     </div>
 
                     <div id="campos_onibus" class="p-3 border rounded bg-light" style="display: none;">
-                        <h6 class="text-primary mb-3 small fw-bold"><i class="bi bi-file-earmark-lock"></i> Documentação Escolar</h6>
+                        <h6 class="text-primary mb-3 small fw-bold"><i class="bi bi-file-earmark-lock"></i> Documentação Especial</h6>
                         <div class="mb-2">
-                            <label for="autorizacao_detran" class="form-label small">Nº Autorização Detran</label>
+                            <label class="form-label small">Nº Autorização Detran</label>
                             <input type="text" class="form-control form-control-sm" name="autorizacao_detran">
                         </div>
                         <div class="mb-2">
-                            <label for="validade_autorizacao" class="form-label small">Validade Autorização</label>
+                            <label class="form-label small">Validade Autorização</label>
                             <input type="date" class="form-control form-control-sm" name="validade_autorizacao">
                         </div>
-                        
                         <hr class="my-2">
-                        
                         <div class="mb-2">
-                            <label for="certificado_tacografo" class="form-label small">Nº Certificado Tacógrafo</label>
+                            <label class="form-label small">Nº Certificado Tacógrafo</label>
                             <input type="text" class="form-control form-control-sm" name="certificado_tacografo">
                         </div>
                         <div class="row mb-2">
                             <div class="col-6">
-                                <label for="data_emissao_tacografo" class="form-label small">Emissão Tacog.</label>
+                                <label class="form-label small">Emissão Tacog.</label>
                                 <input type="date" class="form-control form-control-sm" name="data_emissao_tacografo">
                             </div>
                             <div class="col-6">
-                                <label for="validade_tacografo" class="form-label small">Validade Tacog.</label>
+                                <label class="form-label small">Validade Tacog.</label>
                                 <input type="date" class="form-control form-control-sm" name="validade_tacografo">
                             </div>
                         </div>
-
                         <hr class="my-2">
-
                         <div class="mb-2">
-                            <label for="extintor_incendio" class="form-label small">Nº Extintor de Incêndio</label>
+                            <label class="form-label small text-danger fw-bold">Nº Extintor de Incêndio</label>
                             <input type="text" class="form-control form-control-sm" name="extintor_incendio" placeholder="Série/ID">
                         </div>
                         <div class="mb-2">
-                            <label for="validade_extintor" class="form-label small">Validade Extintor</label>
+                            <label class="form-label small text-danger fw-bold">Validade Extintor</label>
                             <input type="date" class="form-control form-control-sm" name="validade_extintor">
                         </div>
                     </div>
@@ -214,21 +210,100 @@
                                 </td>
                                 <td class="text-center">
                                     <div class="btn-group shadow-sm">
-                                        <a href="{{ url_for('detalhes_veiculo', placa=veiculo.placa) }}" class="btn btn-sm btn-outline-info" title="Ver Painel do Veículo">
-                                            <i class="bi bi-pie-chart"></i> Gestão
+                                        <a href="{{ url_for('detalhes_veiculo', placa=veiculo.placa) }}" class="btn btn-sm btn-outline-info" title="Gestão">
+                                            <i class="bi bi-pie-chart"></i>
                                         </a>
-                                        <a href="{{ url_for('excluir_veiculo', placa=veiculo.placa) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Tem certeza que deseja excluir o veículo {{ veiculo.placa }}?');" title="Excluir">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal{{ veiculo.placa|replace('-', '') }}" title="Editar">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <a href="{{ url_for('excluir_veiculo', placa=veiculo.placa) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Excluir veículo {{ veiculo.placa }}?');" title="Excluir">
                                             <i class="bi bi-trash"></i>
                                         </a>
                                     </div>
                                 </td>
                             </tr>
+
+                            <div class="modal fade" id="editModal{{ veiculo.placa|replace('-', '') }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content border-0 shadow-lg">
+                                        <div class="modal-header bg-primary text-white border-0">
+                                            <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Editar Veículo</h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <form action="/veiculos/editar/{{ veiculo.placa }}" method="POST">
+                                            <div class="modal-body p-4">
+                                                <div class="row g-3">
+                                                    <div class="col-12">
+                                                        <label class="form-label small fw-bold">Modelo</label>
+                                                        <input type="text" class="form-control" name="modelo" value="{{ veiculo.modelo }}" required>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label small fw-bold">Tipo</label>
+                                                        <select class="form-select" name="tipo" required>
+                                                            <option value="Carro Administrativo" {% if veiculo.tipo == 'Carro Administrativo' %}selected{% endif %}>Carro Administrativo</option>
+                                                            <option value="Ônibus" {% if veiculo.tipo == 'Ônibus' %}selected{% endif %}>Ônibus</option>
+                                                            <option value="Micro-ônibus" {% if veiculo.tipo == 'Micro-ônibus' %}selected{% endif %}>Micro-ônibus</option>
+                                                            <option value="Van" {% if veiculo.tipo == 'Van' %}selected{% endif %}>Van</option>
+                                                            <option value="Outro" {% if veiculo.tipo == 'Outro' %}selected{% endif %}>Outro</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label small fw-bold">Renavam</label>
+                                                        <input type="text" class="form-control" name="renavam" value="{{ veiculo.renavam or '' }}">
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label small fw-bold">Ano Fabricação</label>
+                                                        <input type="number" class="form-control" name="ano_fabricacao" value="{{ veiculo.ano_fabricacao or '' }}">
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label small fw-bold">Ano Modelo</label>
+                                                        <input type="number" class="form-control" name="ano_modelo" value="{{ veiculo.ano_modelo or '' }}">
+                                                    </div>
+                                                    
+                                                    {% if veiculo.tipo in ['Ônibus', 'Micro-ônibus', 'Van'] %}
+                                                    <div class="col-12 p-3 bg-light rounded-3 border-start border-4 border-warning">
+                                                        <h6 class="fw-bold text-dark small"><i class="bi bi-shield-check"></i> Segurança e Inspeção</h6>
+                                                        <div class="row g-2 mt-1">
+                                                            <div class="col-6">
+                                                                <label class="small text-muted">Nº Extintor</label>
+                                                                <input type="text" class="form-control form-control-sm" name="extintor_incendio" value="{{ veiculo.extintor_incendio or '' }}">
+                                                            </div>
+                                                            <div class="col-6">
+                                                                <label class="small text-muted">Validade Extintor</label>
+                                                                <input type="date" class="form-control form-control-sm" name="validade_extintor" value="{{ veiculo.validade_extintor }}">
+                                                            </div>
+                                                            <div class="col-12">
+                                                                <label class="small text-muted">Validade Tacógrafo</label>
+                                                                <input type="date" class="form-control form-control-sm" name="validade_tacografo" value="{{ veiculo.validade_tacografo }}">
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    {% endif %}
+
+                                                    <div class="col-12">
+                                                        <label class="form-label small fw-bold">Secretaria Responsável</label>
+                                                        <select class="form-select" name="secretaria_id" required>
+                                                            {% for sec in secretarias %}
+                                                            <option value="{{ sec.id }}" {% if veiculo.secretaria_id == sec.id %}selected{% endif %}>{{ sec.nome }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer border-0 p-3">
+                                                <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                                                <button type="submit" class="btn btn-primary fw-bold px-4">Salvar Alterações</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
                             {% else %}
                             <tr>
                                 <td colspan="4" class="text-center py-5">
                                     <div class="text-muted">
                                         <i class="bi bi-inbox h1 d-block"></i>
-                                        Nenhum veículo encontrado para o seu acesso.
+                                        Nenhum veículo encontrado.
                                     </div>
                                 </td>
                             </tr>
@@ -243,6 +318,7 @@
 
 <style>
     .x-small { font-size: 0.75rem; }
+    .bg-soft-primary { background-color: rgba(13, 110, 253, 0.05); }
 </style>
 
 <script>

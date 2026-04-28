@@ -2,6 +2,18 @@
 
 {% block title %}Gestão do Veículo - {{ veiculo.placa }}{% endblock %}
 
+{% block extra_head %}
+<style>
+    /* Estilização da Linha do Tempo Profissional */
+    .timeline-steps { display: flex; justify-content: center; flex-wrap: wrap; margin-top: 2rem; }
+    .timeline-steps .timeline-step { align-items: center; display: flex; flex-direction: column; position: relative; margin: 1rem; width: 250px; }
+    .timeline-steps .timeline-content { width: 100%; text-align: center; }
+    .timeline-steps .timeline-content .inner-circle { border-radius: 1.5rem; height: 1rem; width: 1rem; margin: 0 auto 0.5rem; border: 3px solid var(--bs-primary); background-color: #fff; z-index: 1; }
+    .timeline-steps .timeline-step:not(:last-child):after { content: ""; border-top: 3px dashed #dee2e6; width: 100%; position: absolute; left: 50%; top: 0.35rem; z-index: 0; }
+    .timeline-steps .timeline-content .h6 { font-weight: 700; margin-bottom: 0.25rem; color: #1a202c; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
@@ -54,8 +66,8 @@
         {% if veiculo.tipo in ['Ônibus', 'Micro-ônibus', 'Van'] %}
         <div class="row g-3">
             <div class="col-md-4">
-                <div class="p-3 border rounded-3 bg-light h-100">
-                    <label class="text-muted small fw-bold text-uppercase d-block mb-2">Autorização DETRAN</label>
+                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 border-primary">
+                    <label class="text-muted small fw-bold text-uppercase d-block mb-2"><i class="bi bi-shield-lock me-1 text-primary"></i>Autorização DETRAN</label>
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="fw-bold">{{ veiculo.autorizacao_detran or 'Não cadastrada' }}</span>
                         {% if veiculo.validade_autorizacao %}
@@ -65,8 +77,8 @@
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="p-3 border rounded-3 bg-light h-100">
-                    <label class="text-muted small fw-bold text-uppercase d-block mb-2">Certificado Tacógrafo</label>
+                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 border-info">
+                    <label class="text-muted small fw-bold text-uppercase d-block mb-2"><i class="bi bi-speedometer me-1 text-info"></i>Certificado Tacógrafo</label>
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="fw-bold">{{ veiculo.certificado_tacografo or 'Não cadastrado' }}</span>
                         {% if veiculo.validade_tacografo %}
@@ -77,7 +89,7 @@
             </div>
             <div class="col-md-4">
                 <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 border-warning">
-                    <label class="text-muted small fw-bold text-uppercase d-block mb-2">Extintor de Incêndio</label>
+                    <label class="text-muted small fw-bold text-uppercase d-block mb-2"><i class="bi bi-fire me-1 text-warning"></i>Extintor de Incêndio</label>
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="fw-bold">{{ veiculo.extintor_incendio or 'Não cadastrado' }}</span>
                         {% if veiculo.validade_extintor %}
@@ -122,6 +134,37 @@
     </div>
 </div>
 
+<div class="card shadow-sm border-0 rounded-4 mb-4">
+    <div class="card-header bg-white py-3 border-bottom">
+        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-clock-history me-2 text-primary"></i>Cronograma de Segurança e Validades</h5>
+    </div>
+    <div class="card-body">
+        <div class="timeline-steps">
+            <div class="timeline-step">
+                <div class="timeline-content">
+                    <div class="inner-circle"></div>
+                    <p class="h6 mt-3 mb-1">Tacógrafo</p>
+                    <p class="small text-muted mb-0">Validade: <b>{{ veiculo.validade_tacografo.strftime('%d/%m/%Y') if veiculo.validade_tacografo else 'Pendente' }}</b></p>
+                </div>
+            </div>
+            <div class="timeline-step">
+                <div class="timeline-content">
+                    <div class="inner-circle"></div>
+                    <p class="h6 mt-3 mb-1">Autorização DETRAN</p>
+                    <p class="small text-muted mb-0">Validade: <b>{{ veiculo.validade_autorizacao.strftime('%d/%m/%Y') if veiculo.validade_autorizacao else 'Pendente' }}</b></p>
+                </div>
+            </div>
+            <div class="timeline-step">
+                <div class="timeline-content">
+                    <div class="inner-circle"></div>
+                    <p class="h6 mt-3 mb-1">Extintor de Incêndio</p>
+                    <p class="small text-muted mb-0">Validade: <b>{{ veiculo.validade_extintor.strftime('%d/%m/%Y') if veiculo.validade_extintor else 'Pendente' }}</b></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row mb-4 g-3">
     <div class="col-md-6">
         <div class="card shadow-sm border-0 rounded-4">
@@ -141,7 +184,7 @@
     </div>
 </div>
 
-<div class="row g-4">
+<div class="row g-4 mb-4">
     <div class="col-md-4">
         <div class="card shadow-sm border-0 rounded-4 h-100">
             <div class="card-header bg-dark text-white py-3 border-0">

@@ -149,38 +149,38 @@
         <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-clock-history me-2 text-primary"></i>Cronograma de Segurança e Validades</h5>
     </div>
     <div class="card-body">
-        <div class="timeline-steps">
-            <div class="timeline-step">
-                <div class="timeline-content">
-                    {% set taco_status = veiculo.validade_tacografo and veiculo.validade_tacografo >= hoje %}
-                    <div class="inner-circle {% if taco_status %}status-success{% else %}status-danger{% endif %}"></div>
-                    <p class="h6 mt-3 mb-1">Tacógrafo</p>
-                    <p class="small mb-0 {% if taco_status %}text-success{% else %}text-danger{% endif %}">
-                        <b>{{ veiculo.validade_tacografo.strftime('%d/%m/%Y') if veiculo.validade_tacografo else 'Pendente' }}</b>
-                    </p>
-                </div>
-            </div>
-            <div class="timeline-step">
-                <div class="timeline-content">
-                    {% set detran_status = veiculo.validade_autorizacao and veiculo.validade_autorizacao >= hoje %}
-                    <div class="inner-circle {% if detran_status %}status-success{% else %}status-danger{% endif %}"></div>
-                    <p class="h6 mt-3 mb-1">Autorização DETRAN</p>
-                    <p class="small mb-0 {% if detran_status %}text-success{% else %}text-danger{% endif %}">
-                        <b>{{ veiculo.validade_autorizacao.strftime('%d/%m/%Y') if veiculo.validade_autorizacao else 'Pendente' }}</b>
-                    </p>
-                </div>
-            </div>
-            <div class="timeline-step">
-                <div class="timeline-content">
-                    {% set ext_status = veiculo.validade_extintor and veiculo.validade_extintor >= hoje %}
-                    <div class="inner-circle {% if ext_status %}status-success{% else %}status-danger{% endif %}"></div>
-                    <p class="h6 mt-3 mb-1">Extintor de Incêndio</p>
-                    <p class="small mb-0 {% if ext_status %}text-success{% else %}text-danger{% endif %}">
-                        <b>{{ veiculo.validade_extintor.strftime('%d/%m/%Y') if veiculo.validade_extintor else 'Pendente' }}</b>
-                    </p>
-                </div>
-            </div>
+<div class="timeline-steps">
+    <div class="timeline-step">
+        <div class="timeline-content">
+            {% set taco_ok = veiculo.validade_tacografo and veiculo.validade_tacografo >= hoje %}
+            <div class="inner-circle {% if taco_ok %}status-success{% else %}status-danger{% endif %}"></div>
+            <p class="h6 mt-3 mb-1">Tacógrafo</p>
+            <p class="small mb-0 {% if taco_ok %}text-success{% else %}text-danger{% endif %}">
+                <b>{{ veiculo.validade_tacografo.strftime('%d/%m/%Y') if veiculo.validade_tacografo else 'Pendente' }}</b>
+            </p>
         </div>
+    </div>
+    <div class="timeline-step">
+        <div class="timeline-content">
+            {% set detran_ok = veiculo.validade_autorizacao and veiculo.validade_autorizacao >= hoje %}
+            <div class="inner-circle {% if detran_ok %}status-success{% else %}status-danger{% endif %}"></div>
+            <p class="h6 mt-3 mb-1">Autorização DETRAN</p>
+            <p class="small mb-0 {% if detran_ok %}text-success{% else %}text-danger{% endif %}">
+                <b>{{ veiculo.validade_autorizacao.strftime('%d/%m/%Y') if veiculo.validade_autorizacao else 'Pendente' }}</b>
+            </p>
+        </div>
+    </div>
+    <div class="timeline-step">
+        <div class="timeline-content">
+            {% set ext_ok = veiculo.validade_extintor and veiculo.validade_extintor >= hoje %}
+            <div class="inner-circle {% if ext_ok %}status-success{% else %}status-danger{% endif %}"></div>
+            <p class="h6 mt-3 mb-1">Extintor de Incêndio</p>
+            <p class="small mb-0 {% if ext_ok %}text-success{% else %}text-danger{% endif %}">
+                <b>{{ veiculo.validade_extintor.strftime('%d/%m/%Y') if veiculo.validade_extintor else 'Pendente' }}</b>
+            </p>
+        </div>
+    </div>
+</div>
     </div>
 </div>
 

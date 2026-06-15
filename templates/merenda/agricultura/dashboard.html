@@ -117,18 +117,38 @@
                 </ol>
             </nav>
             <h2 class="fw-bold text-dark mb-0">Painel PNAE <span class="text-success">{{ ano_atual }}</span></h2>
-            <p class="text-muted small mb-0"><i class="bi bi-shield-check-fill text-success me-1"></i>Monitoramento fiscal, metas de entrega e contratos ativos</p>
+            <p class="text-muted small mb-0">
+                {% if exercicio_encerrado %}
+                    <span class="badge bg-danger px-2 py-1 tracking-wide"><i class="bi bi-lock-fill me-1"></i>EXERCÍCIO CONCLUÍDO E AUDITADO</span>
+                {% else %}
+                    <i class="bi bi-shield-check-fill text-success me-1"></i>Monitoramento fiscal, metas de entrega e contratos ativos
+                {% endif %}
+            </p>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            <button class="btn btn-white border border-secondary-subtle bg-white shadow-sm fw-medium rounded-3" type="button" data-bs-toggle="collapse" data-bs-target="#configCollapse">
-                <i class="bi bi-gear-fill me-2 text-secondary"></i>Orçamento Base
-            </button>
+            {% if not exercicio_encerrado %}
+                <button class="btn btn-white border border-secondary-subtle bg-white shadow-sm fw-medium rounded-3" type="button" data-bs-toggle="collapse" data-bs-target="#configCollapse">
+                    <i class="bi bi-gear-fill me-2 text-secondary"></i>Orçamento Base
+                </button>
+            {% endif %}
+            
             <a href="{{ url_for('merenda.listar_agricultores') }}" class="btn btn-white border border-secondary-subtle bg-white shadow-sm fw-medium rounded-3">
                 <i class="bi bi-people-fill me-2 text-primary"></i>Agricultores
             </a>
-            <a href="{{ url_for('merenda.novo_agricultor') }}" class="btn btn-success shadow-sm fw-medium rounded-3 px-3">
-                <i class="bi bi-plus-lg me-1 fw-bold"></i> Novo Cadastro
-            </a>
+
+            {% if not exercicio_encerrado %}
+                <a href="{{ url_for('merenda.novo_agricultor') }}" class="btn btn-success shadow-sm fw-medium rounded-3 px-3">
+                    <i class="bi bi-plus-lg me-1 fw-bold"></i> Novo Cadastro
+                </a>
+                
+                <button class="btn btn-outline-danger border shadow-sm fw-medium rounded-3" type="button" data-bs-toggle="modal" data-bs-target="#encerrarAnoModal">
+                    <i class="bi bi-calendar-x-fill me-2"></i>Finalizar Ano {{ ano_atual }}
+                </button>
+            {% else %}
+                <a href="#" class="btn btn-danger shadow-sm fw-medium rounded-3 px-3">
+                    <i class="bi bi-file-earmark-pdf-fill me-2"></i>Baixar Relatório Geral Consolidado
+                </a>
+            {% endif %}
         </div>
     </div>
 
@@ -324,4 +344,55 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="encerrarAnoModal" tabindex="-1" aria-labelledby="encerrarAnoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header bg-danger text-white py-3">
+                <h5 class="modal-title fw-bold" id="encerrarAnoModalLabel">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Atenção: Encerramento de Exercício
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-shadow="none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-dark fw-medium">Você está prestes a finalizar oficialmente o ano fiscal de <span class="text-danger fw-bold">{{ ano_atual }}</span> no módulo da Agricultura Familiar.</p>
+                
+                <div class="bg-light p-3 rounded-3 mb-3 border text-muted small">
+                    <ul class="mb-0 ps-3">
+                        <li class="mb-1">Um relatório consolidado com os <strong>{{ total_executado | currency_br }}</strong> executados será gerado automaticamente.</li>
+                        <li class="mb-1">O cadastro de agricultores, contratos e entregas deste ano serão <strong>bloqueados permanentemente</strong> para edições ou exclusões.</li>
+                        <li>O sistema liberará automaticamente a abertura dos parâmetros para o ano subsequente.</li>
+                    </ul>
+                </div>
+
+                <form method="POST" id="formEncerrarAno">
+                    <div class="mb-3">
+                        <label for="confirmacaoAnoInput" class="form-label small fw-bold text-muted text-uppercase">Digite o ano <span class="text-danger">{{ ano_atual }}</span> para confirmar:</label>
+                        <input type="number" class="form-control fw-bold text-center border-danger-subtle" id="confirmacaoAnoInput" placeholder="Ex: {{ ano_atual }}" required>
+                    </div>
+                    
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="button" class="btn btn-light w-100 fw-medium border py-2 rounded-3" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" id="btnConfirmarEncerramento" class="btn btn-danger w-100 fw-medium py-2 rounded-3 shadow-sm" disabled>
+                            <i class="bi bi-lock-fill me-1"></i>Bloquear e Encerrar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('confirmacaoAnoInput').addEventListener('input', function() {
+        const anoAtualDoSistema = "{{ ano_atual }}";
+        const btnSubmit = document.getElementById('btnConfirmarEncerramento');
+        
+        if (this.value === anoAtualDoSistema) {
+            btnSubmit.removeAttribute('disabled');
+        } else {
+            btnSubmit.setAttribute('disabled', 'true');
+        }
+    });
+</script>
 {% endblock %}

@@ -83,6 +83,28 @@
     .tracking-wide {
         letter-spacing: 0.5px;
     }
+
+    /* Estilos Interativos para a área clicável */
+    .clickable-header {
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+    .clickable-header:hover {
+        background-color: #fdfdfd;
+    }
+    .chevron-toggle {
+        transition: transform 0.3s ease;
+    }
+    .clickable-header[aria-expanded="true"] .chevron-toggle {
+        transform: rotate(180deg);
+    }
+    .table-audit th {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 700;
+        color: #6c757d;
+    }
 </style>
 
 <div class="container-fluid py-4">
@@ -117,7 +139,7 @@
                 <div class="col-md-9">
                     <label class="form-label small fw-bold text-uppercase text-muted tracking-wide mb-2">Valor Total do Repasse FNDE (R$)</label>
                     <div class="input-group shadow-sm rounded-3 overflow-hidden">
-                        <span class="input-group-text bg-light border-end-0 fw-medium text-muted">R$</span>
+                        <span class="input-group-text bg-light border-end-0 text-muted fw-medium">R$</span>
                         <input type="text" class="form-control bg-light border-start-0 fw-semibold" name="valor_total_repasse" 
                                value="{{ '%.2f'|format(meta_info.total_repasse)|replace('.', ',') }}" placeholder="0,00">
                     </div>
@@ -184,16 +206,21 @@
     </div>
 
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-        <div class="card-header bg-white py-3 border-bottom-0">
-            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+        <div class="card-header bg-white py-3 border-bottom-0 clickable-header d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2" 
+             data-bs-toggle="collapse" data-bs-target="#detalhamentoExecucaoCollapse" role="button" aria-expanded="false" aria-controls="detalhamentoExecucaoCollapse">
+            <div class="d-flex align-items-center">
                 <h5 class="fw-bold mb-0 text-dark">
                     <i class="bi bi-graph-up-arrow text-success me-2"></i>Monitoramento de Execução PNAE (FNDE)
                 </h5>
-                <span class="badge bg-light text-dark border p-2 tracking-wide fw-semibold">Dispositivos Legais: Lei nº 11.947/2009</span>
+                <span class="badge bg-light text-dark border ms-2 p-2 tracking-wide fw-semibold d-none d-md-inline-block">Lei nº 11.947/2009</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="text-muted small fw-medium d-none d-sm-inline">Clique para ver detalhes por produtor</span>
+                <i class="bi bi-chevron-down text-secondary fw-bold h5 mb-0 chevron-toggle"></i>
             </div>
         </div>
         
-        <div class="card-body px-4 pb-5">
+        <div class="card-body px-4 pb-4">
             {% if meta_info.total_repasse > 0 %}
                 <div class="row align-items-center mb-5">
                     <div class="col-md-8">
@@ -216,7 +243,7 @@
                     </div>
                 </div>
 
-                <div class="row g-4 border-top pt-4">
+                <div class="row g-4 border-top pt-4 mb-2">
                     <div class="col-md-4">
                         <div class="p-3 rounded-3 bg-light border border-secondary-subtle">
                             <p class="mb-1 text-muted small fw-bold text-uppercase tracking-wide">Obrigação Legal Mínima ({{ meta_info.meta_lei }}%)</p>
@@ -245,6 +272,44 @@
                         {% endif %}
                     </div>
                 </div>
+
+                <div class="collapse" id="detalhamentoExecucaoCollapse">
+                    <div class="pt-4 mt-4 border-top">
+                        <div class="d-flex align-items-center mb-3">
+                            <i class="bi bi-journal-text text-success me-2 h5 mb-0"></i>
+                            <h6 class="fw-bold mb-0 text-dark">Execução Individual por Proposta / Contrato Ativo</h6>
+                        </div>
+                        
+                        <div class="table-responsive rounded-3 border">
+                            <table class="table table-hover table-audit align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th scope="col" class="ps-3">Fornecedor / Razão Social</th>
+                                        <th scope="col" class="text-center">Nº Contrato</th>
+                                        <th scope="col" class="text-end">Valor Contratado</th>
+                                        <th scope="col" class="text-end pe-3">Progresso Físico</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="ps-3 fw-medium text-dark">
+                                            <i class="bi bi-person-badge text-muted me-2"></i>Consolidado Geral dos Fornecedores Familiares
+                                        </td>
+                                        <td class="text-center text-secondary small">-</td>
+                                        <td class="text-end fw-semibold text-secondary">{{ total_contratado | currency_br }}</td>
+                                        <td class="text-end pe-3 fw-bold text-success">
+                                            {{ total_executado | currency_br }} <span class="text-muted fw-normal small">(Entregue)</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="form-text text-muted small mt-2">
+                            <i class="bi bi-info-circle me-1"></i> Para visualizar as ordens de fornecimento individuais e notas fiscais de trânsito, acesse o módulo de gerenciamento interno de cada contrato através do menu <span class="text-dark fw-medium">"Agricultores"</span>.
+                        </div>
+                    </div>
+                </div>
+
             {% else %}
                 <div class="text-center py-5 my-3">
                     <div class="bg-light rounded-circle p-3 d-inline-flex align-items-center justify-content-center mb-3 text-muted" style="width: 64px; height: 64px;">

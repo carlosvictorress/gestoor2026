@@ -1252,6 +1252,29 @@ def login():
                 flash("Usuário não pertence à secretaria selecionada.", "danger")
                 return redirect(url_for("login"))
 
+            # ==========================================================
+            # VERIFICAÇÃO DE AUSÊNCIA: 5 DIAS OU MAIS (ISOLADA)
+            # ==========================================================
+            mensagem_ausencia = None
+            try:
+                # Busca o último registro de login bem-sucedido deste usuário antes de gerar o atual
+                ultimo_log = Log.query.filter(
+                    Log.username == user.username,
+                    Log.action.ilike("%Fez login no sistema%")
+                ).order_by(Log.timestamp.desc()).first()
+
+                if ultimo_log and ultimo_log.timestamp:
+                    agora = datetime.now()
+                    diferenca = agora - ultimo_log.timestamp
+                    
+                    # Definição do limite exigido: 5 dias
+                    if diferenca.days >= 5:
+                        mensagem_ausencia = f"Identificamos que você não acessava o sistema há {diferenca.days} dias. Que bom ter você de volta, {user.username}!"
+            except Exception as e:
+                # Se houver qualquer falha na consulta de logs, o erro é printado mas o login continua
+                print(f"Aviso interno (Não Crítico): Falha ao checar histórico de ausência: {e}")
+            # ==========================================================
+
             # Se tudo estiver correto, continua com o login
             session["logged_in"] = True
             session["username"] = user.username
@@ -1263,7 +1286,13 @@ def login():
             registrar_log(
                 f"Fez login no sistema pela secretaria '{user.secretaria.nome}'."
             )
-            flash("Login realizado com sucesso!", "success")
+            
+            # Se a mensagem de ausência foi gerada, exibe ela. Caso contrário, manda o sucesso padrão.
+            if mensagem_ausencia:
+                flash(mensagem_ausencia, "info")
+            else:
+                flash("Login realizado com sucesso!", "success")
+                
             return redirect(url_for("dashboard"))
         else:
             flash("Usuário ou senha inválidos.", "danger")

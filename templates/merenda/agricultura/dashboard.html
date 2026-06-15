@@ -4,55 +4,126 @@
 
 {% block content %}
 <style>
-    /* Estilos para um look profissional */
-    .dashboard-container { background-color: #f8f9fa; padding: 2rem; border-radius: 15px; }
-    .card-stat { border: none; border-radius: 12px; transition: transform 0.2s, box-shadow 0.2s; background: #fff; }
-    .card-stat:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
-    .stat-icon { width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
-    .progress-custom { height: 12px; border-radius: 10px; background-color: #e9ecef; overflow: visible; position: relative; }
-    .meta-marker { position: absolute; top: -25px; transform: translateX(-50%); font-size: 0.75rem; font-weight: bold; color: #dc3545; }
-    .meta-marker::after { content: ''; position: absolute; bottom: -12px; left: 50%; width: 2px; height: 25px; background: #dc3545; }
+    /* Estilização Avançada e Visual Auditável */
+    .dashboard-container { 
+        background-color: #f8f9fa; 
+        padding: 2rem; 
+        border-radius: 15px; 
+    }
+    .card-stat { 
+        border: 1px solid rgba(0,0,0,0.08); 
+        border-radius: 14px; 
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s; 
+        background: #fff; 
+    }
+    .card-stat:hover { 
+        transform: translateY(-4px); 
+        box-shadow: 0 12px 20px rgba(0,0,0,0.06); 
+    }
+    .stat-icon { 
+        width: 48px; 
+        height: 48px; 
+        border-radius: 12px; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        font-size: 1.4rem; 
+    }
+    .progress-custom-wrapper {
+        position: relative;
+        padding: 2.5rem 0 1rem 0;
+    }
+    .progress-custom { 
+        height: 16px; 
+        border-radius: 50px; 
+        background-color: #e9ecef; 
+        overflow: visible; 
+        position: relative; 
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .progress-bar-custom {
+        height: 100%;
+        border-radius: 50px;
+        transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .meta-marker { 
+        position: absolute; 
+        top: -32px; 
+        transform: translateX(-50%); 
+        font-size: 0.75rem; 
+        font-weight: 700; 
+        color: #fff;
+        background-color: #dc3545;
+        padding: 2px 8px;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        z-index: 10;
+    }
+    .meta-marker::after { 
+        content: ''; 
+        position: absolute; 
+        bottom: -6px; 
+        left: 50%; 
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 6px solid #dc3545;
+    }
+    .meta-indicator-line {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background-color: #dc3545;
+        box-shadow: 0 0 2px rgba(0,0,0,0.3);
+        z-index: 5;
+    }
+    .tracking-wide {
+        letter-spacing: 0.5px;
+    }
 </style>
 
 <div class="container-fluid py-4">
-    <div class="d-flex justify-content-between align-items-center mb-5">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-5 border-bottom pb-4">
         <div>
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb mb-1">
-                    <li class="breadcrumb-item"><a href="#" class="text-decoration-none">Merenda</a></li>
-                    <li class="breadcrumb-item active">Agricultura Familiar</li>
+                    <li class="breadcrumb-item"><a href="#" class="text-decoration-none text-muted">Merenda</a></li>
+                    <li class="breadcrumb-item active text-success fw-semibold">Agricultura Familiar</li>
                 </ol>
             </nav>
             <h2 class="fw-bold text-dark mb-0">Painel PNAE <span class="text-success">{{ ano_atual }}</span></h2>
-            <p class="text-muted small">Monitoramento de metas legais e contratos ativos</p>
+            <p class="text-muted small mb-0"><i class="bi bi-shield-check-fill text-success me-1"></i>Monitoramento fiscal, metas de entrega e contratos ativos</p>
         </div>
-        <div class="d-flex gap-2">
-            <button class="btn btn-white border shadow-sm" type="button" data-bs-toggle="collapse" data-bs-target="#configCollapse">
-                <i class="bi bi-gear-fill me-2 text-secondary"></i>Orçamento
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-white border border-secondary-subtle bg-white shadow-sm fw-medium rounded-3" type="button" data-bs-toggle="collapse" data-bs-target="#configCollapse">
+                <i class="bi bi-gear-fill me-2 text-secondary"></i>Orçamento Base
             </button>
-            <a href="{{ url_for('merenda.listar_agricultores') }}" class="btn btn-white border shadow-sm">
+            <a href="{{ url_for('merenda.listar_agricultores') }}" class="btn btn-white border border-secondary-subtle bg-white shadow-sm fw-medium rounded-3">
                 <i class="bi bi-people-fill me-2 text-primary"></i>Agricultores
             </a>
-            <a href="{{ url_for('merenda.novo_agricultor') }}" class="btn btn-primary shadow-sm">
-                <i class="bi bi-plus-lg me-1"></i> Novo Cadastro
+            <a href="{{ url_for('merenda.novo_agricultor') }}" class="btn btn-success shadow-sm fw-medium rounded-3 px-3">
+                <i class="bi bi-plus-lg me-1 fw-bold"></i> Novo Cadastro
             </a>
         </div>
     </div>
 
     <div class="collapse mb-4" id="configCollapse">
-        <div class="card card-body border-0 shadow-sm bg-white">
-            <h6 class="fw-bold mb-3">Configurar Repasse Anual</h6>
+        <div class="card card-body border-0 shadow-sm bg-white p-4 rounded-4">
+            <h6 class="fw-bold mb-3 text-dark"><i class="bi bi-sliders2 me-2 text-success"></i>Configurar Repasse Anual do Exercício</h6>
             <form method="POST" class="row align-items-end g-3">
                 <div class="col-md-9">
-                    <label class="form-label small fw-semibold text-uppercase text-muted">Valor Total do Repasse FNDE (R$)</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light border-end-0">R$</span>
-                        <input type="text" class="form-control bg-light border-start-0" name="valor_total_repasse" 
+                    <label class="form-label small fw-bold text-uppercase text-muted tracking-wide mb-2">Valor Total do Repasse FNDE (R$)</label>
+                    <div class="input-group shadow-sm rounded-3 overflow-hidden">
+                        <span class="input-group-text bg-light border-end-0 fw-medium text-muted">R$</span>
+                        <input type="text" class="form-control bg-light border-start-0 fw-semibold" name="valor_total_repasse" 
                                value="{{ '%.2f'|format(meta_info.total_repasse)|replace('.', ',') }}" placeholder="0,00">
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <button type="submit" class="btn btn-dark w-100">Atualizar Dados</button>
+                    <button type="submit" class="btn btn-dark w-100 fw-medium py-2 rounded-3 shadow-sm">Atualizar Dados</button>
                 </div>
             </form>
         </div>
@@ -60,113 +131,132 @@
 
     <div class="row g-4 mb-5">
         <div class="col-md-3">
-            <div class="card card-stat shadow-sm p-3">
-                <div class="d-flex align-items-center">
-                    <div class="stat-icon bg-success-subtle text-success me-3">
-                        <i class="bi bi-person-check"></i>
-                    </div>
-                    <div>
-                        <h6 class="text-muted small mb-1">Agricultores</h6>
-                        <h3 class="fw-bold mb-0">{{ total_agricultores }}</h3>
+            <div class="card card-stat shadow-sm p-4 h-100">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h6 class="text-muted small fw-bold text-uppercase tracking-wide mb-0">Agricultores</h6>
+                    <div class="stat-icon bg-success-subtle text-success">
+                        <i class="bi bi-person-check-fill"></i>
                     </div>
                 </div>
+                <h2 class="fw-extrabold text-dark mb-0">{{ total_agricultores }}</h2>
+                <span class="text-muted small mt-2 d-block">Fornecedores ativos mapeados</span>
             </div>
         </div>
+        
         <div class="col-md-3">
-            <div class="card card-stat shadow-sm p-3">
-                <div class="d-flex align-items-center">
-                    <div class="stat-icon bg-info-subtle text-info me-3">
-                        <i class="bi bi-file-earmark-text"></i>
-                    </div>
-                    <div>
-                        <h6 class="text-muted small mb-1">Contratos Ativos</h6>
-                        <h3 class="fw-bold mb-0">{{ contratos_ativos }}</h3>
+            <div class="card card-stat shadow-sm p-4 h-100">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h6 class="text-muted small fw-bold text-uppercase tracking-wide mb-0">Contratos Ativos</h6>
+                    <div class="stat-icon bg-info-subtle text-info">
+                        <i class="bi bi-file-earmark-text-fill"></i>
                     </div>
                 </div>
+                <h2 class="fw-extrabold text-dark mb-0">{{ contratos_ativos }}</h2>
+                <span class="text-muted small mt-2 d-block">Chamadas públicas vigentes</span>
             </div>
         </div>
+
         <div class="col-md-3">
-            <div class="card card-stat shadow-sm p-3">
-                <div class="d-flex align-items-center">
-                    <div class="stat-icon bg-primary-subtle text-primary me-3">
-                        <i class="bi bi-cash-stack"></i>
-                    </div>
-                    <div>
-                        <h6 class="text-muted small mb-1">Total Contratado</h6>
-                        <h3 class="fw-bold mb-0" style="font-size: 1.4rem;">{{ total_contratado | currency_br }}</h3>
+            <div class="card card-stat shadow-sm p-4 h-100">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h6 class="text-muted small fw-bold text-uppercase tracking-wide mb-0">Total Contratado</h6>
+                    <div class="stat-icon bg-primary-subtle text-primary">
+                        <i class="bi bi-briefcase-fill"></i>
                     </div>
                 </div>
+                <h3 class="fw-bold text-dark mb-0" style="font-size: 1.45rem;">{{ total_contratado | currency_br }}</h3>
+                <span class="text-muted small mt-2 d-block">Montante global reservado</span>
             </div>
         </div>
+
         <div class="col-md-3">
-            <div class="card card-stat shadow-sm p-3 border-start border-4 border-{{ 'success' if meta_info.percentual_atual >= meta_info.meta_lei else 'warning' }}">
-                <div class="d-flex align-items-center">
-                    <div class="ms-2">
-                        <h6 class="text-muted small mb-1">Atingimento da Meta</h6>
-                        <h3 class="fw-bold mb-0 {{ 'text-success' if meta_info.percentual_atual >= meta_info.meta_lei else 'text-warning' }}">
-                            {{ "%.2f"|format(meta_info.percentual_atual) }}%
-                        </h3>
+            <div class="card card-stat shadow-sm p-4 h-100 border-start border-4 border-{{ 'success' if meta_info.percentual_atual >= meta_info.meta_lei else 'warning' }}">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h6 class="text-muted small fw-bold text-uppercase tracking-wide mb-0">Total Executado</h6>
+                    <div class="stat-icon bg-success-subtle text-success">
+                        <i class="bi bi-truck-flatbed"></i>
                     </div>
                 </div>
+                <h3 class="fw-bold text-dark mb-0" style="font-size: 1.45rem;">{{ total_executado | currency_br }}</h3>
+                <span class="text-muted small mt-2 d-block fw-medium text-{{ 'success' if meta_info.percentual_atual >= meta_info.meta_lei else 'warning' }}">Valores líquidos entregues</span>
             </div>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm overflow-hidden">
-    <div class="card-header bg-white py-3 border-bottom-0">
-        <div class="d-flex justify-content-between align-items-center">
-            <h5 class="fw-bold mb-0"><i class="bi bi-graph-up-arrow text-success me-2"></i>Monitoramento de Execução PNAE</h5>
-            <span class="badge bg-light text-dark border">Lei nº 11.947/2009</span>
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="card-header bg-white py-3 border-bottom-0">
+            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+                <h5 class="fw-bold mb-0 text-dark">
+                    <i class="bi bi-graph-up-arrow text-success me-2"></i>Monitoramento de Execução PNAE (FNDE)
+                </h5>
+                <span class="badge bg-light text-dark border p-2 tracking-wide fw-semibold">Dispositivos Legais: Lei nº 11.947/2009</span>
+            </div>
+        </div>
+        
+        <div class="card-body px-4 pb-5">
+            {% if meta_info.total_repasse > 0 %}
+                <div class="row align-items-center mb-5">
+                    <div class="col-md-8">
+                        <div class="progress-custom-wrapper">
+                            <div class="progress-custom shadow-sm">
+                                <div class="progress-bar-custom progress-bar-striped progress-bar-animated {{ 'bg-success' if meta_info.percentual_atual >= meta_info.meta_lei else 'bg-warning' }}" 
+                                     role="progressbar" 
+                                     style="width: {{ meta_info.percentual_atual if meta_info.percentual_atual <= 100 else 100 }}%">
+                                </div>
+                                <div class="meta-marker" style="left: {{ meta_info.meta_lei }}%;">
+                                    META: {{ meta_info.meta_lei }}%
+                                </div>
+                                <div class="meta-indicator-line" style="left: {{ meta_info.meta_lei }}%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-center text-md-end mt-3 mt-md-0">
+                        <span class="display-6 fw-extrabold text-dark d-block mb-0">{{ "%.2f"|format(meta_info.percentual_atual) }}%</span>
+                        <p class="text-muted small fw-bold text-uppercase mb-0">Atingimento Baseado em Entregas</p>
+                    </div>
+                </div>
+
+                <div class="row g-4 border-top pt-4">
+                    <div class="col-md-4">
+                        <div class="p-3 rounded-3 bg-light border border-secondary-subtle">
+                            <p class="mb-1 text-muted small fw-bold text-uppercase tracking-wide">Obrigação Legal Mínima ({{ meta_info.meta_lei }}%)</p>
+                            <h4 class="mb-0 fw-bold text-dark">{{ (meta_info.total_repasse * (meta_info.meta_lei/100)) | currency_br }}</h4>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="p-3 rounded-3 bg-light border border-secondary-subtle">
+                            <p class="mb-1 text-muted small fw-bold text-uppercase tracking-wide">Orçamento Global Declarado</p>
+                            <h4 class="mb-0 fw-bold text-secondary">{{ meta_info.total_repasse | currency_br }}</h4>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        {% if meta_info.falta_executar > 0 %}
+                            <div class="p-3 rounded-3 bg-warning-subtle border border-warning h-100 d-flex flex-column justify-content-center">
+                                <p class="mb-1 text-warning-emphasis small fw-bold text-uppercase tracking-wide"><i class="bi bi-exclamation-triangle-fill me-1"></i>Ainda necessário entregar</p>
+                                <h4 class="mb-0 text-warning-emphasis fw-bold">{{ meta_info.falta_executar | currency_br }}</h4>
+                            </div>
+                        {% else %}
+                            <div class="p-3 rounded-3 bg-success-subtle border border-success h-100 d-flex flex-column justify-content-center">
+                                <p class="mb-1 text-success-emphasis small fw-bold text-uppercase tracking-wide"><i class="bi bi-check-circle-fill me-1"></i>Status Legal da Meta</p>
+                                <h4 class="mb-0 text-success-emphasis fw-bold">Meta Fiscal Atingida!</h4>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="text-center py-5 my-3">
+                    <div class="bg-light rounded-circle p-3 d-inline-flex align-items-center justify-content-center mb-3 text-muted" style="width: 64px; height: 64px;">
+                        <i class="bi bi-calculator h3 mb-0"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark">Aguardando Parâmetros Iniciais</h5>
+                    <p class="text-muted small mx-auto mb-0" style="max-width: 400px;">
+                        Utilize o botão <strong class="text-dark">Orçamento Base</strong> no canto superior direito para configurar o teto financeiro anual e desbloquear os relatórios gráficos.
+                    </p>
+                </div>
+            {% endif %}
         </div>
     </div>
-    <div class="card-body px-4 pb-5">
-        {% if meta_info.total_repasse > 0 %}
-            <div class="row align-items-center mb-5 mt-4">
-                <div class="col-md-8">
-                    <div class="progress-custom shadow-sm">
-                        <div class="progress-bar progress-bar-striped progress-bar-animated {{ 'bg-success' if meta_info.percentual_atual >= meta_info.meta_lei else 'bg-warning' }}" 
-                             role="progressbar" 
-                             style="width: {{ meta_info.percentual_atual if meta_info.percentual_atual <= 100 else 100 }}%">
-                        </div>
-                        <div class="meta-marker" style="left: {{ meta_info.meta_lei }}%;">
-                            META {{ meta_info.meta_lei }}%
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4 text-end">
-                    <span class="h4 fw-bold">{{ "%.2f"|format(meta_info.percentual_atual) }}%</span>
-                    <p class="text-muted small mb-0">Total Executado (Entregas)</p>
-                </div>
-            </div>
-
-            <div class="row g-4 mt-2">
-                <div class="col-md-6">
-                    <div class="p-3 rounded bg-light border">
-                        <p class="mb-1 text-muted small fw-bold text-uppercase">Obrigação Legal Mínima</p>
-                        <h5 class="mb-0 text-dark">{{ (meta_info.total_repasse * (meta_info.meta_lei/100)) | currency_br }}</h5>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    {% if meta_info.falta_executar > 0 %}
-                    <div class="p-3 rounded bg-warning-subtle border border-warning">
-                        <p class="mb-1 text-warning-emphasis small fw-bold text-uppercase">Ainda necessário entregar</p>
-                        <h5 class="mb-0 text-warning-emphasis">{{ meta_info.falta_executar | currency_br }}</h5>
-                    </div>
-                    {% else %}
-                    <div class="p-3 rounded bg-success-subtle border border-success">
-                        <p class="mb-1 text-success-emphasis small fw-bold text-uppercase">Status da Meta</p>
-                        <h5 class="mb-0 text-success-emphasis"><i class="bi bi-check-circle-fill me-2"></i>Meta Atingida!</h5>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        {% else %}
-            <div class="text-center py-5">
-                <i class="bi bi-calculator text-muted display-4"></i>
-                <p class="mt-3 text-muted">Aguardando configuração do orçamento anual para gerar indicadores.</p>
-            </div>
-        {% endif %}
-    </div>
-</div>
 </div>
 {% endblock %}

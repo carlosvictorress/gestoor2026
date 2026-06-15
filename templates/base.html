@@ -1,436 +1,740 @@
 <!doctype html>
 <html lang="pt-br">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}Gestor 360º - Controle Interno{% endblock %}</title>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <link
+      href="{{ url_for('static', filename='css/bootstrap.min.css') }}"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    />
+
     {# Importações Leaflet preservadas para mapas e rotas #}
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.animatedmarker@1.0.0/src/AnimatedMarker.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"
+    />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"
+    />
 
     <style>
-        :root {
-            --sidebar-width: 280px;
-            --sidebar-bg: #07132b; /* Azul Profundo Auditável */
-            --sidebar-hover: #13284f;
-            --accent-color: #3b82f6;
-            --text-muted: #94a3b8;
-            --body-bg: #f8fafc;
-            --transition-speed: 0.3s;
-        }
+      :root {
+        --sidebar-width: 280px;
+        --sidebar-bg: #07132b; /* Azul Profundo Auditável */
+        --sidebar-hover: #13284f;
+        --accent-color: #3b82f6;
+        --text-muted: #94a3b8;
+        --body-bg: #f8fafc;
+        --transition-speed: 0.3s;
+      }
 
-        body { 
-            font-family: 'Inter', sans-serif;
-            background-color: var(--body-bg); 
-            padding-left: var(--sidebar-width); 
-            transition: padding-left var(--transition-speed);
-            min-height: 100vh;
-        }
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: var(--body-bg);
+        padding-left: var(--sidebar-width);
+        transition: padding-left var(--transition-speed);
+        min-height: 100vh;
+      }
 
-        /* Sidebar Robusta e Elegante */
+      /* Sidebar Robusta e Elegante */
+      #sidebar {
+        width: var(--sidebar-width);
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1050;
+        background: var(--sidebar-bg);
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 5px 0 25px rgba(0, 0, 0, 0.2);
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      .sidebar-brand {
+        padding: 2.5rem 1.5rem;
+        text-align: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      .sidebar-brand b {
+        color: var(--accent-color);
+        font-size: 1.6rem;
+        letter-spacing: -1px;
+      }
+
+      /* Estilização dos Links do Menu */
+      .nav-container {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 1rem 0;
+      }
+
+      .nav-container::-webkit-scrollbar {
+        width: 5px;
+      }
+      .nav-container::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+      }
+
+      #sidebar .nav-link {
+        color: var(--text-muted);
+        padding: 0.85rem 1.5rem;
+        margin: 0.2rem 1rem;
+        border-radius: 10px;
+        font-size: 0.92rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: all 0.2s ease;
+        text-decoration: none;
+      }
+
+      #sidebar .nav-link i {
+        font-size: 1.2rem;
+      }
+
+      #sidebar .nav-link:hover {
+        color: #fff;
+        background: var(--sidebar-hover);
+        transform: translateX(5px);
+      }
+
+      #sidebar .nav-link.active {
+        background: linear-gradient(45deg, #2563eb, #3b82f6);
+        color: #fff;
+        box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.4);
+        font-weight: 600;
+      }
+
+      /* Submenus (Collapse) */
+      .dropdown-menu-custom {
+        background: rgba(0, 0, 0, 0.2);
+        margin: 0.5rem 1rem;
+        border-radius: 12px;
+        padding: 0.5rem 0;
+      }
+
+      #sidebar .dropdown-item {
+        color: var(--text-muted);
+        padding: 0.6rem 1.5rem 0.6rem 3rem;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+        display: block;
+        text-decoration: none;
+      }
+
+      #sidebar .dropdown-item:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.05);
+        padding-left: 3.5rem;
+      }
+
+      /* Navbar Glassmorphism */
+      .navbar {
+        background: rgba(255, 255, 255, 0.85) !important;
+        backdrop-filter: blur(12px);
+        position: fixed;
+        top: 0;
+        right: 0;
+        z-index: 1040;
+        left: var(--sidebar-width);
+        height: 75px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        padding: 0 2rem;
+      }
+
+      /* Conteúdo Principal */
+      main {
+        padding: 2.5rem;
+        margin-top: 75px;
+      }
+
+      /* Footer da Sidebar (Mensagem de Auditoria) */
+      .sidebar-footer {
+        padding: 1.5rem;
+        background: rgba(0, 0, 0, 0.3);
+        text-align: center;
+      }
+
+      .audit-tag {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: #10b981; /* Verde esmeralda para passar segurança */
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+      }
+
+      .btn-logout-gov {
+        background: rgba(239, 68, 68, 0.1);
+        color: #f87171;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: 8px;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        transition: 0.2s;
+      }
+      .btn-logout-gov:hover {
+        background: #ef4444;
+        color: #fff;
+      }
+
+      @media (max-width: 991.98px) {
+        body {
+          padding-left: 0 !important;
+        }
+        .navbar {
+          left: 0 !important;
+        }
         #sidebar {
-            width: var(--sidebar-width);
-            height: 100vh;
-            position: fixed;
-            top: 0; left: 0;
-            z-index: 1050;
-            background: var(--sidebar-bg);
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 5px 0 25px rgba(0,0,0,0.2);
-            border-right: 1px solid rgba(255,255,255,0.05);
+          transform: translateX(-100%);
         }
+        body.sidebar-toggled #sidebar {
+          transform: translateX(0);
+        }
+        #sidebar-backdrop {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.5);
+          z-index: 1045;
+          display: none;
+        }
+        body.sidebar-toggled #sidebar-backdrop {
+          display: block;
+        }
+      }
 
-        .sidebar-brand {
-            padding: 2.5rem 1.5rem;
-            text-align: center;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-        .sidebar-brand b { color: var(--accent-color); font-size: 1.6rem; letter-spacing: -1px; }
+      /* Animação de Entrada de Página */
+      .page-transition {
+        animation: fadeInBlur 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
 
-        /* Estilização dos Links do Menu */
-        .nav-container {
-            flex-grow: 1;
-            overflow-y: auto;
-            padding: 1rem 0;
+      @keyframes fadeInBlur {
+        from {
+          opacity: 0;
+          filter: blur(5px);
+          transform: translateY(10px);
         }
-        
-        .nav-container::-webkit-scrollbar { width: 5px; }
-        .nav-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-
-        #sidebar .nav-link { 
-            color: var(--text-muted); 
-            padding: 0.85rem 1.5rem; 
-            margin: 0.2rem 1rem;
-            border-radius: 10px;
-            font-size: 0.92rem;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            transition: all 0.2s ease;
-            text-decoration: none;
+        to {
+          opacity: 1;
+          filter: blur(0);
+          transform: translateY(0);
         }
-
-        #sidebar .nav-link i { font-size: 1.2rem; }
-
-        #sidebar .nav-link:hover { 
-            color: #fff; 
-            background: var(--sidebar-hover);
-            transform: translateX(5px);
-        }
-
-        #sidebar .nav-link.active { 
-            background: linear-gradient(45deg, #2563eb, #3b82f6);
-            color: #fff;
-            box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.4);
-            font-weight: 600;
-        }
-
-        /* Submenus (Collapse) */
-        .dropdown-menu-custom {
-            background: rgba(0,0,0,0.2);
-            margin: 0.5rem 1rem;
-            border-radius: 12px;
-            padding: 0.5rem 0;
-        }
-
-        #sidebar .dropdown-item {
-            color: var(--text-muted);
-            padding: 0.6rem 1.5rem 0.6rem 3rem;
-            font-size: 0.85rem;
-            transition: all 0.2s;
-            display: block;
-            text-decoration: none;
-        }
-
-        #sidebar .dropdown-item:hover {
-            color: #fff;
-            background: rgba(255,255,255,0.05);
-            padding-left: 3.5rem;
-        }
-
-        /* Navbar Glassmorphism */
-        .navbar { 
-            background: rgba(255, 255, 255, 0.85) !important;
-            backdrop-filter: blur(12px);
-            position: fixed; 
-            top: 0; right: 0;
-            z-index: 1040;
-            left: var(--sidebar-width);
-            height: 75px;
-            border-bottom: 1px solid rgba(0,0,0,0.05);
-            padding: 0 2rem;
-        }
-
-        /* Conteúdo Principal */
-        main {
-            padding: 2.5rem;
-            margin-top: 75px;
-        }
-
-        /* Footer da Sidebar (Mensagem de Auditoria) */
-        .sidebar-footer {
-            padding: 1.5rem;
-            background: rgba(0,0,0,0.3);
-            text-align: center;
-        }
-        
-        .audit-tag {
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            color: #10b981; /* Verde esmeralda para passar segurança */
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 5px;
-        }
-
-        .btn-logout-gov {
-            background: rgba(239, 68, 68, 0.1);
-            color: #f87171;
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            border-radius: 8px;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            transition: 0.2s;
-        }
-        .btn-logout-gov:hover { background: #ef4444; color: #fff; }
-
-        @media (max-width: 991.98px) {
-            body { padding-left: 0 !important; }
-            .navbar { left: 0 !important; }
-            #sidebar { transform: translateX(-100%); }
-            body.sidebar-toggled #sidebar { transform: translateX(0); }
-            #sidebar-backdrop {
-                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-                background: rgba(0,0,0,0.5); z-index: 1045; display: none;
-            }
-            body.sidebar-toggled #sidebar-backdrop { display: block; }
-        }
-
-        /* Animação de Entrada de Página */
-        .page-transition {
-            animation: fadeInBlur 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        @keyframes fadeInBlur {
-            from { opacity: 0; filter: blur(5px); transform: translateY(10px); }
-            to { opacity: 1; filter: blur(0); transform: translateY(0); }
-        }
+      }
     </style>
-    {% block head_extra %}{% endblock %}
-    {% block extra_head %}{% endblock %}
-</head>
-<body>
+    {% block head_extra %}{% endblock %} {% block extra_head %}{% endblock %}
+  </head>
+  <body>
+    <div id="sidebar-backdrop" onclick="toggleSidebar()"></div>
 
-<div id="sidebar-backdrop" onclick="toggleSidebar()"></div>
-
-<nav id="sidebar">
-    <div class="sidebar-brand">
-        <a href="{{ url_for('dashboard') }}" class="text-decoration-none text-white">
-            <b>GESTOR</b> 360º
+    <nav id="sidebar">
+      <div class="sidebar-brand">
+        <a
+          href="{{ url_for('dashboard') }}"
+          class="text-decoration-none text-white"
+        >
+          <b>GESTOR</b> 360º
         </a>
-        <div class="small text-muted mt-1" style="font-size: 0.7rem;">Controle de Gestão Integrada</div>
-    </div>
-    
-    <div class="nav-container">
-        <ul class="nav flex-column">
-            
-            <li class="nav-item">
-                <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">
-                    <i class="bi bi-speedometer2"></i> Painel Geral
-                </a>
-            </li>
-
-            <li class="nav-item">
-                <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('lista_servidores', 'gerenciar_veiculos', 'motoristas.listar', 'transporte.', 'lancar_abastecimento', 'almoxarifado.', 'academico.')) %}active{% endif %}" 
-                   data-bs-toggle="collapse" href="#cadastrosCollapse" role="button">
-                    <i class="bi bi-folder2-open"></i> Cadastros
-                </a>
-                <div class="collapse {% if request.endpoint.startswith(('lista_servidores', 'gerenciar_veiculos', 'motoristas.listar', 'transporte.', 'lancar_abastecimento', 'almoxarifado.', 'academico.')) %}show{% endif %}" id="cadastrosCollapse">
-                    <div class="dropdown-menu-custom">
-                        {% if session.get('role') in ['admin', 'RH', 'Fiscal'] %}
-                        <a class="dropdown-item" href="{{ url_for('lista_servidores') }}">Servidores</a>
-                        {% endif %}
-                        {% if session.get('role') in ['admin', 'Combustivel', 'RH'] %}
-                        <a class="dropdown-item" href="{{ url_for('motoristas.listar') }}">Motoristas</a>
-                        {% endif %}
-                        {% if session.get('role') in ['admin', 'Combustivel'] %}
-                        <a class="dropdown-item" href="{{ url_for('gerenciar_veiculos') }}">Veículos</a>
-                        <a class="dropdown-item" href="{{ url_for('transporte.dashboard') }}">Transporte</a>
-                        <a class="dropdown-item" href="{{ url_for('lancar_abastecimento') }}">Combustível</a>
-                        {% endif %}
-                        {% if session.get('role') in ['admin', 'almoxarifado'] %}
-                        <a class="dropdown-item" href="{{ url_for('almoxarifado.dashboard') }}">Almoxarifado</a>
-                        {% endif %}
-                        {% if session.get('role') in ['admin', 'academico'] %}
-                        <a class="dropdown-item" href="{{ url_for('academico.dashboard') }}">Académico</a>
-                        {% endif %}
-                    </div>
-                </div>
-            </li>
-
-            {% if session.get('role') in ['admin', 'Merenda Escolar', 'CAEE', 'RH', 'Fiscal'] %}
-            <li class="nav-item">
-                <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('merenda.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}active{% endif %}" 
-                   data-bs-toggle="collapse" href="#modulosCollapse" role="button">
-                    <i class="bi bi-layers"></i> Módulos
-                </a>
-                <div class="collapse {% if request.endpoint.startswith(('merenda.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}show{% endif %}" id="modulosCollapse">
-                    <div class="dropdown-menu-custom">
-                        {% if session.get('role') in ['admin', 'CAEE'] %}
-                        <a class="dropdown-item" href="{{ url_for('caee.dashboard') }}">CAEE</a>
-                        {% endif %}
-                        {% if session.get('role') in ['admin', 'RH', 'Fiscal'] %}
-                        <a class="dropdown-item" href="{{ url_for('fiscal.dashboard') }}">Fiscal de Contratos</a>
-                        {% endif %}
-                        {% if session.get('role') in ['admin', 'Merenda Escolar'] %}
-                        <a class="dropdown-item" href="{{ url_for('merenda.dashboard') }}">Merenda Escolar</a>
-                        <a class="dropdown-item" href="{{ url_for('merenda.agricultura_dashboard') }}">Agricultura (PNAE)</a>
-                        {% endif %}
-                        {% if session.get('role') in ['admin', 'RH'] %}
-                        <a class="dropdown-item" href="{{ url_for('listar_gams') }}">Guia Médica (GAM)</a>
-                        <a class="dropdown-item" href="{{ url_for('protocolo.dashboard') }}">Protocolo</a>
-                        <a class="dropdown-item" href="{{ url_for('contratos.gerenciar_contratos') }}">Contratos (RH)</a>
-                        <a class="dropdown-item" href="{{ url_for('listar_requerimentos') }}">Requerimentos</a>
-                        <a class="dropdown-item" href="{{ url_for('visualizar_frequencia') }}">Frequência</a>
-                        <a class="dropdown-item" href="{{ url_for('frequencia.dashboard_frequencia') }}">Visão Frequência</a>
-                        {% endif %}
-                        {% if session.get('role') == 'admin' %}
-                        <a class="dropdown-item" href="{{ url_for('patrimonio.listar_itens') }}">Patrimônio</a>
-                        <a class="dropdown-item" href="{{ url_for('escola.listar_escolas') }}">Escolas</a>
-                        {% endif %}
-                    </div>
-                </div>
-            </li>
-            {% endif %}
-
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('contas.dashboard') }}">
-                    <i class="bi bi-file-earmark-bar-graph"></i> Prestação de Contas
-                </a>
-            </li>
-            
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('bloco_de_notas') }}">
-                    <i class="bi bi-pencil-square"></i> Bloco de Notas
-                </a>
-            </li>
-
-            {% if session['role'] in ['admin', 'RH'] %}
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('assinatura.index_assinatura') }}">
-                    <i class="bi bi-pen"></i> Assinatura Digital
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('helpdesk.painel_chamados') }}">
-                    <i class="bi bi-headset"></i> Help Desk / TI
-                </a>
-            </li>
-            {% endif %}
-
-            {% if session.get('role') == 'admin' %}
-           <li class="nav-item mt-3">
-    <small class="px-4 text-muted small fw-bold text-uppercase" style="font-size: 0.6rem;">Configurações Avançadas</small>
-    <a class="nav-link dropdown-toggle" data-bs-toggle="collapse" href="#adminCollapse">
-        <i class="bi bi-gear-fill"></i> Administração
-    </a>
-    <div class="collapse" id="adminCollapse">
-        <div class="dropdown-menu-custom">
-            <a class="dropdown-item" href="{{ url_for('painel_controle_sistema') }}">
-                <i class="bi bi-shield-lock-fill me-2"></i>Controle do Sistema
-            </a>
-            <a class="dropdown-item" href="{{ url_for('lista_usuarios') }}">Gestão de Usuários</a>
-            <a class="dropdown-item" href="{{ url_for('ver_logs') }}">Audit de Logs</a>
-            <a class="dropdown-item" href="{{ url_for('admin_licenca') }}">Licença do Sistema</a>
-            <a class="dropdown-item" href="{{ url_for('backup.index') }}">Backup de Dados</a>
+        <div class="small text-muted mt-1" style="font-size: 0.7rem">
+          Controle de Gestão Integrada
         </div>
-    </div>
-</li>
-            {% endif %}
+      </div>
+
+      <div class="nav-container">
+        <ul class="nav flex-column">
+          <li class="nav-item">
+            <a
+              class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}"
+              href="{{ url_for('dashboard') }}"
+            >
+              <i class="bi bi-speedometer2"></i> Painel Geral
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a
+              class="nav-link dropdown-toggle {% if request.endpoint.startswith(('lista_servidores', 'gerenciar_veiculos', 'motoristas.listar', 'transporte.', 'lancar_abastecimento', 'almoxarifado.', 'academico.')) %}active{% endif %}"
+              data-bs-toggle="collapse"
+              href="#cadastrosCollapse"
+              role="button"
+            >
+              <i class="bi bi-folder2-open"></i> Cadastros
+            </a>
+            <div
+              class="collapse {% if request.endpoint.startswith(('lista_servidores', 'gerenciar_veiculos', 'motoristas.listar', 'transporte.', 'lancar_abastecimento', 'almoxarifado.', 'academico.')) %}show{% endif %}"
+              id="cadastrosCollapse"
+            >
+              <div class="dropdown-menu-custom">
+                {% if session.get('role') in ['admin', 'RH', 'Fiscal'] %}
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('lista_servidores') }}"
+                  >Servidores</a
+                >
+                {% endif %} {% if session.get('role') in ['admin',
+                'Combustivel', 'RH'] %}
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('motoristas.listar') }}"
+                  >Motoristas</a
+                >
+                {% endif %} {% if session.get('role') in ['admin',
+                'Combustivel'] %}
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('gerenciar_veiculos') }}"
+                  >Veículos</a
+                >
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('transporte.dashboard') }}"
+                  >Transporte</a
+                >
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('lancar_abastecimento') }}"
+                  >Combustível</a
+                >
+                {% endif %} {% if session.get('role') in ['admin',
+                'almoxarifado'] %}
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('almoxarifado.dashboard') }}"
+                  >Almoxarifado</a
+                >
+                {% endif %} {% if session.get('role') in ['admin', 'academico']
+                %}
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('almoxarifado.dashboard') }}"
+                  >Académico</a
+                >
+                {% endif %}
+              </div>
+            </div>
+          </li>
+
+          {% if session.get('role') in ['admin', 'Merenda Escolar', 'CAEE',
+          'RH', 'Fiscal'] %}
+          <li class="nav-item">
+            <a
+              class="nav-link dropdown-toggle {% if request.endpoint.startswith(('merenda.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}active{% endif %}"
+              data-bs-toggle="collapse"
+              href="#modulosCollapse"
+              role="button"
+            >
+              <i class="bi bi-layers"></i> Módulos
+            </a>
+            <div
+              class="collapse {% if request.endpoint.startswith(('merenda.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}show{% endif %}"
+              id="modulosCollapse"
+            >
+              <div class="dropdown-menu-custom">
+                {% if session.get('role') in ['admin', 'CAEE'] %}
+                <a class="dropdown-item" href="{{ url_for('caee.dashboard') }}"
+                  >CAEE</a
+                >
+                {% endif %} {% if session.get('role') in ['admin', 'RH',
+                'Fiscal'] %}
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('fiscal.dashboard') }}"
+                  >Fiscal de Contratos</a
+                >
+                {% endif %} {% if session.get('role') in ['admin', 'Merenda
+                Escolar'] %}
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('merenda.dashboard') }}"
+                  >Merenda Escolar</a
+                >
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('merenda.agricultura_dashboard') }}"
+                  >Agricultura (PNAE)</a
+                >
+                {% endif %} {% if session.get('role') in ['admin', 'RH'] %}
+                <a class="dropdown-item" href="{{ url_for('listar_gams') }}"
+                  >Guia Médica (GAM)</a
+                >
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('protocolo.dashboard') }}"
+                  >Protocolo</a
+                >
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('contratos.gerenciar_contratos') }}"
+                  >Contratos (RH)</a
+                >
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('listar_requerimentos') }}"
+                  >Requerimentos</a
+                >
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('visualizar_frequencia') }}"
+                  >Frequência</a
+                >
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('frequencia.dashboard_frequencia') }}"
+                  >Visão Frequência</a
+                >
+                {% endif %} {% if session.get('role') == 'admin' %}
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('patrimonio.listar_itens') }}"
+                  >Patrimônio</a
+                >
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('escola.listar_escolas') }}"
+                  >Escolas</a
+                >
+                {% endif %}
+              </div>
+            </div>
+          </li>
+          {% endif %}
+
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('contas.dashboard') }}">
+              <i class="bi bi-file-earmark-bar-graph"></i> Prestação de Contas
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('bloco_de_notas') }}">
+              <i class="bi bi-pencil-square"></i> Bloco de Notas
+            </a>
+          </li>
+
+          {% if session['role'] in ['admin', 'RH'] %}
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              href="{{ url_for('assinatura.index_assinatura') }}"
+            >
+              <i class="bi bi-pen"></i> Assinatura Digital
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              href="{{ url_for('helpdesk.painel_chamados') }}"
+            >
+              <i class="bi bi-headset"></i> Help Desk / TI
+            </a>
+          </li>
+          {% endif %} {% if session.get('role') == 'admin' %}
+          <li class="nav-item mt-3">
+            <small
+              class="px-4 text-muted small fw-bold text-uppercase"
+              style="font-size: 0.6rem"
+              >Configurações Avançadas</small
+            >
+            <a
+              class="nav-link dropdown-toggle"
+              data-bs-toggle="collapse"
+              href="#adminCollapse"
+            >
+              <i class="bi bi-gear-fill"></i> Administração
+            </a>
+            <div class="collapse" id="adminCollapse">
+              <div class="dropdown-menu-custom">
+                <a
+                  class="dropdown-item"
+                  href="{{ url_for('painel_controle_sistema') }}"
+                >
+                  <i class="bi bi-shield-lock-fill me-2"></i>Controle do Sistema
+                </a>
+                <a class="dropdown-item" href="{{ url_for('lista_usuarios') }}"
+                  >Gestão de Usuários</a
+                >
+                <a class="dropdown-item" href="{{ url_for('ver_logs') }}"
+                  >Audit de Logs</a
+                >
+                <a class="dropdown-item" href="{{ url_for('admin_licenca') }}"
+                  >Licença do Sistema</a
+                >
+                <a class="dropdown-item" href="{{ url_for('backup.index') }}"
+                  >Backup de Dados</a
+                >
+              </div>
+            </div>
+          </li>
+          {% endif %}
         </ul>
-    </div>
-    
-    <div class="sidebar-footer">
-        <a href="{{ url_for('logout') }}" class="btn btn-logout-gov w-100 py-2 shadow-sm">
-            <i class="bi bi-power me-2"></i> Encerrar Sessão
+      </div>
+
+      <div class="sidebar-footer">
+        <a
+          href="{{ url_for('logout') }}"
+          class="btn btn-logout-gov w-100 py-2 shadow-sm"
+        >
+          <i class="bi bi-power me-2"></i> Encerrar Sessão
         </a>
         <div class="audit-tag">
-            <i class="bi bi-shield-lock-fill"></i> Sistema de Controle Interno Auditável
+          <i class="bi bi-shield-lock-fill"></i> Sistema de Controle Interno
+          Auditável
         </div>
-    </div>
-</nav>
+      </div>
+    </nav>
 
-<nav class="navbar d-flex align-items-center justify-content-between">
-    <div class="d-flex align-items-center">
-        <button class="btn btn-primary d-lg-none me-3" onclick="toggleSidebar()">
-            <i class="bi bi-list"></i>
+    <nav class="navbar d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center">
+        <button
+          class="btn btn-primary d-lg-none me-3"
+          onclick="toggleSidebar()"
+        >
+          <i class="bi bi-list"></i>
         </button>
         <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item small"><a href="#">Gestor 360</a></li>
-                <li class="breadcrumb-item active small" aria-current="page">Portal Administrativo</li>
-            </ol>
+          <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item small"><a href="#">Gestor 360</a></li>
+            <li class="breadcrumb-item active small" aria-current="page">
+              Portal Administrativo
+            </li>
+          </ol>
         </nav>
-    </div>
-    
-    <div class="d-flex align-items-center">
+      </div>
+
+      <div class="d-flex align-items-center">
         {% if session.logged_in %}
-            <div class="text-end me-3 d-none d-sm-block">
-                <div class="small fw-bold text-dark">{{ session.get('username')|capitalize }}</div>
-                <div class="text-muted" style="font-size: 0.7rem;">{{ session.get('secretaria') }}</div>
-            </div>
-            <div class="rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 45px; height: 45px; background: linear-gradient(135deg, #07132b, #1e3a8a); color: white;">
-                <i class="bi bi-person-badge-fill"></i>
-            </div>
+        <div class="text-end me-3 d-none d-sm-block">
+          <div class="small fw-bold text-dark">
+            {{ session.get('username')|capitalize }}
+          </div>
+          <div class="text-muted" style="font-size: 0.7rem">
+            {{ session.get('secretaria') }}
+          </div>
+        </div>
+        <div
+          class="rounded-circle d-flex align-items-center justify-content-center shadow-sm"
+          style="
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(135deg, #07132b, #1e3a8a);
+            color: white;
+          "
+        >
+          <i class="bi bi-person-badge-fill"></i>
+        </div>
         {% endif %}
-    </div>
-</nav>
+      </div>
+    </nav>
 
-<div class="toast-container position-fixed top-0 end-0 p-4" style="z-index: 2060;">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="toast animate__animated animate__fadeInRight bg-white border-0 shadow-lg" role="alert">
-                    <div class="d-flex">
-                        <div class="toast-body d-flex align-items-center gap-2">
-                            <i class="bi bi-check-circle-fill text-{{ category }}"></i> {{ message }}
-                        </div>
-                        <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
-                    </div>
+    <div
+      class="toast-container position-fixed top-0 end-0 p-4"
+      style="z-index: 2060"
+    >
+      {% with messages = get_flashed_messages(with_categories=true) %} {% if
+      messages %} {% for category, message in messages %} {% if not (category ==
+      'info' and 'há' in message and 'dias' in message) %}
+      <div
+        class="toast animate__animated animate__fadeInRight bg-white border-0 shadow-lg"
+        role="alert"
+      >
+        <div class="d-flex">
+          <div class="toast-body d-flex align-items-center gap-2">
+            <i class="bi bi-check-circle-fill text-{{ category }}"></i> {{
+            message }}
+          </div>
+          <button
+            type="button"
+            class="btn-close me-2 m-auto"
+            data-bs-dismiss="toast"
+          ></button>
+        </div>
+      </div>
+      {% endif %} {% endfor %} {% endif %} {% endwith %}
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %} {% if
+    messages %} {% for category, message in messages %} {% if category == 'info'
+    and 'há' in message and 'dias' in message %}
+    <div
+      class="modal fade"
+      id="modalAlertaAusencia"
+      data-bs-backdrop="static"
+      data-bs-keyboard="false"
+      tabindex="-1"
+      aria-labelledby="modalAlertaAusenciaLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+          <div
+            class="modal-header bg-dark text-white py-3 border-bottom border-secondary"
+          >
+            <h5
+              class="modal-title fw-bold d-flex align-items-center gap-2"
+              id="modalAlertaAusenciaLabel"
+            >
+              <i class="bi bi-shield-lock-fill text-warning h4 mb-0"></i>
+              PROTOCOLO DE SEGURANÇA E AUDITORIA DE ACESSO
+            </h5>
+          </div>
+
+          <div class="modal-body p-5 bg-white">
+            <div class="text-center mb-4">
+              <div
+                class="bg-warning-subtle text-warning rounded-circle d-inline-flex align-items-center justify-content-center mb-3 animate__animated animate__bounceIn"
+                style="width: 80px; height: 80px"
+              >
+                <i class="bi bi-exclamation-triangle-fill display-5 mb-0"></i>
+              </div>
+              <h3 class="fw-bold text-dark mb-1 tracking-tight">
+                ALERTA DE INATIVIDADE DETECTADO
+              </h3>
+              <p class="text-muted small text-uppercase tracking-wider">
+                Município de Valença do Piauí • Administração Direta
+              </p>
+            </div>
+
+            <div
+              class="p-4 rounded-4 bg-light border border-warning-subtle text-center mb-4 shadow-inner"
+            >
+              <p class="fs-5 text-dark fw-bold mb-0">
+                <i class="bi bi-person-clock text-warning me-2"></i>"{{ message
+                }}"
+              </p>
+            </div>
+
+            <div
+              class="alert alert-secondary border border-secondary-subtle rounded-3 p-3 text-muted small mb-0 bg-light"
+            >
+              <div class="d-flex gap-3">
+                <div class="text-secondary">
+                  <i class="bi bi-info-circle-fill h4 mb-0"></i>
                 </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-</div>
+                <div>
+                  <strong class="text-dark d-block mb-1"
+                    >TERMO DE RESPONSABILIDADE OPERACIONAL:</strong
+                  >
+                  Este ambiente computacional gerencia dotações, contratos da
+                  agricultura familiar (PNAE), folhas salariais de servidores e
+                  atos públicos. Em conformidade com a regulamentação de
+                  controle interno municipal, longas ausências requerem a
+                  validação de ciência do operador. Ao clicar em avançar, o
+                  utilizador declara total responsabilidade pelas consultas e
+                  modificações digitais efetuadas nesta sessão de trabalho, as
+                  quais serão indexadas de forma imutável ao seu perfil de
+                  auditoria.
+                </div>
+              </div>
+            </div>
+          </div>
 
-<main class="page-transition">
-    {% block content %}{% endblock %}
-</main>
-
-<footer class="bg-white border-top py-4 text-center mt-auto">
-    <div class="container">
-        <span class="text-muted small">© 2026 <b>Gestor 360º</b> - Inteligência em Gestão Pública</span>
+          <div
+            class="modal-footer bg-light p-4 border-top d-flex justify-content-between align-items-center"
+          >
+            <span class="text-muted small fw-medium"
+              ><i class="bi bi-fingerprint text-success me-1"></i>Acesso
+              Registrado via IP Seguro</span
+            >
+            <button
+              type="button"
+              class="btn btn-dark px-5 py-2 fw-bold rounded-3 shadow-sm hover-scale"
+              data-bs-dismiss="modal"
+            >
+              <i class="bi bi-shield-check text-warning me-2 fw-bold"></i
+              >Ciente, Validar e Avançar
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
-</footer>
+    {% endif %} {% endfor %} {% endif %} {% endwith %}
 
-<script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/scripts.js') }}"></script> 
-<script>
-    function toggleSidebar() {
-        document.body.classList.toggle('sidebar-toggled');
-    }
-    
-    document.addEventListener('DOMContentLoaded', function () {
-        // Inicializa Toasts (Mensagens rápidas do sistema)
-        var toastElList = [].slice.call(document.querySelectorAll('.toast'));
-        toastElList.map(function (toastEl) {
-            var toast = new bootstrap.Toast(toastEl, { delay: 5000 });
-            toast.show();
-            return toast;
-        });
+    <main class="page-transition">{% block content %}{% endblock %}</main>
 
-        // Resolve conflitos de padding mobile
-        if (window.innerWidth < 992) {
-            document.querySelectorAll('#sidebar .nav-link:not(.dropdown-toggle), .dropdown-item').forEach(link => {
-                link.addEventListener('click', toggleSidebar);
-            });
-        }
+    <footer class="bg-white border-top py-4 text-center mt-auto">
+      <div class="container">
+        <span class="text-muted small"
+          >© 2026 <b>Gestor 360º</b> - Inteligência em Gestão Pública</span
+        >
+      </div>
+    </footer>
 
-        // --- LÓGICA DE ALERTA POP-UP (MENSAGEM DO DIA) ---
-        // Verifica se existem mensagens flash da categoria 'info_popup' enviadas pelo servidor
-        {% with messages = get_flashed_messages(category_filter=["info_popup"]) %}
-            {% if messages %}
-                // Exibe a mensagem em um alerta (ou você pode trocar por um Modal do Bootstrap)
-                const mensagemDoDia = "{{ messages[0] | replace('\n', '\\n') | safe }}";
-                
-                // Pequeno delay para não conflitar com o carregamento da página
-                setTimeout(() => {
-                    alert("📢 COMUNICADO IMPORTANTE:\n\n" + mensagemDoDia);
-                }, 800);
-            {% endif %}
-        {% endwith %}
-    });
-</script>
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+    <script>
+      function toggleSidebar() {
+          document.body.classList.toggle('sidebar-toggled');
+      }
 
-{% block scripts %}{% endblock %}
+      document.addEventListener('DOMContentLoaded', function () {
+          // Inicializa Toasts (Mensagens rápidas do sistema)
+          var toastElList = [].slice.call(document.querySelectorAll('.toast'));
+          toastElList.map(function (toastEl) {
+              var toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+              toast.show();
+              return toast;
+          });
 
-</body>
+          // Força a exibição imediata do modal de ausência, se ele existir no HTML
+          var elementoModal = document.getElementById('modalAlertaAusencia');
+          if (elementoModal) {
+              var mInstance = new bootstrap.Modal(elementoModal);
+              mInstance.show();
+          }
+
+          // Resolve conflitos de padding mobile
+          if (window.innerWidth < 992) {
+              document.querySelectorAll('#sidebar .nav-link:not(.dropdown-toggle), .dropdown-item').forEach(link => {
+                  link.addEventListener('click', toggleSidebar);
+              });
+          }
+
+          // --- LÓGICA DE ALERTA POP-UP (MENSAGEM DO DIA) ---
+          // Verifica se existem mensagens flash da categoria 'info_popup' enviadas pelo servidor
+          {% with messages = get_flashed_messages(category_filter=["info_popup"]) %}
+              {% if messages %}
+                  // Exibe a mensagem em um alerta (ou você pode trocar por um Modal do Bootstrap)
+                  const mensagemDoDia = "{{ messages[0] | replace('\n', '\\n') | safe }}";
+
+                  // Pequeno delay para não conflitar com o carregamento da página
+                  setTimeout(() => {
+                      alert("📢 COMUNICADO IMPORTANTE:\n\n" + mensagemDoDia);
+                  }, 800);
+              {% endif %}
+          {% endwith %}
+      });
+    </script>
+
+    {% block scripts %}{% endblock %}
+  </body>
 </html>

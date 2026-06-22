@@ -596,24 +596,16 @@
     >
       <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
-          <div
-            class="modal-header bg-dark text-white py-3 border-bottom border-secondary"
-          >
-            <h5
-              class="modal-title fw-bold d-flex align-items-center gap-2"
-              id="modalAlertaAusenciaLabel"
-            >
+          <div class="modal-header bg-dark text-white py-3 border-bottom border-secondary">
+            <h5 class="modal-title fw-bold d-flex align-items-center gap-2" id="modalAlertaAusenciaLabel">
               <i class="bi bi-shield-lock-fill text-warning h4 mb-0"></i>
-              PROTOCOLO DE SEGURANÇA E AUDITORIA DE ACESSO
+              TERMO DE CIÊNCIA E RESPONSABILIDADE DE ACESSO
             </h5>
           </div>
 
           <div class="modal-body p-5 bg-white">
             <div class="text-center mb-4">
-              <div
-                class="bg-warning-subtle text-warning rounded-circle d-inline-flex align-items-center justify-content-center mb-3 animate__animated animate__bounceIn"
-                style="width: 80px; height: 80px"
-              >
+              <div class="bg-warning-subtle text-warning rounded-circle d-inline-flex align-items-center justify-content-center mb-3 animate__animated animate__bounceIn" style="width: 80px; height: 80px">
                 <i class="bi bi-exclamation-triangle-fill display-5 mb-0"></i>
               </div>
               <h3 class="fw-bold text-dark mb-1 tracking-tight">
@@ -624,54 +616,43 @@
               </p>
             </div>
 
-            <div
-              class="p-4 rounded-4 bg-light border border-warning-subtle text-center mb-4 shadow-inner"
-            >
-              <p class="fs-5 text-dark fw-bold mb-0">
-                <i class="bi bi-person-clock text-warning me-2"></i>"{{ message
-                }}"
+            <div class="p-4 rounded-4 bg-light border border-warning-subtle text-center mb-4 shadow-inner">
+              <p class="fs-6 text-dark fw-bold mb-0">
+                <i class="bi bi-person-clock text-warning me-2"></i>
+                Identificamos que este usuário permaneceu sem acessar o sistema por um período prolongado. Por motivos de segurança da informação, controle interno e auditoria, solicitamos a confirmação de ciência antes da continuidade do acesso.
               </p>
             </div>
 
-            <div
-              class="alert alert-secondary border border-secondary-subtle rounded-3 p-3 text-muted small mb-0 bg-light"
-            >
-              <div class="d-flex gap-3">
-                <div class="text-secondary">
-                  <i class="bi bi-info-circle-fill h4 mb-0"></i>
-                </div>
-                <div>
-                  <strong class="text-dark d-block mb-1"
-                    >TERMO DE RESPONSABILIDADE OPERACIONAL:</strong
-                  >
-                  Este ambiente computacional gerencia dotações, contratos da
-                  agricultura familiar (PNAE), folhas salariais de servidores e
-                  atos públicos. Em conformidade com a regulamentação de
-                  controle interno municipal, longas ausências requerem a
-                  validação de ciência do operador. Ao clicar em avançar, o
-                  utilizador declara total responsabilidade pelas consultas e
-                  modificações digitais efetuadas nesta sessão de trabalho, as
-                  quais serão indexadas de forma imutável ao seu perfil de
-                  auditoria.
-                </div>
+            <div class="alert alert-secondary border border-secondary-subtle rounded-3 p-4 text-muted small mb-0 bg-light text-start">
+              <strong class="text-dark d-block mb-3 fs-6">
+                <i class="bi bi-info-circle-fill text-secondary me-2"></i>Ciência e Responsabilidade
+              </strong>
+              <p class="mb-2">Este sistema é destinado exclusivamente às atividades institucionais da Administração Pública Municipal e poderá conter informações administrativas, funcionais, financeiras, educacionais e demais dados protegidos pela legislação vigente.</p>
+              <p class="mb-3">Todas as operações realizadas neste ambiente poderão ser registradas em mecanismos de auditoria, incluindo data, horário, usuário, endereço IP e ações executadas, para fins de rastreabilidade, segurança da informação, controle interno e conformidade legal.</p>
+              
+              <strong class="text-dark d-block mb-2">Ao prosseguir, o usuário declara estar ciente de que:</strong>
+              <ul class="mb-3 ps-3" style="line-height: 1.6;">
+                <li>O acesso é pessoal e intransferível;</li>
+                <li>As informações consultadas devem ser utilizadas exclusivamente para fins institucionais;</li>
+                <li>É vedado o compartilhamento de credenciais de acesso;</li>
+                <li>Todas as ações poderão ser auditadas pelos órgãos competentes;</li>
+                <li>O tratamento de dados pessoais observará as disposições da Lei Federal nº 13.709/2018 (LGPD), bem como demais normas aplicáveis à Administração Pública.</li>
+              </ul>
+              
+              <div class="bg-white p-2 rounded border border-secondary-subtle">
+                <strong class="text-dark d-block mb-0 text-center">
+                  Ao clicar em "Ciente, Validar e Avançar", o usuário confirma sua ciência e concordância com as condições acima.
+                </strong>
               </div>
             </div>
           </div>
 
-          <div
-            class="modal-footer bg-light p-4 border-top d-flex justify-content-between align-items-center"
-          >
-            <span class="text-muted small fw-medium"
-              ><i class="bi bi-fingerprint text-success me-1"></i>Acesso
-              Registrado via IP Seguro</span
-            >
-            <button
-              type="button"
-              class="btn btn-dark px-5 py-2 fw-bold rounded-3 shadow-sm hover-scale"
-              data-bs-dismiss="modal"
-            >
-              <i class="bi bi-shield-check text-warning me-2 fw-bold"></i
-              >Ciente, Validar e Avançar
+          <div class="modal-footer bg-light p-4 border-top d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+            <span class="text-muted small fw-medium text-center text-md-start">
+              🔒 Ambiente monitorado e protegido por mecanismos de auditoria e segurança da informação.
+            </span>
+            <button type="button" class="btn btn-dark px-5 py-2 fw-bold rounded-3 shadow-sm hover-scale w-100 w-md-auto" data-bs-dismiss="modal">
+              <i class="bi bi-shield-check text-warning me-2 fw-bold"></i>Ciente, Validar e Avançar
             </button>
           </div>
         </div>

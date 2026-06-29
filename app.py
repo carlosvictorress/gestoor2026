@@ -1335,6 +1335,27 @@ def add_manutencao(placa):
 
     return redirect(url_for("detalhes_veiculo", placa=placa))
 
+@app.route("/manutencao/<int:id>/delete")
+@login_required
+@role_required("Combustivel", "admin")
+def excluir_manutencao(id):
+
+    manutencao = Manutencao.query.get_or_404(id)
+    placa = manutencao.veiculo_placa
+
+    try:
+        db.session.delete(manutencao)
+        db.session.commit()
+
+        flash("Manutenção excluída com sucesso!", "success")
+        registrar_log(f"Excluiu manutenção do veículo {placa}")
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Erro ao excluir manutenção: {e}", "danger")
+
+    return redirect(url_for("detalhes_veiculo", placa=placa))
+
 
 @app.route("/")
 @login_required

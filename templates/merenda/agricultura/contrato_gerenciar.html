@@ -21,50 +21,50 @@
     </div>
 
     <div class="row g-3 mb-4">
-    <div class="col-md-4">
-        <div class="card shadow-sm border-0 border-start border-4 border-primary">
-            <div class="card-body py-3">
-                <small class="text-uppercase text-muted fw-bold">Valor Contratado</small>
-                <h4 class="mb-0 text-primary fw-bold">{{ contrato.valor_total | currency_br }}</h4>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4">
-        <div class="card shadow-sm border-0 border-start border-4 border-success">
-            <div class="card-body py-3">
-                <div class="d-flex justify-content-between align-items-center">
-                    <small class="text-uppercase text-muted fw-bold">Valor Executado</small>
-                    <select id="filtro_mes_executado" class="form-select form-select-sm w-auto border-0 text-muted" style="font-size: 0.7rem; cursor: pointer;">
-                        <option value="total">TOTAL</option>
-                        <option value="1">Janeiro</option>
-                        <option value="2">Fevereiro</option>
-                        <option value="3">Março</option>
-                        <option value="4">Abril</option>
-                        <option value="5">Maio</option>
-                        <option value="6">Junho</option>
-                        <option value="7">Julho</option>
-                        <option value="8">Agosto</option>
-                        <option value="9">Setembro</option>
-                        <option value="10">Outubro</option>
-                        <option value="11">Novembro</option>
-                        <option value="12">Dezembro</option>
-                    </select>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 border-start border-4 border-primary">
+                <div class="card-body py-3">
+                    <small class="text-uppercase text-muted fw-bold">Valor Contratado</small>
+                    <h4 class="mb-0 text-primary fw-bold">{{ contrato.valor_total | currency_br }}</h4>
                 </div>
-                <h4 class="mb-0 text-success fw-bold" id="display_valor_executado">{{ contrato.valor_executado | currency_br }}</h4>
             </div>
         </div>
-    </div>
 
-    <div class="col-md-4">
-        <div class="card shadow-sm border-0 border-start border-4 border-warning">
-            <div class="card-body py-3">
-                <small class="text-uppercase text-muted fw-bold">Saldo a Executar</small>
-                <h4 class="mb-0 text-warning fw-bold">{{ contrato.saldo | currency_br }}</h4>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 border-start border-4 border-success">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-uppercase text-muted fw-bold">Valor Executado</small>
+                        <select id="filtro_mes_executado" class="form-select form-select-sm w-auto border-0 text-muted" style="font-size: 0.7rem; cursor: pointer;">
+                            <option value="total">TOTAL</option>
+                            <option value="1">Janeiro</option>
+                            <option value="2">Fevereiro</option>
+                            <option value="3">Março</option>
+                            <option value="4">Abril</option>
+                            <option value="5">Maio</option>
+                            <option value="6">Junho</option>
+                            <option value="7">Julho</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Setembro</option>
+                            <option value="10">Outubro</option>
+                            <option value="11">Novembro</option>
+                            <option value="12">Dezembro</option>
+                        </select>
+                    </div>
+                    <h4 class="mb-0 text-success fw-bold" id="display_valor_executado">{{ contrato.valor_executado | currency_br }}</h4>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 border-start border-4 border-warning">
+                <div class="card-body py-3">
+                    <small class="text-uppercase text-muted fw-bold">Saldo a Executar</small>
+                    <h4 class="mb-0 text-warning fw-bold">{{ contrato.saldo | currency_br }}</h4>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-header bg-white py-3">
@@ -87,13 +87,25 @@
                     {% set saldo = item.quantidade_total - entregue %}
                     {% set percentual = (entregue / item.quantidade_total * 100) if item.quantidade_total > 0 else 0 %}
                     <tr>
-                        <td><div class="fw-bold">{{ item.nome_produto }}</div></td>
+                        <td><div class="fw-bold text-capitalize">{{ item.nome_produto | lower }}</div></td>
                         <td class="text-center fw-bold">{{ item.quantidade_total }}</td>
-                        <td class="text-center text-success fw-bold">{{ entregue }}</td>
-                        <td class="text-center {{ 'text-danger fw-bold' if saldo <= 0 else 'text-primary' }}">{{ saldo }}</td>
+                        <td class="text-center text-success fw-bold decimal-format">{{ entregue }}</td>
+                        <td class="text-center">
+                            {% if saldo < 0 %}
+                                <button type="button" 
+                                        class="btn btn-sm btn-danger py-0 px-2 rounded-pill fw-bold shadow-sm animate-pulse" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#modalRegularizar{{ item.id }}" 
+                                        title="Clique para regularizar o saldo negativo">
+                                    <span class="decimal-format">{{ saldo }}</span> <i class="bi bi-patch-exclamation-fill ms-1"></i>
+                                </button>
+                            {% else %}
+                                <span class="text-primary fw-bold decimal-format">{{ saldo }}</span>
+                            {% endif %}
+                        </td>
                         <td class="text-center" style="width: 200px;">
                             <div class="progress" style="height: 10px;">
-                                <div class="progress-bar {{ 'bg-success' if percentual >= 100 else 'bg-info' }}" style="width: {{ percentual }}%"></div>
+                                <div class="progress-bar {{ 'bg-danger' if saldo < 0 else ('bg-success' if percentual >= 100 else 'bg-info') }}" style="width: {{ 100 if percentual > 100 else percentual }}%"></div>
                             </div>
                         </td>
                     </tr>
@@ -109,7 +121,6 @@
         </div>
         <div class="card-body p-0">
             <div class="accordion accordion-flush" id="accordionEntregas">
-                {# Agrupamento automático por mês via Jinja2 #}
                 {% for mes_num, entregas_mes in contrato.entregas|groupby('data_entrega.month')|reverse %}
                 <div class="accordion-item">
                     <h2 class="accordion-header" id="heading{{ mes_num }}">
@@ -167,7 +178,7 @@
     </div>
 </div>
 
-{# ÁREA DE MODAIS (Fora do acordeão para evitar conflitos visuais) #}
+{# ÁREA DE MODAIS DE AÇÕES EXISTENTES #}
 {% for entrega in contrato.entregas %}
 <div class="modal fade" id="modalExcluir{{ entrega.id }}" tabindex="-1">
     <div class="modal-dialog">
@@ -177,7 +188,7 @@
                 <div class="modal-body">
                     <p class="small text-muted">Excluindo entrega de <strong>{{ entrega.data_entrega.strftime('%d/%m/%Y') }}</strong></p>
                     <label>Justificativa:*</label>
-                    <textarea name="justificativa" class="form-control" rows="3" required placeholder="Descreva o motivo da exclusão..."></textarea>
+                    <textarea name="justificativa" class="form-control" rows="3" required placeholder="Descreva o motivo da exclusion..."></textarea>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -244,29 +255,103 @@
         </form>
     </div>
 </div>
+
+{# NOVO MODAL TEMPORÁRIO DE REGULARIZAÇÃO (SEGURANÇA SEM BACKEND ATIVO) #}
+{% for item in contrato.itens %}
+{% set entregue = entregue_por_produto.get(item.nome_produto, 0.0) %}
+{% set saldo = item.quantidade_total - entregue %}
+{% if saldo < 0 %}
+<div class="modal fade" id="modalRegularizar{{ item.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="form-regularizacao-fake">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-dark text-white border-0">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-sliders me-2"></i>Regularizar Saldo: {{ item.nome_produto }}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="alert alert-warning border-0 bg-warning-subtle text-warning-emphasis d-flex align-items-center mb-4" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+                        <div>
+                            O produto possui um estouro de <strong>{{ (saldo | abs) | round(2) }}</strong> unidades em relação ao original.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary">Tipo de Ajuste</label>
+                        <select class="form-select border-2" required>
+                            <option value="ADITIVO" selected>Termo Aditivo (Aumentar Qtd. Contratada)</option>
+                            <option value="REMANEJAMENTO">Remanejamento (Mover saldo de outro item)</option>
+                        </select>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-secondary">Qtd. a Ajustar*</label>
+                            <input type="number" step="0.01" class="form-control border-2" value="{{ (saldo | abs) | round(2) }}" min="0.01" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-secondary">Doc. de Referência</label>
+                            <input type="text" class="form-control border-2" placeholder="Ex: Aditivo 01/2026" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-0">
+                        <label class="form-label fw-bold text-secondary">Justificativa Legal*</label>
+                        <textarea class="form-control border-2" rows="3" required placeholder="Digite os motivos técnicos ou legais..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 bg-light p-3">
+                    <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Voltar</button>
+                    <button type="submit" class="btn btn-primary px-4 shadow-sm fw-bold">Confirmar Ajuste</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
 <script>
-    // Aguarda a interação com o seletor de meses
+    // 1. Script Original para o seletor de meses executados
     document.getElementById('filtro_mes_executado').addEventListener('change', function() {
         const mes = this.value;
         const contratoId = "{{ contrato.id }}";
-        
-        // Exibe um efeito de carregamento simples (opcional)
         document.getElementById('display_valor_executado').innerText = "...";
 
-        // Faz a chamada para a API no backend Python
         fetch(`/merenda/agricultura/contrato/${contratoId}/valor_mensal?mes=${mes}`)
             .then(response => {
                 if (!response.ok) throw new Error('Erro na rede');
                 return response.json();
             })
             .then(data => {
-                // Atualiza o valor no card de Valor Executado
                 document.getElementById('display_valor_executado').innerText = data.valor;
             })
             .catch(error => {
                 console.error('Erro ao buscar valor mensal:', error);
                 alert('Erro ao carregar o valor. Tente novamente.');
             });
+    });
+
+    // 2. Correção de precisão de dízimas flutuantes (JavaScript puro no Client-side)
+    document.querySelectorAll('.decimal-format').forEach(el => {
+        const val = parseFloat(el.innerText);
+        if (!isNaN(val) && el.innerText.includes('.')) {
+            // Arredonda para no máximo 2 casas decimais apenas se houver dízima extensa
+            el.innerText = Number(val.toFixed(2)).toString();
+        }
+    });
+
+    // 3. Interceptador de segurança para os modais fake de regularização
+    document.querySelectorAll('.form-regularizacao-fake').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            alert('Interface de simulação: O fluxo visual está perfeito! Para que a alteração salve de fato no banco de dados, precisaremos mapear este endpoint no arquivo de rotas Python em breve.');
+            // Fecha o modal aberto de forma limpa via Bootstrap instance
+            const modalEl = this.closest('.modal');
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) modalInstance.hide();
+        });
     });
 </script>
 {% endblock %}

@@ -1347,6 +1347,56 @@ def pdf_contrato_pnae(contrato_id):
     
     return response
 
+
+@merenda_bp.route('/agricultura/item/<int:item_id>/regularizar', methods=['POST'])
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def regularizar_saldo_item(item_id):
+    # 1. Busca o item específico do projeto de venda ligado ao contrato
+    item_contrato = ItemProjetoVenda.query.get_or_404(item_id)
+    
+    try:
+        # 2. Captura os dados vindos do modal de regularização
+        tipo_ajuste = request.form.get('tipo_ajuste')
+        quantidade_ajuste = float(request.form.get('quantidade_ajuste', '0').replace(',', '.'))
+        documento_ref = request.form.get('documento_ref')
+        justificativa = request.form.get('justificativa')
+
+        if quantidade_ajuste <= 0:
+            flash('A quantidade de ajuste deve ser maior que zero.', 'danger')
+            return redirect(url_for('merenda.gerenciar_contrato_pnae', contrato_id=item_contrato.contrato_id))
+
+        # 3. Executa a regra de negócio baseada no tipo de ajuste escolhido
+        if tipo_ajuste == 'ADITIVO':
+            # Soma a quantidade aditivada diretamente no saldo contratado do item
+            item_contrato.quantidade_total += quantidade_ajuste
+            
+            # Atualiza proporcionalmente o valor total estimado do contrato pai
+            valor_adicionado = quantidade_ajuste * item_contrato.preco_unitario
+            item_contrato.contrato.valor_total += valor_adicionado
+            
+            msg_sucesso = f'Saldo de "{item_contrato.nome_produto}" aditivado em {quantidade_ajuste} unidades com sucesso!'
+        
+        elif tipo_ajuste == 'REMANEJAMENTO':
+            # Se futuramente desejar automatizar a retirada de um item para outro, a lógica entra aqui.
+            # Por enquanto, pode apenas reajustar a meta superior do item alvo
+            item_contrato.quantidade_total += quantidade_ajuste
+            msg_sucesso = f'Saldo de "{item_contrato.nome_produto}" remanejado e regularizado com sucesso!'
+
+        # 4. Grava a ação no log de auditoria do sistema
+        registrar_log(f"Regularizou saldo do item ID {item_id} ({item_contrato.nome_produto}). Tipo: {tipo_ajuste}. Qtd: {quantidade_ajuste}. Ref: {documento_ref}. Justificativa: {justificativa}")
+        
+        # 5. Salva tudo de forma definitiva no banco de dados
+        db.session.commit()
+        flash(msg_sucesso, 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao processar regularização de saldo: {str(e)}', 'danger')
+        
+    # 6. Redireciona o usuário de volta para a tela de gerenciamento de saldos
+    return redirect(url_for('merenda.gerenciar_contrato_pnae', contrato_id=item_contrato.contrato_id))
+
 @merenda_bp.route('/agricultura/entrega/<int:entrega_id>/termo-pdf')
 @login_required
 @role_required('Merenda Escolar', 'admin')

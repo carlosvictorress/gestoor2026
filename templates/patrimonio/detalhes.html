@@ -176,6 +176,45 @@
                     {% endif %}
                 </div>
             </div>
+
+            <!-- NOVO CARD: Histórico de Baixa (Aparece apenas se estiver baixado) -->
+            {% if item.status == 'Baixado' %}
+            <div class="card detail-card shadow-sm mt-4 border border-danger border-opacity-25 no-print">
+                <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0 text-danger"><i class="bi bi-arrow-down-circle-fill me-2"></i> Registro de Baixa Patrimonial</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="timeline">
+                        <!-- Estiliza a linha da timeline de azul para vermelho -->
+                        <style>.timeline-baixa::before { background: #dc3545 !important; border-color: #fff !important; }</style>
+                        
+                        <div class="timeline-item timeline-baixa mb-0 pb-2" style="border-left-color: #dc3545;">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <span class="fw-bold text-dark">Ação de Baixa Concluída</span>
+                                    <small class="text-muted d-block">Item inativo no inventário</small>
+                                </div>
+                                <a href="{{ url_for('patrimonio.termo_baixa', item_id=item.id) }}" 
+                                   target="_blank" class="btn btn-sm btn-outline-danger btn-rounded no-print">
+                                    <i class="bi bi-printer me-1"></i> Imprimir Termo
+                                </a>
+                            </div>
+                            
+                            <div class="row g-2 p-3 rounded-3 mt-2" style="background-color: #fff5f5; border: 1px solid #f8d7da;">
+                                <div class="col-12">
+                                    <small class="info-label d-block mb-1 text-danger">Detalhes e Justificativa</small>
+                                    <p class="mb-0 small text-dark">
+                                        {{ item.observacoes }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            <!-- FIM DO CARD DE BAIXA -->
+
         </div>
 
         <div class="col-lg-4">

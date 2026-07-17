@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <title>Termo de Baixa - {{ item.numero_patrimonio }}</title>
     <style>
-        /* Reset básico e tipografia limpa */
+        /* Reset básico */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Inter', -apple-system, sans-serif;
             background-color: #f4f5f7;
             color: #111827;
             line-height: 1.5;
         }
 
-        /* Formatação exclusiva para a folha A4 */
+        /* Formatação da folha A4 */
         .a4-page {
             width: 21cm;
             min-height: 29.7cm;
@@ -24,30 +24,53 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.05);
         }
 
-        /* Esconde botões e formatações na hora de gerar o PDF/Imprimir */
+        /* Esconde botões na impressão */
         @media print {
             body { background: white; }
             .a4-page { margin: 0; padding: 1.5cm; box-shadow: none; border-radius: 0; }
             .no-print { display: none !important; }
         }
 
-        h1 { font-size: 18px; text-transform: uppercase; text-align: center; margin-bottom: 30px; letter-spacing: 1px; }
-        .section-title { font-size: 14px; color: #6b7280; text-transform: uppercase; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; margin: 25px 0 15px; }
-        
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
-        .info-box { background: #f9fafb; padding: 12px; border-radius: 6px; border: 1px solid #f3f4f6; }
-        .info-box strong { display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px; text-transform: uppercase; }
-        .info-box span { font-size: 14px; font-weight: 500; }
+        /* --- TIMBRE OFICIAL --- */
+        .timbre-header {
+            position: relative;
+            text-align: center;
+            font-family: 'Times New Roman', Times, serif;
+            margin-bottom: 40px;
+        }
+        .timbre-logo {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 75px; 
+        }
+        .timbre-titulo { font-size: 15px; font-weight: bold; margin-bottom: 2px; }
+        .timbre-subtitulo { font-size: 14px; font-weight: bold; margin-bottom: 5px; }
+        .timbre-linhas { margin: 5px auto; width: 60%; }
+        .linha-verde { border-top: 2px solid #008000; margin-bottom: 2px; }
+        .linha-amarela { border-top: 2px solid #FFD700; }
+        .timbre-info { font-size: 9px; line-height: 1.3; margin-top: 5px; }
+        .timbre-estado { margin-top: 20px; font-size: 14px; font-weight: bold; line-height: 1.3; }
+        .documento-titulo {
+            margin-top: 35px;
+            font-size: 16px;
+            font-weight: bold;
+            text-decoration: underline;
+            text-transform: uppercase;
+        }
 
-        .motivo-box { background: #fdf2f8; border: 1px solid #fbcfe8; padding: 15px; border-radius: 6px; margin-bottom: 30px; }
-        .motivo-box strong { color: #9d174d; display: block; margin-bottom: 5px; }
+        /* --- CORPO DO DOCUMENTO --- */
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; margin-top: 25px; }
+        .info-box { border: 1px solid #e5e7eb; padding: 12px; }
+        .info-box strong { display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px; text-transform: uppercase; }
+        .info-box span { font-size: 13px; font-weight: 600; }
 
-        .declaracao { font-size: 14px; text-align: justify; margin-bottom: 50px; color: #4b5563; }
+        .texto-corrido { font-size: 14px; text-align: justify; margin-bottom: 20px; color: #374151; line-height: 1.6; }
 
-        .assinaturas { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 60px; }
+        .assinaturas { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 80px; }
         .assinatura-linha { border-top: 1px solid #111827; text-align: center; padding-top: 8px; }
-        .assinatura-linha strong { display: block; font-size: 14px; }
-        .assinatura-linha span { font-size: 12px; color: #6b7280; }
+        .assinatura-linha strong { display: block; font-size: 13px; }
+        .assinatura-linha span { font-size: 11px; color: #6b7280; }
 
         .btn-imprimir {
             display: block; width: 200px; margin: 20px auto; padding: 10px 20px;
@@ -58,42 +81,66 @@
 </head>
 <body>
 
-    <!-- Botão que some na impressão -->
     <button onclick="window.print()" class="no-print btn-imprimir">🖨️ Imprimir / Gerar PDF</button>
 
     <div class="a4-page">
-        <h1>Termo de Recolhimento e Baixa</h1>
+        
+        <!-- Cabeçalho Institucional (Timbre) -->
+        <div class="timbre-header">
+            <!-- Coloque o caminho correto da logo/brasão de Valença do Piauí aqui -->
+            <img src="{{ url_for('static', filename='img/logo.png') }}" class="timbre-logo" alt="Brasão do Município">
+            
+            <div class="timbre-titulo">MUNICÍPIO DE VALENÇA DO PIAUÍ</div>
+            <div class="timbre-subtitulo">SECRETARIA MUNICIPAL DE EDUCAÇÃO</div>
+            
+            <div class="timbre-linhas">
+                <div class="linha-verde"></div>
+                <div class="linha-amarela"></div>
+            </div>
+            
+            <div class="timbre-info">
+                Rua Epaminondas Nogueira, nº 1425 - Centro - Valença do Piauí<br>
+                CNPJ: 06.095.146/0001-44 - Fone (89) 3465 - 2276<br>
+                e-mail: seme.valenca@yahoo.com.br
+            </div>
+            
+            <div class="timbre-estado">
+                ESTADO DO PIAUÍ<br>
+                PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ
+            </div>
+            
+            <div class="documento-titulo">TERMO DE RECOLHIMENTO E BAIXA</div>
+        </div>
 
-        <h2 class="section-title">Dados do Bem Patrimonial</h2>
+        <!-- Dados do Bem em Tabela Simples (Igual Transferência) -->
         <div class="info-grid">
-            <div class="info-box"><strong>Tombamento</strong><span>{{ item.numero_patrimonio or 'S/N' }}</span></div>
-            <div class="info-box"><strong>Descrição</strong><span>{{ item.descricao }}</span></div>
-            <div class="info-box"><strong>Marca / Modelo</strong><span>{{ item.marca or '--' }} / {{ item.modelo or '--' }}</span></div>
-            <div class="info-box"><strong>Data da Baixa</strong><span>{{ item.data_cadastro.strftime('%d/%m/%Y') }}</span></div>
+            <div class="info-box"><strong>Nº Patrimônio:</strong><span>{{ item.numero_patrimonio or '000000' }}</span></div>
+            <div class="info-box"><strong>Data da Baixa:</strong><span>{{ item.data_cadastro.strftime('%d/%m/%Y') }}</span></div>
+            <div class="info-box"><strong>Descrição do Bem:</strong><span>{{ item.descricao }}</span></div>
+            <div class="info-box"><strong>Marca / Modelo:</strong><span>{{ item.marca or '--' }} / {{ item.modelo or '--' }}</span></div>
         </div>
 
-        <h2 class="section-title">Motivo da Baixa</h2>
-        <div class="motivo-box">
-            <strong>Justificativa Técnica:</strong>
-            <span>{{ item.observacoes or 'Nenhuma observação registrada.' }}</span>
-        </div>
-
-        <h2 class="section-title">Termo de Declaração</h2>
-        <p class="declaracao">
-            Declaramos para os devidos fins legais e administrativos que o bem patrimonial acima especificado foi devidamente inspecionado, recolhido e baixado do inventário ativo nesta data. O servidor responsável pela devolução encontra-se isento de responsabilidades futuras sobre a guarda e conservação do referido item.
+        <!-- Termo em Texto Corrido -->
+        <p class="texto-corrido">
+            Pelo presente Termo de Recolhimento e Baixa, certificamos que o bem patrimonial acima descrito foi devidamente inspecionado e <strong>BAIXADO</strong> do inventário ativo nesta data. O servidor responsável pela devolução encontra-se isento de responsabilidades futuras sobre a guarda e conservação do referido item.
         </p>
 
+        <p class="texto-corrido">
+            <strong>Justificativa Técnica:</strong> {{ item.observacoes or 'Baixa registrada sem justificativa complementar.' }}
+        </p>
+
+        <!-- Assinaturas -->
         <div class="assinaturas">
             <div class="assinatura-linha">
                 <strong>{{ item.responsavel.nome if item.responsavel else 'Servidor Não Identificado' }}</strong>
-                <span>Servidor(a) Entregador(a)<br>CPF: {{ item.servidor_responsavel_cpf or '--' }}</span>
+                <span>Enviado por / Setor de Origem</span>
             </div>
             <div class="assinatura-linha">
                 <strong>{{ usuario_logado.nome if usuario_logado else 'Gestor do Sistema' }}</strong>
-                <span>Recebedor / Setor de Patrimônio</span>
+                <span>Recebedor / Autorizador da Baixa</span>
             </div>
         </div>
-    </div>
 
+    </div>
 </body>
 </html>

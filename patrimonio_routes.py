@@ -17,6 +17,8 @@ from reportlab.pdfgen import canvas as canvas_lib
 from reportlab.lib.utils import ImageReader
 from utils import upload_arquivo_para_nuvem
 
+from flask_login import current_user
+
 patrimonio_bp = Blueprint('patrimonio', __name__, url_prefix='/patrimonio')
 
 @patrimonio_bp.route('/')
@@ -221,6 +223,17 @@ def transferir_item(item_id):
         
     return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
 
+@patrimonio_bp.route('/item/<int:item_id>/termo-baixa')
+@login_required
+@role_required('admin', 'RH', 'Fiscal')
+def termo_baixa(item_id):
+    item = Patrimonio.query.get_or_404(item_id)
+    
+    # Opcional: Você pode pegar a última movimentação para saber mais detalhes
+    # movimentacao = MovimentacaoPatrimonio.query.filter_by(patrimonio_id=item.id).order_by(MovimentacaoPatrimonio.id.desc()).first()
+    
+    return render_template('patrimonio/termo_baixa.html', item=item, usuario_logado=current_user)
+
 @patrimonio_bp.route('/termos_responsabilidade')
 @login_required
 @role_required('Patrimonio', 'admin')
@@ -323,33 +336,47 @@ def imprimir_termo_transferencia(mov_id):
 @role_required('admin', 'Patrimonio')
 def dar_baixa_item(item_id):
     item = Patrimonio.query.get_or_404(item_id)
-    justificativa = request.form.get('justificativa')
     
-    if not justificativa:
+    # 1. Pega os dados enviados pelo novo modal
+    motivo_baixa = request.form.get('motivo_baixa')
+    recebedor = request.form.get('recebedor', 'Não informado')
+    imprimir_termo = request.form.get('imprimir_termo')
+    
+    if not motivo_baixa:
         flash("A justificativa é obrigatória para dar baixa.", "warning")
         return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
     
     try:
+        # 2. Atualiza o status do bem
         item.status = "Baixado"
-        item.situacao_uso = "Inservível"
+        item.situacao_uso = "Inservível / Baixado"
         
+        # 3. Formata a observação preservando o histórico anterior
         data_atual = datetime.now().strftime('%d/%m/%Y')
-        nova_obs = f"BAIXA REALIZADA EM {data_atual}: {justificativa}"
+        texto_baixa = f"BAIXA REALIZADA EM {data_atual} - Motivo: {motivo_baixa} | Recebedor: {recebedor}"
         
         if item.observacoes:
-            item.observacoes = f"{item.observacoes} | {nova_obs}"
+            item.observacoes = f"{item.observacoes}\n\n{texto_baixa}"
         else:
-            item.observacoes = nova_obs
+            item.observacoes = texto_baixa
         
         db.session.commit()
-        registrar_log(f"Baixa efetuada - Item: {item.descricao} (Pat: {item.numero_patrimonio or 'S/N'}) - Motivo: {justificativa}")
+        registrar_log(f"Baixa efetuada - Item: {item.descricao} (Pat: {item.numero_patrimonio or 'S/N'}) - Recebedor: {recebedor}")
         
         flash("Baixa do patrimônio realizada com sucesso!", "success")
+        
+        # 4. Lógica de Redirecionamento
+        if imprimir_termo == 'sim':
+            # Vai direto para a tela de geração do PDF
+            return redirect(url_for('patrimonio.termo_baixa', item_id=item.id))
+        else:
+            # Volta para a tela de detalhes
+            return redirect(url_for('patrimonio.detalhes_item', item_id=item.id))
+            
     except Exception as e:
         db.session.rollback()
         flash(f"Erro ao processar a baixa: {str(e)}", "danger")
-        
-    return redirect(url_for('patrimonio.listar_itens'))
+        return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
 
 @patrimonio_bp.route('/item/excluir/<int:item_id>', methods=['POST'])
 @login_required

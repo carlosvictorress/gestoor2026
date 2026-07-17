@@ -258,24 +258,50 @@
   </div>
 </div>
 
+<!-- Modal de Baixa Reconstruído -->
 <div class="modal fade no-print" id="baixaModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow">
+            <!-- Certifique-se de que a rota baixar_item está correspondendo à função Python -->
             <form action="{{ url_for('patrimonio.dar_baixa_item', item_id=item.id) }}" method="POST">
                 <div class="modal-header border-0 pt-4 px-4">
                     <h5 class="modal-title fw-bold">Dar Baixa no Patrimônio</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <p class="text-muted">O item passará para o status <strong>Baixado</strong>. Esta ação é irreversível no controle de inventário ativo.</p>
+                    <div class="alert alert-warning d-flex align-items-center mb-4" role="alert" style="border-radius: 12px; border: none; background-color: #fff3cd; color: #856404;">
+                        <i class="bi bi-exclamation-triangle-fill me-3 fs-4"></i>
+                        <div class="small">O item passará para o status <strong>Baixado</strong>. Esta ação é irreversível no controle de inventário ativo.</div>
+                    </div>
+                    
+                    <div class="bg-light p-3 rounded-3 border mb-4">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <small class="info-label d-block mb-1">Servidor que Devolve</small>
+                                <div class="fw-medium text-dark small">{{ item.responsavel.nome if item.responsavel else 'Sem responsável vinculado' }}</div>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="info-label d-block mb-1">Recebedor (Autorizador)</small>
+                                <input type="text" name="recebedor" value="{{ current_user.nome }}" required class="form-control form-control-sm">
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label fw-bold">Justificativa da Baixa*</label>
-                        <textarea class="form-control" name="justificativa" required rows="3" placeholder="Ex: Item inservível, doação conforme decreto..."></textarea>
+                        <textarea class="form-control" name="motivo_baixa" required rows="3" placeholder="Ex: Item inservível, doação conforme decreto..."></textarea>
+                    </div>
+                    
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" value="sim" id="imprimir_termo" name="imprimir_termo" checked>
+                        <label class="form-check-label text-muted small" for="imprimir_termo">
+                            Gerar e imprimir Termo de Baixa automaticamente
+                        </label>
                     </div>
                 </div>
                 <div class="modal-footer border-0 pb-4 px-4">
                     <button type="button" class="btn btn-light btn-rounded px-4" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-warning btn-rounded px-4">Confirmar Baixa</button>
+                    <button type="submit" class="btn btn-warning btn-rounded px-4 text-dark fw-bold shadow-sm">Confirmar Baixa</button>
                 </div>
             </form>
         </div>

@@ -2,242 +2,397 @@
 
 {% block title %}Editar Servidor{% endblock %}
 
-{% block content %}
-<h2>Editar Servidor: {{ servidor.nome }}</h2>
+{% block head_extra %}
+{{ super() }}
+<style>
+    /* CSS Padrão Corporativo / Governamental (ERP) */
+    .card-gov {
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        background-color: #fff;
+    }
+    .header-gov {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #ced4da;
+        padding: 0.75rem 1.25rem;
+        font-weight: 600;
+        color: #495057;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        letter-spacing: 0.05rem;
+    }
+    
+    /* Elementos de Interface */
+    .btn-gov {
+        border-radius: 3px;
+        font-weight: 500;
+        font-size: 0.85rem;
+        padding: 0.4rem 1rem;
+        text-transform: uppercase;
+        letter-spacing: 0.02rem;
+    }
+    
+    /* Campos de Formulário Compactos */
+    .form-control-gov, .form-select-gov {
+        font-size: 0.85rem;
+        border-radius: 3px;
+        border: 1px solid #ced4da;
+        padding: 0.35rem 0.75rem;
+        color: #333;
+        background-color: #fff;
+    }
+    .form-control-gov:focus, .form-select-gov:focus {
+        border-color: #072657;
+        box-shadow: 0 0 0 0.2rem rgba(7, 38, 87, 0.15);
+    }
+    .form-control-gov:read-only {
+        background-color: #f8f9fa;
+        color: #6c757d;
+        border-color: #dee2e6;
+    }
 
-<div class="alert alert-info shadow-sm">
-    <strong>Painel de Depuração (Debug):</strong><br>
-    <i class="bi bi-fingerprint"></i> ID Físico (Banco): <strong>{{ servidor.id }}</strong><br>
-    <i class="bi bi-link-45deg"></i> URL de Destino do Form: <code>/editar/{{ servidor.id }}</code>
+    /* Painel de Debug */
+    .debug-panel {
+        background-color: #e3f2fd;
+        border: 1px solid #b6effb;
+        border-radius: 4px;
+        color: #055160;
+    }
+
+    /* Lista de Documentos */
+    .doc-list-item {
+        border-bottom: 1px solid #e9ecef;
+        padding: 0.75rem 1.25rem;
+        transition: background-color 0.2s;
+    }
+    .doc-list-item:last-child {
+        border-bottom: none;
+    }
+    .doc-list-item:hover {
+        background-color: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Título e Ações Globais -->
+<div class="d-flex justify-content-between align-items-center mb-3 mt-2">
+    <h3 class="mb-0 text-dark fw-bold text-uppercase" style="font-size: 1.3rem;">
+        <i class="bi bi-person-lines-fill text-primary me-2" style="color: #072657 !important;"></i> Editar Servidor: <span class="text-secondary">{{ servidor.nome }}</span>
+    </h3>
+    <a href="{{ url_for('lista_servidores') }}" class="btn btn-outline-secondary btn-gov shadow-sm">
+        <i class="bi bi-arrow-left me-1"></i> Voltar à Lista
+    </a>
 </div>
 
-<hr>
+<!-- Painel de Depuração (Debug) -->
+<div class="debug-panel p-3 mb-4 shadow-sm">
+    <h6 class="fw-bold mb-2" style="font-size: 0.85rem;"><i class="bi bi-bug-fill me-1"></i> Painel de Depuração (Debug):</h6>
+    <div class="ms-3" style="font-size: 0.8rem; font-family: monospace;">
+        <div><i class="bi bi-fingerprint me-1 text-secondary"></i> ID Físico (Banco): <strong>{{ servidor.id }}</strong></div>
+        <div><i class="bi bi-link-45deg me-1 text-secondary"></i> URL de Destino do Form: <code>/editar/{{ servidor.id }}</code></div>
+    </div>
+</div>
 
+<!-- Formulário Principal -->
 <form action="/editar/{{ servidor.num_contrato }}" method="POST" enctype="multipart/form-data">
     
-    <h5 class="mb-3 text-muted">Dados Pessoais</h5>
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <label for="nome" class="form-label">Nome Completo*</label>
-            <input type="text" class="form-control" id="nome" name="nome" value="{{ servidor.nome }}" required>
+    <!-- 1. DADOS PESSOAIS -->
+    <div class="card card-gov mb-4">
+        <div class="header-gov text-dark">
+            <i class="bi bi-person-badge-fill me-2 text-primary" style="color: #072657 !important;"></i> Dados Pessoais
         </div>
-        <div class="col-md-3">
-            <label for="cpf" class="form-label">CPF</label>
-            <input type="text" class="form-control" id="cpf" name="cpf" value="{{ servidor.cpf or '' }}">
-        </div>
-        <div class="col-md-3">
-            <label for="rg" class="form-label">RG</label>
-            <input type="text" class="form-control" id="rg" name="rg" value="{{ servidor.rg or '' }}">
-        </div>
-    </div>
-    
-    <div class="row mb-3">
-        <div class="col-md-3">
-            <label for="data_nascimento" class="form-label">Data de Nascimento</label>
-            <input type="date" class="form-control" id="data_nascimento" name="data_nascimento" value="{{ servidor.data_nascimento.strftime('%Y-%m-%d') if servidor.data_nascimento else '' }}">
-        </div>
-        <div class="col-md-6">
-            <label for="nome_mae" class="form-label">Nome da Mãe</label>
-            <input type="text" class="form-control" id="nome_mae" name="nome_mae" value="{{ servidor.nome_mae or '' }}">
-        </div>
-         <div class="col-md-3">
-            <label for="pis_pasep" class="form-label">PIS/PASEP</label>
-            <input type="text" class="form-control" id="pis_pasep" name="pis_pasep" value="{{ servidor.pis_pasep or '' }}">
+        <div class="card-body p-4 bg-light">
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label for="nome" class="form-label text-muted small fw-bold mb-1">Nome Completo*</label>
+                    <input type="text" class="form-control form-control-gov text-uppercase fw-bold" id="nome" name="nome" value="{{ servidor.nome }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label for="cpf" class="form-label text-muted small fw-bold mb-1">CPF</label>
+                    <input type="text" class="form-control form-control-gov" id="cpf" name="cpf" value="{{ servidor.cpf or '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="rg" class="form-label text-muted small fw-bold mb-1">RG</label>
+                    <input type="text" class="form-control form-control-gov" id="rg" name="rg" value="{{ servidor.rg or '' }}">
+                </div>
+            </div>
+            
+            <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                    <label for="data_nascimento" class="form-label text-muted small fw-bold mb-1">Data de Nascimento</label>
+                    <input type="date" class="form-control form-control-gov" id="data_nascimento" name="data_nascimento" value="{{ servidor.data_nascimento.strftime('%Y-%m-%d') if servidor.data_nascimento else '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label for="nome_mae" class="form-label text-muted small fw-bold mb-1">Nome da Mãe</label>
+                    <input type="text" class="form-control form-control-gov text-uppercase" id="nome_mae" name="nome_mae" value="{{ servidor.nome_mae or '' }}">
+                </div>
+                 <div class="col-md-3">
+                    <label for="pis_pasep" class="form-label text-muted small fw-bold mb-1">PIS/PASEP</label>
+                    <input type="text" class="form-control form-control-gov" id="pis_pasep" name="pis_pasep" value="{{ servidor.pis_pasep or '' }}">
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                    <label for="nacionalidade" class="form-label text-muted small fw-bold mb-1">Nacionalidade</label>
+                    <input type="text" class="form-control form-control-gov text-uppercase" id="nacionalidade" name="nacionalidade" value="{{ servidor.nacionalidade or 'brasileira' }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="estado_civil" class="form-label text-muted small fw-bold mb-1">Estado Civil</label>
+                    <input type="text" class="form-control form-control-gov text-uppercase" id="estado_civil" name="estado_civil" value="{{ servidor.estado_civil or 'solteiro(a)' }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="telefone" class="form-label text-muted small fw-bold mb-1">Telefone</label>
+                    <input type="text" class="form-control form-control-gov" id="telefone" name="telefone" value="{{ servidor.telefone or '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="email" class="form-label text-muted small fw-bold mb-1">E-mail</label>
+                    <input type="email" class="form-control form-control-gov text-lowercase" id="email" name="email" value="{{ servidor.email or '' }}">
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-12">
+                    <label for="endereco" class="form-label text-muted small fw-bold mb-1">Endereço Completo (Residencial)</label>
+                    <input type="text" class="form-control form-control-gov text-uppercase" id="endereco" name="endereco" value="{{ servidor.endereco or '' }}">
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="row mb-3">
-        <div class="col-md-3"><label for="nacionalidade" class="form-label">Nacionalidade</label><input type="text" class="form-control" id="nacionalidade" name="nacionalidade" value="{{ servidor.nacionalidade or 'brasileira' }}"></div>
-        <div class="col-md-3"><label for="estado_civil" class="form-label">Estado Civil</label><input type="text" class="form-control" id="estado_civil" name="estado_civil" value="{{ servidor.estado_civil or 'solteiro(a)' }}"></div>
-        <div class="col-md-3"><label for="telefone" class="form-label">Telefone</label><input type="text" class="form-control" id="telefone" name="telefone" value="{{ servidor.telefone or '' }}"></div>
-        <div class="col-md-3"><label for="email" class="form-label">E-mail</label><input type="email" class="form-control" id="email" name="email" value="{{ servidor.email or '' }}"></div>
+    <!-- 2. DADOS PROFISSIONAIS E VÍNCULO -->
+    <div class="card card-gov mb-4">
+        <div class="header-gov text-dark">
+            <i class="bi bi-briefcase-fill me-2 text-primary" style="color: #072657 !important;"></i> Dados Profissionais e Vínculo
+        </div>
+        <div class="card-body p-4 bg-light">
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <label for="funcao" class="form-label text-muted small fw-bold mb-1">Função/Cargo</label>
+                    <input type="text" class="form-control form-control-gov text-uppercase" id="funcao" name="funcao" value="{{ servidor.funcao or '' }}">
+                </div>
+                <div class="col-md-4">
+                    <label for="secretaria_id" class="form-label text-muted small fw-bold mb-1">Secretaria Vinculada</label>
+                    <select name="secretaria_id" id="secretaria_id" class="form-select form-select-gov text-uppercase" required>
+                        <option value="" disabled>-- Selecione a secretaria --</option>
+                        {% for sec in secretarias %}
+                            <option value="{{ sec.id }}" {% if servidor.secretaria_id == sec.id %}selected{% endif %}>
+                                {{ sec.nome }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="num_contrato" class="form-label text-muted small fw-bold mb-1">Nº da Matrícula/Vínculo*</label>
+                    <input type="text" class="form-control form-control-gov" id="num_contrato" name="num_contrato" value="{{ servidor.num_contrato or '' }}" readonly>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label for="local_trabalho" class="form-label text-muted small fw-bold mb-1">Local de Trabalho Específico</label>
+                    <input type="text" class="form-control form-control-gov text-uppercase" id="local_trabalho" name="local_trabalho" value="{{ servidor.local_trabalho or '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label text-muted small fw-bold mb-1">Vincular a uma Escola Específica (Ponto Eletrônico)</label>
+                    <select class="form-select form-select-gov text-uppercase" name="escola_id_vinculo">
+                        <option value="">-- Sem vínculo fixo (Pode bater em qualquer escola) --</option>
+                        {% for escola in escolas %}
+                            <option value="{{ escola.id }}" {% if servidor.escola_id == escola.id %}selected{% endif %}>
+                                {{ escola.nome }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="tipo_vinculo" class="form-label text-muted small fw-bold mb-1">Vínculo do Servidor</label>
+                    <select class="form-select form-select-gov text-uppercase" id="tipo_vinculo" name="tipo_vinculo">
+                        <option value="">-- Selecione --</option>
+                        <option value="Servidor Efetivo" {% if servidor.tipo_vinculo == 'Servidor Efetivo' %}selected{% endif %}>Servidor Efetivo</option>
+                        <option value="Comissionado" {% if servidor.tipo_vinculo == 'Comissionado' %}selected{% endif %}>Comissionado</option>
+                        <option value="Terceirizado" {% if servidor.tipo_vinculo == 'Terceirizado' %}selected{% endif %}>Terceirizado</option>
+                        <option value="Outros" {% if servidor.tipo_vinculo == 'Outros' %}selected{% endif %}>Outros</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="classe_nivel" class="form-label text-muted small fw-bold mb-1">Classe/Nível</label>
+                    <input type="text" class="form-control form-control-gov text-uppercase" id="classe_nivel" name="classe_nivel" value="{{ servidor.classe_nivel or '' }}">
+                </div>
+                <div class="col-md-2">
+                    <label for="num_contra_cheque" class="form-label text-muted small fw-bold mb-1">Nº Contra Cheque</label>
+                    <input type="text" class="form-control form-control-gov" id="num_contra_cheque" name="num_contra_cheque" value="{{ servidor.num_contra_cheque or '' }}">
+                </div>
+                <div class="col-md-2">
+                    <label for="carga_horaria" class="form-label text-muted small fw-bold mb-1">Carga Horária</label>
+                    <input type="text" class="form-control form-control-gov" id="carga_horaria" name="carga_horaria" value="{{ servidor.carga_horaria or '40' }}">
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="row mb-3">
-        <div class="col-md-12"><label for="endereco" class="form-label">Endereço Completo (Residencial)</label><input type="text" class="form-control" id="endereco" name="endereco" value="{{ servidor.endereco or '' }}"></div>
-    </div>
-
-    <hr>
-
-    <h5 class="mb-3 text-muted">Dados Profissionais e Vínculo</h5>
-    <div class="row mb-3">
-        <div class="col-md-4"><label for="funcao" class="form-label">Função</label><input type="text" class="form-control" id="funcao" name="funcao" value="{{ servidor.funcao or '' }}"></div>
-        <div class="col-md-4">
-            <label for="secretaria_id" class="form-label">Secretaria Vinculada</label>
-            <select name="secretaria_id" id="secretaria_id" class="form-select" required>
-                <option value="" disabled>-- Selecione a secretaria --</option>
-                {% for sec in secretarias %}
-                    <option value="{{ sec.id }}" {% if servidor.secretaria_id == sec.id %}selected{% endif %}>
-                        {{ sec.nome }}
-                    </option>
-                {% endfor %}
-            </select>
+    <!-- 3. CONTRATUAL, BANCÁRIOS E FOTO -->
+    <div class="card card-gov mb-4">
+        <div class="header-gov text-dark">
+            <i class="bi bi-file-earmark-text-fill me-2 text-primary" style="color: #072657 !important;"></i> Dados Contratuais e Bancários
+        </div>
+        <div class="card-body p-4 bg-light">
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <label for="remuneracao" class="form-label text-muted small fw-bold mb-1">Remuneração Base (R$)</label>
+                    <input type="text" class="form-control form-control-gov fw-bold text-success" id="remuneracao" name="remuneracao" value="{{ '%.2f'|format(servidor.remuneracao)|replace('.', ',') if servidor.remuneracao else '' }}">
+                </div>
+                <div class="col-md-4">
+                    <label for="data_inicio" class="form-label text-muted small fw-bold mb-1">Data de Início/Admissão</label>
+                    <input type="date" class="form-control form-control-gov" id="data_inicio" name="data_inicio" value="{{ servidor.data_inicio.strftime('%Y-%m-%d') if servidor.data_inicio else '' }}">
+                </div>
+                <div class="col-md-4">
+                    <label for="data_saida" class="form-label text-muted small fw-bold mb-1">Data de Término/Desligamento</label>
+                    <input type="date" class="form-control form-control-gov text-danger" id="data_saida" name="data_saida" value="{{ servidor.data_saida.strftime('%Y-%m-%d') if servidor.data_saida else '' }}">
+                </div>
+            </div>
+            
+            <div class="row g-3 mb-4">
+                <div class="col-md-12">
+                    <label for="dados_bancarios" class="form-label text-muted small fw-bold mb-1">Dados Bancários (Banco, Ag, Conta)</label>
+                    <input type="text" class="form-control form-control-gov text-uppercase" id="dados_bancarios" name="dados_bancarios" value="{{ servidor.dados_bancarios or '' }}">
+                </div>
+            </div>
+            
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label for="observacoes" class="form-label text-muted small fw-bold mb-1">Observações Gerais</label>
+                    <textarea class="form-control form-control-gov" name="observacoes" id="observacoes" rows="4">{{ servidor.observacoes or '' }}</textarea>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label text-muted small fw-bold mb-1 d-block">Foto Atual</label>
+                    <div class="d-flex align-items-center mb-2">
+                        {% if servidor.foto_filename %}
+                            <img src="{{ url_for('uploaded_file', filename=servidor.foto_filename) }}" alt="Foto de {{ servidor.nome }}" class="img-thumbnail shadow-sm" style="max-width: 90px;">
+                        {% else %}
+                            <img src="{{ url_for('static', filename='placeholder.png') }}" alt="Foto padrão" class="img-thumbnail shadow-sm" style="max-width: 90px;">
+                        {% endif %}
+                    </div>
+                    <label for="foto" class="form-label text-muted small fw-bold mb-1 mt-2">Atualizar Foto (Opcional)</label>
+                    <input type="file" class="form-control form-control-gov" name="foto" id="foto">
+                </div>
+            </div>
         </div>
         
-        <div class="col-md-4"><label for="num_contrato" class="form-label">Nº do Vínculo*</label><input type="text" class="form-control" id="num_contrato" name="num_contrato" value="{{ servidor.num_contrato or '' }}" readonly></div>
-    </div>
-
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <label for="local_trabalho" class="form-label">Local de Trabalho</label>
-            <input type="text" class="form-control" id="local_trabalho" name="local_trabalho" value="{{ servidor.local_trabalho or '' }}">
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Vincular a uma Escola Específica (Ponto Eletrônico)</label>
-            <select class="form-select" name="escola_id_vinculo">
-                <option value="">-- Sem vínculo fixo (Pode bater em qualquer escola) --</option>
-                {% for escola in escolas %}
-                    <option value="{{ escola.id }}" {% if servidor.escola_id == escola.id %}selected{% endif %}>
-                        {{ escola.nome }}
-                    </option>
-                {% endfor %}
-            </select>
+        <!-- Ações do Formulário -->
+        <div class="card-footer bg-white border-top p-3 d-flex justify-content-between">
+            <a href="{{ url_for('lista_servidores') }}" class="btn btn-outline-secondary btn-gov shadow-sm">Cancelar</a>
+            
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-info btn-gov text-white shadow-sm" data-bs-toggle="modal" data-bs-target="#gerarContratoModal" data-servidor-id="{{ servidor.num_contrato }}">
+                    <i class="bi bi-file-earmark-text-fill me-1"></i> Gerar Contrato
+                </button>
+                <button type="submit" class="btn btn-primary btn-gov shadow-sm" style="background-color: #072657; border-color: #072657;">
+                    <i class="bi bi-save-fill me-1"></i> Salvar Alterações
+                </button>
+            </div>
         </div>
     </div>
-
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <label for="tipo_vinculo" class="form-label">Vínculo do Servidor</label>
-            <select class="form-select" id="tipo_vinculo" name="tipo_vinculo">
-                <option value="">-- Selecione --</option>
-                <option value="Servidor Efetivo" {% if servidor.tipo_vinculo == 'Servidor Efetivo' %}selected{% endif %}>Servidor Efetivo</option>
-                <option value="Comissionado" {% if servidor.tipo_vinculo == 'Comissionado' %}selected{% endif %}>Comissionado</option>
-                <option value="Terceirizado" {% if servidor.tipo_vinculo == 'Terceirizado' %}selected{% endif %}>Terceirizado</option>
-                <option value="Outros" {% if servidor.tipo_vinculo == 'Outros' %}selected{% endif %}>Outros</option>
-            </select>
-        </div>
-        <div class="col-md-2">
-            <label for="classe_nivel" class="form-label">Classe/Nível</label>
-            <input type="text" class="form-control" id="classe_nivel" name="classe_nivel" value="{{ servidor.classe_nivel or '' }}">
-        </div>
-        <div class="col-md-2">
-            <label for="num_contra_cheque" class="form-label">Nº Contra Cheque</label>
-            <input type="text" class="form-control" id="num_contra_cheque" name="num_contra_cheque" value="{{ servidor.num_contra_cheque or '' }}">
-        </div>
-        <div class="col-md-2">
-            <label for="carga_horaria" class="form-label">Carga Horária</label>
-            <input type="text" class="form-control" id="carga_horaria" name="carga_horaria" value="{{ servidor.carga_horaria or '40' }}">
-        </div>
-    </div>
-    
-    <hr>
-
-    <h5 class="mb-3 text-muted">Dados Contratuais e Bancários</h5>
-    <div class="row mb-3">
-        <div class="col-md-4"><label for="remuneracao" class="form-label">Remuneração (R$)</label><input type="text" class="form-control" id="remuneracao" name="remuneracao" value="{{ '%.2f'|format(servidor.remuneracao)|replace('.', ',') if servidor.remuneracao else '' }}"></div>
-        <div class="col-md-4"><label for="data_inicio" class="form-label">Data de Início</label><input type="date" class="form-control" id="data_inicio" name="data_inicio" value="{{ servidor.data_inicio.strftime('%Y-%m-%d') if servidor.data_inicio else '' }}"></div>
-        <div class="col-md-4"><label for="data_saida" class="form-label">Data de Término</label><input type="date" class="form-control" id="data_saida" name="data_saida" value="{{ servidor.data_saida.strftime('%Y-%m-%d') if servidor.data_saida else '' }}"></div>
-    </div>
-    
-    <div class="row mb-3">
-        <div class="col-md-12"><label for="dados_bancarios" class="form-label">Dados Bancários</label><input type="text" class="form-control" id="dados_bancarios" name="dados_bancarios" value="{{ servidor.dados_bancarios or '' }}"></div>
-    </div>
-    
-    <div class="row mb-3">
-        <div class="col-md-8">
-            <label for="observacoes" class="form-label">Observações</label>
-            <textarea class="form-control" name="observacoes" id="observacoes" rows="4">{{ servidor.observacoes or '' }}</textarea>
-        </div>
-        <div class="col-md-4">
-            <p class="mb-1">Foto Atual:</p>
-            {% if servidor.foto_filename %}
-                <img src="{{ url_for('uploaded_file', filename=servidor.foto_filename) }}" alt="Foto de {{ servidor.nome }}" class="img-thumbnail mb-2" style="max-width: 150px;">
-            {% else %}
-                <img src="{{ url_for('static', filename='placeholder.png') }}" alt="Foto padrão" class="img-thumbnail mb-2" style="max-width: 150px;">
-            {% endif %}
-            <label for="foto" class="form-label">Trocar Foto</label>
-            <input type="file" class="form-control" name="foto" id="foto">
-        </div>
-    </div>
-
-    <a href="{{ url_for('lista_servidores') }}" class="btn btn-secondary">Cancelar</a>
-    <button type="submit" class="btn btn-primary">Salvar Alterações do Servidor</button>
-    
-    <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#gerarContratoModal" data-servidor-id="{{ servidor.num_contrato }}">
-        <i class="bi bi-file-earmark-text-fill"></i> Gerar Contrato
-    </button>
 </form>
 
-<hr class="my-5">
+<!-- 4. GERENCIAMENTO DE DOCUMENTOS -->
+<h4 class="mb-3 mt-5 text-dark fw-bold text-uppercase" style="font-size: 1.1rem;">
+    <i class="bi bi-paperclip text-primary me-1" style="color: #072657 !important;"></i> Gerenciamento de Documentos Anexos
+</h4>
 
-<h3 class="mb-3"><i class="bi bi-paperclip"></i> Gerenciamento de Documentos</h3>
-<div class="card shadow-sm">
-    <div class="card-header">
-        Anexar Novo Documento
+<div class="card card-gov shadow-sm mb-5">
+    <div class="header-gov bg-light">
+        <i class="bi bi-upload me-1 text-success"></i> Anexar Novo Documento
     </div>
-    <div class="card-body">
+    <div class="card-body p-4 bg-white">
         <form action="{{ url_for('upload_documento', servidor_id=servidor.id) }}" method="POST" enctype="multipart/form-data">
             <div class="row g-3">
                 <div class="col-md-5">
-                    <label for="descricao" class="form-label">Descrição do Documento*</label>
-                    <input type="text" class="form-control" name="descricao" id="descricao" placeholder="Ex: Cópia do RG, Comprovante de Residência..." required>
+                    <label for="descricao" class="form-label text-muted small fw-bold mb-1">Descrição do Documento*</label>
+                    <input type="text" class="form-control form-control-gov text-uppercase" name="descricao" id="descricao" placeholder="Ex: Cópia do RG, Comprovante de Residência..." required>
                 </div>
                 <div class="col-md-5">
-                    <label for="documento" class="form-label">Arquivo* (PDF, JPG, PNG)</label>
-                    <input type="file" class="form-control" name="documento" id="documento" required>
+                    <label for="documento" class="form-label text-muted small fw-bold mb-1">Arquivo* (PDF, JPG, PNG)</label>
+                    <input type="file" class="form-control form-control-gov" name="documento" id="documento" required>
                 </div>
                 <div class="col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-success w-100"><i class="bi bi-upload"></i> Anexar</button>
+                    <button type="submit" class="btn btn-success btn-gov w-100 shadow-sm"><i class="bi bi-cloud-arrow-up-fill me-1"></i> Enviar</button>
                 </div>
             </div>
         </form>
     </div>
-    <div class="card-footer">
-        <h6>Documentos Anexados:</h6>
+    
+    <div class="header-gov border-top">
+        <i class="bi bi-folder2-open me-1 text-secondary"></i> Documentos Armazenados
+    </div>
+    <div class="card-body p-0">
         {% if servidor.documentos %}
-            <ul class="list-group list-group-flush">
+            <div class="list-group list-group-flush">
                 {% for doc in servidor.documentos %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div class="doc-list-item d-flex justify-content-between align-items-center">
                     <div>
-                        <i class="bi bi-file-earmark-text"></i>
-                        <strong>{{ doc.description }}</strong>
-                        <br>
-                        <small class="text-muted">Enviado em: {{ doc.upload_date.strftime('%d/%m/%Y') }}</small>
+                        <i class="bi bi-file-earmark-pdf-fill text-danger fs-4 me-2 align-middle"></i>
+                        <div class="d-inline-block align-middle">
+                            <strong class="d-block text-dark text-uppercase" style="font-size: 0.9rem;">{{ doc.description }}</strong>
+                            <small class="text-muted" style="font-size: 0.75rem;">Adicionado ao sistema em: {{ doc.upload_date.strftime('%d/%m/%Y') }}</small>
+                        </div>
                     </div>
                     <div>
-                        <a href="{{ url_for('download_documento', documento_id=doc.id) }}" class="btn btn-primary btn-sm" target="_blank">
+                        <a href="{{ url_for('download_documento', documento_id=doc.id) }}" class="btn btn-primary btn-action-gov shadow-sm" target="_blank" title="Baixar">
                             <i class="bi bi-download"></i> Baixar
                         </a>
                         {% if session.get('role') == 'admin' %}
-                        <a href="{{ url_for('delete_documento', documento_id=doc.id) }}" class="btn btn-danger btn-sm" onclick="return confirm('Tem certeza que deseja excluir este documento?');">
+                        <a href="{{ url_for('delete_documento', documento_id=doc.id) }}" class="btn btn-danger btn-action-gov shadow-sm ms-1" onclick="return confirm('Tem certeza que deseja excluir este documento permanentemente?');" title="Excluir">
                             <i class="bi bi-trash-fill"></i> Excluir
                         </a>
                         {% endif %}
                     </div>
-                </li>
+                </div>
                 {% endfor %}
-            </ul>
+            </div>
         {% else %}
-            <p class="text-muted mb-0">Nenhum documento anexado para este servidor.</p>
+            <div class="p-4 text-center text-muted fw-bold">
+                <i class="bi bi-inbox fs-3 d-block mb-2 text-secondary"></i>
+                Nenhum documento digitalizado consta no dossiê deste servidor.
+            </div>
         {% endif %}
     </div>
 </div>
 
-<div class="modal fade" id="gerarContratoModal" tabindex="-1" aria-labelledby="gerarContratoModalLabel" aria-hidden="true">
+<!-- ================= MODAIS ================= -->
+<div class="modal fade" id="gerarContratoModal" tabindex="-1" aria-labelledby="gerarContratoModalLabel" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="gerarContratoModalLabel"><i class="bi bi-calendar-event"></i> Gerar Contrato</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <div class="modal-content card-gov">
+            <div class="modal-header header-gov text-white" style="background-color: #072657;">
+                <h5 class="modal-title fs-6 fw-bold m-0" id="gerarContratoModalLabel"><i class="bi bi-file-earmark-text-fill me-2"></i> Gerador de Contrato Digital</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <p>Por favor, digite o ano em que este contrato será válido.</p>
+            <div class="modal-body bg-light p-4">
+                <p class="text-muted small fw-bold mb-3">Confirme o exercício financeiro (Ano) para a emissão contratual.</p>
                 <div class="mb-3">
-                    <label for="ano_contrato" class="form-label">Ano do Contrato*</label>
-                    <input type="number" class="form-control" id="ano_contrato" name="ano_contrato" placeholder="Ex: 2026" value="2026" required>
-                    <div class="invalid-feedback" id="ano-error" style="display:none;">
-                        Por favor, insira um ano válido.
+                    <label for="ano_contrato" class="form-label text-dark fw-bold small mb-1">Exercício (Ano)*</label>
+                    <input type="number" class="form-control form-control-gov text-center fs-5" id="ano_contrato" name="ano_contrato" placeholder="Ex: 2026" value="2026" required>
+                    <div class="invalid-feedback fw-bold" id="ano-error" style="display:none;">
+                        <i class="bi bi-exclamation-circle-fill me-1"></i> O exercício informado é inválido.
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" id="btnGerarContratoModal"><i class="bi bi-file-earmark-arrow-down-fill"></i> Gerar PDF</button>
+            <div class="modal-footer bg-white border-top">
+                <button type="button" class="btn btn-outline-secondary btn-gov" data-bs-dismiss="modal">Cancelar Operação</button>
+                <button type="button" class="btn btn-danger btn-gov" id="btnGerarContratoModal"><i class="bi bi-printer-fill me-1"></i> Emitir PDF</button>
             </div>
         </div>
     </div>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const btnGerar = document.getElementById('btnGerarContratoModal');
@@ -259,7 +414,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const triggerButton = document.querySelector(`[data-bs-target="#gerarContratoModal"]`);
             const servidorId = triggerButton.getAttribute('data-servidor-id');
             
-            // ALTERAÇÃO: Rota atualizada para usar o ID físico
             const url = `/servidor/${servidorId}/gerar-contrato?ano=${ano}`;
             window.open(url, '_blank');
 
@@ -273,5 +427,4 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 </script>
-
 {% endblock %}

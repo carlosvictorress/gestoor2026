@@ -116,7 +116,6 @@ def novo_item():
                 flash(f"Falha ao salvar no banco de dados. Erro técnico: {erro_str[:50]}...", "danger")
 
     # Busca de dados para carregar o formulário (GET)
-    from models import Servidor, Secretaria
     servidores = Servidor.query.order_by(Servidor.nome).all()
     secretarias = Secretaria.query.order_by(Secretaria.nome).all()
     

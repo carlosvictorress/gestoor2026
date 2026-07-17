@@ -388,6 +388,10 @@ class Patrimonio(db.Model):
         "Servidor", backref=db.backref("patrimonios_responsaveis", lazy=True)
     )
 
+    # ---> CAMPO ADICIONADO AQUI: Vínculo com a Secretaria <---
+    secretaria_id = db.Column(db.Integer, db.ForeignKey("secretaria.id"), nullable=True)
+    secretaria = db.relationship("Secretaria", backref="patrimonios")
+
     # Histórico de movimentações
     movimentacoes = db.relationship(
         "MovimentacaoPatrimonio",

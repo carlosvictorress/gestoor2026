@@ -8,7 +8,7 @@ from models import Secretaria
 from utils import role_required
 from extensions import db, bcrypt
 from models import Patrimonio, MovimentacaoPatrimonio, Servidor
-from utils import login_required, registrar_log # LINHA CORRIGIDA
+from utils import login_required, registrar_log
 from sqlalchemy import or_
 from datetime import datetime
 from io import BytesIO
@@ -44,7 +44,6 @@ def novo_item():
     if request.method == 'POST':
         try:
             # 1. Tratamento do Tombamento (Opcional)
-            # Se o campo estiver vazio no formulário, salvamos como None no banco
             tombamento = request.form.get('tombamento')
             if not tombamento or tombamento.strip() == "":
                 tombamento = None
@@ -56,12 +55,23 @@ def novo_item():
                 from utils import upload_arquivo_para_nuvem
                 foto_link = upload_arquivo_para_nuvem(foto_file, pasta="patrimonio")
 
-            # 3. Tratamento de valores numéricos
-            # Evita erro caso o valor de compra não seja preenchido
+            # 3. Tratamento de valores numéricos (CORRIGIDO PARA O PADRÃO BRASILEIRO)
             valor_compra_raw = request.form.get('valor_compra')
-            valor_final = float(valor_compra_raw) if valor_compra_raw and valor_compra_raw.strip() else 0.0
+            if valor_compra_raw and valor_compra_raw.strip():
+                # Remove pontos de milhar e troca a vírgula por ponto para o Python entender
+                valor_str = valor_compra_raw.replace('.', '').replace(',', '.')
+                valor_final = float(valor_str)
+            else:
+                valor_final = 0.0
 
-            # 4. Criando o objeto com as novas validações
+            # 4. Tratamento do ID da Secretaria e Servidor Responsável (Evita erro de Foreign Key)
+            sec_id = request.form.get('secretaria_id')
+            secretaria_id_final = int(sec_id) if sec_id and sec_id.isdigit() else None
+
+            resp_cpf = request.form.get('servidor_responsavel_cpf')
+            responsavel_cpf_final = resp_cpf if resp_cpf and resp_cpf.strip() != "" else None
+
+            # 5. Criando o objeto com as novas validações blindadas
             novo_bem = Patrimonio(
                 numero_patrimonio=tombamento,
                 descricao=request.form.get('nome_bem'),
@@ -74,15 +84,14 @@ def novo_item():
                 localizacao=request.form.get('localizacao', 'Não informada'),
                 observacoes=request.form.get('descricao'),
                 foto_url=foto_link,
-                servidor_responsavel_cpf=request.form.get('servidor_responsavel_cpf') or None,
-                # Garante vínculo com a secretaria selecionada
-                secretaria_id=request.form.get('secretaria_id') 
+                servidor_responsavel_cpf=responsavel_cpf_final,
+                secretaria_id=secretaria_id_final 
             )
             
             db.session.add(novo_bem)
             db.session.commit()
             
-            # Registrar Log (Se a função registrar_log estiver disponível no escopo)
+            # Registrar Log
             try:
                 from app import registrar_log
                 registrar_log(f"Cadastrou novo patrimônio: {novo_bem.descricao} (Tomb: {tombamento or 'S/N'})")
@@ -94,9 +103,17 @@ def novo_item():
             
         except Exception as e:
             db.session.rollback()
-            # Log técnico do erro para o desenvolvedor
-            print(f"Erro ao cadastrar patrimônio: {str(e)}")
-            flash(f"Erro ao cadastrar: Verifique os dados e tente novamente.", "danger")
+            erro_str = str(e)
+            print(f"Erro ao cadastrar patrimônio: {erro_str}")
+            
+            # 6. MENSAGEM DE ERRO MELHORADA (Aponta o que deu errado)
+            if "UNIQUE constraint failed" in erro_str or "Duplicate" in erro_str:
+                flash("Erro: O Número de Tombamento informado já existe cadastrado em outro item.", "danger")
+            elif "NOT NULL constraint failed" in erro_str:
+                flash("Erro: Você esqueceu de preencher um campo obrigatório (Ex: Nome do Bem).", "danger")
+            else:
+                # Mostra parte do erro real para ajudar no debug
+                flash(f"Falha ao salvar no banco de dados. Erro técnico: {erro_str[:50]}...", "danger")
 
     # Busca de dados para carregar o formulário (GET)
     from models import Servidor, Secretaria
@@ -113,54 +130,45 @@ def novo_item():
 @login_required
 @role_required('Patrimonio', 'admin')
 def editar_item(item_id):
-    # Busca o item ou retorna 404
     item = Patrimonio.query.get_or_404(item_id)
-    
-    # Importação local para evitar erros de dependência circular
     from models import Secretaria
 
     if request.method == 'POST':
         try:
-            # 1. Tratamento de Valor de Aquisição
+            # Tratamento de Valor de Aquisição (Corrigido também na edição)
             valor_str = request.form.get('valor_aquisicao', '0').replace('.', '').replace(',', '.')
             item.valor_aquisicao = float(valor_str) if valor_str else 0.0
             
-            # 2. Tratamento de Data de Aquisição
             data_str = request.form.get('data_aquisicao')
             if data_str:
                 item.data_aquisicao = datetime.strptime(data_str, '%Y-%m-%d').date()
 
-            # 3. Atualização dos campos principais
-            # Nota: Usamos 'descricao' para coincidir com o banco de dados
             item.descricao = request.form.get('descricao')
             item.categoria = request.form.get('categoria')
             item.status = request.form.get('status')
             item.observacoes = request.form.get('observacoes')
             
-            # 4. Atualização da Secretaria e Responsável
-            # Estes campos garantem que o item esteja vinculado corretamente
-            item.secretaria_id = request.form.get('secretaria_id')
-            item.servidor_responsavel_cpf = request.form.get('servidor_responsavel_cpf')
+            # Tratamento da Secretaria e Responsável
+            sec_id = request.form.get('secretaria_id')
+            item.secretaria_id = int(sec_id) if sec_id and sec_id.isdigit() else None
             
-            # 5. Salva no Banco de Dados
+            resp_cpf = request.form.get('servidor_responsavel_cpf')
+            item.servidor_responsavel_cpf = resp_cpf if resp_cpf and resp_cpf.strip() != "" else None
+            
             db.session.commit()
             
-            # Log e Feedback
             registrar_log(f'Editou o item patrimonial: "{item.descricao}" ({item.numero_patrimonio}).')
             flash("Patrimônio atualizado com sucesso!", "success")
             
-            # Redireciona para os detalhes do item recém-editado
             return redirect(url_for('patrimonio.detalhes_item', item_id=item.id))
             
         except Exception as e:
             db.session.rollback()
             flash(f'Erro ao atualizar o item: {str(e)}', 'danger')
 
-    # Busca listas para preencher os campos de seleção (Selects) no formulário
     servidores = Servidor.query.order_by(Servidor.nome).all()
     secretarias = Secretaria.query.order_by(Secretaria.nome).all()
     
-    # Renderiza o formulário enviando o item atual, a lista de servidores e secretarias
     return render_template('patrimonio/form.html', 
                            item=item, 
                            servidores=servidores, 
@@ -181,11 +189,9 @@ def detalhes_item(item_id):
 def transferir_item(item_id):
     item = Patrimonio.query.get_or_404(item_id)
     
-    # Dados atuais (origem)
     local_origem = item.localizacao
     responsavel_anterior_cpf = item.servidor_responsavel_cpf
     
-    # Novos dados (destino)
     novo_local = request.form.get('local_destino')
     novo_responsavel_cpf = request.form.get('servidor_responsavel_cpf') or None
 
@@ -194,7 +200,6 @@ def transferir_item(item_id):
         return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
         
     try:
-        # 1. Cria o registro de movimentação
         movimentacao = MovimentacaoPatrimonio(
             patrimonio_id=item.id,
             local_origem=local_origem,
@@ -205,7 +210,6 @@ def transferir_item(item_id):
         )
         db.session.add(movimentacao)
         
-        # 2. Atualiza o registro do item
         item.localizacao = novo_local
         item.servidor_responsavel_cpf = novo_responsavel_cpf
         
@@ -220,68 +224,50 @@ def transferir_item(item_id):
 
 @patrimonio_bp.route('/termos_responsabilidade')
 @login_required
-@role_required('Patrimonio', 'admin') # Ajuste as permissões conforme necessário
+@role_required('Patrimonio', 'admin')
 def listar_termos_responsabilidade():
-    """
-    Rota para listar e gerenciar os Termos de Responsabilidade.
-    """
-    # 1. Lógica para buscar os termos de responsabilidade no banco de dados
-    # (Exemplo: termos = TermoResponsabilidade.query.all())
-
-    # 2. Renderizar o template
-    return render_template('patrimonio/termos_responsabilidade.html', termos=[]) # Troque o [] pela sua variável de termos
+    return render_template('patrimonio/termos_responsabilidade.html', termos=[])
 
 @patrimonio_bp.route('/<int:id>/etiqueta')
 @login_required
 @role_required('Patrimonio', 'admin')
 def gerar_etiqueta_qr(id):
-    # Busca o item no banco de dados
     bem = Patrimonio.query.get_or_404(id)
     
     try:
-        # Cria um buffer na memória para o PDF
         buffer = BytesIO()
-        # Define um tamanho de etiqueta pequeno (ex: 200x100 pontos)
         p = canvas_lib.Canvas(buffer, pagesize=(200, 100))
         
-        # 1. Gerar o QR Code com o link de detalhes do item
-        # O link aponta para a URL externa do seu sistema na Railway
         link_consulta = url_for('patrimonio.detalhes_item', item_id=bem.id, _external=True)
         qr = qrcode.make(link_consulta)
         qr_buffer = BytesIO()
         qr.save(qr_buffer, format='PNG')
         qr_buffer.seek(0)
         
-        # 2. Desenhar o cabeçalho na etiqueta
         p.setFont("Helvetica-Bold", 8)
         p.drawString(10, 85, "PREFEITURA DE VALENÇA DO PIAUÍ")
         
         p.setFont("Helvetica", 7)
-        p.drawString(10, 75, f"Bem: {bem.descricao[:30]}") # Limita a 30 caracteres
+        p.drawString(10, 75, f"Bem: {bem.descricao[:30]}")
         
-        # CORREÇÃO AQUI: Usando numero_patrimonio em vez de tombamento
         p.setFont("Helvetica-Bold", 9)
         p.drawString(10, 60, f"PATRIMÔNIO: {bem.numero_patrimonio}")
         
-        # 3. Inserir a imagem do QR Code no PDF
         qr_img = ImageReader(qr_buffer)
         p.drawImage(qr_img, 130, 10, width=60, height=60)
         
         p.setFont("Helvetica-Oblique", 6)
         p.drawString(10, 10, "Escaneie para detalhes")
         
-        # Finaliza o PDF
         p.showPage()
         p.save()
         
-        # Move o ponteiro para o início do buffer para leitura
         buffer.seek(0)
         
-        # Retorna o arquivo para download/visualização
         return send_file(
             buffer, 
             mimetype='application/pdf',
-            as_attachment=False, # Abre no navegador
+            as_attachment=False,
             download_name=f'etiqueta_{bem.numero_patrimonio}.pdf'
         )
         
@@ -299,13 +285,11 @@ def gerar_termo_recebimento(mov_id):
     buffer = BytesIO()
     p = canvas_lib.Canvas(buffer, pagesize=A4)
     
-    # Cabeçalho
     p.setFont("Helvetica-Bold", 14)
     p.drawCentredString(300, 800, "TERMO DE RESPONSABILIDADE E RECEBIMENTO")
     p.setFont("Helvetica", 10)
     p.drawCentredString(300, 785, "PREFEITURA DE VALENÇA DO PIAUÍ")
 
-    # Conteúdo
     texto = f"""
     Certifico que na data de {mov.data_movimentacao.strftime('%d/%m/%Y')}, o bem patrimonial abaixo 
     descrito foi transferido para o local: {mov.local_destino}.
@@ -317,7 +301,6 @@ def gerar_termo_recebimento(mov_id):
     p.drawString(70, 695, f"Tombamento: {bem.numero_patrimonio or 'Pendente'}")
     p.drawString(70, 680, f"Origem: {mov.local_origem}")
 
-    # Assinaturas
     p.line(50, 500, 250, 500)
     p.drawString(80, 485, "Quem Entregou")
     
@@ -333,10 +316,7 @@ def gerar_termo_recebimento(mov_id):
 @login_required
 def imprimir_termo_transferencia(mov_id):
     from models import MovimentacaoPatrimonio
-    # Busca a movimentação ou retorna 404
     movimentacao = MovimentacaoPatrimonio.query.get_or_404(mov_id)
-    
-    # Renderiza um template novo que criaremos apenas para o documento
     return render_template('patrimonio/termo_recebimento.html', mov=movimentacao)
 
 @patrimonio_bp.route('/item/baixa/<int:item_id>', methods=['POST'])
@@ -351,23 +331,18 @@ def dar_baixa_item(item_id):
         return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
     
     try:
-        # Atualiza o status e a situação para retirar do inventário ativo
         item.status = "Baixado"
         item.situacao_uso = "Inservível"
         
-        # Formata a justificativa com data para exibição clara na nova lista
         data_atual = datetime.now().strftime('%d/%m/%Y')
         nova_obs = f"BAIXA REALIZADA EM {data_atual}: {justificativa}"
         
-        # Mantém observações antigas se existirem e adiciona a nova
         if item.observacoes:
             item.observacoes = f"{item.observacoes} | {nova_obs}"
         else:
             item.observacoes = nova_obs
         
         db.session.commit()
-        
-        # Registro de log para auditoria
         registrar_log(f"Baixa efetuada - Item: {item.descricao} (Pat: {item.numero_patrimonio or 'S/N'}) - Motivo: {justificativa}")
         
         flash("Baixa do patrimônio realizada com sucesso!", "success")
@@ -375,12 +350,11 @@ def dar_baixa_item(item_id):
         db.session.rollback()
         flash(f"Erro ao processar a baixa: {str(e)}", "danger")
         
-    # Redireciona para a lista principal (que agora filtrará este item para fora)
     return redirect(url_for('patrimonio.listar_itens'))
 
 @patrimonio_bp.route('/item/excluir/<int:item_id>', methods=['POST'])
 @login_required
-@role_required('admin') # Exclusão apenas para admin
+@role_required('admin') 
 def excluir_item_patrimonio(item_id):
     item = Patrimonio.query.get_or_404(item_id)
     justificativa = request.form.get('justificativa_exclusao')
@@ -402,6 +376,5 @@ def excluir_item_patrimonio(item_id):
 @login_required
 @role_required('admin', 'Patrimonio')
 def listar_itens_baixados():
-    # Busca apenas os itens que sofreram baixa
     itens = Patrimonio.query.filter_by(status='Baixado').order_by(Patrimonio.descricao).all()
     return render_template('patrimonio/itens_baixados.html', itens=itens)

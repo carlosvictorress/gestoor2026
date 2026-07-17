@@ -2,168 +2,245 @@
 
 {% block title %}Lista de Servidores{% endblock %}
 
+{% block head_extra %}
+{{ super() }}
+<style>
+    /* CSS Minimalista (Soft UI) */
+    .table-minimalist { margin-bottom: 0; }
+    .table-minimalist th { 
+        font-size: 0.75rem; 
+        text-transform: uppercase; 
+        letter-spacing: 0.05rem; 
+        color: #6c757d; 
+        border-bottom: 1px solid #e9ecef; 
+        padding: 1rem 0.5rem; 
+        font-weight: 500; 
+        border-top: none; 
+    }
+    .table-minimalist td { 
+        padding: 1.2rem 0.5rem; 
+        vertical-align: middle; 
+        border-bottom: 1px solid #f8f9fa; 
+        color: #495057; 
+        font-weight: 400; 
+    }
+    .table-minimalist tbody tr { transition: background-color 0.2s ease; }
+    .table-minimalist tbody tr:hover { background-color: #f8f9fa; }
+
+    /* Badges com fundo translúcido */
+    .badge-soft-success { background-color: rgba(25, 135, 84, 0.1); color: #198754; padding: 0.4em 0.8em; border-radius: 6px; font-weight: 500; font-size: 0.80rem;}
+    .badge-soft-primary { background-color: rgba(13, 110, 253, 0.1); color: #0d6efd; padding: 0.4em 0.8em; border-radius: 6px; font-weight: 500; font-size: 0.80rem;}
+    .badge-soft-warning { background-color: rgba(255, 193, 7, 0.15); color: #b08100; padding: 0.4em 0.8em; border-radius: 6px; font-weight: 500; font-size: 0.80rem;}
+    .badge-soft-secondary { background-color: rgba(108, 117, 125, 0.1); color: #6c757d; padding: 0.4em 0.8em; border-radius: 6px; font-weight: 500; font-size: 0.80rem;}
+    .badge-soft-info { background-color: rgba(13, 202, 240, 0.1); color: #087990; padding: 0.4em 0.8em; border-radius: 6px; font-weight: 500; font-size: 0.80rem;}
+
+    /* Botões "Fantasmas" de ação */
+    .btn-action { 
+        color: #adb5bd; 
+        background: transparent; 
+        border: none; 
+        padding: 0.35rem 0.6rem; 
+        border-radius: 6px; 
+        transition: all 0.2s; 
+        font-size: 1.05rem; 
+        text-decoration: none;
+    }
+    .btn-action:hover { background-color: #e9ecef; color: #072657; }
+    .btn-action-danger:hover { background-color: rgba(220, 53, 69, 0.1); color: #dc3545; }
+    .btn-action-info:hover { background-color: rgba(13, 202, 240, 0.1); color: #0dcaf0; }
+
+    /* Filtros e Inputs Clean */
+    .filter-clean { 
+        background-color: #f8f9fa; 
+        border: 1px solid transparent; 
+        border-radius: 8px; 
+        box-shadow: none; 
+        transition: border 0.3s, background-color 0.3s; 
+    }
+    .filter-clean:focus { 
+        border: 1px solid #072657; 
+        background-color: #fff; 
+        box-shadow: none; 
+        outline: none; 
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-people-fill"></i> Servidores Cadastrados</h2>
-    <div>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addServerModal"><i class="bi bi-person-plus-fill"></i> Adicionar Servidor</button>
+<!-- Cabeçalho Principal -->
+<div class="d-flex justify-content-between align-items-center mb-4 mt-2">
+    <h4 class="mb-0 text-dark fw-normal" style="font-size: 1.6rem;">
+        <i class="bi bi-people fw-light text-muted me-2"></i> Servidores
+    </h4>
+    <div class="d-flex gap-2">
         {% if session.get('role') == 'admin' %}
-        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importCsvModal"><i class="bi bi-file-earmark-arrow-up-fill"></i> Importar CSV</button>
+        <button class="btn btn-outline-secondary rounded-pill px-4 fw-normal" data-bs-toggle="modal" data-bs-target="#importCsvModal">
+            <i class="bi bi-file-earmark-arrow-up"></i> Importar CSV
+        </button>
         {% endif %}
+        <button class="btn btn-primary rounded-pill px-4 fw-normal shadow-sm" data-bs-toggle="modal" data-bs-target="#addServerModal" style="background-color: #072657; border-color: #072657;">
+            <i class="bi bi-person-plus"></i> Adicionar Servidor
+        </button>
     </div>
 </div>
 
-<div class="card shadow-sm mb-4">
-    <div class="card-body">
-        <form method="GET" action="{{ url_for('lista_servidores') }}">
-            <div class="row g-3 align-items-end">
-                <div class="col-md-5">
-                    <label for="termo" class="form-label">Buscar por Nome, CPF ou Vínculo</label>
-                    <input type="text" class="form-control" id="termo" name="termo" value="{{ request.args.get('termo', '') }}">
-                </div>
-                <div class="col-md-3">
-                    <label for="funcao" class="form-label">Filtrar por Função</label>
-                    <select class="form-select" name="funcao" id="funcao">
-                        <option value="">Todas</option>
-                        {% for f in funcoes_disponiveis %}
-                        <option value="{{ f }}" {% if request.args.get('funcao') == f %}selected{% endif %}>{{ f }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label for="lotacao" class="form-label">Filtrar por Lotação</label>
-                    <select class="form-select" name="lotacao" id="lotacao">
-                        <option value="">Todas</option>
-                        {% for l in lotacoes_disponiveis %}
-                        <option value="{{ l }}" {% if request.args.get('lotacao') == l %}selected{% endif %}>{{ l }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-1">
-                    <button type="submit" class="btn btn-info w-100"><i class="bi bi-search"></i></button>
-                </div>
+<!-- Área de Filtros Clean -->
+<div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+    <form method="GET" action="{{ url_for('lista_servidores') }}">
+        <div class="row g-3">
+            <div class="col-md-5">
+                <input type="text" class="form-control filter-clean p-2 px-3 fw-normal" id="termo" name="termo" value="{{ request.args.get('termo', '') }}" placeholder="Buscar por Nome, CPF ou Vínculo...">
             </div>
-        </form>
-    </div>
+            <div class="col-md-3">
+                <select class="form-select filter-clean p-2 px-3 fw-normal text-muted" name="funcao" id="funcao">
+                    <option value="">Função: Todas</option>
+                    {% for f in funcoes_disponiveis %}
+                    <option value="{{ f }}" {% if request.args.get('funcao') == f %}selected{% endif %}>{{ f }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select filter-clean p-2 px-3 fw-normal text-muted" name="lotacao" id="lotacao">
+                    <option value="">Lotação: Todas</option>
+                    {% for l in lotacoes_disponiveis %}
+                    <option value="{{ l }}" {% if request.args.get('lotacao') == l %}selected{% endif %}>{{ l }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-1 d-grid">
+                <button type="submit" class="btn btn-light filter-clean text-secondary"><i class="bi bi-search"></i></button>
+            </div>
+        </div>
+    </form>
 </div>
 
-<div class="table-responsive">
-    <table class="table table-hover table-bordered">
-        <thead class="table-light">
+<!-- Tabela Minimalista -->
+<div class="table-responsive bg-white rounded-4 shadow-sm px-4 py-3 mb-4">
+    <table class="table table-minimalist align-middle">
+        <thead>
             <tr>
                 <th>Nome do Servidor</th>
                 <th>CPF</th>
                 <th>Função</th>
                 <th>Lotação</th>
                 <th>Vínculo</th>
-                <th class="text-center">Ações</th>
+                <th class="text-end pe-3">Ações</th>
             </tr>
         </thead>
         <tbody>
             {% for servidor in servidores %}
             <tr>
-                <td>
-                    {{ servidor.nome }}
+                <td class="text-capitalize">
+                    {{ (servidor.nome or '') | lower }}
                     {% set status = status_servidores.get(servidor.cpf) %}
                     {% if status %}
-                        <span class="badge bg-info ms-2">{{ status }}</span>
+                        <span class="badge-soft-info ms-2" style="font-size: 0.70rem;">{{ status }}</span>
                     {% endif %}
                 </td>
-                <td>{{ servidor.cpf or 'Não informado' }}</td>
-                <td>{{ servidor.funcao or 'Não informado' }}</td>
-                <td>{{ servidor.lotacao or 'Não informado' }}</td>
+                <td style="font-variant-numeric: tabular-nums;">{{ servidor.cpf or 'Não informado' }}</td>
+                <td class="text-capitalize text-muted">{{ (servidor.funcao or 'Não informado') | lower }}</td>
+                <td class="text-capitalize text-muted">{{ (servidor.lotacao or 'Não informado') | lower }}</td>
                 <td>
                     {% if servidor.tipo_vinculo %}
-                        <span class="badge 
-                            {% if servidor.tipo_vinculo == 'Servidor Efetivo' %} bg-success 
-                            {% elif servidor.tipo_vinculo == 'Comissionado' %} bg-primary
-                            {% elif servidor.tipo_vinculo == 'Terceirizado' %} bg-warning
-                            {% else %} bg-secondary {% endif %}">
+                        <span class="
+                            {% if servidor.tipo_vinculo == 'Servidor Efetivo' %} badge-soft-success 
+                            {% elif servidor.tipo_vinculo == 'Comissionado' %} badge-soft-primary
+                            {% elif servidor.tipo_vinculo == 'Terceirizado' %} badge-soft-warning
+                            {% else %} badge-soft-secondary {% endif %}">
                             {{ servidor.tipo_vinculo }}
                         </span>
                     {% else %}
-                        Não informado
+                        <span class="text-muted">Não informado</span>
                     {% endif %}
                 </td>
-                <td class="text-center">
-                    <a href="{{ url_for('editar_servidor', id=servidor.num_contrato) }}" class="btn btn-sm btn-secondary" title="Editar e Ver Detalhes"><i class="bi bi-pencil-fill"></i></a>
-                    
-                    <button type="button" class="btn btn-info btn-sm" 
-                            data-bs-toggle="modal" 
-                            data-bs-target="#modalRelatorioIndividual"
-                            data-cpf="{{ servidor.cpf }}"
-                            data-nome="{{ servidor.nome }}"
-                            title="Relatório de Frequência">
-                        <i class="bi bi-file-earmark-text"></i>
-                    </button>
-                    {% if session.get('role') == 'admin' %}
-                    <a href="{{ url_for('delete_server', id=servidor.num_contrato) }}" 
-                       class="btn btn-sm btn-danger js-confirm-delete" 
-                       data-confirm-message="ATENÇÃO! Esta ação é irreversível e excluirá todos os dados e documentos associados a este servidor. Deseja continuar?"
-                       title="Excluir">
-                        <i class="bi bi-trash-fill"></i>
-                    </a>
-                    {% endif %}
+                <td class="text-end pe-2">
+                    <div class="d-flex justify-content-end gap-1">
+                        <a href="{{ url_for('editar_servidor', id=servidor.num_contrato) }}" class="btn-action" title="Editar e Ver Detalhes">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        
+                        <button type="button" class="btn-action btn-action-info" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#modalRelatorioIndividual"
+                                data-cpf="{{ servidor.cpf }}"
+                                data-nome="{{ servidor.nome }}"
+                                title="Relatório de Frequência">
+                            <i class="bi bi-file-earmark-text"></i>
+                        </button>
+                        
+                        {% if session.get('role') == 'admin' %}
+                        <a href="{{ url_for('delete_server', id=servidor.num_contrato) }}" 
+                           class="btn-action btn-action-danger js-confirm-delete" 
+                           data-confirm-message="ATENÇÃO! Esta ação é irreversível e excluirá todos os dados e documentos associados a este servidor. Deseja continuar?"
+                           title="Excluir">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                        {% endif %}
+                    </div>
                 </td>
             </tr>
             {% else %}
             <tr>
-                <td colspan="6" class="text-center">Nenhum servidor encontrado.</td>
+                <td colspan="6" class="text-center text-muted py-5">Nenhum servidor encontrado.</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
 
+<!-- ================= MODAIS INTÁCTOS ================= -->
+
 <div class="modal fade" id="addServerModal" tabindex="-1" aria-labelledby="addServerModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-xl"> <div class="modal-content">
-      <div class="modal-header">
+  <div class="modal-dialog modal-xl"> 
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom-0 pb-0">
         <h5 class="modal-title" id="addServerModalLabel">Adicionar Novo Servidor</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form action="{{ url_for('add_server') }}" method="POST" enctype="multipart/form-data">
           <div class="modal-body">
-              <h5 class="mb-3 text-muted">Dados Pessoais</h5>
+              <h5 class="mb-3 text-muted fs-6 text-uppercase letter-spacing-1">Dados Pessoais</h5>
               <div class="row mb-3">
                   <div class="col-md-8">
-                      <label for="nome" class="form-label">Nome Completo*</label>
-                      <input type="text" class="form-control" name="nome" required>
+                      <label for="nome" class="form-label text-muted small">Nome Completo*</label>
+                      <input type="text" class="form-control filter-clean" name="nome" required>
                   </div>
                    <div class="col-md-4">
-                      <label for="num_contrato" class="form-label">Nº do Vínculo*</label>
-                      <input type="text" class="form-control" name="num_contrato" required>
+                      <label for="num_contrato" class="form-label text-muted small">Nº do Vínculo*</label>
+                      <input type="text" class="form-control filter-clean" name="num_contrato" required>
                   </div>
               </div>
               <div class="row mb-3">
-                <div class="col-md-3"><label for="cpf" class="form-label">CPF</label><input type="text" class="form-control" name="cpf"></div>
-                <div class="col-md-3"><label for="rg" class="form-label">RG</label><input type="text" class="form-control" name="rg"></div>
-                <div class="col-md-3"><label for="data_nascimento" class="form-label">Data de Nascimento</label><input type="date" class="form-control" name="data_nascimento"></div>
-                <div class="col-md-3"><label for="pis_pasep" class="form-label">PIS/PASEP</label><input type="text" class="form-control" name="pis_pasep"></div>
+                <div class="col-md-3"><label for="cpf" class="form-label text-muted small">CPF</label><input type="text" class="form-control filter-clean" name="cpf"></div>
+                <div class="col-md-3"><label for="rg" class="form-label text-muted small">RG</label><input type="text" class="form-control filter-clean" name="rg"></div>
+                <div class="col-md-3"><label for="data_nascimento" class="form-label text-muted small">Data de Nascimento</label><input type="date" class="form-control filter-clean" name="data_nascimento"></div>
+                <div class="col-md-3"><label for="pis_pasep" class="form-label text-muted small">PIS/PASEP</label><input type="text" class="form-control filter-clean" name="pis_pasep"></div>
               </div>
               <div class="row mb-3">
-                  <div class="col-md-12"><label for="nome_mae" class="form-label">Nome da Mãe</label><input type="text" class="form-control" name="nome_mae"></div>
+                  <div class="col-md-12"><label for="nome_mae" class="form-label text-muted small">Nome da Mãe</label><input type="text" class="form-control filter-clean" name="nome_mae"></div>
               </div>
               <div class="row mb-3">
-                  <div class="col-md-3"><label for="nacionalidade" class="form-label">Nacionalidade</label><input type="text" class="form-control" name="nacionalidade" value="brasileira"></div>
-                  <div class="col-md-3"><label for="estado_civil" class="form-label">Estado Civil</label><input type="text" class="form-control" name="estado_civil" value="solteiro(a)"></div>
-                  <div class="col-md-3"><label for="telefone" class="form-label">Telefone</label><input type="text" class="form-control" name="telefone"></div>
-                  <div class="col-md-3"><label for="email" class="form-label">E-mail</label><input type="email" class="form-control" name="email"></div>
+                  <div class="col-md-3"><label for="nacionalidade" class="form-label text-muted small">Nacionalidade</label><input type="text" class="form-control filter-clean" name="nacionalidade" value="brasileira"></div>
+                  <div class="col-md-3"><label for="estado_civil" class="form-label text-muted small">Estado Civil</label><input type="text" class="form-control filter-clean" name="estado_civil" value="solteiro(a)"></div>
+                  <div class="col-md-3"><label for="telefone" class="form-label text-muted small">Telefone</label><input type="text" class="form-control filter-clean" name="telefone"></div>
+                  <div class="col-md-3"><label for="email" class="form-label text-muted small">E-mail</label><input type="email" class="form-control filter-clean" name="email"></div>
               </div>
               <div class="row mb-3">
-                  <div class="col-md-12"><label for="endereco" class="form-label">Endereço Completo</label><input type="text" class="form-control" name="endereco"></div>
+                  <div class="col-md-12"><label for="endereco" class="form-label text-muted small">Endereço Completo</label><input type="text" class="form-control filter-clean" name="endereco"></div>
               </div>
 
-              <hr>
-              <h5 class="mb-3 text-muted">Dados Profissionais e Vínculo</h5>
+              <hr class="text-muted opacity-25 my-4">
+              
+              <h5 class="mb-3 text-muted fs-6 text-uppercase letter-spacing-1">Dados Profissionais e Vínculo</h5>
               <div class="row mb-3">
-                  <div class="col-md-4"><label for="funcao" class="form-label">Função</label><input type="text" class="form-control" name="funcao"></div>
-                  <div class="col-md-4"><label for="lotacao" class="form-label">Lotação</label><input type="text" class="form-control" name="lotacao"></div>
-                  <div class="col-md-4"><label for="local_trabalho" class="form-label">Local de Trabalho</label><input type="text" class="form-control" name="local_trabalho"></div>
+                  <div class="col-md-4"><label for="funcao" class="form-label text-muted small">Função</label><input type="text" class="form-control filter-clean" name="funcao"></div>
+                  <div class="col-md-4"><label for="lotacao" class="form-label text-muted small">Lotação</label><input type="text" class="form-control filter-clean" name="lotacao"></div>
+                  <div class="col-md-4"><label for="local_trabalho" class="form-label text-muted small">Local de Trabalho</label><input type="text" class="form-control filter-clean" name="local_trabalho"></div>
               </div>
               <div class="row mb-3">
                   <div class="col-md-4">
-                      <label for="tipo_vinculo" class="form-label">Vínculo</label>
-                      <select class="form-select" name="tipo_vinculo">
+                      <label for="tipo_vinculo" class="form-label text-muted small">Vínculo</label>
+                      <select class="form-select filter-clean" name="tipo_vinculo">
                           <option value="">-- Selecione --</option>
                           <option value="Servidor Efetivo">Servidor Efetivo</option>
                           <option value="Comissionado">Comissionado</option>
@@ -171,24 +248,25 @@
                           <option value="Outros">Outros</option>
                       </select>
                   </div>
-                  <div class="col-md-4"><label for="classe_nivel" class="form-label">Classe/Nível</label><input type="text" class="form-control" name="classe_nivel"></div>
-                  <div class="col-md-4"><label for="num_contra_cheque" class="form-label">Nº do Contra Cheque</label><input type="text" class="form-control" name="num_contra_cheque"></div>
+                  <div class="col-md-4"><label for="classe_nivel" class="form-label text-muted small">Classe/Nível</label><input type="text" class="form-control filter-clean" name="classe_nivel"></div>
+                  <div class="col-md-4"><label for="num_contra_cheque" class="form-label text-muted small">Nº do Contra Cheque</label><input type="text" class="form-control filter-clean" name="num_contra_cheque"></div>
               </div>
 
-              <hr>
-              <h5 class="mb-3 text-muted">Dados Contratuais</h5>
+              <hr class="text-muted opacity-25 my-4">
+              
+              <h5 class="mb-3 text-muted fs-6 text-uppercase letter-spacing-1">Dados Contratuais</h5>
               <div class="row mb-3">
-                  <div class="col-md-4"><label for="remuneracao" class="form-label">Remuneração (R$)</label><input type="text" class="form-control" name="remuneracao"></div>
-                  <div class="col-md-4"><label for="data_inicio" class="form-label">Data de Início</glabel><input type="date" class="form-control" name="data_inicio"></div>
-                  <div class="col-md-4"><label for="data_saida" class="form-label">Data de Término</label><input type="date" class="form-control" name="data_saida"></div>
+                  <div class="col-md-4"><label for="remuneracao" class="form-label text-muted small">Remuneração (R$)</label><input type="text" class="form-control filter-clean" name="remuneracao"></div>
+                  <div class="col-md-4"><label for="data_inicio" class="form-label text-muted small">Data de Início</label><input type="date" class="form-control filter-clean" name="data_inicio"></div>
+                  <div class="col-md-4"><label for="data_saida" class="form-label text-muted small">Data de Término</label><input type="date" class="form-control filter-clean" name="data_saida"></div>
               </div>
               <div class="row mb-3">
-                  <div class="col-md-12"><label for="dados_bancarios" class="form-label">Dados Bancários</label><input type="text" class="form-control" name="dados_bancarios"></div>
+                  <div class="col-md-12"><label for="dados_bancarios" class="form-label text-muted small">Dados Bancários</label><input type="text" class="form-control filter-clean" name="dados_bancarios"></div>
               </div>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-primary">Salvar Servidor</button>
+          <div class="modal-footer border-top-0 pt-0">
+            <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary rounded-pill px-4" style="background-color: #072657; border-color: #072657;">Salvar Servidor</button>
           </div>
       </form>
     </div>
@@ -197,23 +275,23 @@
 
 <div class="modal fade" id="importCsvModal" tabindex="-1" aria-labelledby="importCsvModalLabel" aria-hidden="true">
   <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom-0 pb-0">
         <h5 class="modal-title" id="importCsvModalLabel">Importar Servidores via CSV</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form action="{{ url_for('importar_servidores') }}" method="POST" enctype="multipart/form-data">
           <div class="modal-body">
-            <p>Selecione um arquivo CSV para importar em massa. Certifique-se de que o arquivo siga o modelo padrão.</p>
+            <p class="text-muted small">Selecione um arquivo CSV para importar em massa. Certifique-se de que o arquivo siga o modelo padrão.</p>
             <div class="mb-3">
-                <label for="csv_file" class="form-label">Arquivo CSV*</label>
-                <input class="form-control" type="file" name="csv_file" id="csv_file" accept=".csv" required>
+                <label for="csv_file" class="form-label text-muted small">Arquivo CSV*</label>
+                <input class="form-control filter-clean" type="file" name="csv_file" id="csv_file" accept=".csv" required>
             </div>
-            <a href="{{ url_for('baixar_modelo_csv') }}">Baixar modelo de importação (.csv)</a>
+            <a href="{{ url_for('baixar_modelo_csv') }}" class="text-decoration-none small"><i class="bi bi-download"></i> Baixar modelo de importação (.csv)</a>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-success">Importar Arquivo</button>
+          <div class="modal-footer border-top-0 pt-0">
+            <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-secondary rounded-pill px-4">Importar Arquivo</button>
           </div>
       </form>
     </div>
@@ -222,20 +300,20 @@
 
 <div class="modal fade" id="modalRelatorioIndividual" tabindex="-1" aria-labelledby="modalRelatorioLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
                 <h5 class="modal-title" id="modalRelatorioLabel">Gerar Relatório de Frequência</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p>Gerar relatório para o servidor:</p>
-                <h6 id="modalServidorNome" class="text-center mb-3"></h6>
+                <p class="text-muted small mb-1">Gerar relatório para o servidor:</p>
+                <h6 id="modalServidorNome" class="text-center mb-4 fs-5 fw-normal"></h6>
                 
                 <form id="formRelatorioIndividual" method="GET">
                     <div class="row g-2">
                         <div class="col-md-6">
-                            <label for="relatorioMes" class="form-label">Mês:</label>
-                            <select id="relatorioMes" name="mes" class="form-select">
+                            <label for="relatorioMes" class="form-label text-muted small">Mês:</label>
+                            <select id="relatorioMes" name="mes" class="form-select filter-clean">
                                 <option value="">Todos</option>
                                 {% for i in range(1, 13) %}
                                     <option value="{{ i }}">{{ ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"][i-1] }}</option>
@@ -243,8 +321,8 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label for="relatorioAno" class="form-label">Ano:</label>
-                            <select id="relatorioAno" name="ano" class="form-select">
+                            <label for="relatorioAno" class="form-label text-muted small">Ano:</label>
+                            <select id="relatorioAno" name="ano" class="form-select filter-clean">
                                 <option value="">Todos</option>
                                 {% for ano in range(current_year, current_year - 6, -1) %}
                                     <option value="{{ ano }}">{{ ano }}</option>
@@ -254,12 +332,12 @@
                     </div>
                 </form>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" id="btnExportarIndividualPDF" class="btn btn-danger">
+            <div class="modal-footer border-top-0 pt-0">
+                <button type="button" class="btn btn-light rounded-pill px-3" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnExportarIndividualPDF" class="btn btn-danger rounded-pill px-3">
                     <i class="bi bi-file-earmark-pdf-fill"></i> PDF
                 </button>
-                <button type="button" id="btnExportarIndividualExcel" class="btn btn-success">
+                <button type="button" id="btnExportarIndividualExcel" class="btn btn-success rounded-pill px-3">
                     <i class="bi bi-file-earmark-excel-fill"></i> Excel
                 </button>
             </div>
@@ -270,53 +348,42 @@
 {% endblock %}
 
 {% block scripts %}
-{{ super() }} <script>
+{{ super() }} 
+<script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Pega as referências dos elementos do novo modal
     var modalRelatorio = document.getElementById('modalRelatorioIndividual');
     var formRelatorio = document.getElementById('formRelatorioIndividual');
     var btnPdf = document.getElementById('btnExportarIndividualPDF');
     var btnExcel = document.getElementById('btnExportarIndividualExcel');
     var nomeServidorEl = document.getElementById('modalServidorNome');
     
-    var currentCpf = ""; // Variável global no script para guardar o CPF do servidor clicado
+    var currentCpf = ""; 
 
-    // 1. Quando o modal estiver prestes a abrir...
     modalRelatorio.addEventListener('show.bs.modal', function(event) {
-        var button = event.relatedTarget; // O botão "Frequência" que foi clicado
+        var button = event.relatedTarget; 
         
-        // 2. Pega o CPF e o NOME dos atributos data-
         currentCpf = button.getAttribute('data-cpf');
         var nome = button.getAttribute('data-nome');
         
-        // 3. Atualiza o nome do servidor no título do modal
         nomeServidorEl.textContent = nome;
-        
-        // 4. Limpa os filtros (Mês/Ano) do formulário
         formRelatorio.reset();
     });
 
-    // 5. Função para lidar com a exportação
     function handleExport(tipo) {
-        // Pega os valores selecionados dos filtros
         var mes = document.getElementById('relatorioMes').value;
         var ano = document.getElementById('relatorioAno').value;
         
-        // 6. Constrói a URL de base (PDF ou Excel) usando o CPF guardado
         var baseUrl = (tipo === 'pdf') 
             ? `/servidor/${currentCpf}/exportar/pdf`
             : `/servidor/${currentCpf}/exportar/excel`;
         
-        // 7. Adiciona os filtros de Mês/Ano como parâmetros na URL
         var params = new URLSearchParams();
         if (mes) params.append('mes', mes);
         if (ano) params.append('ano', ano);
         
-        // 8. Redireciona o navegador para a URL de download (ex: /servidor/1234/exportar/pdf?mes=11&ano=2025)
         window.open(baseUrl + '?' + params.toString(), '_blank');
     }
 
-    // 9. Adiciona os cliques aos botões
     btnPdf.addEventListener('click', function() { handleExport('pdf'); });
     btnExcel.addEventListener('click', function() { handleExport('excel'); });
 });

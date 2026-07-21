@@ -20,14 +20,14 @@
 <!-- FILTRO / SELEÇÃO DE ESCOLA E MÊS -->
 <div class="card shadow-sm mb-4 border-start border-4 border-primary">
     <div class="card-body">
-        <form method="GET">
+        <form method="GET" action="{{ url_for('merenda.gerenciar_cardapio') }}">
             <div class="row g-3 align-items-end">
                 <div class="col-md-4">
                     <label for="escola_id" class="form-label fw-bold">Selecione a Escola</label>
                     <select class="form-select" name="escola_id" id="escola_id" onchange="this.form.submit()">
                         <option value="">-- Selecione uma escola --</option>
                         {% for e in escolas %}
-                        <option value="{{ e.id }}" {{ 'selected' if e.id==escola_selecionada_id }}>{{ e.nome }}</option>
+                        <option value="{{ e.id }}" {{ 'selected' if e.id == escola_selecionada_id }}>{{ e.nome }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -35,7 +35,7 @@
                     <label for="mes" class="form-label fw-bold">Mês</label>
                     <select class="form-select" name="mes" id="mes">
                         {% for num, nome in meses_pt.items() %}
-                        <option value="{{ num }}" {{ 'selected' if num==mes_selecionado }}>{{ nome }}</option>
+                        <option value="{{ num }}" {{ 'selected' if num == mes_selecionado }}>{{ nome }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -43,7 +43,7 @@
                     <label for="ano" class="form-label fw-bold">Ano</label>
                     <select class="form-select" name="ano" id="ano">
                         {% for a in anos_disponiveis %}
-                        <option value="{{ a }}" {{ 'selected' if a==ano_selecionado }}>{{ a }}</option>
+                        <option value="{{ a }}" {{ 'selected' if a == ano_selecionado }}>{{ a }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -59,7 +59,7 @@
 </div>
 
 {% if escola_selecionada_id %}
-<form method="POST">
+<form method="POST" action="{% if cardapio_atual_id %}{{ url_for('merenda.editar_cardapio_mensal', cardapio_id=cardapio_atual_id) }}{% else %}{{ url_for('merenda.gerenciar_cardapio') }}{% endif %}">
     <div class="card shadow-sm mb-5">
         <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0">
@@ -162,7 +162,9 @@
                             </span>
                         </td>
                         <td class="text-center">
-                            <span class="badge bg-secondary">{{ item.pratos|length }} prato(s)</span>
+                            <span class="badge bg-secondary">
+                                {{ item.pratos|length if item.pratos else item.pratos_diarios|length }} prato(s)
+                            </span>
                         </td>
                         <td class="text-end px-3">
                             <div class="btn-group btn-group-sm">
@@ -192,8 +194,7 @@
                                                 data-bs-dismiss="modal" aria-label="Fechar"></button>
                                         </div>
                                         <div class="modal-body">
-                                            Tem certeza que deseja excluir o cardápio de <strong>{{
-                                                meses_pt.get(item.mes, item.mes) }}/{{ item.ano }}</strong> para a
+                                            Tem certeza que deseja excluir o cardápio de <strong>{{ meses_pt.get(item.mes, item.mes) }}/{{ item.ano }}</strong> para a
                                             escola <strong>{{ item.escola.nome if item.escola else 'Geral' }}</strong>?
                                             <p class="text-danger mt-2 mb-0"><small>Esta ação apagará todos os pratos
                                                     cadastrados para este mês.</small></p>
@@ -214,8 +215,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="5" class="text-center text-muted py-4">Nenhum cardápio mensal cadastrado até o
-                            momento.</td>
+                        <td colspan="5" class="text-center text-muted py-4">Nenhum cardápio mensal cadastrado até o momento.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

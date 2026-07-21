@@ -86,10 +86,10 @@
                             </td>
                             <td class="text-end pe-4">
                                 <div class="btn-group gap-1">
-                                    <!-- BOTÃO EDITAR RESTAURADO -->
-                                    <a href="{{ url_for('merenda.editar_cardapio_pnae', cardapio_id=c.id) }}"
+                                    <!-- BOTÃO EDITAR APONTANDO PARA A ROTA EXISTENTE DA MÊS/EDITAR -->
+                                    <a href="{{ url_for('merenda.editar_cardapio_mensal', cardapio_id=c.id) }}"
                                         class="btn btn-sm btn-outline-primary rounded-pill px-3"
-                                        title="Editar Cardápio PNAE">
+                                        title="Editar Cardápio">
                                         <i class="bi bi-pencil me-1"></i> Editar
                                     </a>
 

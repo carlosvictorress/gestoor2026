@@ -631,11 +631,23 @@ def gerenciar_cardapio():
 @login_required
 @role_required('Merenda Escolar', 'admin')
 def editar_cardapio_mensal(cardapio_id):
-    """Nova Rota Dedicada: Carrega e edita diretamente pelo ID do Cardápio Mensal"""
+    """Rota Dedicada: Carrega e edita diretamente pelo ID do Cardápio Mensal"""
     cardapio = Cardapio.query.get_or_404(cardapio_id)
 
     if request.method == 'POST':
         try:
+            # Captura eventuais alterações de escola, mês ou ano enviadas pelo formulário
+            nova_escola_id = request.form.get('escola_id', type=int)
+            novo_mes = request.form.get('mes', type=int)
+            novo_ano = request.form.get('ano', type=int)
+
+            if nova_escola_id:
+                cardapio.escola_id = nova_escola_id
+            if novo_mes:
+                cardapio.mes = novo_mes
+            if novo_ano:
+                cardapio.ano = novo_ano
+
             # Apaga os pratos antigos vinculados a ESTE cardápio específico
             PratoDiario.query.filter_by(cardapio_id=cardapio.id).delete()
 
@@ -695,7 +707,7 @@ def editar_cardapio_mensal(cardapio_id):
         date=date,
         cardapio_atual_id=cardapio.id,
         cardapios_cadastrados=cardapios_cadastrados
-    )   
+    )
 
 # GET /cardapios -> Visão geral dos cardápios das escolas
 # GET /escola/<id>/cardapio -> Editor do cardápio semanal da escola

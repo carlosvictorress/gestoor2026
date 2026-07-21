@@ -1,17 +1,23 @@
 {% extends 'base.html' %}
 
-{% block title %}Editor de Cardápios Mensais{% endblock %}
+{% block title %}Editor e Gerenciador de Cardápios Mensais{% endblock %}
 
 {% block content %}
-<h2><i class="bi bi-calendar-month"></i> Editor de Cardápios Mensais</h2>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-calendar-month"></i> Editor de Cardápios Mensais</h2>
+    <a href="#lista-cardapios" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-list-ul"></i> Ver Todos os Cardápios
+    </a>
+</div>
 <hr>
 
-<div class="card shadow-sm mb-4">
+<!-- FILTRO / SELEÇÃO DE ESCOLA E MÊS -->
+<div class="card shadow-sm mb-4 border-start border-4 border-primary">
     <div class="card-body">
         <form method="GET">
             <div class="row g-3 align-items-end">
-                <div class="col-md-5">
-                    <label for="escola_id" class="form-label">Selecione a Escola</label>
+                <div class="col-md-4">
+                    <label for="escola_id" class="form-label fw-bold">Selecione a Escola</label>
                     <select class="form-select" name="escola_id" id="escola_id" onchange="this.form.submit()">
                         <option value="">-- Selecione uma escola --</option>
                         {% for e in escolas %}
@@ -20,7 +26,7 @@
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label for="mes" class="form-label">Mês</label>
+                    <label for="mes" class="form-label fw-bold">Mês</label>
                     <select class="form-select" name="mes" id="mes">
                         {% for num, nome in meses_pt.items() %}
                         <option value="{{ num }}" {{ 'selected' if num == mes_selecionado }}>{{ nome }}</option>
@@ -28,15 +34,16 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label for="ano" class="form-label">Ano</label>
+                    <label for="ano" class="form-label fw-bold">Ano</label>
                     <select class="form-select" name="ano" id="ano">
                         {% for a in anos_disponiveis %}
                         <option value="{{ a }}" {{ 'selected' if a == ano_selecionado }}>{{ a }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-info w-100"><i class="bi bi-search"></i> Carregar</button>
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary flex-grow-1"><i class="bi bi-search"></i> Carregar</button>
+                    <a href="{{ url_for('merenda.gerenciar_cardapio') }}" class="btn btn-outline-secondary" title="Limpar Filtro"><i class="bi bi-x-circle"></i></a>
                 </div>
             </div>
         </form>
@@ -45,52 +52,153 @@
 
 {% if escola_selecionada_id %}
 <form method="POST">
-    <div class="card shadow-sm">
-        <div class="card-header">
-            <h5>Definindo Cardápio para: {{ meses_pt[mes_selecionado] }} / {{ ano_selecionado }}</h5>
+    <div class="card shadow-sm mb-5">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-pencil-square"></i> Cardápio de: {{ meses_pt[mes_selecionado] }} / {{ ano_selecionado }}
+            </h5>
+            {% if cardapio_atual_id %}
+            <a href="{{ url_for('merenda.imprimir_cardapio_mensal', cardapio_id=cardapio_atual_id) }}" target="_blank" class="btn btn-success btn-sm">
+                <i class="bi bi-printer"></i> Imprimir PDF
+            </a>
+            {% endif %}
         </div>
-        <div class="card-body">
+        <div class="card-body p-2">
             <input type="hidden" name="escola_id" value="{{ escola_selecionada_id }}">
             <input type="hidden" name="mes" value="{{ mes_selecionado }}">
             <input type="hidden" name="ano" value="{{ ano_selecionado }}">
 
-            <table class="table table-bordered text-center" style="table-layout: fixed;">
+            <div class="table-responsive">
+                <table class="table table-bordered text-center align-middle mb-0" style="table-layout: fixed; min-width: 800px;">
+                    <thead class="table-secondary">
+                        <tr>
+                            {% for dia in ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'] %}
+                            <th style="width: 14.28%;">{{ dia }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for semana in calendario_mes %}
+                        <tr>
+                            {% for dia_num in semana %}
+                            <td style="height: 125px; vertical-align: top; {% if dia_num == 0 %}background-color: #f8f9fa;{% endif %}" class="p-1">
+                                {% if dia_num != 0 %}
+                                    <div class="d-flex justify-content-between align-items-center mb-1 px-1">
+                                        <span class="badge bg-secondary">{{ dia_num }}</span>
+                                        {% set data_atual = date(ano_selecionado, mes_selecionado, dia_num) %}
+                                        <button type="button" class="btn btn-link btn-sm p-0 text-muted" onclick="document.getElementById('p_{{ dia_num }}').value='';" title="Limpar dia">
+                                            <i class="bi bi-eraser"></i>
+                                        </button>
+                                    </div>
+                                    <textarea class="form-control form-control-sm" 
+                                              id="p_{{ dia_num }}"
+                                              name="prato_{{ data_atual.strftime('%Y-%m-%d') }}" 
+                                              rows="3" 
+                                              style="font-size: 0.85rem;"
+                                              placeholder="Refeição do dia...">{{ pratos.get(data_atual, '') }}</textarea>
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer text-end bg-light">
+            <button type="submit" class="btn btn-success"><i class="bi bi-check-circle-fill"></i> Salvar Alterações</button>
+        </div>
+    </div>
+</form>
+{% else %}
+<div class="alert alert-info shadow-sm d-flex align-items-center mb-4" role="alert">
+    <i class="bi bi-info-circle-fill fs-4 me-2"></i>
+    <div>Selecione uma escola no filtro acima para visualizar, cadastrar ou editar o cardápio mensal no calendário.</div>
+</div>
+{% endif %}
+
+<!-- LISTAGEM DE CARDÁPIOS CADASTRADOS -->
+<div class="card shadow-sm" id="lista-cardapios">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-journal-text"></i> Cardápios Salvos no Sistema</h5>
+        <span class="badge bg-primary">{{ cardapios_cadastrados|length }} Cadastrado(s)</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
-                        {% for dia in ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'] %}
-                        <th style="width: 14.28%;">{{ dia }}</th>
-                        {% endfor %}
+                        <th>ID</th>
+                        <th>Escola / Unidade</th>
+                        <th class="text-center">Mês / Ano</th>
+                        <th class="text-center">Pratos Cadastrados</th>
+                        <th class="text-end px-3">Ações</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for semana in calendario_mes %}
+                    {% for item in cardapios_cadastrados %}
                     <tr>
-                        {% for dia_num in semana %}
-                        <td style="height: 120px; vertical-align: top; {% if dia_num == 0 %}background-color: #f8f9fa;{% endif %}">
-                            {% if dia_num != 0 %}
-                                <div class="fw-bold">{{ dia_num }}</div>
-                                {% set data_atual = date(ano_selecionado, mes_selecionado, dia_num) %}
-                                <textarea class="form-control form-control-sm mt-1" 
-                                          name="prato_{{ data_atual.strftime('%Y-%m-%d') }}" 
-                                          rows="3" 
-                                          placeholder="Prato do dia...">{{ pratos.get(data_atual, '') }}</textarea>
-                            {% endif %}
+                        <td><strong>#{{ item.id }}</strong></td>
+                        <td>
+                            <i class="bi bi-building"></i> 
+                            {{ item.escola.nome if item.escola else 'Todas as Escolas' }}
                         </td>
-                        {% endfor %}
+                        <td class="text-center">
+                            <span class="badge bg-info text-dark">
+                                {{ meses_pt.get(item.mes, item.mes) }} / {{ item.ano }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-secondary">{{ item.pratos|length }} prato(s)</span>
+                        </td>
+                        <td class="text-end px-3">
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('merenda.gerenciar_cardapio', escola_id=item.escola_id, mes=item.mes, ano=item.ano) }}" 
+                                   class="btn btn-outline-primary" title="Editar este Cardápio">
+                                    <i class="bi bi-pencil"></i> Editar
+                                </a>
+                                <a href="{{ url_for('merenda.imprimir_cardapio_mensal', cardapio_id=item.id) }}" 
+                                   target="_blank" class="btn btn-outline-success" title="Imprimir em PDF">
+                                    <i class="bi bi-printer"></i>
+                                </a>
+                                <button type="button" class="btn btn-outline-danger" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#modalExcluirCardapio{{ item.id }}" title="Excluir Cardápio">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+
+                            <!-- Modal de Confirmação de Exclusão -->
+                            <div class="modal fade text-start" id="modalExcluirCardapio{{ item.id }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content">
+                                        <div class="modal-header bg-danger text-white">
+                                            <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill"></i> Excluir Cardápio</h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            Tem certeza que deseja excluir o cardápio de <strong>{{ meses_pt.get(item.mes, item.mes) }}/{{ item.ano }}</strong> para a escola <strong>{{ item.escola.nome if item.escola else 'Geral' }}</strong>?
+                                            <p class="text-danger mt-2 mb-0"><small>Esta ação apagará todos os pratos cadastrados para este mês.</small></p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                            <form action="{{ url_for('merenda.excluir_cardapio_mensal', cardapio_id=item.id) }}" method="POST" class="d-inline">
+                                                <button type="submit" class="btn btn-danger">Confirmar Exclusão</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">Nenhum cardápio mensal cadastrado até o momento.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        <div class="card-footer text-end">
-            <button type="submit" class="btn btn-primary"><i class="bi bi-save-fill"></i> Salvar Cardápio</button>
-        </div>
     </div>
-</form>
-{% else %}
-<div class="alert alert-info" role="alert">
-  Por favor, selecione uma escola para visualizar ou editar o cardápio.
 </div>
-{% endif %}
-
 {% endblock %}

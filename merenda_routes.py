@@ -549,26 +549,24 @@ def gerenciar_cardapio():
                 cardapio = Cardapio(escola_id=escola_id_post, mes=mes_post, ano=ano_post)
                 db.session.add(cardapio)
             
-            # Limpa pratos antigos para garantir que os removidos sejam excluídos
-            for prato_antigo in cardapio.pratos:
+            # Limpa pratos antigos para garantir sincronização
+            for prato_antigo in list(cardapio.pratos):
                 db.session.delete(prato_antigo)
 
             mudancas = []
-            # Itera sobre todos os campos de prato enviados pelo formulário
             for key, value in request.form.items():
                 if key.startswith('prato_') and value.strip():
                     data_str = key.replace('prato_', '')
                     data_prato = datetime.strptime(data_str, '%Y-%m-%d').date()
                     
-                    novo_prato = PratoDiario(cardapio=cardapio, data_prato=data_prato, nome_prato=value)
+                    novo_prato = PratoDiario(cardapio=cardapio, data_prato=data_prato, nome_prato=value.strip())
                     db.session.add(novo_prato)
-                    mudancas.append(f"{data_prato.strftime('%d/%m')}: '{value}'")
+                    mudancas.append(f"{data_prato.strftime('%d/%m')}: '{value.strip()}'")
 
-            # Registra o histórico da modificação
             historico = HistoricoCardapio(
                 cardapio=cardapio,
-                usuario=session.get('username'),
-                descricao_mudanca=f"Cardápio do mês {mes_post}/{ano_post} salvo. Pratos: {', '.join(mudancas)}"
+                usuario=session.get('username', 'Sistema'),
+                descricao_mudanca=f"Cardápio do mês {mes_post}/{ano_post} salvo. Total de pratos: {len(mudancas)}"
             )
             db.session.add(historico)
             
@@ -580,21 +578,25 @@ def gerenciar_cardapio():
             db.session.rollback()
             flash(f'Erro ao salvar cardápio: {e}', 'danger')
 
-    # --- Lógica de GET (Exibir o cardápio) ---
+    # --- Lógica de GET (Exibir editor e listagem) ---
     pratos_do_mes = {}
     calendario_mes = []
+    cardapio_atual_id = None
+
     if escola_id:
         cardapio_atual = Cardapio.query.filter_by(escola_id=escola_id, mes=mes_selecionado, ano=ano_selecionado).first()
         if cardapio_atual:
+            cardapio_atual_id = cardapio_atual.id
             for prato in cardapio_atual.pratos:
                 pratos_do_mes[prato.data_prato] = prato.nome_prato
         
-        # Gera a matriz do calendário para o template
         calendario_mes = calendar.monthcalendar(ano_selecionado, mes_selecionado)
 
     escolas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
     
-    # Gera uma lista de meses e anos para os filtros
+    # Carrega todos os cardápios salvos para o painel de listagem
+    cardapios_cadastrados = Cardapio.query.order_by(Cardapio.ano.desc(), Cardapio.mes.desc()).all()
+
     meses_pt = {
         1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6: "Junho",
         7: "Julho", 8: "Agosto", 9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
@@ -608,8 +610,11 @@ def gerenciar_cardapio():
                            ano_selecionado=ano_selecionado,
                            pratos=pratos_do_mes,
                            calendario_mes=calendario_mes,
+                           cardapio_atual_id=cardapio_atual_id,
+                           cardapios_cadastrados=cardapios_cadastrados,
                            meses_pt=meses_pt,
-                           anos_disponiveis=anos_disponiveis, date=date)
+                           anos_disponiveis=anos_disponiveis, 
+                           date=date)
 
 # GET /cardapios -> Visão geral dos cardápios das escolas
 # GET /escola/<id>/cardapio -> Editor do cardápio semanal da escola
@@ -2339,6 +2344,114 @@ def excluir_cardapio_pnae(cardapio_id):
         db.session.rollback()
         flash(f'Erro ao excluir cardápio: {e}', 'danger')
     return redirect(url_for('merenda.listar_cardapios_pnae'))
+
+@merenda_bp.route('/cardapios/excluir-mensal/<int:cardapio_id>', methods=['POST'])
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def excluir_cardapio_mensal(cardapio_id):
+    """Exclui um cardápio mensal específico e seus pratos cadastrados."""
+    cardapio = Cardapio.query.get_or_404(cardapio_id)
+    try:
+        escola_id = cardapio.escola_id
+        mes = cardapio.mes
+        ano = cardapio.ano
+        
+        db.session.delete(cardapio)
+        db.session.commit()
+        registrar_log(f"Excluiu o cardápio mensal #{cardapio_id} ({mes}/{ano}) da escola ID {escola_id}.")
+        flash('Cardápio excluído com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao excluir cardápio: {e}', 'danger')
+        
+    return redirect(url_for('merenda.gerenciar_cardapio'))
+
+
+@merenda_bp.route('/cardapio/imprimir-mensal/<int:cardapio_id>')
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def imprimir_cardapio_mensal(cardapio_id):
+    """Gera o PDF do cardápio mensal em formato de tabela de calendário."""
+    cardapio = Cardapio.query.get_or_404(cardapio_id)
+    escola_nome = cardapio.escola.nome if cardapio.escola else "REDE MUNICIPAL DE ENSINO"
+    
+    meses_pt = {
+        1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6: "Junho",
+        7: "Julho", 8: "Agosto", 9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+    }
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=1.2 * cm,
+        rightMargin=1.2 * cm,
+        topMargin=3.5 * cm,
+        bottomMargin=1.5 * cm
+    )
+
+    styles = getSampleStyleSheet()
+    style_title = ParagraphStyle(name='TitleStyle', fontName='Helvetica-Bold', fontSize=14, leading=16, alignment=TA_CENTER)
+    style_subtitle = ParagraphStyle(name='SubTitleStyle', fontName='Helvetica-Bold', fontSize=11, leading=13, alignment=TA_CENTER, textColor=colors.HexColor('#004d40'))
+    style_header_tab = ParagraphStyle(name='HeaderTab', fontName='Helvetica-Bold', fontSize=9, alignment=TA_CENTER, textColor=colors.whitesmoke)
+    style_day_num = ParagraphStyle(name='DayNum', fontName='Helvetica-Bold', fontSize=8, alignment=TA_LEFT, textColor=colors.HexColor('#004d40'))
+    style_prato = ParagraphStyle(name='PratoTxt', fontName='Helvetica', fontSize=7, leading=8, alignment=TA_LEFT)
+
+    story = []
+    story.append(Paragraph("CARDÁPIO MENSAL DA ALIMENTAÇÃO ESCOLAR", style_title))
+    story.append(Paragraph(f"ESCOLA: {escola_nome.upper()} — REFERÊNCIA: {meses_pt.get(cardapio.mes, cardapio.mes).upper()} / {cardapio.ano}", style_subtitle))
+    story.append(Spacer(1, 0.4 * cm))
+
+    # Mapeamento de pratos por data
+    pratos_dict = {p.data_prato: p.nome_prato for p in cardapio.pratos}
+    matriz_mes = calendar.monthcalendar(cardapio.ano, cardapio.mes)
+
+    table_data = [[
+        Paragraph("Segunda", style_header_tab),
+        Paragraph("Terça", style_header_tab),
+        Paragraph("Quarta", style_header_tab),
+        Paragraph("Quinta", style_header_tab),
+        Paragraph("Sexta", style_header_tab),
+        Paragraph("Sábado", style_header_tab),
+        Paragraph("Domingo", style_header_tab)
+    ]]
+
+    for semana in matriz_mes:
+        row = []
+        for dia_num in semana:
+            if dia_num == 0:
+                row.append("")
+            else:
+                data_curr = date(cardapio.ano, cardapio.mes, dia_num)
+                nome_p = pratos_dict.get(data_curr, "")
+                
+                cell_content = [Paragraph(f"<b>{dia_num}</b>", style_day_num)]
+                if nome_p:
+                    cell_content.append(Paragraph(formatar_campo(nome_p).replace('\n', '<br/>'), style_prato))
+                else:
+                    cell_content.append(Paragraph("<font color='#888888'>-</font>", style_prato))
+                
+                row.append(cell_content)
+        table_data.append(row)
+
+    # Largura de 27.3cm total (landscape A4)
+    grid_table = Table(table_data, colWidths=[3.9 * cm] * 7)
+    grid_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#004d40')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    
+    story.append(grid_table)
+    doc.build(story, onFirstPage=cabecalho_e_rodape, onLaterPages=cabecalho_e_rodape)
+    
+    buffer.seek(0)
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=Cardapio_Mensal_{escola_nome.replace(" ", "_")}_{cardapio.mes}_{cardapio.ano}.pdf'
+    return response
 
 
 @merenda_bp.route('/cardapio/pdf/<int:cardapio_id>')

@@ -2372,16 +2372,23 @@ def gerar_cardapio_pdf(cardapio_id):
     story = []
 
     # Cabeçalho Principal
-    story.append(Paragraph(f"CARDÁPIO DA ALIMENTAÇÃO ESCOLAR - PNAE", style_title))
+    story.append(Paragraph("CARDÁPIO DA ALIMENTAÇÃO ESCOLAR - PNAE", style_title))
     story.append(Paragraph(f"UNIDADE ESCOLAR: {escola_nome.upper()}", style_subtitle))
     story.append(Spacer(1, 0.2 * cm))
+
+    # Tratamento das informações de cabeçalho
+    etapa_mod = formatar_campo(f"{cardapio.etapa_pnae or ''} - {cardapio.modalidade_atendimento or ''}".strip(" -"), "Geral")
+    val_inicio = cardapio.validade_inicio.strftime('%d/%m/%Y') if cardapio.validade_inicio else "N/A"
+    val_fim = cardapio.validade_fim.strftime('%d/%m/%Y') if cardapio.validade_fim else "N/A"
+    nutri_nome = formatar_campo(cardapio.nutricionista_nome, "Não informado")
+    nutri_crn = formatar_campo(cardapio.nutricionista_crn, "CRN N/A")
 
     # Tabela com Detalhes da Vigência e Nutricionista
     info_data = [
         [
-            Paragraph(f"<b>Etapa/Modalidade:</b> {cardapio.etapa_pnae} - {cardapio.modalidade_atendimento}", style_cell_body),
-            Paragraph(f"<b>Período de Vigência:</b> {cardapio.validade_inicio.strftime('%d/%m/%Y')} a {cardapio.validade_fim.strftime('%d/%m/%Y')}", style_cell_body),
-            Paragraph(f"<b>Nutricionista RT:</b> {cardapio.nutricionista_nome or 'Não informado'} ({cardapio.nutricionista_crn or 'CRN N/A'})", style_cell_body)
+            Paragraph(f"<b>Etapa/Modalidade:</b> {etapa_mod}", style_cell_body),
+            Paragraph(f"<b>Período de Vigência:</b> {val_inicio} a {val_fim}", style_cell_body),
+            Paragraph(f"<b>Nutricionista RT:</b> {nutri_nome} ({nutri_crn})", style_cell_body)
         ]
     ]
     info_table = Table(info_data, colWidths=[9.5 * cm, 8.5 * cm, 9.3 * cm])
@@ -2409,15 +2416,22 @@ def gerar_cardapio_pdf(cardapio_id):
     grid_data = [grid_header]
 
     for dia in dias_semana_ordem:
-        itens_dia = [item for item in cardapio.itens_pnae if item.dia_semana.lower() == dia.lower()]
+        itens_dia = [item for item in cardapio.itens_pnae if item.dia_semana and item.dia_semana.lower() == dia.lower()]
         if itens_dia:
             for idx, item in enumerate(itens_dia):
+                # Tratamento de fallback item a item
+                tipo_ref = formatar_campo(item.tipo_refeicao, "Refeição")
+                horario = formatar_campo(item.horario_servido, "N/A")
+                desc_prep = formatar_campo(item.descricao_preparacao, "Sem descrição do prato").replace('\n', '<br/>')
+                bebida = formatar_campo(item.bebida_acompanhamento, "-")
+                info_nutri = formatar_campo(item.informacao_nutricional_resumo, "-")
+
                 grid_data.append([
                     Paragraph(f"<b>{dia}</b>" if idx == 0 else "", style_cell_bold),
-                    Paragraph(f"{item.tipo_refeicao}<br/><font color='#555555'>({item.horario_servido or 'N/A'})</font>", style_cell_body),
-                    Paragraph(item.descricao_preparacao.replace('\n', '<br/>'), style_cell_body),
-                    Paragraph(item.bebida_acompanhamento or '-', style_cell_body),
-                    Paragraph(item.informacao_nutricional_resumo or '-', style_cell_body)
+                    Paragraph(f"{tipo_ref}<br/><font color='#555555'>({horario})</font>", style_cell_body),
+                    Paragraph(desc_prep, style_cell_body),
+                    Paragraph(bebida, style_cell_body),
+                    Paragraph(info_nutri, style_cell_body)
                 ])
         else:
             grid_data.append([
@@ -2460,13 +2474,22 @@ def gerar_cardapio_pdf(cardapio_id):
     # Rodapé e Assinatura do Nutricionista RT
     story.append(Spacer(1, 0.4 * cm))
     story.append(Paragraph("__________________________________________________________", style_footer))
-    story.append(Paragraph(f"<b>{cardapio.nutricionista_nome or 'Nutricionista Responsável Técnico'}</b><br/>CRN: {cardapio.nutricionista_crn or 'N/A'}", style_footer))
+    story.append(Paragraph(f"<b>{nutri_nome}</b><br/>CRN: {nutri_crn}", style_footer))
 
     doc.build(story, onFirstPage=cabecalho_e_rodape, onLaterPages=cabecalho_e_rodape)
     buffer.seek(0)
 
     response = make_response(buffer.getvalue())
     response.headers['Content-Type'] = 'application/pdf'
-    nome_arquivo = f"Cardapio_PNAE_{escola_nome.replace(' ', '_')}_{cardapio.validade_inicio.strftime('%m_%Y')}.pdf"
+    
+    val_str = cardapio.validade_inicio.strftime('%m_%Y') if cardapio.validade_inicio else "00_0000"
+    nome_arquivo = f"Cardapio_PNAE_{escola_nome.replace(' ', '_')}_{val_str}.pdf"
+    
     response.headers['Content-Disposition'] = f'inline; filename={nome_arquivo}'
     return response
+
+def formatar_campo(texto, valor_padrao="Não informado"):
+    """Garante que nenhum campo nulo desfigure ou suma do PDF."""
+    if texto is None or str(texto).strip() == "":
+        return valor_padrao
+    return str(texto).strip()

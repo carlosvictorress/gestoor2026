@@ -636,7 +636,7 @@ def editar_cardapio_pnae(cardapio_id):
 
     if request.method == 'POST':
         try:
-            # Atualiza os dados gerais do cardápio
+            # Atualiza os campos conforme as colunas reais da tabela cardapio
             cardapio.nome = request.form.get('nome')
             cardapio.escola_id = request.form.get('escola_id', type=int)
             cardapio.etapa_pnae = request.form.get('etapa_pnae')
@@ -654,8 +654,8 @@ def editar_cardapio_pnae(cardapio_id):
             cardapio.restricao_alergica = request.form.get('restricao_alergica')
             cardapio.observacoes = request.form.get('observacoes')
 
-            # Atualiza os itens/refeições da tabela dinâmica
-            ItemCardapioPnae.query.filter_by(cardapio_id=cardapio.id).delete()
+            # Atualiza os itens diários utilizando a tabela cardapio_item_diario
+            CardapioItemDiario.query.filter_by(cardapio_id=cardapio.id).delete()
 
             dias = request.form.getlist('dia_semana[]')
             tipos = request.form.getlist('tipo_refeicao[]')
@@ -666,7 +666,7 @@ def editar_cardapio_pnae(cardapio_id):
 
             for i in range(len(descricoes)):
                 if descricoes[i].strip():
-                    item = ItemCardapioPnae(
+                    novo_item = CardapioItemDiario(
                         cardapio_id=cardapio.id,
                         dia_semana=dias[i] if i < len(dias) else '',
                         tipo_refeicao=tipos[i] if i < len(tipos) else '',
@@ -675,7 +675,7 @@ def editar_cardapio_pnae(cardapio_id):
                         bebida_acompanhamento=bebidas[i] if i < len(bebidas) else '',
                         informacao_nutricional_resumo=nutricionais[i] if i < len(nutricionais) else ''
                     )
-                    db.session.add(item)
+                    db.session.add(novo_item)
 
             db.session.commit()
             registrar_log(f"Atualizou o cardápio PNAE #{cardapio.id} - {cardapio.nome}.")

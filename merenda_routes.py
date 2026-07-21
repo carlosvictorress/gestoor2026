@@ -21,19 +21,18 @@ from werkzeug.utils import secure_filename
 # 3. Módulos Internos (Sua camada de aplicação)
 from extensions import db, bcrypt
 from models import (
-    Escola, ProdutoMerenda, EstoqueMovimento, SolicitacaoMerenda, 
-    SolicitacaoItem, Cardapio, CardapioItemDiario, PratoDiario, HistoricoCardapio, 
-    Servidor, RelatorioTecnico, RelatorioAnexo, PedidoEmpresa, 
-    PedidoEmpresaItem, FichaDistribuicao, FichaDistribuicaoItem,
-    AgricultorFamiliar, DocumentoAgricultor, ContratoPNAE, 
-    ItemProjetoVenda, EntregaPNAE, ConfiguracaoPNAE
+    db, Escola, ProdutoMerenda, EstoqueMovimento, SolicitacaoMerenda, 
+    SolicitacaoItem, Cardapio, CardapioMensal, CardapioItemDiario, 
+    PratoDiario, PratoMensal, HistoricoCardapio, Servidor, RelatorioTecnico, 
+    RelatorioAnexo, PedidoEmpresa, PedidoEmpresaItem, FichaDistribuicao, 
+    FichaDistribuicaoItem, AgricultorFamiliar, DocumentoAgricultor, 
+    ContratoPNAE, ItemProjetoVenda, EntregaPNAE, ConfiguracaoPNAE
 )
 from utils import (
     login_required, registrar_log, limpar_cpf, cabecalho_e_rodape, 
     currency_filter_br, cabecalho_e_rodape_moderno, 
     upload_arquivo_para_nuvem, role_required
 )
-
 
 merenda_bp = Blueprint('merenda', __name__, url_prefix='/merenda')
 

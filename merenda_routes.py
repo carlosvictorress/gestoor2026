@@ -620,6 +620,69 @@ def gerenciar_cardapio():
         cardapios_cadastrados=cardapios_cadastrados
     )
 
+@merenda_bp.route('/cardapios/editar/<int:id>', methods=['GET', 'POST'])
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def editar_cardapio_pnae(id):
+    """Editar um Cardápio PNAE existente."""
+    cardapio = Cardapio.query.get_or_404(id)
+
+    if request.method == 'POST':
+        try:
+            val_inicio = datetime.strptime(request.form.get('validade_inicio'), '%Y-%m-%d').date()
+            val_fim = datetime.strptime(request.form.get('validade_fim'), '%Y-%m-%d').date()
+
+            # Atualiza os dados principais do Cardápio
+            cardapio.nome = request.form.get('nome')
+            cardapio.escola_id = request.form.get('escola_id', type=int)
+            cardapio.etapa_pnae = request.form.get('etapa_pnae')
+            cardapio.modalidade_atendimento = request.form.get('modalidade_atendimento')
+            cardapio.validade_inicio = val_inicio
+            cardapio.validade_fim = val_fim
+            cardapio.mes = val_inicio.month
+            cardapio.ano = val_inicio.year
+            cardapio.nutricionista_nome = request.form.get('nutricionista_nome')
+            cardapio.nutricionista_crn = request.form.get('nutricionista_crn')
+            cardapio.restricao_alergica = request.form.get('restricao_alergica')
+            cardapio.observacoes = request.form.get('observacoes')
+
+            # Limpa os itens antigos para regravar as refeições diárias
+            CardapioItemDiario.query.filter_by(cardapio_id=cardapio.id).delete()
+
+            dias_semana = request.form.getlist('dia_semana[]')
+            tipos_refeicao = request.form.getlist('tipo_refeicao[]')
+            horarios = request.form.getlist('horario_servido[]')
+            preparacoes = request.form.getlist('descricao_preparacao[]')
+            bebidas = request.form.getlist('bebida_acompanhamento[]')
+            nutricional = request.form.getlist('informacao_nutricional_resumo[]')
+
+            for i in range(len(dias_semana)):
+                if preparacoes[i].strip():
+                    item = CardapioItemDiario(
+                        cardapio_id=cardapio.id,
+                        dia_semana=dias_semana[i],
+                        tipo_refeicao=tipos_refeicao[i],
+                        horario_servido=horarios[i] if i < len(horarios) else '',
+                        descricao_preparacao=preparacoes[i],
+                        bebida_acompanhamento=bebidas[i] if i < len(bebidas) else '',
+                        informacao_nutricional_resumo=nutricional[i] if i < len(nutricional) else ''
+                    )
+                    db.session.add(item)
+
+            db.session.commit()
+            registrar_log(f"Atualizou o cardápio PNAE #{cardapio.id} ('{cardapio.nome}')")
+            flash('Cardápio PNAE atualizado com sucesso!', 'success')
+            return redirect(url_for('merenda.listar_cardapios_pnae'))
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao atualizar cardápio: {e}', 'danger')
+
+    escolas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
+    
+    # Reutiliza o mesmo template do formulário de criação (cardapio_form.html)
+    return render_template('merenda/cardapio_form.html', escolas=escolas, cardapio=cardapio)    
+
 # GET /cardapios -> Visão geral dos cardápios das escolas
 # GET /escola/<id>/cardapio -> Editor do cardápio semanal da escola
 # POST /escola/<id>/cardapio -> Salvar as alterações do cardápio e registrar no histórico

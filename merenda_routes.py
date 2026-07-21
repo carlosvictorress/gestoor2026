@@ -18,22 +18,21 @@ from reportlab.lib.units import cm
 from reportlab.lib.pagesizes import A4, landscape
 from werkzeug.utils import secure_filename
 
-# 3. Módulos Internos (Sua camada de aplicação)
+# 3. Módulos Internos
 from extensions import db, bcrypt
 from models import (
-    db, Escola, ProdutoMerenda, EstoqueMovimento, SolicitacaoMerenda, 
-    SolicitacaoItem, Cardapio, CardapioMensal, CardapioItemDiario, 
-    PratoDiario, PratoMensal, HistoricoCardapio, Servidor, RelatorioTecnico, 
-    RelatorioAnexo, PedidoEmpresa, PedidoEmpresaItem, FichaDistribuicao, 
-    FichaDistribuicaoItem, AgricultorFamiliar, DocumentoAgricultor, 
-    ContratoPNAE, ItemProjetoVenda, EntregaPNAE, ConfiguracaoPNAE
+    Escola, ProdutoMerenda, EstoqueMovimento, SolicitacaoMerenda, 
+    SolicitacaoItem, Cardapio, CardapioItemDiario, PratoDiario, HistoricoCardapio, 
+    Servidor, RelatorioTecnico, RelatorioAnexo, PedidoEmpresa, 
+    PedidoEmpresaItem, FichaDistribuicao, FichaDistribuicaoItem,
+    AgricultorFamiliar, DocumentoAgricultor, ContratoPNAE, 
+    ItemProjetoVenda, EntregaPNAE, ConfiguracaoPNAE
 )
 from utils import (
     login_required, registrar_log, limpar_cpf, cabecalho_e_rodape, 
     currency_filter_br, cabecalho_e_rodape_moderno, 
     upload_arquivo_para_nuvem, role_required
 )
-
 merenda_bp = Blueprint('merenda', __name__, url_prefix='/merenda')
 
 # --- ROTAS PRINCIPAIS A SEREM DESENVOLVIDAS ---
@@ -598,7 +597,7 @@ def gerenciar_cardapio():
     calendario_mes = cal.monthdayscalendar(ano_selecionado, mes_selecionado)
 
     escolas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
-    cardapios_cadastrados = CardapioMensal.query.order_by(CardapioMensal.ano.desc(), CardapioMensal.mes.desc()).all()
+    cardapios_cadastrados = Cardapio.query.order_by(Cardapio.ano.desc(), Cardapio.mes.desc()).all()
 
     meses_pt = {
         1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril',

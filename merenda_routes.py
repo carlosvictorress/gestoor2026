@@ -535,31 +535,30 @@ def gerenciar_cardapio():
 
     # Processa o salvamento do formulário (POST)
     if request.method == 'POST' and escola_id:
-        cardapio = CardapioMensal.query.filter_by(
+        cardapio = Cardapio.query.filter_by(
             escola_id=escola_id, 
             mes=mes_selecionado, 
             ano=ano_selecionado
         ).first()
 
         if not cardapio:
-            cardapio = CardapioMensal(
+            cardapio = Cardapio(
                 escola_id=escola_id, 
                 mes=mes_selecionado, 
                 ano=ano_selecionado
             )
             db.session.add(cardapio)
-            db.session.flush() # Garante o ID do cardápio
+            db.session.flush()
 
-        # Remove os pratos antigos para sobrescrever sem duplicar
-        PratoMensal.query.filter_by(cardapio_id=cardapio.id).delete()
+        # Remove os pratos antigos para atualizar com os novos
+        PratoDiario.query.filter_by(cardapio_id=cardapio.id).delete()
 
-        # Varre todos os campos do formulário postados (ex: prato_2026-01-05)
         for key, value in request.form.items():
             if key.startswith('prato_') and value.strip():
                 data_str = key.replace('prato_', '')
                 try:
                     data_obj = datetime.strptime(data_str, '%Y-%m-%d').date()
-                    novo_prato = PratoMensal(
+                    novo_prato = PratoDiario(
                         cardapio_id=cardapio.id,
                         data=data_obj,
                         descricao=value.strip()
@@ -575,7 +574,8 @@ def gerenciar_cardapio():
     pratos_dict = {}
     cardapio_atual_id = None
     if escola_id:
-        cardapio = CardapioMensal.query.filter_by(
+        # AQUI ESTAVA O ERRO (linha 578): alterado de CardapioMensal para Cardapio
+        cardapio = Cardapio.query.filter_by(
             escola_id=escola_id, 
             mes=mes_selecionado, 
             ano=ano_selecionado
@@ -583,20 +583,20 @@ def gerenciar_cardapio():
         
         if cardapio:
             cardapio_atual_id = cardapio.id
-            pratos_registrados = PratoMensal.query.filter_by(cardapio_id=cardapio.id).all()
+            pratos_registrados = PratoDiario.query.filter_by(cardapio_id=cardapio.id).all()
             for p in pratos_registrados:
-                # Garante conversão se o campo no banco for string ou date
                 if isinstance(p.data, str):
                     d_obj = datetime.strptime(p.data, '%Y-%m-%d').date()
                 else:
                     d_obj = p.data
                 pratos_dict[d_obj] = p.descricao
 
-    # Monta matriz do calendário mensal
-    cal = calendar.Calendar(firstweekday=0) # 0 = Segunda-feira
+    cal = calendar.Calendar(firstweekday=0)
     calendario_mes = cal.monthdayscalendar(ano_selecionado, mes_selecionado)
 
     escolas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
+    
+    # Listagem de cardápios cadastrados usando o modelo correto
     cardapios_cadastrados = Cardapio.query.order_by(Cardapio.ano.desc(), Cardapio.mes.desc()).all()
 
     meses_pt = {

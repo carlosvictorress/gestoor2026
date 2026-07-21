@@ -7,23 +7,22 @@ import calendar
 from datetime import datetime, date, timedelta
 from functools import wraps
 
-
 # 2. Bibliotecas de Terceiros (Flask/SQLAlchemy/ReportLab)
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, make_response
 from sqlalchemy import or_, func, extract
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
 from reportlab.lib import colors
 from reportlab.lib.units import cm
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from werkzeug.utils import secure_filename
 
 # 3. Módulos Internos (Sua camada de aplicação)
 from extensions import db, bcrypt
 from models import (
     Escola, ProdutoMerenda, EstoqueMovimento, SolicitacaoMerenda, 
-    SolicitacaoItem, Cardapio, PratoDiario, HistoricoCardapio, 
+    SolicitacaoItem, Cardapio, CardapioItemDiario, PratoDiario, HistoricoCardapio, 
     Servidor, RelatorioTecnico, RelatorioAnexo, PedidoEmpresa, 
     PedidoEmpresaItem, FichaDistribuicao, FichaDistribuicaoItem,
     AgricultorFamiliar, DocumentoAgricultor, ContratoPNAE, 
@@ -34,7 +33,6 @@ from utils import (
     currency_filter_br, cabecalho_e_rodape_moderno, 
     upload_arquivo_para_nuvem, role_required
 )
-
 
 
 merenda_bp = Blueprint('merenda', __name__, url_prefix='/merenda')
@@ -2243,3 +2241,232 @@ def get_valor_executado_mensal(contrato_id):
     
     # Retorna o valor formatado como moeda brasileira (R$) para o card
     return {"valor": currency_filter_br(total)}
+
+# ==========================================================
+# MÓDULO DE CARDÁPIOS PNAE - GERENCIAMENTO E PDF
+# ==========================================================
+
+@merenda_bp.route('/cardapios')
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def listar_cardapios_pnae():
+    """Listagem de todos os cardápios cadastrados por escola."""
+    escola_id = request.args.get('escola_id', type=int)
+    
+    query = Cardapio.query
+    if escola_id:
+        query = query.filter_by(escola_id=escola_id)
+        
+    cardapios = query.order_by(Cardapio.validade_inicio.desc()).all()
+    escolas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
+    
+    return render_template('merenda/cardapios_lista.html', cardapios=cardapios, escolas=escolas, escola_id_selecionada=escola_id)
+
+
+@merenda_bp.route('/cardapios/novo', methods=['GET', 'POST'])
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def novo_cardapio_pnae():
+    """Criar novo cardápio PNAE dinâmico."""
+    if request.method == 'POST':
+        try:
+            val_inicio = datetime.strptime(request.form.get('validade_inicio'), '%Y-%m-%d').date()
+            val_fim = datetime.strptime(request.form.get('validade_fim'), '%Y-%m-%d').date()
+            
+            novo = Cardapio(
+                nome=request.form.get('nome'),
+                escola_id=request.form.get('escola_id', type=int),
+                etapa_pnae=request.form.get('etapa_pnae'),
+                modalidade_atendimento=request.form.get('modalidade_atendimento'),
+                validade_inicio=val_inicio,
+                validade_fim=val_fim,
+                mes=val_inicio.month,
+                ano=val_inicio.year,
+                nutricionista_nome=request.form.get('nutricionista_nome'),
+                nutricionista_crn=request.form.get('nutricionista_crn'),
+                restricao_alergica=request.form.get('restricao_alergica'),
+                observacoes=request.form.get('observacoes'),
+                status='Ativo'
+            )
+            db.session.add(novo)
+            db.session.flush()
+
+            # Processa os itens diários enviados pelo formulário
+            dias_semana = request.form.getlist('dia_semana[]')
+            tipos_refeicao = request.form.getlist('tipo_refeicao[]')
+            horarios = request.form.getlist('horario_servido[]')
+            preparacoes = request.form.getlist('descricao_preparacao[]')
+            bebidas = request.form.getlist('bebida_acompanhamento[]')
+            nutricional = request.form.getlist('informacao_nutricional_resumo[]')
+
+            for i in range(len(dias_semana)):
+                if preparacoes[i].strip():
+                    item = CardapioItemDiario(
+                        cardapio_id=novo.id,
+                        dia_semana=dias_semana[i],
+                        tipo_refeicao=tipos_refeicao[i],
+                        horario_servido=horarios[i] if i < len(horarios) else '',
+                        descricao_preparacao=preparacoes[i],
+                        bebida_acompanhamento=bebidas[i] if i < len(bebidas) else '',
+                        informacao_nutricional_resumo=nutricional[i] if i < len(nutricional) else ''
+                    )
+                    db.session.add(item)
+
+            db.session.commit()
+            registrar_log(f"Cadastrou o cardápio PNAE '{novo.nome}' para a escola ID {novo.escola_id}")
+            flash('Cardápio PNAE cadastrado com sucesso!', 'success')
+            return redirect(url_for('merenda.listar_cardapios_pnae'))
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao cadastrar cardápio: {e}', 'danger')
+
+    escolas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
+    return render_template('merenda/cardapio_form.html', escolas=escolas, cardapio=None)
+
+
+@merenda_bp.route('/cardapios/excluir/<int:cardapio_id>', methods=['POST'])
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def excluir_cardapio_pnae(cardapio_id):
+    """Remover cardápio."""
+    cardapio = Cardapio.query.get_or_404(cardapio_id)
+    try:
+        db.session.delete(cardapio)
+        db.session.commit()
+        flash('Cardápio excluído com sucesso.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao excluir cardápio: {e}', 'danger')
+    return redirect(url_for('merenda.listar_cardapios_pnae'))
+
+
+@merenda_bp.route('/cardapio/pdf/<int:cardapio_id>')
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def gerar_cardapio_pdf(cardapio_id):
+    """Gera o PDF oficial do Cardápio PNAE em formato A4 Paisagem (Mural)."""
+    cardapio = Cardapio.query.get_or_404(cardapio_id)
+    escola_nome = cardapio.escola.nome if cardapio.escola else "TODAS AS ESCOLAS / REDE MUNICIPAL"
+
+    buffer = io.BytesIO()
+    # Margens e Formato A4 Paisagem para afixar no mural da escola
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=1.2 * cm,
+        rightMargin=1.2 * cm,
+        topMargin=3.8 * cm,
+        bottomMargin=1.8 * cm
+    )
+
+    styles = getSampleStyleSheet()
+    
+    style_title = ParagraphStyle(name='TitleStyle', fontName='Helvetica-Bold', fontSize=14, leading=16, alignment=TA_CENTER)
+    style_subtitle = ParagraphStyle(name='SubTitleStyle', fontName='Helvetica-Bold', fontSize=10, leading=12, alignment=TA_CENTER, textColor=colors.HexColor('#004d40'))
+    style_cell_header = ParagraphStyle(name='CellHeader', fontName='Helvetica-Bold', fontSize=9, leading=11, alignment=TA_CENTER, textColor=colors.whitesmoke)
+    style_cell_body = ParagraphStyle(name='CellBody', fontName='Helvetica', fontSize=8, leading=10, alignment=TA_LEFT)
+    style_cell_bold = ParagraphStyle(name='CellBold', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=TA_LEFT)
+    style_footer = ParagraphStyle(name='Footer', fontName='Helvetica', fontSize=8, leading=10, alignment=TA_CENTER)
+
+    story = []
+
+    # Cabeçalho Principal
+    story.append(Paragraph(f"CARDÁPIO DA ALIMENTAÇÃO ESCOLAR - PNAE", style_title))
+    story.append(Paragraph(f"UNIDADE ESCOLAR: {escola_nome.upper()}", style_subtitle))
+    story.append(Spacer(1, 0.2 * cm))
+
+    # Tabela com Detalhes da Vigência e Nutricionista
+    info_data = [
+        [
+            Paragraph(f"<b>Etapa/Modalidade:</b> {cardapio.etapa_pnae} - {cardapio.modalidade_atendimento}", style_cell_body),
+            Paragraph(f"<b>Período de Vigência:</b> {cardapio.validade_inicio.strftime('%d/%m/%Y')} a {cardapio.validade_fim.strftime('%d/%m/%Y')}", style_cell_body),
+            Paragraph(f"<b>Nutricionista RT:</b> {cardapio.nutricionista_nome or 'Não informado'} ({cardapio.nutricionista_crn or 'CRN N/A'})", style_cell_body)
+        ]
+    ]
+    info_table = Table(info_data, colWidths=[9.5 * cm, 8.5 * cm, 9.3 * cm])
+    info_table.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#004d40')),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e0f2f1')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(info_table)
+    story.append(Spacer(1, 0.4 * cm))
+
+    # Montagem da Grade Semanal (Segunda a Sexta)
+    dias_semana_ordem = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira']
+    
+    # Estrutura da Tabela do Cardápio
+    grid_header = [
+        Paragraph("Dia da Semana", style_cell_header),
+        Paragraph("Refeição / Horário", style_cell_header),
+        Paragraph("Preparação / Cardápio do Dia", style_cell_header),
+        Paragraph("Acompanhamento / Bebida", style_cell_header),
+        Paragraph("Info. Nutricional Resumida", style_cell_header)
+    ]
+    grid_data = [grid_header]
+
+    for dia in dias_semana_ordem:
+        itens_dia = [item for item in cardapio.itens_pnae if item.dia_semana.lower() == dia.lower()]
+        if itens_dia:
+            for idx, item in enumerate(itens_dia):
+                grid_data.append([
+                    Paragraph(f"<b>{dia}</b>" if idx == 0 else "", style_cell_bold),
+                    Paragraph(f"{item.tipo_refeicao}<br/><font color='#555555'>({item.horario_servido or 'N/A'})</font>", style_cell_body),
+                    Paragraph(item.descricao_preparacao.replace('\n', '<br/>'), style_cell_body),
+                    Paragraph(item.bebida_acompanhamento or '-', style_cell_body),
+                    Paragraph(item.informacao_nutricional_resumo or '-', style_cell_body)
+                ])
+        else:
+            grid_data.append([
+                Paragraph(f"<b>{dia}</b>", style_cell_bold),
+                Paragraph("-", style_cell_body),
+                Paragraph("<i>Sem refeição cadastrada para este dia</i>", style_cell_body),
+                Paragraph("-", style_cell_body),
+                Paragraph("-", style_cell_body)
+            ])
+
+    grid_table = Table(grid_data, colWidths=[4.2 * cm, 4.5 * cm, 11.5 * cm, 4.3 * cm, 2.8 * cm])
+    grid_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#004d40')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+    ]))
+    story.append(grid_table)
+    story.append(Spacer(1, 0.3 * cm))
+
+    # Observações e Restrições Alérgicas (Exigência PNAE)
+    if cardapio.restricao_alergica or cardapio.observacoes:
+        obs_texto = ""
+        if cardapio.restricao_alergica:
+            obs_texto += f"<b>Atenção (Restrições Alérgicas/Substituições):</b> {cardapio.restricao_alergica}<br/>"
+        if cardapio.observacoes:
+            obs_texto += f"<b>Observações Gerais:</b> {cardapio.observacoes}"
+        
+        obs_table = Table([[Paragraph(obs_texto, style_cell_body)]], colWidths=[27.3 * cm])
+        obs_table.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#B00020')),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#FFEBEE')),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        story.append(obs_table)
+        story.append(Spacer(1, 0.5 * cm))
+
+    # Rodapé e Assinatura do Nutricionista RT
+    story.append(Spacer(1, 0.4 * cm))
+    story.append(Paragraph("__________________________________________________________", style_footer))
+    story.append(Paragraph(f"<b>{cardapio.nutricionista_nome or 'Nutricionista Responsável Técnico'}</b><br/>CRN: {cardapio.nutricionista_crn or 'N/A'}", style_footer))
+
+    doc.build(story, onFirstPage=cabecalho_e_rodape, onLaterPages=cabecalho_e_rodape)
+    buffer.seek(0)
+
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Type'] = 'application/pdf'
+    nome_arquivo = f"Cardapio_PNAE_{escola_nome.replace(' ', '_')}_{cardapio.validade_inicio.strftime('%m_%Y')}.pdf"
+    response.headers['Content-Disposition'] = f'inline; filename={nome_arquivo}'
+    return response

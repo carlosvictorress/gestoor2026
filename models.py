@@ -556,29 +556,42 @@ class SolicitacaoItem(db.Model):
 
 class Cardapio(db.Model):
     __tablename__ = "cardapio"
+    
     id = db.Column(db.Integer, primary_key=True)
     escola_id = db.Column(db.Integer, db.ForeignKey("escola.id"), nullable=False)
-    # --- ALTERAÇÃO APLICADA AQUI ---
-    mes = db.Column(
-        db.Integer, nullable=False
-    )  # Armazena o número do mês (ex: 8 para Agosto)
-    ano = db.Column(db.Integer, nullable=False)  # Armazena o ano (ex: 2025)
+    mes = db.Column(db.Integer, nullable=False)
+    ano = db.Column(db.Integer, nullable=False)
     observacoes = db.Column(db.Text)
+    
+    # --- NOVOS CAMPOS PNAE ---
+    nome = db.Column(db.String(150), nullable=True)
+    etapa_pnae = db.Column(db.String(80), nullable=True)
+    modalidade_atendimento = db.Column(db.String(80), nullable=True)
+    validade_inicio = db.Column(db.Date, nullable=True)
+    validade_fim = db.Column(db.Date, nullable=True)
+    nutricionista_nome = db.Column(db.String(120), nullable=True)
+    nutricionista_crn = db.Column(db.String(40), nullable=True)
+    restricao_alergica = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), default="Ativo")
 
+    # Relacionamentos
     escola = db.relationship("Escola", backref="cardapios")
-    pratos = db.relationship(
-        "PratoDiario", backref="cardapio", cascade="all, delete-orphan"
-    )
-    historico = db.relationship(
-        "HistoricoCardapio", backref="cardapio", cascade="all, delete-orphan"
-    )
+    pratos = db.relationship("PratoDiario", backref="cardapio", cascade="all, delete-orphan")
+    historico = db.relationship("HistoricoCardapio", backref="cardapio", cascade="all, delete-orphan")
+    itens_pnae = db.relationship("CardapioItemDiario", backref="cardapio", cascade="all, delete-orphan", order_by="CardapioItemDiario.id")
 
-    # Garante que só exista um cardápio por escola para cada mês/ano
-    __table_args__ = (
-        db.UniqueConstraint("escola_id", "mes", "ano", name="_escola_mes_ano_uc"),
-    )
+class CardapioItemDiario(db.Model):
+    __tablename__ = "cardapio_item_diario"
 
-
+    id = db.Column(db.Integer, primary_key=True)
+    cardapio_id = db.Column(db.Integer, db.ForeignKey("cardapio.id", ondelete="CASCADE"), nullable=False)
+    dia_semana = db.Column(db.String(20), nullable=False)      # Segunda-feira, Terça-feira...
+    tipo_refeicao = db.Column(db.String(50), nullable=False)    # Desjejum, Almoço, Lanche...
+    horario_servido = db.Column(db.String(10), nullable=True)
+    descricao_preparacao = db.Column(db.Text, nullable=False)
+    bebida_acompanhamento = db.Column(db.String(150), nullable=True)
+    informacao_nutricional_resumo = db.Column(db.String(255), nullable=True)
+    
 class PratoDiario(db.Model):
     __tablename__ = "prato_diario"
     id = db.Column(db.Integer, primary_key=True)

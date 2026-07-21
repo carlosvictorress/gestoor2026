@@ -18,22 +18,26 @@
     <!-- FILTRO DE BUSCA POR ESCOLA -->
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-3">
-            <form method="GET" action="{{ url_for('merenda.listar_cardapios_pnae') }}" class="row g-2 align-items-center">
+            <form method="GET" action="{{ url_for('merenda.listar_cardapios_pnae') }}"
+                class="row g-2 align-items-center">
                 <div class="col-md-9">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-0"><i class="bi bi-building"></i></span>
                         <select name="escola_id" class="form-select bg-light border-0" onchange="this.form.submit()">
                             <option value="">Todas as Escolas / Unidades Escolares</option>
                             {% for e in escolas %}
-                            <option value="{{ e.id }}" {{ 'selected' if e.id == escola_id_selecionada }}>{{ e.nome }}</option>
+                            <option value="{{ e.id }}" {{ 'selected' if e.id==escola_id_selecionada }}>{{ e.nome }}
+                            </option>
                             {% endfor %}
                         </select>
                     </div>
                 </div>
                 <div class="col-md-3 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary w-100 rounded-pill"><i class="bi bi-funnel me-1"></i> Filtrar</button>
+                    <button type="submit" class="btn btn-primary w-100 rounded-pill"><i class="bi bi-funnel me-1"></i>
+                        Filtrar</button>
                     {% if escola_id_selecionada %}
-                    <a href="{{ url_for('merenda.listar_cardapios_pnae') }}" class="btn btn-outline-secondary rounded-pill" title="Limpar filtro">
+                    <a href="{{ url_for('merenda.listar_cardapios_pnae') }}"
+                        class="btn btn-outline-secondary rounded-pill" title="Limpar filtro">
                         <i class="bi bi-x-circle"></i>
                     </a>
                     {% endif %}
@@ -65,7 +69,8 @@
                         <tr>
                             <td class="ps-4">
                                 <div class="fw-bold text-dark">{{ c.nome }}</div>
-                                <small class="text-muted"><i class="bi bi-building me-1"></i>{{ c.escola.nome if c.escola else 'Todas as Escolas / Geral' }}</small>
+                                <small class="text-muted"><i class="bi bi-building me-1"></i>{{ c.escola.nome if
+                                    c.escola else 'Todas as Escolas / Geral' }}</small>
                             </td>
                             <td>
                                 <div><span class="badge bg-info text-dark">{{ c.etapa_pnae }}</span></div>
@@ -83,30 +88,46 @@
                             </td>
                             <td class="text-end pe-4">
                                 <div class="btn-group gap-1">
-                                    <a href="{{ url_for('merenda.gerar_cardapio_pdf', cardapio_id=c.id) }}" target="_blank" class="btn btn-sm btn-outline-success rounded-pill px-3" title="Imprimir PDF Mural PNAE">
+                                    <a href="{{ url_for('merenda.gerar_cardapio_pdf', cardapio_id=c.id) }}"
+                                        target="_blank" class="btn btn-sm btn-outline-success rounded-pill px-3"
+                                        title="Imprimir PDF Mural PNAE">
                                         <i class="bi bi-printer me-1"></i> Imprimir PDF
                                     </a>
-                                    <button type="button" class="btn btn-sm btn-outline-danger rounded-circle" data-bs-toggle="modal" data-bs-target="#modalExcluir{{ c.id }}" title="Excluir Cardápio">
+                                    <button type="button" class="btn btn-sm btn-outline-danger rounded-circle"
+                                        data-bs-toggle="modal" data-bs-target="#modalExcluir{{ c.id }}"
+                                        title="Excluir Cardápio">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
 
                                 <!-- MODAL DE EXCLUSÃO -->
-                                <div class="modal fade text-start" id="modalExcluir{{ c.id }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal fade text-start" id="modalExcluir{{ c.id }}" tabindex="-1"
+                                    aria-hidden="true">
                                     <div class="modal-dialog modal-dialog-centered">
                                         <div class="modal-content border-0 shadow rounded-4">
                                             <div class="modal-header bg-danger text-white border-0">
-                                                <h5 class="modal-title fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>Excluir Cardápio PNAE</h5>
-                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                                <h5 class="modal-title fw-bold"><i
+                                                        class="bi bi-exclamation-triangle-fill me-2"></i>Excluir
+                                                    Cardápio PNAE</h5>
+                                                <button type="button" class="btn-close btn-close-white"
+                                                    data-bs-dismiss="modal" aria-label="Fechar"></button>
                                             </div>
                                             <div class="modal-body p-4">
-                                                Tem certeza que deseja excluir o cardápio <strong>"{{ c.nome }}"</strong>?
-                                                <p class="text-danger small mt-2 mb-0">Esta ação removerá permanentemente as diretrizes nutricionais e todas as refeições diárias associadas.</p>
+                                                Tem certeza que deseja excluir o cardápio <strong>"{{ c.nome
+                                                    }}"</strong>?
+                                                <p class="text-danger small mt-2 mb-0">Esta ação removerá
+                                                    permanentemente as diretrizes nutricionais e todas as refeições
+                                                    diárias associadas.</p>
                                             </div>
                                             <div class="modal-footer border-0 bg-light">
-                                                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
-                                                <form action="{{ url_for('merenda.excluir_cardapio_pnae', cardapio_id=c.id) }}" method="POST" class="d-inline">
-                                                    <button type="submit" class="btn btn-danger rounded-pill px-4">Excluir Registro</button>
+                                                <button type="button" class="btn btn-light rounded-pill px-4"
+                                                    data-bs-dismiss="modal">Cancelar</button>
+                                                <form
+                                                    action="{{ url_for('merenda.excluir_cardapio_pnae', cardapio_id=c.id) }}"
+                                                    method="POST" class="d-inline">
+                                                    <button type="submit"
+                                                        class="btn btn-danger rounded-pill px-4">Excluir
+                                                        Registro</button>
                                                 </form>
                                             </div>
                                         </div>
@@ -118,7 +139,8 @@
                         <tr>
                             <td colspan="5" class="text-center py-5 text-muted">
                                 <i class="bi bi-journal-x fs-1 d-block mb-2 text-secondary"></i>
-                                Nenhum cardápio PNAE cadastrado. Clique no botão <strong>"Novo Cardápio PNAE"</strong> acima para registrar.
+                                Nenhum cardápio PNAE cadastrado. Clique no botão <strong>"Novo Cardápio PNAE"</strong>
+                                acima para registrar.
                             </td>
                         </tr>
                         {% endfor %}

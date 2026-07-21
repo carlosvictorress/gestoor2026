@@ -529,52 +529,75 @@ def autorizar_solicitacao(solicitacao_id):
 @login_required
 @role_required('Merenda Escolar', 'admin')
 def gerenciar_cardapio():
-    escola_id = request.args.get('escola_id', type=int) or request.form.get('escola_id', type=int)
-    mes_selecionado = request.args.get('mes', type=int) or request.form.get('mes', type=int) or datetime.now().month
-    ano_selecionado = request.args.get('ano', type=int) or request.form.get('ano', type=int) or datetime.now().year
+    # Suporta captura por Query String ou via clique de ID direto
+    cardapio_id_param = request.args.get('id', type=int)
+    
+    # Se um ID for passado na URL (ex: botão Editar), carrega os dados diretamente dele
+    if cardapio_id_param and request.method == 'GET':
+        cardapio_target = Cardapio.query.get(cardapio_id_param)
+        if cardapio_target:
+            escola_id = cardapio_target.escola_id
+            mes_selecionado = cardapio_target.mes
+            ano_selecionado = cardapio_target.ano
+        else:
+            escola_id = request.args.get('escola_id', type=int)
+            mes_selecionado = request.args.get('mes', type=int) or datetime.now().month
+            ano_selecionado = request.args.get('ano', type=int) or datetime.now().year
+    else:
+        escola_id = request.args.get('escola_id', type=int) or request.form.get('escola_id', type=int)
+        mes_selecionado = request.args.get('mes', type=int) or request.form.get('mes', type=int) or datetime.now().month
+        ano_selecionado = request.args.get('ano', type=int) or request.form.get('ano', type=int) or datetime.now().year
 
-    # Processa o salvamento do formulário (POST)
+    # --- PROCESSA SALVAMENTO (POST) ---
     if request.method == 'POST' and escola_id:
-        cardapio = Cardapio.query.filter_by(
-            escola_id=escola_id, 
-            mes=mes_selecionado, 
-            ano=ano_selecionado
-        ).first()
-
-        if not cardapio:
-            cardapio = Cardapio(
+        try:
+            cardapio = Cardapio.query.filter_by(
                 escola_id=escola_id, 
                 mes=mes_selecionado, 
                 ano=ano_selecionado
-            )
-            db.session.add(cardapio)
-            db.session.flush()
+            ).first()
 
-        # Remove os pratos antigos para atualizar com os novos
-        PratoDiario.query.filter_by(cardapio_id=cardapio.id).delete()
+            if not cardapio:
+                cardapio = Cardapio(
+                    escola_id=escola_id, 
+                    mes=mes_selecionado, 
+                    ano=ano_selecionado
+                )
+                db.session.add(cardapio)
+                db.session.flush()
 
-        for key, value in request.form.items():
-            if key.startswith('prato_') and value.strip():
-                data_str = key.replace('prato_', '')
-                try:
-                    data_obj = datetime.strptime(data_str, '%Y-%m-%d').date()
-                    novo_prato = PratoDiario(
-                        cardapio_id=cardapio.id,
-                        data=data_obj,
-                        descricao=value.strip()
-                    )
-                    db.session.add(novo_prato)
-                except ValueError:
-                    continue
+            # Remove os pratos antigos do cardápio localizado para regravar os atualizados
+            PratoDiario.query.filter_by(cardapio_id=cardapio.id).delete()
 
-        db.session.commit()
-        flash('Cardápio atualizado com sucesso!', 'success')
+            for key, value in request.form.items():
+                if key.startswith('prato_') and value.strip():
+                    data_str = key.replace('prato_', '')
+                    try:
+                        data_obj = datetime.strptime(data_str, '%Y-%m-%d').date()
+                        novo_prato = PratoDiario(
+                            cardapio_id=cardapio.id,
+                            data=data_obj,
+                            descricao=value.strip()
+                        )
+                        db.session.add(novo_prato)
+                    except ValueError:
+                        continue
 
-    # Busca o cardápio e mapeia os pratos para exibição (GET)
+            db.session.commit()
+            registrar_log(f"Atualizou o cardápio mensal #{cardapio.id} ({mes_selecionado}/{ano_selecionado}) para escola ID {escola_id}.")
+            flash('Cardápio atualizado com sucesso!', 'success')
+            
+            # Redireciona mantendo os parâmetros na URL para manter a página preenchida
+            return redirect(url_for('merenda.gerenciar_cardapio', escola_id=escola_id, mes=mes_selecionado, ano=ano_selecionado))
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao salvar cardápio: {str(e)}', 'danger')
+
+    # --- CARREGAMENTO DE DADOS (GET) ---
     pratos_dict = {}
     cardapio_atual_id = None
     if escola_id:
-        # AQUI ESTAVA O ERRO (linha 578): alterado de CardapioMensal para Cardapio
         cardapio = Cardapio.query.filter_by(
             escola_id=escola_id, 
             mes=mes_selecionado, 
@@ -596,7 +619,7 @@ def gerenciar_cardapio():
 
     escolas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
     
-    # Listagem de cardápios cadastrados usando o modelo correto
+    # Listagem de cardápios com modelo unificado 'Cardapio'
     cardapios_cadastrados = Cardapio.query.order_by(Cardapio.ano.desc(), Cardapio.mes.desc()).all()
 
     meses_pt = {
@@ -2443,16 +2466,15 @@ def excluir_cardapio_mensal(cardapio_id):
 @merenda_bp.route('/cardapio/imprimir-mensal/<int:cardapio_id>')
 @login_required
 def imprimir_cardapio_mensal(cardapio_id):
-    cardapio = CardapioMensal.query.get_or_404(cardapio_id)
-    pratos_db = PratoMensal.query.filter_by(cardapio_id=cardapio.id).all()
+    # Usa o modelo correto 'Cardapio'
+    cardapio = Cardapio.query.get_or_404(cardapio_id)
     
-    # Mapeia as datas convertendo adequadamente para consulta no template PDF
+    # Usa o modelo correto 'PratoDiario'
+    pratos_db = PratoDiario.query.filter_by(cardapio_id=cardapio.id).all()
+    
     pratos_dict = {}
     for p in pratos_db:
-        if isinstance(p.data, str):
-            d_obj = datetime.strptime(p.data, '%Y-%m-%d').date()
-        else:
-            d_obj = p.data
+        d_obj = datetime.strptime(p.data, '%Y-%m-%d').date() if isinstance(p.data, str) else p.data
         pratos_dict[d_obj] = p.descricao
 
     cal = calendar.Calendar(firstweekday=0)
@@ -2473,11 +2495,11 @@ def imprimir_cardapio_mensal(cardapio_id):
         date=date
     )
     
-    # Gera o PDF via WeasyPrint ou módulo correspondente no seu ambiente
     pdf = HTML(string=html).write_pdf()
     response = make_response(pdf)
     response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = f'inline; filename=Cardapio_{cardapio.escola.nome}_{cardapio.mes}_{cardapio.ano}.pdf'
+    escola_nome = cardapio.escola.nome if cardapio.escola else "Escola"
+    response.headers['Content-Disposition'] = f'inline; filename=Cardapio_{escola_nome}_{cardapio.mes}_{cardapio.ano}.pdf'
     return response
 
 

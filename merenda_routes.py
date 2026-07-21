@@ -2251,21 +2251,27 @@ def get_valor_executado_mensal(contrato_id):
 # MÓDULO DE CARDÁPIOS PNAE - GERENCIAMENTO E PDF
 # ==========================================================
 
-@merenda_bp.route('/cardapios')
+@merenda_bp.route('/cardapios', methods=['GET'])
 @login_required
 @role_required('Merenda Escolar', 'admin')
 def listar_cardapios_pnae():
-    """Listagem de todos os cardápios cadastrados por escola."""
+    """Listagem oficial de todos os cardápios PNAE cadastrados."""
     escola_id = request.args.get('escola_id', type=int)
     
     query = Cardapio.query
     if escola_id:
         query = query.filter_by(escola_id=escola_id)
         
+    # Busca os cardápios PNAE ordenando pelos mais recentes
     cardapios = query.order_by(Cardapio.validade_inicio.desc()).all()
     escolas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
     
-    return render_template('merenda/cardapios_lista.html', cardapios=cardapios, escolas=escolas, escola_id_selecionada=escola_id)
+    return render_template(
+        'merenda/cardapios_lista.html', 
+        cardapios=cardapios, 
+        escolas=escolas, 
+        escola_id_selecionada=escola_id
+    )
 
 
 @merenda_bp.route('/cardapios/novo', methods=['GET', 'POST'])

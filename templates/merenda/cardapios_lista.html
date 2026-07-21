@@ -26,7 +26,8 @@
                         <select name="escola_id" class="form-select bg-light border-0" onchange="this.form.submit()">
                             <option value="">Todas as Escolas / Unidades Escolares</option>
                             {% for e in escolas %}
-                            <option value="{{ e.id }}" {{ 'selected' if e.id == escola_id_selecionada }}>{{ e.nome }}</option>
+                            <option value="{{ e.id }}" {{ 'selected' if e.id==escola_id_selecionada }}>{{ e.nome }}
+                            </option>
                             {% endfor %}
                         </select>
                     </div>
@@ -68,7 +69,8 @@
                         <tr>
                             <td class="ps-4">
                                 <div class="fw-bold text-dark">{{ c.nome }}</div>
-                                <small class="text-muted"><i class="bi bi-building me-1"></i>{{ c.escola.nome if c.escola else 'Todas as Escolas / Geral' }}</small>
+                                <small class="text-muted"><i class="bi bi-building me-1"></i>{{ c.escola.nome if
+                                    c.escola else 'Todas as Escolas / Geral' }}</small>
                             </td>
                             <td>
                                 <div><span class="badge bg-info text-dark">{{ c.etapa_pnae }}</span></div>
@@ -87,9 +89,9 @@
                             <td class="text-end pe-4">
                                 <div class="btn-group gap-1">
                                     <!-- BOTÃO EDITAR APONTANDO PARA A ROTA EXISTENTE DA MÊS/EDITAR -->
-                                    <a href="{{ url_for('merenda.editar_cardapio_mensal', cardapio_id=c.id) }}"
+                                    <a href="{{ url_for('merenda.editar_cardapio_pnae', cardapio_id=c.id) }}"
                                         class="btn btn-sm btn-outline-primary rounded-pill px-3"
-                                        title="Editar Cardápio">
+                                        title="Editar Cardápio PNAE">
                                         <i class="bi bi-pencil me-1"></i> Editar
                                     </a>
 
@@ -121,7 +123,8 @@
                                                     data-bs-dismiss="modal" aria-label="Fechar"></button>
                                             </div>
                                             <div class="modal-body p-4">
-                                                Tem certeza que deseja excluir o cardápio <strong>"{{ c.nome }}"</strong>?
+                                                Tem certeza que deseja excluir o cardápio <strong>"{{ c.nome
+                                                    }}"</strong>?
                                                 <p class="text-danger small mt-2 mb-0">Esta ação removerá
                                                     permanentemente as diretrizes nutricionais e todas as refeições
                                                     diárias associadas.</p>

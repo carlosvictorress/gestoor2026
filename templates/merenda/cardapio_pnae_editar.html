@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-dark m-0"><i class="bi bi-pencil-square me-2"></i>Editar Cardápio PNAE</h2>
+            <p class="text-muted small m-0">Atualize as diretrizes do PNAE e os itens diários da semana</p>
+        </div>
+        <a href="{{ url_for('merenda.listar_cardapios_pnae') }}" class="btn btn-outline-secondary rounded-pill px-4">
+            <i class="bi bi-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+
+    <form method="POST" action="{{ url_for('merenda.editar_cardapio_pnae', cardapio_id=cardapio.id) }}">
+        <!-- Parâmetros PNAE -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h5 class="fw-bold text-dark m-0"><i class="bi bi-sliders me-2 text-primary"></i>1. Dados Gerais e Parâmetros PNAE</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Título / Nome do Cardápio *</label>
+                        <input type="text" name="nome" class="form-control" value="{{ cardapio.nome }}" placeholder="Ex: Cardápio Escolar Agosto 2026 - Ensino Fundamental" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Unidade Escolar *</label>
+                        <select name="escola_id" class="form-select" required>
+                            <option value="">Selecione a Escola...</option>
+                            {% for e in escolas %}
+                                <option value="{{ e.id }}" {% if cardapio.escola_id == e.id %}selected{% endif %}>{{ e.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Etapa PNAE *</label>
+                        <select name="etapa_pnae" class="form-select" required>
+                            <option value="Creche (0-3 anos)" {% if cardapio.etapa_pnae == 'Creche (0-3 anos)' %}selected{% endif %}>Creche (0 a 3 anos)</option>
+                            <option value="Pré-Escola (4-5 anos)" {% if cardapio.etapa_pnae == 'Pré-Escola (4-5 anos)' %}selected{% endif %}>Pré-Escola (4 a 5 anos)</option>
+                            <option value="Ensino Fundamental" {% if cardapio.etapa_pnae == 'Ensino Fundamental' %}selected{% endif %}>Ensino Fundamental</option>
+                            <option value="EJA" {% if cardapio.etapa_pnae == 'EJA' %}selected{% endif %}>EJA - Educação de Jovens e Adultos</option>
+                            <option value="Ensino Integral" {% if cardapio.etapa_pnae == 'Ensino Integral' %}selected{% endif %}>Ensino em Tempo Integral</option>
+                            <option value="Quilombola / Indígena" {% if cardapio.etapa_pnae == 'Quilombola / Indígena' %}selected{% endif %}>Quilombola / Indígena</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Modalidade de Atendimento *</label>
+                        <select name="modalidade_atendimento" class="form-select" required>
+                            <option value="Período Parcial (20% VET)" {% if cardapio.modalidade_atendimento == 'Período Parcial (20% VET)' %}selected{% endif %}>Período Parcial (Cobre min. 20% das VET)</option>
+                            <option value="Período Parcial (30% VET)" {% if cardapio.modalidade_atendimento == 'Período Parcial (30% VET)' %}selected{% endif %}>Período Parcial (Cobre min. 30% das VET)</option>
+                            <option value="Período Integral (70% a 86% VET)" {% if cardapio.modalidade_atendimento == 'Período Integral (70% a 86% VET)' %}selected{% endif %}>Período Integral (Cobre 70% a 86% VET)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold">Validade (Início) *</label>
+                        <input type="date" name="validade_inicio" class="form-control" value="{{ cardapio.validade_inicio.strftime('%Y-%m-%d') if cardapio.validade_inicio else '' }}" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold">Validade (Término) *</label>
+                        <input type="date" name="validade_fim" class="form-control" value="{{ cardapio.validade_fim.strftime('%Y-%m-%d') if cardapio.validade_fim else '' }}" required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Nutricionista Responsável Técnico (RT)</label>
+                        <input type="text" name="nutricionista_nome" class="form-control" value="{{ cardapio.nutricionista_nome or '' }}" placeholder="Nome Completo do Nutricionista">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Registro CRN</label>
+                        <input type="text" name="nutricionista_crn" class="form-control" value="{{ cardapio.nutricionista_crn or '' }}" placeholder="Ex: CRN-6 / 12345">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Restrições Alérgicas / Adaptações</label>
+                        <textarea name="restricao_alergica" class="form-control" rows="2" placeholder="Ex: Substituição de leite de vaca por bebida vegetal...">{{ cardapio.restricao_alergica or '' }}</textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Observações Gerais</label>
+                        <textarea name="observacoes" class="form-control" rows="2" placeholder="Observações complementares do cardápio...">{{ cardapio.observacoes or '' }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grade Semanal de Cardápios -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold text-dark m-0"><i class="bi bi-calendar-week me-2 text-primary"></i>2. Refeições e Preparações Diárias</h5>
+                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="adicionarLinhaRefeicao()">
+                    <i class="bi bi-plus-circle me-1"></i> Adicionar Refeição
+                </button>
+            </div>
+            <div class="card-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle" id="tabela-itens-cardapio">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 15%;">Dia da Semana</th>
+                                <th style="width: 15%;">Tipo / Horário</th>
+                                <th style="width: 35%;">Descrição da Preparação *</th>
+                                <th style="width: 18%;">Bebida / Acompanhamento</th>
+                                <th style="width: 12%;">Info. Nutricional</th>
+                                <th style="width: 5%;" class="text-center"><i class="bi bi-trash"></i></th>
+                            </tr>
+                        </thead>
+                        <tbody id="container-itens">
+                            {% if cardapio.itens %}
+                                {% for item in cardapio.itens %}
+                                <tr>
+                                    <td>
+                                        <select name="dia_semana[]" class="form-select form-select-sm">
+                                            <option value="Segunda-feira" {% if item.dia_semana == 'Segunda-feira' %}selected{% endif %}>Segunda-feira</option>
+                                            <option value="Terça-feira" {% if item.dia_semana == 'Terça-feira' %}selected{% endif %}>Terça-feira</option>
+                                            <option value="Quarta-feira" {% if item.dia_semana == 'Quarta-feira' %}selected{% endif %}>Quarta-feira</option>
+                                            <option value="Quinta-feira" {% if item.dia_semana == 'Quinta-feira' %}selected{% endif %}>Quinta-feira</option>
+                                            <option value="Sexta-feira" {% if item.dia_semana == 'Sexta-feira' %}selected{% endif %}>Sexta-feira</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <select name="tipo_refeicao[]" class="form-select form-select-sm mb-1">
+                                            <option value="Almoço" {% if item.tipo_refeicao == 'Almoço' %}selected{% endif %}>Almoço</option>
+                                            <option value="Desjejum" {% if item.tipo_refeicao == 'Desjejum' %}selected{% endif %}>Desjejum</option>
+                                            <option value="Lanche da Manhã" {% if item.tipo_refeicao == 'Lanche da Manhã' %}selected{% endif %}>Lanche da Manhã</option>
+                                            <option value="Lanche da Tarde" {% if item.tipo_refeicao == 'Lanche da Tarde' %}selected{% endif %}>Lanche da Tarde</option>
+                                            <option value="Jantar" {% if item.tipo_refeicao == 'Jantar' %}selected{% endif %}>Jantar</option>
+                                        </select>
+                                        <input type="text" name="horario_servido[]" class="form-control form-control-sm" value="{{ item.horario_servido or '' }}" placeholder="Ex: 09:30">
+                                    </td>
+                                    <td>
+                                        <textarea name="descricao_preparacao[]" class="form-control form-control-sm" rows="2" placeholder="Descrição...">{{ item.descricao_preparacao or '' }}</textarea>
+                                    </td>
+                                    <td>
+                                        <input type="text" name="bebida_acompanhamento[]" class="form-control form-control-sm" value="{{ item.bebida_acompanhamento or '' }}" placeholder="Bebida...">
+                                    </td>
+                                    <td>
+                                        <input type="text" name="informacao_nutricional_resumo[]" class="form-control form-control-sm" value="{{ item.informacao_nutricional_resumo or '' }}" placeholder="Kcal...">
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-sm btn-outline-danger border-0" onclick="removerLinha(this)">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <!-- Linha Padrão Caso Esteja Vazio -->
+                                <tr>
+                                    <td>
+                                        <select name="dia_semana[]" class="form-select form-select-sm">
+                                            <option value="Segunda-feira">Segunda-feira</option>
+                                            <option value="Terça-feira">Terça-feira</option>
+                                            <option value="Quarta-feira">Quarta-feira</option>
+                                            <option value="Quinta-feira">Quinta-feira</option>
+                                            <option value="Sexta-feira">Sexta-feira</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <select name="tipo_refeicao[]" class="form-select form-select-sm mb-1">
+                                            <option value="Almoço">Almoço</option>
+                                            <option value="Desjejum">Desjejum</option>
+                                            <option value="Lanche da Manhã">Lanche da Manhã</option>
+                                            <option value="Lanche da Tarde">Lanche da Tarde</option>
+                                            <option value="Jantar">Jantar</option>
+                                        </select>
+                                        <input type="text" name="horario_servido[]" class="form-control form-control-sm" placeholder="Ex: 09:30">
+                                    </td>
+                                    <td>
+                                        <textarea name="descricao_preparacao[]" class="form-control form-control-sm" rows="2" placeholder="Descrição..."></textarea>
+                                    </td>
+                                    <td>
+                                        <input type="text" name="bebida_acompanhamento[]" class="form-control form-control-sm" placeholder="Bebida...">
+                                    </td>
+                                    <td>
+                                        <input type="text" name="informacao_nutricional_resumo[]" class="form-control form-control-sm" placeholder="Kcal...">
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-sm btn-outline-danger border-0" onclick="removerLinha(this)">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mb-5">
+            <a href="{{ url_for('merenda.listar_cardapios_pnae') }}" class="btn btn-light px-4">Cancelar</a>
+            <button type="submit" class="btn btn-success px-5 rounded-pill"><i class="bi bi-check-lg me-1"></i> Salvar Alterações</button>
+        </div>
+    </form>
+</div>
+
+<script>
+function adicionarLinhaRefeicao() {
+    const container = document.getElementById('container-itens');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td>
+            <select name="dia_semana[]" class="form-select form-select-sm">
+                <option value="Segunda-feira">Segunda-feira</option>
+                <option value="Terça-feira">Terça-feira</option>
+                <option value="Quarta-feira">Quarta-feira</option>
+                <option value="Quinta-feira">Quinta-feira</option>
+                <option value="Sexta-feira">Sexta-feira</option>
+            </select>
+        </td>
+        <td>
+            <select name="tipo_refeicao[]" class="form-select form-select-sm mb-1">
+                <option value="Lanche da Manhã">Lanche da Manhã</option>
+                <option value="Almoço">Almoço</option>
+                <option value="Lanche da Tarde">Lanche da Tarde</option>
+                <option value="Desjejum">Desjejum</option>
+                <option value="Jantar">Jantar</option>
+            </select>
+            <input type="text" name="horario_servido[]" class="form-control form-control-sm" placeholder="Ex: 14:00">
+        </td>
+        <td>
+            <textarea name="descricao_preparacao[]" class="form-control form-control-sm" rows="2" placeholder="Descrição..."></textarea>
+        </td>
+        <td>
+            <input type="text" name="bebida_acompanhamento[]" class="form-control form-control-sm" placeholder="Bebida...">
+        </td>
+        <td>
+            <input type="text" name="informacao_nutricional_resumo[]" class="form-control form-control-sm" placeholder="Kcal...">
+        </td>
+        <td class="text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger border-0" onclick="removerLinha(this)">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </td>
+    `;
+    container.appendChild(tr);
+}
+
+function removerLinha(btn) {
+    const tr = btn.closest('tr');
+    tr.remove();
+}
+</script>
+{% endblock %}

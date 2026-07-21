@@ -525,30 +525,19 @@ def autorizar_solicitacao(solicitacao_id):
 # POST /solicitacoes/<id>/entregar -> Registrar saída do estoque, entregador e data
 
 # Rotas para Cardápios
-@merenda_bp.route('/cardapios', methods=['GET', 'POST'])
+# ==========================================================
+# ROTAS DE CARDÁPIOS (MENSAL/CALENDÁRIO E PNAE)
+# ==========================================================
+
+@merenda_bp.route('/cardapios/gerenciar', methods=['GET', 'POST'])
 @login_required
 @role_required('Merenda Escolar', 'admin')
 def gerenciar_cardapio():
-    # Suporta captura por Query String ou via clique de ID direto
-    cardapio_id_param = request.args.get('id', type=int)
-    
-    # Se um ID for passado na URL (ex: botão Editar), carrega os dados diretamente dele
-    if cardapio_id_param and request.method == 'GET':
-        cardapio_target = Cardapio.query.get(cardapio_id_param)
-        if cardapio_target:
-            escola_id = cardapio_target.escola_id
-            mes_selecionado = cardapio_target.mes
-            ano_selecionado = cardapio_target.ano
-        else:
-            escola_id = request.args.get('escola_id', type=int)
-            mes_selecionado = request.args.get('mes', type=int) or datetime.now().month
-            ano_selecionado = request.args.get('ano', type=int) or datetime.now().year
-    else:
-        escola_id = request.args.get('escola_id', type=int) or request.form.get('escola_id', type=int)
-        mes_selecionado = request.args.get('mes', type=int) or request.form.get('mes', type=int) or datetime.now().month
-        ano_selecionado = request.args.get('ano', type=int) or request.form.get('ano', type=int) or datetime.now().year
+    escola_id = request.args.get('escola_id', type=int) or request.form.get('escola_id', type=int)
+    mes_selecionado = request.args.get('mes', type=int) or request.form.get('mes', type=int) or datetime.now().month
+    ano_selecionado = request.args.get('ano', type=int) or request.form.get('ano', type=int) or datetime.now().year
 
-    # --- PROCESSA SALVAMENTO (POST) ---
+    # --- PROCESSA SALVAMENTO (POST - CRIA OU ATUALIZA) ---
     if request.method == 'POST' and escola_id:
         try:
             cardapio = Cardapio.query.filter_by(
@@ -566,7 +555,7 @@ def gerenciar_cardapio():
                 db.session.add(cardapio)
                 db.session.flush()
 
-            # Remove os pratos antigos do cardápio localizado para regravar os atualizados
+            # Remove os pratos antigos do cardápio para regravar os atualizados
             PratoDiario.query.filter_by(cardapio_id=cardapio.id).delete()
 
             for key, value in request.form.items():
@@ -584,11 +573,10 @@ def gerenciar_cardapio():
                         continue
 
             db.session.commit()
-            registrar_log(f"Atualizou o cardápio mensal #{cardapio.id} ({mes_selecionado}/{ano_selecionado}) para escola ID {escola_id}.")
-            flash('Cardápio atualizado com sucesso!', 'success')
+            registrar_log(f"Salvou o cardápio mensal #{cardapio.id} ({mes_selecionado}/{ano_selecionado}) para escola ID {escola_id}.")
+            flash('Cardápio salvo com sucesso!', 'success')
             
-            # Redireciona mantendo os parâmetros na URL para manter a página preenchida
-            return redirect(url_for('merenda.gerenciar_cardapio', escola_id=escola_id, mes=mes_selecionado, ano=ano_selecionado))
+            return redirect(url_for('merenda.editar_cardapio_mensal', cardapio_id=cardapio.id))
 
         except Exception as e:
             db.session.rollback()
@@ -608,18 +596,13 @@ def gerenciar_cardapio():
             cardapio_atual_id = cardapio.id
             pratos_registrados = PratoDiario.query.filter_by(cardapio_id=cardapio.id).all()
             for p in pratos_registrados:
-                if isinstance(p.data, str):
-                    d_obj = datetime.strptime(p.data, '%Y-%m-%d').date()
-                else:
-                    d_obj = p.data
+                d_obj = datetime.strptime(p.data, '%Y-%m-%d').date() if isinstance(p.data, str) else p.data
                 pratos_dict[d_obj] = p.descricao
 
     cal = calendar.Calendar(firstweekday=0)
     calendario_mes = cal.monthdayscalendar(ano_selecionado, mes_selecionado)
 
     escolas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
-    
-    # Listagem de cardápios com modelo unificado 'Cardapio'
     cardapios_cadastrados = Cardapio.query.order_by(Cardapio.ano.desc(), Cardapio.mes.desc()).all()
 
     meses_pt = {
@@ -643,68 +626,76 @@ def gerenciar_cardapio():
         cardapios_cadastrados=cardapios_cadastrados
     )
 
-@merenda_bp.route('/cardapios/editar/<int:id>', methods=['GET', 'POST'])
+
+@merenda_bp.route('/cardapios/editar-mensal/<int:cardapio_id>', methods=['GET', 'POST'])
 @login_required
 @role_required('Merenda Escolar', 'admin')
-def editar_cardapio_pnae(id):
-    """Editar um Cardápio PNAE existente."""
-    cardapio = Cardapio.query.get_or_404(id)
+def editar_cardapio_mensal(cardapio_id):
+    """Nova Rota Dedicada: Carrega e edita diretamente pelo ID do Cardápio Mensal"""
+    cardapio = Cardapio.query.get_or_404(cardapio_id)
 
     if request.method == 'POST':
         try:
-            val_inicio = datetime.strptime(request.form.get('validade_inicio'), '%Y-%m-%d').date()
-            val_fim = datetime.strptime(request.form.get('validade_fim'), '%Y-%m-%d').date()
+            # Apaga os pratos antigos vinculados a ESTE cardápio específico
+            PratoDiario.query.filter_by(cardapio_id=cardapio.id).delete()
 
-            # Atualiza os dados principais do Cardápio
-            cardapio.nome = request.form.get('nome')
-            cardapio.escola_id = request.form.get('escola_id', type=int)
-            cardapio.etapa_pnae = request.form.get('etapa_pnae')
-            cardapio.modalidade_atendimento = request.form.get('modalidade_atendimento')
-            cardapio.validade_inicio = val_inicio
-            cardapio.validade_fim = val_fim
-            cardapio.mes = val_inicio.month
-            cardapio.ano = val_inicio.year
-            cardapio.nutricionista_nome = request.form.get('nutricionista_nome')
-            cardapio.nutricionista_crn = request.form.get('nutricionista_crn')
-            cardapio.restricao_alergica = request.form.get('restricao_alergica')
-            cardapio.observacoes = request.form.get('observacoes')
-
-            # Limpa os itens antigos para regravar as refeições diárias
-            CardapioItemDiario.query.filter_by(cardapio_id=cardapio.id).delete()
-
-            dias_semana = request.form.getlist('dia_semana[]')
-            tipos_refeicao = request.form.getlist('tipo_refeicao[]')
-            horarios = request.form.getlist('horario_servido[]')
-            preparacoes = request.form.getlist('descricao_preparacao[]')
-            bebidas = request.form.getlist('bebida_acompanhamento[]')
-            nutricional = request.form.getlist('informacao_nutricional_resumo[]')
-
-            for i in range(len(dias_semana)):
-                if preparacoes[i].strip():
-                    item = CardapioItemDiario(
-                        cardapio_id=cardapio.id,
-                        dia_semana=dias_semana[i],
-                        tipo_refeicao=tipos_refeicao[i],
-                        horario_servido=horarios[i] if i < len(horarios) else '',
-                        descricao_preparacao=preparacoes[i],
-                        bebida_acompanhamento=bebidas[i] if i < len(bebidas) else '',
-                        informacao_nutricional_resumo=nutricional[i] if i < len(nutricional) else ''
-                    )
-                    db.session.add(item)
+            # Regrava os pratos informados no formulário
+            for key, value in request.form.items():
+                if key.startswith('prato_') and value.strip():
+                    data_str = key.replace('prato_', '')
+                    try:
+                        data_obj = datetime.strptime(data_str, '%Y-%m-%d').date()
+                        novo_prato = PratoDiario(
+                            cardapio_id=cardapio.id,
+                            data=data_obj,
+                            descricao=value.strip()
+                        )
+                        db.session.add(novo_prato)
+                    except ValueError:
+                        continue
 
             db.session.commit()
-            registrar_log(f"Atualizou o cardápio PNAE #{cardapio.id} ('{cardapio.nome}')")
-            flash('Cardápio PNAE atualizado com sucesso!', 'success')
-            return redirect(url_for('merenda.listar_cardapios_pnae'))
+            registrar_log(f"Atualizou o cardápio mensal #{cardapio.id} ({cardapio.mes}/{cardapio.ano}).")
+            flash('Cardápio atualizado com sucesso!', 'success')
+            return redirect(url_for('merenda.editar_cardapio_mensal', cardapio_id=cardapio.id))
 
         except Exception as e:
             db.session.rollback()
-            flash(f'Erro ao atualizar cardápio: {e}', 'danger')
+            flash(f'Erro ao atualizar cardápio: {str(e)}', 'danger')
+
+    # GET: Busca os pratos gravados neste ID e monta o calendário
+    pratos_db = PratoDiario.query.filter_by(cardapio_id=cardapio.id).all()
+    pratos_dict = {}
+    for p in pratos_db:
+        d_obj = datetime.strptime(p.data, '%Y-%m-%d').date() if isinstance(p.data, str) else p.data
+        pratos_dict[d_obj] = p.descricao
+
+    cal = calendar.Calendar(firstweekday=0)
+    calendario_mes = cal.monthdayscalendar(cardapio.ano, cardapio.mes)
 
     escolas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
-    
-    # Reutiliza o mesmo template do formulário de criação (cardapio_form.html)
-    return render_template('merenda/cardapio_form.html', escolas=escolas, cardapio=cardapio)    
+    cardapios_cadastrados = Cardapio.query.order_by(Cardapio.ano.desc(), Cardapio.mes.desc()).all()
+
+    meses_pt = {
+        1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril',
+        5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto',
+        9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
+    }
+
+    return render_template(
+        'merenda/cardapio_editor.html',
+        escolas=escolas,
+        escola_selecionada_id=cardapio.escola_id,
+        mes_selecionado=cardapio.mes,
+        ano_selecionado=cardapio.ano,
+        pratos=pratos_dict,
+        calendario_mes=calendario_mes,
+        meses_pt=meses_pt,
+        anos_disponiveis=[2025, 2026, 2027],
+        date=date,
+        cardapio_atual_id=cardapio.id,
+        cardapios_cadastrados=cardapios_cadastrados
+    )   
 
 # GET /cardapios -> Visão geral dos cardápios das escolas
 # GET /escola/<id>/cardapio -> Editor do cardápio semanal da escola

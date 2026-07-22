@@ -26,7 +26,8 @@ from models import (
     Servidor, RelatorioTecnico, RelatorioAnexo, PedidoEmpresa, 
     PedidoEmpresaItem, FichaDistribuicao, FichaDistribuicaoItem,
     AgricultorFamiliar, DocumentoAgricultor, ContratoPNAE, 
-    ItemProjetoVenda, EntregaPNAE, ConfiguracaoPNAE
+    ItemProjetoVenda, EntregaPNAE, ConfiguracaoPNAE,
+    CardapioNutricionista
 )
 from utils import (
     login_required, registrar_log, limpar_cpf, cabecalho_e_rodape, 

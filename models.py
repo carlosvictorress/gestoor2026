@@ -569,8 +569,10 @@ class Cardapio(db.Model):
     modalidade_atendimento = db.Column(db.String(80), nullable=True)
     validade_inicio = db.Column(db.Date, nullable=True)
     validade_fim = db.Column(db.Date, nullable=True)
-    nutricionista_nome = db.Column(db.String(120), nullable=True)
-    nutricionista_crn = db.Column(db.String(40), nullable=True)
+    
+    # NOVO CAMPO: Identificação da Semana (Ex: "1ª e 3ª Semana")
+    semanas_referencia = db.Column(db.String(100), nullable=True)
+
     restricao_alergica = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(20), default="Ativo")
 
@@ -579,6 +581,19 @@ class Cardapio(db.Model):
     pratos = db.relationship("PratoDiario", backref="cardapio", cascade="all, delete-orphan")
     historico = db.relationship("HistoricoCardapio", backref="cardapio", cascade="all, delete-orphan")
     itens_pnae = db.relationship("CardapioItemDiario", backref="cardapio", cascade="all, delete-orphan", order_by="CardapioItemDiario.id")
+    
+    # NOVO RELACIONAMENTO PARA MÚLTIPLOS NUTRICIONISTAS
+    nutricionistas = db.relationship("CardapioNutricionista", backref="cardapio", cascade="all, delete-orphan")
+
+
+# ADICIONE ESTA NOVA CLASSE NO SEU ARQUIVO MODELS.PY
+class CardapioNutricionista(db.Model):
+    __tablename__ = "cardapio_nutricionista"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    cardapio_id = db.Column(db.Integer, db.ForeignKey("cardapio.id", ondelete="CASCADE"), nullable=False)
+    nome = db.Column(db.String(120), nullable=False)
+    crn = db.Column(db.String(40), nullable=False)
 
 class CardapioItemDiario(db.Model):
     __tablename__ = "cardapio_item_diario"

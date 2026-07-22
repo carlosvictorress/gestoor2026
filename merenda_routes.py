@@ -641,6 +641,7 @@ def editar_cardapio_pnae(cardapio_id):
             cardapio.escola_id = request.form.get('escola_id', type=int)
             cardapio.etapa_pnae = request.form.get('etapa_pnae')
             cardapio.modalidade_atendimento = request.form.get('modalidade_atendimento')
+            cardapio.semanas_referencia = request.form.get('semanas_referencia')  # Adicionado
             
             validade_inicio = request.form.get('validade_inicio')
             validade_fim = request.form.get('validade_fim')
@@ -649,10 +650,22 @@ def editar_cardapio_pnae(cardapio_id):
             if validade_fim:
                 cardapio.validade_fim = datetime.strptime(validade_fim, '%Y-%m-%d').date()
 
-            cardapio.nutricionista_nome = request.form.get('nutricionista_nome')
-            cardapio.nutricionista_crn = request.form.get('nutricionista_crn')
             cardapio.restricao_alergica = request.form.get('restricao_alergica')
             cardapio.observacoes = request.form.get('observacoes')
+
+            # --- ATUALIZA MÚLTIPLOS NUTRICIONISTAS ---
+            CardapioNutricionista.query.filter_by(cardapio_id=cardapio.id).delete()
+            nutri_nomes = request.form.getlist('nutricionista_nome[]')
+            nutri_crns = request.form.getlist('nutricionista_crn[]')
+            for n, c in zip(nutri_nomes, nutri_crns):
+                if n.strip():
+                    nutri_item = CardapioNutricionista(
+                        cardapio_id=cardapio.id,
+                        nome=n.strip(),
+                        crn=c.strip()
+                    )
+                    db.session.add(nutri_item)
+            # ----------------------------------------
 
             # Atualiza os itens diários utilizando a tabela cardapio_item_diario
             CardapioItemDiario.query.filter_by(cardapio_id=cardapio.id).delete()
@@ -2367,18 +2380,30 @@ def novo_cardapio_pnae():
                 escola_id=request.form.get('escola_id', type=int),
                 etapa_pnae=request.form.get('etapa_pnae'),
                 modalidade_atendimento=request.form.get('modalidade_atendimento'),
+                semanas_referencia=request.form.get('semanas_referencia'),  # Adicionado
                 validade_inicio=val_inicio,
                 validade_fim=val_fim,
                 mes=val_inicio.month,
                 ano=val_inicio.year,
-                nutricionista_nome=request.form.get('nutricionista_nome'),
-                nutricionista_crn=request.form.get('nutricionista_crn'),
                 restricao_alergica=request.form.get('restricao_alergica'),
                 observacoes=request.form.get('observacoes'),
                 status='Ativo'
             )
             db.session.add(novo)
             db.session.flush()
+
+            # --- PROCESSA MÚLTIPLOS NUTRICIONISTAS ---
+            nutri_nomes = request.form.getlist('nutricionista_nome[]')
+            nutri_crns = request.form.getlist('nutricionista_crn[]')
+            for n, c in zip(nutri_nomes, nutri_crns):
+                if n.strip():
+                    nutri_item = CardapioNutricionista(
+                        cardapio_id=novo.id,
+                        nome=n.strip(),
+                        crn=c.strip()
+                    )
+                    db.session.add(nutri_item)
+            # ----------------------------------------
 
             # Processa os itens diários enviados pelo formulário
             dias_semana = request.form.getlist('dia_semana[]')
@@ -2530,15 +2555,14 @@ def gerar_cardapio_pdf(cardapio_id):
     etapa_mod = formatar_campo(f"{cardapio.etapa_pnae or ''} - {cardapio.modalidade_atendimento or ''}".strip(" -"), "Geral")
     val_inicio = cardapio.validade_inicio.strftime('%d/%m/%Y') if cardapio.validade_inicio else "N/A"
     val_fim = cardapio.validade_fim.strftime('%d/%m/%Y') if cardapio.validade_fim else "N/A"
-    nutri_nome = formatar_campo(cardapio.nutricionista_nome, "Não informado")
-    nutri_crn = formatar_campo(cardapio.nutricionista_crn, "CRN N/A")
+    semanas_ref = formatar_campo(cardapio.semanas_referencia, "Ciclo Geral") # <--- ADICIONADO
 
-    # Tabela com Detalhes da Vigência e Nutricionista
+    # Tabela com Detalhes da Vigência, Ciclo de Semanas e Modalidade
     info_data = [
         [
             Paragraph(f"<b>Etapa/Modalidade:</b> {etapa_mod}", style_cell_body),
-            Paragraph(f"<b>Período de Vigência:</b> {val_inicio} a {val_fim}", style_cell_body),
-            Paragraph(f"<b>Nutricionista RT:</b> {nutri_nome} ({nutri_crn})", style_cell_body)
+            Paragraph(f"<b>Referência:</b> {semanas_ref}", style_cell_body), # <--- ADICIONADO NA COLUNA DO MEIO
+            Paragraph(f"<b>Período de Vigência:</b> {val_inicio} a {val_fim}", style_cell_body)
         ]
     ]
     info_table = Table(info_data, colWidths=[9.5 * cm, 8.5 * cm, 9.3 * cm])
@@ -2621,10 +2645,22 @@ def gerar_cardapio_pdf(cardapio_id):
         story.append(obs_table)
         story.append(Spacer(1, 0.5 * cm))
 
-    # Rodapé e Assinatura do Nutricionista RT
+    # --- RODAPÉ COM MÚLTIPLAS ASSINATURAS DE NUTRICIONISTAS ---
     story.append(Spacer(1, 0.4 * cm))
     story.append(Paragraph("__________________________________________________________", style_footer))
-    story.append(Paragraph(f"<b>{nutri_nome}</b><br/>CRN: {nutri_crn}", style_footer))
+    
+    nutris_assinaturas = []
+    for nutridep in cardapio.nutricionistas:
+        nutris_assinaturas.append(Paragraph(f"<b>{nutridep.nome}</b><br/>CRN: {nutridep.crn}", style_footer))
+
+    if nutris_assinaturas:
+        # Distribui as assinaturas lado a lado de forma automática com base na quantidade cadastrada
+        t_nutri = Table([nutris_assinaturas], colWidths=[27.3 * cm / len(nutris_assinaturas)] * len(nutris_assinaturas))
+        t_nutri.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'TOP')]))
+        story.append(t_nutri)
+    else:
+        story.append(Paragraph("<b>Nutricionista Responsável Técnico</b><br/>CRN não informado", style_footer))
+    # ---------------------------------------------------------
 
     doc.build(story, onFirstPage=cabecalho_e_rodape, onLaterPages=cabecalho_e_rodape)
     buffer.seek(0)

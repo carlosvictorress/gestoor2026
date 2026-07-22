@@ -53,22 +53,25 @@
                             <option value="Período Integral (70% a 86% VET)" {% if cardapio.modalidade_atendimento == 'Período Integral (70% a 86% VET)' %}selected{% endif %}>Período Integral (Cobre 70% a 86% VET)</option>
                         </select>
                     </div>
-                    <div class="col-md-2">
+
+                    <!-- CAMPO: Ciclo / Semanas de Referência -->
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Ciclo / Semanas de Referência *</label>
+                        <select name="semanas_referencia" class="form-select" required>
+                            <option value="">Selecione o ciclo...</option>
+                            <option value="1ª e 3ª Semana" {% if cardapio.semanas_referencia == '1ª e 3ª Semana' %}selected{% endif %}>1ª e 3ª Semana</option>
+                            <option value="2ª e 4ª Semana" {% if cardapio.semanas_referencia == '2ª e 4ª Semana' %}selected{% endif %}>2ª e 4ª Semana</option>
+                            <option value="Semana Única / Mensal" {% if cardapio.semanas_referencia == 'Semana Única / Mensal' %}selected{% endif %}>Semana Única / Mensal</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
                         <label class="form-label fw-semibold">Validade (Início) *</label>
                         <input type="date" name="validade_inicio" class="form-control" value="{{ cardapio.validade_inicio.strftime('%Y-%m-%d') if cardapio.validade_inicio else '' }}" required>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-3">
                         <label class="form-label fw-semibold">Validade (Término) *</label>
                         <input type="date" name="validade_fim" class="form-control" value="{{ cardapio.validade_fim.strftime('%Y-%m-%d') if cardapio.validade_fim else '' }}" required>
-                    </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Nutricionista Responsável Técnico (RT)</label>
-                        <input type="text" name="nutricionista_nome" class="form-control" value="{{ cardapio.nutricionista_nome or '' }}" placeholder="Nome Completo do Nutricionista">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Registro CRN</label>
-                        <input type="text" name="nutricionista_crn" class="form-control" value="{{ cardapio.nutricionista_crn or '' }}" placeholder="Ex: CRN-6 / 12345">
                     </div>
 
                     <div class="col-md-6">
@@ -79,6 +82,47 @@
                         <label class="form-label fw-semibold">Observações Gerais</label>
                         <textarea name="observacoes" class="form-control" rows="2" placeholder="Observações complementares do cardápio...">{{ cardapio.observacoes or '' }}</textarea>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEÇÃO MÚLTIPLOS NUTRICIONISTAS -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold text-dark m-0"><i class="bi bi-people me-2 text-primary"></i>Nutricionistas Responsáveis (Assinaturas)</h5>
+                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="adicionarNutricionista()">
+                    <i class="bi bi-plus-circle me-1"></i> Adicionar Nutricionista
+                </button>
+            </div>
+            <div class="card-body p-4">
+                <div id="container-nutricionistas">
+                    {% if cardapio.nutricionistas and cardapio.nutricionistas|length > 0 %}
+                        {% for nutridep in cardapio.nutricionistas %}
+                        <div class="row g-3 mb-2 nutricionista-row">
+                            <div class="col-md-6">
+                                <input type="text" name="nutricionista_nome[]" class="form-control" value="{{ nutridep.nome }}" placeholder="Nome Completo" required>
+                            </div>
+                            <div class="col-md-5">
+                                <input type="text" name="nutricionista_crn[]" class="form-control" value="{{ nutridep.crn }}" placeholder="Ex: CRN-6 / 12345" required>
+                            </div>
+                            <div class="col-md-1 d-flex align-items-center">
+                                <button type="button" class="btn btn-outline-danger border-0" onclick="removerNutricionista(this)"><i class="bi bi-x-lg"></i></button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="row g-3 mb-2 nutricionista-row">
+                            <div class="col-md-6">
+                                <input type="text" name="nutricionista_nome[]" class="form-control" placeholder="Nome Completo do Nutricionista" required>
+                            </div>
+                            <div class="col-md-5">
+                                <input type="text" name="nutricionista_crn[]" class="form-control" placeholder="Ex: CRN-6 / 12345" required>
+                            </div>
+                            <div class="col-md-1 d-flex align-items-center">
+                                <button type="button" class="btn btn-outline-danger border-0" onclick="removerNutricionista(this)"><i class="bi bi-x-lg"></i></button>
+                            </div>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -105,8 +149,8 @@
                             </tr>
                         </thead>
                         <tbody id="container-itens">
-                            {% if cardapio.itens %}
-                                {% for item in cardapio.itens %}
+                            {% if cardapio.itens_pnae and cardapio.itens_pnae|length > 0 %}
+                                {% for item in cardapio.itens_pnae %}
                                 <tr>
                                     <td>
                                         <select name="dia_semana[]" class="form-select form-select-sm">
@@ -195,6 +239,26 @@
 </div>
 
 <script>
+function adicionarNutricionista() {
+    const container = document.getElementById('container-nutricionistas');
+    const div = document.createElement('div');
+    div.className = 'row g-3 mb-2 nutricionista-row';
+    div.innerHTML = `
+        <div class="col-md-6"><input type="text" name="nutricionista_nome[]" class="form-control" placeholder="Nome Completo" required></div>
+        <div class="col-md-5"><input type="text" name="nutricionista_crn[]" class="form-control" placeholder="Ex: CRN-6 / 12345" required></div>
+        <div class="col-md-1 d-flex align-items-center"><button type="button" class="btn btn-outline-danger border-0" onclick="removerNutricionista(this)"><i class="bi bi-x-lg"></i></button></div>
+    `;
+    container.appendChild(div);
+}
+
+function removerNutricionista(btn) {
+    if(document.querySelectorAll('.nutricionista-row').length > 1) {
+        btn.closest('.nutricionista-row').remove();
+    } else {
+        alert('O cardápio precisa ter pelo menos um nutricionista.');
+    }
+}
+
 function adicionarLinhaRefeicao() {
     const container = document.getElementById('container-itens');
     const tr = document.createElement('tr');

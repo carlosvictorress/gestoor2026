@@ -82,9 +82,19 @@
                                     {{ c.validade_fim.strftime('%d/%m/%Y') if c.validade_fim else 'N/A' }}
                                 </div>
                             </td>
-                            <td>
-                                <div class="small fw-semibold">{{ c.nutricionista_nome or 'Não informado' }}</div>
-                                <small class="text-muted">CRN: {{ c.nutricionista_crn or 'N/A' }}</small>
+                           <td>
+                                {% if c.nutricionistas %}
+                                    {% for nutridep in c.nutricionistas %}
+                                        <div class="small fw-semibold">
+                                            {{ nutridep.nome }}<br>
+                                            <span class="text-muted fw-normal">CRN: {{ nutridep.crn }}</span>
+                                        </div>
+                                        {% if not loop.last %}<hr class="my-1">{% endif %}
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="small fw-semibold text-muted">Não informado</div>
+                                    <small class="text-muted">CRN: N/A</small>
+                                {% endif %}
                             </td>
                             <td class="text-end pe-4">
                                 <div class="btn-group gap-1">

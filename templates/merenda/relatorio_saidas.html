@@ -1,75 +1,104 @@
 {% extends 'base.html' %}
 
-{% block title %}Relatório de Saídas de Estoque{% endblock %}
+{% block title %}Relatório de Saídas de Estoque por Escola{% endblock %}
 
 {% block content %}
-<h2><i class="bi bi-file-earmark-bar-graph"></i> Relatório de Saídas de Estoque por Escola</h2>
-<hr>
-
-<div class="card shadow-sm mb-4">
-    <div class="card-body">
-        <form method="GET">
-            <div class="row g-3 align-items-end">
-                <div class="col-md-5">
-                    <label for="escola_id" class="form-label">Escola*</label>
-                    <select class="form-select" name="escola_id" id="escola_id" required>
-                        <option value="">-- Selecione uma escola --</option>
-                        {% for e in escolas %}
-                        <option value="{{ e.id }}" {{ 'selected' if e.id == escola_selecionada_id }}>{{ e.nome }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label for="data_inicio" class="form-label">Data de Início*</label>
-                    <input type="date" class="form-control" name="data_inicio" value="{{ data_inicio or '' }}" required>
-                </div>
-                <div class="col-md-3">
-                    <label for="data_fim" class="form-label">Data Final*</label>
-                    <input type="date" class="form-control" name="data_fim" value="{{ data_fim or '' }}" required>
-                </div>
-                <div class="col-md-1">
-                    <button type="submit" class="btn btn-info w-100" title="Buscar"><i class="bi bi-search"></i></button>
-                </div>
-            </div>
-        </form>
-    </div>
-</div>
-
-{% if resultados is defined and resultados is not none %}
-<div class="card shadow-sm">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5>Resultados da Busca</h5>
-        <a href="{{ url_for('merenda.relatorio_saidas', escola_id=escola_selecionada_id, data_inicio=data_inicio, data_fim=data_fim, gerar_pdf=True) }}" class="btn btn-danger" target="_blank">
-            <i class="bi bi-file-earmark-pdf-fill"></i> Gerar PDF
+<div class="container-fluid px-4 py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+        <div>
+            <h2 class="fw-bold text-primary mb-1">
+                <i class="bi bi-building-check me-2"></i>Relatório de Saídas por Escola Municipal
+            </h2>
+            <p class="text-muted mb-0">Detalhamento das entregas realizadas com rastreamento por escola e período.</p>
+        </div>
+        <a href="{{ url_for('merenda.dashboard') }}" class="btn btn-light border">
+            <i class="bi bi-arrow-left me-1"></i> Voltar ao Dashboard
         </a>
     </div>
-    <div class="card-body">
-        {% if resultados %}
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Data/Hora da Saída</th>
-                        <th>Produto</th>
-                        <th>Quantidade</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for r in resultados %}
-                    <tr>
-                        <td>{{ r.data_movimento.strftime('%d/%m/%Y %H:%M') }}</td>
-                        <td>{{ r.nome }}</td>
-                        <td>{{ r.quantidade }} {{ r.unidade_medida }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <p class="text-center text-muted">Nenhuma saída encontrada para os filtros selecionados.</p>
-        {% endif %}
-    </div>
-</div>
-{% endif %}
 
+    <!-- FILTRO DE BUSCA -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body p-4">
+            <form method="GET">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-5">
+                        <label for="escola_id" class="form-label fw-bold">Escola Municipal <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-lg" name="escola_id" id="escola_id" required>
+                            <option value="">-- Selecione uma escola --</option>
+                            {% for e in escolas %}
+                            <option value="{{ e.id }}" {{ 'selected' if e.id == escola_selecionada_id }}>{{ e.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="data_inicio" class="form-label fw-bold">Data Inicial (Opcional)</label>
+                        <input type="date" class="form-control" name="data_inicio" id="data_inicio" value="{{ data_inicio or '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="data_fim" class="form-label fw-bold">Data Final (Opcional)</label>
+                        <input type="date" class="form-control" name="data_fim" id="data_fim" value="{{ data_fim or '' }}">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold" title="Pesquisar"><i class="bi bi-search"></i></button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if escola_selecionada_id %}
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="m-0 fw-bold text-dark"><i class="bi bi-list-check me-2 text-primary"></i>Entregas Encontradas</h5>
+            <a href="{{ url_for('merenda.relatorio_saidas', escola_id=escola_selecionada_id, data_inicio=data_inicio, data_fim=data_fim, gerar_pdf=1) }}" class="btn btn-danger fw-bold" target="_blank">
+                <i class="bi bi-file-pdf me-1"></i> Gerar PDF Timbrado
+            </a>
+        </div>
+        <div class="card-body p-0">
+            {% if resultados %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Data/Hora da Saída</th>
+                            <th>Produto</th>
+                            <th>Qtd Lançada</th>
+                            <th>Baixa Real (Estoque)</th>
+                            <th>Responsável</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in resultados %}
+                        <tr>
+                            <td class="small">{{ r.data_movimento.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td class="fw-bold text-dark">{{ r.nome }}</td>
+                            <td>
+                                {% if r.quantidade_embalagem %}
+                                    <span class="badge bg-light text-dark border">
+                                        {{ "%.1f"|format(r.quantidade_embalagem) }} {{ r.unidade_movimento or '' }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">--</span>
+                                {% endif %}
+                            </td>
+                            <td class="fw-bold text-danger">
+                                - {{ "%.2f"|format(r.quantidade) }} {{ r.unidade_consumo or 'UNID' }}
+                            </td>
+                            <td class="small text-muted">{{ r.usuario_responsavel or 'Sistema' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-5 text-center text-muted">
+                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                Nenhuma saída registrada para esta escola no período selecionado.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
 {% endblock %}

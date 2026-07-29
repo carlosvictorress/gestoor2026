@@ -836,28 +836,31 @@ def relatorio_saidas():
     gerar_pdf = request.args.get('gerar_pdf')
 
     resultados = []
-    if escola_id and data_inicio_str and data_fim_str:
-        data_inicio = datetime.strptime(data_inicio_str, '%Y-%m-%d')
-        # Adiciona um dia e subtrai um segundo para incluir o dia final inteiro na busca
-        data_fim = datetime.strptime(data_fim_str, '%Y-%m-%d') + timedelta(days=1, seconds=-1)
+    if escola_id:
+        query = db.session.query(
+            EstoqueMovimento.data_movimento,
+            ProdutoMerenda.nome,
+            EstoqueMovimento.quantidade,
+            ProdutoMerenda.unidade_consumo,
+            EstoqueMovimento.unidade_movimento,
+            EstoqueMovimento.quantidade_embalagem,
+            EstoqueMovimento.usuario_responsavel
+        ).join(ProdutoMerenda).outerjoin(SolicitacaoMerenda).filter(
+            or_(EstoqueMovimento.escola_id == escola_id, SolicitacaoMerenda.escola_id == escola_id),
+            or_(EstoqueMovimento.tipo == 'Saída', EstoqueMovimento.tipo == 'Saída Escola')
+        )
 
-        # Busca os movimentos de saída que correspondem aos filtros
-        resultados = db.session.query(
-                EstoqueMovimento.data_movimento,
-                ProdutoMerenda.nome,
-                EstoqueMovimento.quantidade,
-                ProdutoMerenda.unidade_medida
-            ).join(ProdutoMerenda).join(SolicitacaoMerenda).filter(
-                SolicitacaoMerenda.escola_id == escola_id,
-                EstoqueMovimento.tipo == 'Saída',
-                EstoqueMovimento.data_movimento.between(data_inicio, data_fim)
-            ).order_by(EstoqueMovimento.data_movimento.asc()).all()
+        if data_inicio_str and data_fim_str:
+            data_inicio = datetime.strptime(data_inicio_str, '%Y-%m-%d')
+            data_fim = datetime.strptime(data_fim_str, '%Y-%m-%d') + timedelta(days=1, seconds=-1)
+            query = query.filter(EstoqueMovimento.data_movimento.between(data_inicio, data_fim))
+
+        resultados = query.order_by(EstoqueMovimento.data_movimento.desc()).all()
         
-        # Se o botão de PDF foi clicado, gera o PDF
         if gerar_pdf:
             escola = Escola.query.get(escola_id)
-            titulo = f"Relatório de Saídas para {escola.nome}"
-            periodo = f"Período: {data_inicio.strftime('%d/%m/%Y')} a {data_fim.strftime('%d/%m/%Y')}"
+            titulo = f"Relatório de Saídas para {escola.nome if escola else 'Escola'}"
+            periodo = f"Período: {data_inicio_str or 'Histórico Completo'} a {data_fim_str or 'Atual'}"
             return gerar_pdf_saidas(titulo, periodo, resultados)
 
     return render_template('merenda/relatorio_saidas.html', 
@@ -868,14 +871,10 @@ def relatorio_saidas():
                            data_fim=data_fim_str)
 
 def gerar_pdf_saidas(titulo, periodo, dados):
-    """
-    Função que gera o PDF do relatório de saídas.
-    """
-    # --- IMPORTAÇÕES CORRIGIDAS E COMPLETAS ---
     from utils import cabecalho_e_rodape_moderno
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.pagesizes import A4 # <-- Importação que faltava
+    from reportlab.lib.pagesizes import A4
     from reportlab.lib.enums import TA_CENTER, TA_LEFT
     from reportlab.lib import colors
     from reportlab.lib.units import cm
@@ -883,55 +882,44 @@ def gerar_pdf_saidas(titulo, periodo, dados):
     import io
 
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=3*cm, bottomMargin=2*cm)
-    
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=3*cm, bottomMargin=2*cm)
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name='Center', alignment=TA_CENTER))
-    styles.add(ParagraphStyle(name='Left', alignment=TA_LEFT))
 
     story = []
-    
-    # Adiciona o título e o período
-    story.append(Paragraph(titulo, styles['h1']))
-    story.append(Paragraph(periodo, styles['Center']))
-    story.append(Spacer(1, 1*cm))
+    story.append(Paragraph(titulo, styles['h2']))
+    story.append(Paragraph(periodo, styles['Normal']))
+    story.append(Spacer(1, 0.5*cm))
 
-    # Prepara os dados da tabela
-    table_data = [['Data/Hora da Saída', 'Produto', 'Quantidade']]
+    table_data = [['Data/Hora da Saída', 'Produto', 'Qtd Lançada', 'Baixa Real em Estoque', 'Responsável']]
     
     for item in dados:
         data_formatada = item.data_movimento.strftime('%d/%m/%Y %H:%M')
-        quantidade_formatada = f"{item.quantidade} {item.unidade_medida}"
-        table_data.append([data_formatada, item.nome, quantidade_formatada])
+        qtd_emb = f"{item.quantidade_embalagem:.1f} {item.unidade_movimento or ''}" if item.quantidade_embalagem else "--"
+        qtd_real = f"{item.quantidade:.2f} {item.unidade_consumo or 'UNID'}"
+        table_data.append([data_formatada, item.nome, qtd_emb, qtd_real, item.usuario_responsavel or 'Sistema'])
 
-    # Cria a tabela
-    t = Table(table_data, colWidths=[5*cm, 8*cm, 4*cm])
+    t = Table(table_data, colWidths=[4*cm, 5.5*cm, 3*cm, 3.5*cm, 2*cm])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#004d40')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f5f5')])
     ]))
     
     story.append(t)
-    story.append(Spacer(1, 2*cm))
-    
-    # Linhas de assinatura
-    story.append(Paragraph("________________________________________", styles['Center']))
-    story.append(Paragraph("Responsável pelo Almoxarifado", styles['Center']))
+    story.append(Spacer(1, 1.5*cm))
+    story.append(Paragraph("________________________________________", styles['Normal']))
+    story.append(Paragraph("Responsável pela Expedição da Merenda", styles['Normal']))
     
     doc.build(story, onFirstPage=lambda canvas, doc: cabecalho_e_rodape_moderno(canvas, doc, "Relatório de Saídas"), 
                      onLaterPages=lambda canvas, doc: cabecalho_e_rodape_moderno(canvas, doc, "Relatório de Saídas"))
     
     buffer.seek(0)
-    
     response = make_response(buffer.getvalue())
     response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = f'inline; filename=relatorio_saidas.pdf'
-    
+    response.headers['Content-Disposition'] = 'inline; filename=relatorio_saidas.pdf'
     return response                       
     
     

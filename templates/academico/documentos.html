@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block title %}Central de Documentos Oficiais Timbrados (PDF) — SIGE{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+        <div>
+            <h2 class="fw-bold text-danger mb-1">
+                <i class="bi bi-file-earmark-pdf-fill me-2"></i>Central de Documentos & PDFs Oficiais Timbrados
+            </h2>
+            <p class="text-muted mb-0">Emissão de Boletins Escolares, Atas Finais de Rendimento da Turma e Comprovantes Oficiais para a Secretaria Municipal.</p>
+        </div>
+        <a href="{{ url_for('academico.dashboard') }}" class="btn btn-light border">
+            <i class="bi bi-arrow-left me-1"></i> Voltar ao Dashboard
+        </a>
+    </div>
+
+    <div class="row g-4">
+        <!-- DOCUMENTO 1: BOLETIM ESCOLAR INDIVIDUAL -->
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100 border-top border-primary border-4">
+                <div class="card-body p-4 d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="p-3 bg-primary-subtle text-primary rounded-circle me-3"><i class="bi bi-award fs-2"></i></div>
+                            <div>
+                                <h5 class="fw-bold text-dark mb-0">1. Boletim Escolar Oficial do Aluno</h5>
+                                <small class="text-muted">Desempenho por disciplina, notas bimestrais, recuperação e faltas acumuladas.</small>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="select_aluno_boletim" class="form-label fw-bold small text-uppercase">Selecione o Aluno</label>
+                            <select class="form-select" id="select_aluno_boletim">
+                                <option value="" disabled selected>-- Escolha um aluno --</option>
+                                {% for a in alunos %}
+                                {% for m in a.matriculas %}
+                                <option value="{{ m.id }}">{{ a.nome_completo }} — Turma: {{ m.turma.nome }} ({{ m.turma.ano_letivo }})</option>
+                                {% endfor %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-primary fw-bold w-100 py-2" onclick="gerarBoletim()">
+                        <i class="bi bi-file-pdf-fill me-1"></i> Gerar Boletim Escolar (PDF Timbrado)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- DOCUMENTO 2: ATA FINAL DE RENDIMENTO ESCOLAR -->
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100 border-top border-danger border-4">
+                <div class="card-body p-4 d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="p-3 bg-danger-subtle text-danger rounded-circle me-3"><i class="bi bi-journal-text fs-2"></i></div>
+                            <div>
+                                <h5 class="fw-bold text-dark mb-0">2. Ata Final de Resultados da Turma</h5>
+                                <small class="text-muted">Ata oficial de encerramento do ano letivo exigida pelo MEC, FNDE e TCE.</small>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="select_turma_ata" class="form-label fw-bold small text-uppercase">Selecione a Turma Escolar</label>
+                            <select class="form-select" id="select_turma_ata">
+                                <option value="" disabled selected>-- Escolha uma turma --</option>
+                                {% for t in turmas %}
+                                <option value="{{ t.id }}">{{ t.escola.nome }} — {{ t.nome }} ({{ t.ano_letivo }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-danger fw-bold w-100 py-2" onclick="gerarAta()">
+                        <i class="bi bi-file-pdf-fill me-1"></i> Gerar Ata Final da Turma (PDF Timbrado)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+function gerarBoletim() {
+    const val = document.getElementById('select_aluno_boletim').value;
+    if (!val) {
+        alert('Por favor, selecione um aluno na lista.');
+        return;
+    }
+    window.open('/academico/documentos/boletim/' + val, '_blank');
+}
+
+function gerarAta() {
+    const val = document.getElementById('select_turma_ata').value;
+    if (!val) {
+        alert('Por favor, selecione uma turma na lista.');
+        return;
+    }
+    window.open('/academico/documentos/ata-final/' + val, '_blank');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+
+{% block title %}Prontuário de Alunos - Educacenso / INEP - SIGE{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+        <div>
+            <h2 class="fw-bold text-primary mb-1">
+                <i class="bi bi-people-fill me-2"></i>Prontuário do Aluno (Educacenso / INEP)
+            </h2>
+            <p class="text-muted mb-0">Cadastro unificado de dados civis, responsabilidades sociais, endereço e AEE alinhados ao Censo Escolar.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-primary fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNovoAluno">
+                <i class="bi bi-person-plus-fill me-1"></i> Novo Aluno (Educacenso)
+            </button>
+            <a href="{{ url_for('academico.dashboard') }}" class="btn btn-light border">
+                <i class="bi bi-arrow-left me-1"></i> Voltar
+            </a>
+        </div>
+    </div>
+
+    <!-- FILTRO DE BUSCA -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body p-3">
+            <form method="GET" action="{{ url_for('academico.gerenciar_alunos') }}" class="row g-2 align-items-center">
+                <div class="col-md-10">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" class="form-control border-start-0" name="busca" value="{{ busca or '' }}" placeholder="Pesquisar por Nome Completo, CPF, Código INEP ou NIS Bolsa Família...">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary fw-bold w-100">Pesquisar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TABELA DE ALUNOS -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Nome do Aluno / Mãe</th>
+                            <th>CPF / Código INEP</th>
+                            <th>NIS Bolsa Família</th>
+                            <th>Nascimento</th>
+                            <th>Endereço / Zona</th>
+                            <th>Necessidades Especiais</th>
+                            <th class="text-center pe-4">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in alunos %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="fw-bold text-dark">{{ a.nome_completo }}</div>
+                                <small class="text-muted">Mãe: {{ a.filiacao_1 or '--' }}</small>
+                            </td>
+                            <td>
+                                <div><span class="fw-bold">CPF:</span> {{ a.cpf or 'Não Inf.' }}</div>
+                                <small class="text-primary font-monospace">INEP: {{ a.id_inep or 'Pendente' }}</small>
+                            </td>
+                            <td>
+                                {% if a.nis_aluno %}
+                                    <span class="badge bg-success-subtle text-success border border-success">
+                                        <i class="bi bi-wallet2 me-1"></i>{{ a.nis_aluno }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted small">--</span>
+                                {% endif %}
+                            </td>
+                            <td class="small">{{ a.data_nascimento.strftime('%d/%m/%Y') if a.data_nascimento else '--' }}</td>
+                            <td class="small">
+                                <div>{{ a.bairro or 'Urbana' }}</div>
+                                <span class="badge bg-light text-dark border">{{ a.zona_residencia or 'Urbana' }}</span>
+                            </td>
+                            <td>
+                                {% if a.necessidade_especial %}
+                                    <span class="badge bg-danger-subtle text-danger border border-danger">
+                                        🚨 {{ a.tipo_necessidade or 'AEE' }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-light text-muted border">Não</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center pe-4">
+                                <div class="btn-group">
+                                    <a href="{{ url_for('academico.ficha_aluno', aluno_id=a.id) }}" class="btn btn-outline-primary btn-sm" title="Ficha do Aluno">
+                                        <i class="bi bi-file-text"></i> Ficha
+                                    </a>
+                                    <a href="{{ url_for('academico.ficha_aluno', aluno_id=a.id, gerar_pdf=1) }}" target="_blank" class="btn btn-outline-danger btn-sm" title="Ficha PDF">
+                                        <i class="bi bi-file-pdf"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-5">
+                                <i class="bi bi-person-x fs-1 d-block mb-2"></i>
+                                Nenhum aluno encontrado. Clique em "Novo Aluno" para realizar o cadastro.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- MODAL NOVO ALUNO (CADASTRO EDUCACENSO EM 4 ABAS) -->
+<div class="modal fade" id="modalNovoAluno" tabindex="-1" aria-labelledby="modalNovoAlunoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <form action="{{ url_for('academico.gerenciar_alunos') }}" method="POST">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold" id="modalNovoAlunoLabel">
+                        <i class="bi bi-person-plus me-2"></i>Cadastro do Aluno — Padrão Educacenso / INEP
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    
+                    <ul class="nav nav-tabs nav-justified mb-4" id="abaAluno" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active fw-bold" id="pessoais-tab" data-bs-toggle="tab" data-bs-target="#pessoais" type="button" role="tab">1. Dados Pessoais</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold" id="certidao-tab" data-bs-toggle="tab" data-bs-target="#certidao" type="button" role="tab">2. Certidão & Docs</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold" id="endereco-tab" data-bs-toggle="tab" data-bs-target="#endereco" type="button" role="tab">3. Endereço & Transporte</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold" id="saude-tab" data-bs-toggle="tab" data-bs-target="#saude" type="button" role="tab">4. Saúde & AEE/PNE</button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="abaAlunoContent">
+                        
+                        <!-- ABA 1: DADOS PESSOAIS -->
+                        <div class="tab-pane fade show active" id="pessoais" role="tabpanel">
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <label class="form-label fw-bold">Nome Completo <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" name="nome_completo" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Data de Nascimento <span class="text-danger">*</span></label>
+                                    <input type="date" class="form-control" name="data_nascimento" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">CPF do Aluno</label>
+                                    <input type="text" class="form-control" name="cpf" placeholder="000.000.000-00">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Código INEP (12 dígitos)</label>
+                                    <input type="text" class="form-control" name="id_inep" placeholder="Ex: 123456789012">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">NIS / PIS (Bolsa Família)</label>
+                                    <input type="text" class="form-control" name="nis_aluno" placeholder="Ex: 12345678901">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Sexo</label>
+                                    <select class="form-select" name="sexo">
+                                        <option value="Masculino">Masculino</option>
+                                        <option value="Feminino">Feminino</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Cor / Raça (IBGE)</label>
+                                    <select class="form-select" name="cor_raca">
+                                        <option value="Parda">Parda</option>
+                                        <option value="Branca">Branca</option>
+                                        <option value="Preta">Preta</option>
+                                        <option value="Amarela">Amarela</option>
+                                        <option value="Indígena">Indígena</option>
+                                        <option value="Não declarada">Não declarada</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Nome da Mãe (Filiação 1)</label>
+                                    <input type="text" class="form-control" name="filiacao_1">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ABA 2: CERTIDÃO & DOCUMENTOS -->
+                        <div class="tab-pane fade" id="certidao" role="tabpanel">
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <label class="form-label fw-bold">Matrícula de Certidão Novo Padrão (32 dígitos)</label>
+                                    <input type="text" class="form-control font-monospace" name="certidao_matricula" placeholder="Ex: 12345601552026100001002000300405">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-bold">Termo</label>
+                                    <input type="text" class="form-control" name="certidao_termo">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-bold">Folha</label>
+                                    <input type="text" class="form-control" name="certidao_folha">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-bold">Livro</label>
+                                    <input type="text" class="form-control" name="certidao_livro">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-bold">Cartório</label>
+                                    <input type="text" class="form-control" name="certidao_cartorio">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Nome do Responsável Legal</label>
+                                    <input type="text" class="form-control" name="nome_responsavel">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-bold">CPF do Responsável</label>
+                                    <input type="text" class="form-control" name="cpf_responsavel">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-bold">Telefone / WhatsApp</label>
+                                    <input type="text" class="form-control" name="telefone_responsavel">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ABA 3: ENDEREÇO & TRANSPORTE -->
+                        <div class="tab-pane fade" id="endereco" role="tabpanel">
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <label class="form-label fw-bold">Endereço Residencial</label>
+                                    <input type="text" class="form-control" name="endereco">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Bairro</label>
+                                    <input type="text" class="form-control" name="bairro">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Zona de Residência</label>
+                                    <select class="form-select" name="zona_residencia">
+                                        <option value="Urbana">Urbana</option>
+                                        <option value="Rural">Rural</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check mt-4">
+                                        <input class="form-check-input" type="checkbox" name="utiliza_transporte_publico" id="utiliza_transporte_publico">
+                                        <label class="form-check-label fw-bold" for="utiliza_transporte_publico">
+                                            Utiliza Transporte Escolar Público
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Modal de Transporte</label>
+                                    <select class="form-select" name="modal_transporte">
+                                        <option value="">-- Selecione --</option>
+                                        <option value="Ônibus">Ônibus Escolar</option>
+                                        <option value="Van">Van / Micro-ônibus</option>
+                                        <option value="Embarcação">Embarcação / Barco</option>
+                                        <option value="Outro">Outro</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ABA 4: SAÚDE & AEE/PNE -->
+                        <div class="tab-pane fade" id="saude" role="tabpanel">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-check mt-2">
+                                        <input class="form-check-input" type="checkbox" name="necessidade_especial" id="necessidade_especial">
+                                        <label class="form-check-label fw-bold text-danger" for="necessidade_especial">
+                                            Possui Necessidade Educacional Especial (AEE / PNE)
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check mt-2">
+                                        <input class="form-check-input" type="checkbox" name="cuidador_dedicado" id="cuidador_dedicado">
+                                        <label class="form-check-label fw-bold" for="cuidador_dedicado">
+                                            Necessita de Cuidador / Acompanhante Pedagógico
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label fw-bold">Tipo de Deficiência / Transtorno (Educacenso)</label>
+                                    <input type="text" class="form-control" name="tipo_necessidade" placeholder="Ex: Autismo/TEA, Surdez, Baixa Visão, Deficiência Intelectual">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">CID do Laudo Médico</label>
+                                    <input type="text" class="form-control" name="cid_laudo" placeholder="Ex: F84.0">
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label fw-bold">Restrições Alimentares / Alergias (Merenda Escolar)</label>
+                                    <textarea class="form-control" name="restricoes_alimentares" rows="2" placeholder="Ex: Intolerância à Lactose, Alergia a Glúten"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary fw-bold"><i class="bi bi-save me-1"></i> Salvar no Prontuário</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

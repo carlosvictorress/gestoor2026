@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}Enturmação & Detalhes — {{ turma.nome }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+        <div>
+            <span class="badge bg-success-subtle text-success border border-success px-3 py-1 fw-bold text-uppercase mb-1">
+                {{ turma.escola.nome }} — ANO LETIVO {{ turma.ano_letivo }}
+            </span>
+            <h2 class="fw-bold text-dark mb-0">{{ turma.nome }} ({{ turma.turno }})</h2>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('academico.gerar_ata_final_pdf', turma_id=turma.id) }}" target="_blank" class="btn btn-danger fw-bold shadow-sm">
+                <i class="bi bi-file-pdf-fill me-1"></i> Gerar Ata Final (PDF)
+            </a>
+            <a href="{{ url_for('academico.gerenciar_turmas') }}" class="btn btn-light border">
+                <i class="bi bi-arrow-left me-1"></i> Voltar às Turmas
+            </a>
+        </div>
+    </div>
+
+    <!-- SEÇÃO DE MATRÍCULA RÁPIDA -->
+    <div class="card shadow-sm border-0 mb-4 border-top border-success border-4">
+        <div class="card-header bg-white py-3">
+            <h6 class="m-0 fw-bold text-success"><i class="bi bi-person-plus-fill me-2"></i>Matricular Aluno nesta Turma</h6>
+        </div>
+        <div class="card-body p-4">
+            <form action="{{ url_for('academico.matricular_aluno', turma_id=turma.id) }}" method="POST" class="row g-3 align-items-end">
+                <div class="col-md-9">
+                    <label for="aluno_id" class="form-label fw-bold">Selecione o Aluno (Prontuário Ativo)</label>
+                    <select class="form-select" name="aluno_id" id="aluno_id" required>
+                        <option value="" disabled selected>-- Escolha um aluno da lista --</option>
+                        {% for a in alunos_para_matricular %}
+                        <option value="{{ a.id }}">{{ a.nome_completo }} (CPF: {{ a.cpf or 'S/CPF' }} | INEP: {{ a.id_inep or 'S/INEP' }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-success fw-bold w-100 py-2">
+                        <i class="bi bi-check-circle-fill me-1"></i> Efetivar Matrícula
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- LISTA DE ALUNOS MATRICULADOS -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 fw-bold text-dark">
+                <i class="bi bi-people text-primary me-2"></i>Alunos Matriculados na Turma ({{ turma.matriculas|length }} / {{ turma.vagas }} Vagas)
+            </h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Nº Matrícula</th>
+                            <th>Nome do Aluno</th>
+                            <th>CPF / INEP</th>
+                            <th>Data Matrícula</th>
+                            <th class="text-center">Situação</th>
+                            <th class="text-center pe-4">Ações / Documentos</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in turma.matriculas %}
+                        <tr>
+                            <td class="ps-4 font-monospace fw-bold text-primary">{{ m.numero_matricula or m.id }}</td>
+                            <td class="fw-bold text-dark">{{ m.aluno.nome_completo }}</td>
+                            <td>
+                                <div><small>CPF: {{ m.aluno.cpf or '--' }}</small></div>
+                                <small class="text-muted font-monospace">INEP: {{ m.aluno.id_inep or '--' }}</small>
+                            </td>
+                            <td class="small">{{ m.data_matricula.strftime('%d/%m/%Y') }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-success">{{ m.status }}</span>
+                            </td>
+                            <td class="text-center pe-4">
+                                <div class="btn-group">
+                                    <a href="{{ url_for('academico.comprovante_matricula_pdf', matricula_id=m.id) }}" target="_blank" class="btn btn-outline-success btn-sm" title="Comprovante PDF">
+                                        <i class="bi bi-file-pdf"></i> Comprovante
+                                    </a>
+                                    <a href="{{ url_for('academico.gerar_boletim_pdf', matricula_id=m.id) }}" target="_blank" class="btn btn-outline-primary btn-sm" title="Boletim PDF">
+                                        <i class="bi bi-award"></i> Boletim
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-5">
+                                <i class="bi bi-person-slash fs-1 d-block mb-2"></i>
+                                Nenhum aluno matriculado nesta turma ainda. Use o formulário acima para enturmar alunos.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

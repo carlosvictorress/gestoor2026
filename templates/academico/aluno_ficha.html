@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+
+{% block title %}Ficha do Aluno - {{ aluno.nome_completo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+        <div>
+            <span class="badge bg-primary-subtle text-primary border border-primary px-3 py-1 fw-bold text-uppercase mb-1">
+                PRONTUÁRIO OFICIAL — INEP #{{ aluno.id_inep or 'PENDENTE' }}
+            </span>
+            <h2 class="fw-bold text-dark mb-0">{{ aluno.nome_completo }}</h2>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('academico.ficha_aluno', aluno_id=aluno.id, gerar_pdf=1) }}" target="_blank" class="btn btn-danger fw-bold shadow-sm">
+                <i class="bi bi-file-pdf-fill me-1"></i> Imprimir Ficha Timbrada (PDF)
+            </a>
+            <a href="{{ url_for('academico.gerenciar_alunos') }}" class="btn btn-light border">
+                <i class="bi bi-arrow-left me-1"></i> Voltar à Lista
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <!-- DADOS CIVIS -->
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white py-3">
+                    <h6 class="m-0 fw-bold text-primary"><i class="bi bi-person-vcard me-2"></i>1. Identificação & Documentos Civis</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless">
+                        <tr><th class="text-muted" style="width: 40%;">CPF do Aluno:</th><td class="fw-bold">{{ aluno.cpf or 'Não informado' }}</td></tr>
+                        <tr><th class="text-muted">Código INEP:</th><td class="fw-bold text-primary font-monospace">{{ aluno.id_inep or 'Não informado' }}</td></tr>
+                        <tr><th class="text-muted">NIS Bolsa Família:</th><td class="fw-bold text-success">{{ aluno.nis_aluno or 'Não informado' }}</td></tr>
+                        <tr><th class="text-muted">Data Nasc / Idade:</th><td>{{ aluno.data_nascimento.strftime('%d/%m/%Y') if aluno.data_nascimento else '--' }}</td></tr>
+                        <tr><th class="text-muted">Sexo / Cor-Raça:</th><td>{{ aluno.sexo or '--' }} | {{ aluno.cor_raca or '--' }}</td></tr>
+                        <tr><th class="text-muted">Mãe / Filiação 1:</th><td class="fw-bold">{{ aluno.filiacao_1 or '--' }}</td></tr>
+                        <tr><th class="text-muted">Pai / Filiação 2:</th><td>{{ aluno.filiacao_2 or '--' }}</td></tr>
+                        <tr><th class="text-muted">Certidão (Matrícula):</th><td class="font-monospace small">{{ aluno.certidao_matricula or '--' }}</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- RESPONSÁVEL, ENDEREÇO & SAÚDE -->
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white py-3">
+                    <h6 class="m-0 fw-bold text-primary"><i class="bi bi-house-gear me-2"></i>2. Responsáveis, Endereço & Saúde/AEE</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless">
+                        <tr><th class="text-muted" style="width: 40%;">Responsável Legal:</th><td class="fw-bold">{{ aluno.nome_responsavel or '--' }}</td></tr>
+                        <tr><th class="text-muted">CPF / NIS Resp:</th><td>{{ aluno.cpf_responsavel or '--' }} / {{ aluno.nis_responsavel or '--' }}</td></tr>
+                        <tr><th class="text-muted">Contato / Whats:</th><td class="fw-bold text-success">{{ aluno.telefone_responsavel or '--' }}</td></tr>
+                        <tr><th class="text-muted">Endereço Residencial:</th><td>{{ aluno.endereco or '--' }} - {{ aluno.bairro or '' }}</td></tr>
+                        <tr><th class="text-muted">Zona de Residência:</th><td><span class="badge bg-light text-dark border">{{ aluno.zona_residencia or 'Urbana' }}</span></td></tr>
+                        <tr><th class="text-muted">Transporte Escolar:</th><td>{{ 'SIM (' ~ (aluno.modal_transporte or 'Ônibus') ~ ')' if aluno.utiliza_transporte_publico else 'NÃO' }}</td></tr>
+                        <tr><th class="text-muted">Educação Especial (AEE):</th><td>
+                            {% if aluno.necessidade_especial %}
+                                <span class="badge bg-danger">🚨 {{ aluno.tipo_necessidade or 'AEE' }}</span>
+                            {% else %}
+                                <span class="badge bg-light text-muted border">Não</span>
+                            {% endif %}
+                        </td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HISTÓRICO DE MATRÍCULAS -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white py-3">
+            <h6 class="m-0 fw-bold text-dark"><i class="bi bi-journal-bookmark text-primary me-2"></i>Histórico de Matrículas & Desempenho Escolar</h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Nº Matrícula</th>
+                            <th>Ano Letivo</th>
+                            <th>Escola Municipal</th>
+                            <th>Turma / Turno</th>
+                            <th>Data Matrícula</th>
+                            <th class="text-center">Situação Final</th>
+                            <th class="text-center pe-4">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in aluno.matriculas %}
+                        <tr>
+                            <td class="ps-4 font-monospace fw-bold text-primary">{{ m.numero_matricula or m.id }}</td>
+                            <td class="fw-bold">{{ m.turma.ano_letivo }}</td>
+                            <td class="small">{{ m.turma.escola.nome }}</td>
+                            <td><span class="badge bg-light text-dark border">{{ m.turma.nome }} ({{ m.turma.turno }})</span></td>
+                            <td class="small">{{ m.data_matricula.strftime('%d/%m/%Y') }}</td>
+                            <td class="text-center">
+                                {% if m.status == 'Cursando' %}
+                                    <span class="badge bg-primary">Cursando</span>
+                                {% elif 'Aprovado' in m.status %}
+                                    <span class="badge bg-success">🟢 {{ m.status }}</span>
+                                {% elif 'Reprovado' in m.status %}
+                                    <span class="badge bg-danger">🔴 {{ m.status }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">{{ m.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center pe-4">
+                                <div class="btn-group">
+                                    <a href="{{ url_for('academico.comprovante_matricula_pdf', matricula_id=m.id) }}" target="_blank" class="btn btn-outline-success btn-sm" title="Comprovante Matrícula PDF">
+                                        <i class="bi bi-file-pdf"></i> Comprovante
+                                    </a>
+                                    <a href="{{ url_for('academico.gerar_boletim_pdf', matricula_id=m.id) }}" target="_blank" class="btn btn-outline-primary btn-sm" title="Boletim Escolar PDF">
+                                        <i class="bi bi-award"></i> Boletim
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">Nenhuma matrícula registrada no histórico deste aluno.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

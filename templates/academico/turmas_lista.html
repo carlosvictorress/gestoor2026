@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestão de Turmas & Capacidade de Vagas - SIGE{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+        <div>
+            <h2 class="fw-bold text-success mb-1">
+                <i class="bi bi-grid-3x3-gap-fill me-2"></i>Gestão de Turmas & Capacidade de Vagas
+            </h2>
+            <p class="text-muted mb-0">Organização das turmas por ano letivo, etapa de ensino (Ed. Infantil, Fund. I/II, EJA, AEE) e ocupação de vagas.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-success fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNovaTurma">
+                <i class="bi bi-plus-circle-fill me-1"></i> Criar Nova Turma
+            </button>
+            <a href="{{ url_for('academico.dashboard') }}" class="btn btn-light border">
+                <i class="bi bi-arrow-left me-1"></i> Voltar
+            </a>
+        </div>
+    </div>
+
+    <!-- FILTRO DE BUSCA -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body p-3">
+            <form method="GET" action="{{ url_for('academico.gerenciar_turmas') }}" class="row g-2 align-items-center">
+                <div class="col-md-5">
+                    <label for="escola_id" class="form-label fw-bold small text-uppercase mb-1">Escola Municipal</label>
+                    <select class="form-select" name="escola_id" id="escola_id">
+                        <option value="">-- Todas as Escolas --</option>
+                        {% for esc in escolas %}
+                        <option value="{{ esc.id }}" {{ 'selected' if esc.id == escola_selecionada_id }}>{{ esc.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="ano" class="form-label fw-bold small text-uppercase mb-1">Ano Letivo</label>
+                    <input type="number" class="form-control" name="ano" id="ano" value="{{ ano_selecionado }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label d-block mb-1">&nbsp;</label>
+                    <button type="submit" class="btn btn-success fw-bold w-100"><i class="bi bi-funnel-fill me-1"></i> Filtrar Turmas</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- LISTA DE TURMAS -->
+    <div class="row g-3">
+        {% for t in turmas %}
+        {% set matriculas_ativas = t.matriculas|selectattr("status", "equalto", "Cursando")|list %}
+        {% set total_mat = matriculas_ativas|length %}
+        {% set perc = (total_mat / t.vagas * 100)|round(0)|int if t.vagas > 0 else 0 %}
+        
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100 border-top border-success border-4">
+                <div class="card-body d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h5 class="fw-bold text-dark mb-0">{{ t.nome }}</h5>
+                                <small class="text-muted">{{ t.escola.nome }}</small>
+                            </div>
+                            <span class="badge bg-light text-dark border">{{ t.turno }}</span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <span class="badge bg-success-subtle text-success border border-success me-1">{{ t.etapa_ensino }}</span>
+                            <span class="badge bg-info-subtle text-info border border-info">{{ t.modalidade }}</span>
+                        </div>
+
+                        <!-- Barra de Vagas -->
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between small fw-bold mb-1">
+                                <span>Ocupação de Vagas:</span>
+                                <span>{{ total_mat }} / {{ t.vagas }} alunos</span>
+                            </div>
+                            <div class="progress" style="height: 10px;">
+                                <div class="progress-bar {{ 'bg-danger' if perc >= 100 else 'bg-warning' if perc >= 80 else 'bg-success' }}" 
+                                     role="progressbar" style="width: {{ perc }}%;" aria-valuenow="{{ perc }}" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-3 pt-3 border-top">
+                        <a href="{{ url_for('academico.detalhes_turma', turma_id=t.id) }}" class="btn btn-outline-success btn-sm w-100 fw-bold">
+                            <i class="bi bi-people-fill me-1"></i> Enturmação ({{ total_mat }})
+                        </a>
+                        <a href="{{ url_for('academico.gerar_ata_final_pdf', turma_id=t.id) }}" target="_blank" class="btn btn-outline-danger btn-sm" title="Ata Final PDF">
+                            <i class="bi bi-file-pdf"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-md-12">
+            <div class="p-5 text-center text-muted bg-white rounded border">
+                <i class="bi bi-grid-3x3-gap fs-1 d-block mb-2"></i>
+                Nenhuma turma cadastrada para os filtros selecionados. Clique em "Criar Nova Turma".
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+<!-- MODAL NOVA TURMA -->
+<div class="modal fade" id="modalNovaTurma" tabindex="-1" aria-labelledby="modalNovaTurmaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form action="{{ url_for('academico.nova_turma') }}" method="POST">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold" id="modalNovaTurmaLabel"><i class="bi bi-plus-circle me-2"></i>Cadastrar Nova Turma</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold">Escola Municipal <span class="text-danger">*</span></label>
+                            <select class="form-select" name="escola_id" required>
+                                <option value="" disabled selected>-- Selecione a escola --</option>
+                                {% for esc in escolas %}
+                                <option value="{{ esc.id }}">{{ esc.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Ano Letivo <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="ano_letivo" value="{{ ano_selecionado }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Nome da Turma <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="nome" placeholder="Ex: 1º Ano - Turma A" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Código INEP da Turma</label>
+                            <input type="text" class="form-control" name="codigo_inep_turma" placeholder="Ex: 98765432">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Etapa de Ensino (Educacenso)</label>
+                            <select class="form-select" name="etapa_ensino" required>
+                                <option value="Educação Infantil - Creche">Educação Infantil - Creche</option>
+                                <option value="Educação Infantil - Pré-Escola">Educação Infantil - Pré-Escola</option>
+                                <option value="Ensino Fundamental I (1º ao 5º Ano)" selected>Ensino Fundamental I (1º ao 5º Ano)</option>
+                                <option value="Ensino Fundamental II (6º ao 9º Ano)">Ensino Fundamental II (6º ao 9º Ano)</option>
+                                <option value="EJA - Educação de Jovens e Adultos">EJA - Educação de Jovens e Adultos</option>
+                                <option value="Atendimento Educacional Especializado (AEE)">Atendimento Educacional Especializado (AEE)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Turno</label>
+                            <select class="form-select" name="turno" required>
+                                <option value="Matutino">Matutino (Manhã)</option>
+                                <option value="Vespertino">Vespertino (Tarde)</option>
+                                <option value="Noturno">Noturno (Noite)</option>
+                                <option value="Integral">Integral</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Capacidade de Vagas Totais</label>
+                            <input type="number" class="form-control" name="vagas" value="30" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Vagas Reservadas para PNE / AEE</label>
+                            <input type="number" class="form-control" name="vagas_pne" value="5">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success fw-bold"><i class="bi bi-save me-1"></i> Criar Turma</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

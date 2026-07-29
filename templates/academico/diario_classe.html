@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+
+{% block title %}Diário de Classe Digital — Frequência & Conteúdo BNCC{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+        <div>
+            <h2 class="fw-bold text-info mb-1">
+                <i class="bi bi-journal-check me-2"></i>Diário de Classe Digital do Professor
+            </h2>
+            <p class="text-muted mb-0">Registro diário de frequência, justificativas de falta e objetos de conhecimento ministrados (BNCC).</p>
+        </div>
+        <a href="{{ url_for('academico.dashboard') }}" class="btn btn-light border">
+            <i class="bi bi-arrow-left me-1"></i> Voltar ao Dashboard
+        </a>
+    </div>
+
+    <!-- SELEÇÃO DE TURMA E DATA -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body p-3">
+            <form method="GET" action="{{ url_for('academico.diario_classe') }}" class="row g-2 align-items-center">
+                <div class="col-md-6">
+                    <label for="turma_id" class="form-label fw-bold small text-uppercase mb-1">Turma Escolar</label>
+                    <select class="form-select" name="turma_id" id="turma_id" onchange="this.form.submit()">
+                        {% for t in turmas %}
+                        <option value="{{ t.id }}" {{ 'selected' if turma_selecionada and t.id == turma_selecionada.id }}>
+                            {{ t.escola.nome }} — {{ t.nome }} ({{ t.turno }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="data" class="form-label fw-bold small text-uppercase mb-1">Data da Aula / Chamada</label>
+                    <input type="date" class="form-control" name="data" id="data" value="{{ data_selecionada.strftime('%Y-%m-%d') }}" onchange="this.form.submit()">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label d-block mb-1">&nbsp;</label>
+                    <button type="submit" class="btn btn-info fw-bold text-white w-100"><i class="bi bi-search me-1"></i> Carregar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if turma_selecionada %}
+    <form method="POST" action="{{ url_for('academico.diario_classe') }}">
+        <input type="hidden" name="turma_id" value="{{ turma_selecionada.id }}">
+        <input type="hidden" name="data" value="{{ data_selecionada.strftime('%Y-%m-%d') }}">
+
+        <!-- PAINEL DE CONTEÚDO MINISTRADO (BNCC) -->
+        <div class="card shadow-sm border-0 mb-4 border-top border-info border-4">
+            <div class="card-header bg-white py-3">
+                <h6 class="m-0 fw-bold text-info"><i class="bi bi-book me-2"></i>1. Registro do Conteúdo Ministrado (BNCC)</h6>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label for="disciplina_id" class="form-label fw-bold">Componente Curricular / Disciplina <span class="text-danger">*</span></label>
+                        <select class="form-select" name="disciplina_id" id="disciplina_id" required>
+                            {% for d in disciplinas %}
+                            <option value="{{ d.id }}">{{ d.nome }} ({{ d.area_conhecimento or 'Geral' }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <label for="conteudo_ministrado" class="form-label fw-bold">Objeto de Conhecimento / Conteúdo Ministrado <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="conteudo_ministrado" id="conteudo_ministrado" placeholder="Ex: Operações com frações e resolução de problemas práticos" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="habilidades_bncc" class="form-label fw-bold">Habilidades da BNCC Trabalhadas</label>
+                        <input type="text" class="form-control" name="habilidades_bncc" id="habilidades_bncc" placeholder="Ex: (EF06MA07) Compreender e aplicar a comparação de frações">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="tarefa_casa" class="form-label fw-bold">Tarefa de Casa / Atividade Orientada</label>
+                        <input type="text" class="form-control" name="tarefa_casa" id="tarefa_casa" placeholder="Ex: Exercícios de fixação da página 45 a 48 do livro didático">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAINEL DE CHAMADA E FREQUÊNCIA DIÁRIA -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 fw-bold text-dark">
+                    <i class="bi bi-person-check text-info me-2"></i>2. Chamada Diária — {{ data_selecionada.strftime('%d/%m/%Y') }}
+                </h6>
+                <button type="button" class="btn btn-outline-success btn-sm fw-bold" onclick="marcarTodosPresentes()">
+                    <i class="bi bi-check-all me-1"></i> Marcar Todos Presentes
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">Nº Matrícula</th>
+                                <th>Nome do Aluno</th>
+                                <th class="text-center">Presença / Falta</th>
+                                <th>Justificativa (em caso de Falta)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in turma_selecionada.matriculas %}
+                            {% set req_freq = frequencias_existentes.get(m.id) %}
+                            {% set status_atual = req_freq.status_presenca if req_freq else 'P' %}
+                            <tr>
+                                <td class="ps-4 font-monospace small">{{ m.numero_matricula or m.id }}</td>
+                                <td class="fw-bold text-dark">{{ m.aluno.nome_completo }}</td>
+                                <td class="text-center">
+                                    <div class="btn-group" role="group">
+                                        <input type="radio" class="btn-check radio-presenca" name="presenca_{{ m.id }}" id="p_{{ m.id }}" value="P" {{ 'checked' if status_atual == 'P' }}>
+                                        <label class="btn btn-outline-success btn-sm" for="p_{{ m.id }}">Presente (P)</label>
+
+                                        <input type="radio" class="btn-check" name="presenca_{{ m.id }}" id="f_{{ m.id }}" value="F" {{ 'checked' if status_atual == 'F' }}>
+                                        <label class="btn btn-outline-danger btn-sm" for="f_{{ m.id }}">Falta (F)</label>
+
+                                        <input type="radio" class="btn-check" name="presenca_{{ m.id }}" id="fj_{{ m.id }}" value="FJ" {{ 'checked' if status_atual == 'FJ' }}>
+                                        <label class="btn btn-outline-warning btn-sm" for="fj_{{ m.id }}">Justificada (FJ)</label>
+                                    </div>
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" name="justificativa_{{ m.id }}" value="{{ req_freq.justificativa if req_freq else '' }}" placeholder="Atestado médico ou motivo...">
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">Nenhum aluno matriculado nesta turma.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-white p-3 d-flex justify-content-end">
+                <button type="submit" class="btn btn-info btn-lg text-white fw-bold shadow-sm">
+                    <i class="bi bi-save me-1"></i> Salvar Diário de Classe
+                </button>
+            </div>
+        </div>
+    </form>
+    {% endif %}
+
+</div>
+
+<script>
+function marcarTodosPresentes() {
+    document.querySelectorAll('.radio-presenca').forEach(r => r.checked = true);
+}
+</script>
+{% endblock %}

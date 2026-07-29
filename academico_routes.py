@@ -13,6 +13,19 @@ import io
 
 academico_bp = Blueprint('academico', __name__, url_prefix='/academico')
 
+_schema_academico_verificado = False
+
+@academico_bp.before_request
+def verificar_schema():
+    global _schema_academico_verificado
+    if not _schema_academico_verificado:
+        try:
+            from app import garantir_schema_academico
+            garantir_schema_academico()
+            _schema_academico_verificado = True
+        except Exception as e:
+            print(f"Erro ao verificar schema no before_request: {e}")
+
 
 # ===================================================================
 # 1. DASHBOARD EXECUTIVO SIGE - SECRETARIA MUNICIPAL DE EDUCAÇÃO

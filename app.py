@@ -174,12 +174,11 @@ def garantir_schema_estoque_movimento():
             from sqlalchemy import text
             db.create_all()
             
-            # Expandir o tamanho da coluna 'tipo' para suportar 'Saída Escola', 'Perda/Avaria', etc.
             try:
-                db.session.execute(text("ALTER TABLE estoque_movimento ALTER COLUMN tipo TYPE VARCHAR(50);"))
-                db.session.commit()
+                with db.engine.begin() as conn:
+                    conn.execute(text("ALTER TABLE estoque_movimento ALTER COLUMN tipo TYPE VARCHAR(50);"))
             except Exception:
-                db.session.rollback()
+                pass
 
             colunas = [
                 ("unidade_movimento", "VARCHAR(20)"),
@@ -190,15 +189,14 @@ def garantir_schema_estoque_movimento():
             ]
             for col_nome, col_tipo in colunas:
                 try:
-                    db.session.execute(text(f"ALTER TABLE estoque_movimento ADD COLUMN IF NOT EXISTS {col_nome} {col_tipo};"))
-                    db.session.commit()
+                    with db.engine.begin() as conn:
+                        conn.execute(text(f"ALTER TABLE estoque_movimento ADD COLUMN IF NOT EXISTS {col_nome} {col_tipo};"))
                 except Exception:
-                    db.session.rollback()
                     try:
-                        db.session.execute(text(f"ALTER TABLE estoque_movimento ADD COLUMN {col_nome} {col_tipo};"))
-                        db.session.commit()
+                        with db.engine.begin() as conn:
+                            conn.execute(text(f"ALTER TABLE estoque_movimento ADD COLUMN {col_nome} {col_tipo};"))
                     except Exception:
-                        db.session.rollback()
+                        pass
         except Exception as e:
             print(f"Verificação de schema estoque_movimento: {e}")
 
@@ -247,17 +245,16 @@ def garantir_schema_academico():
                 ("acad_nota", "faltas_bimestre", "INTEGER DEFAULT 0")
             ]
 
-            with db.engine.connect() as conn:
-                for tabela, col_nome, col_tipo in alteracoes:
-                    try:
+            for tabela, col_nome, col_tipo in alteracoes:
+                try:
+                    with db.engine.begin() as conn:
                         conn.execute(text(f"ALTER TABLE {tabela} ADD COLUMN IF NOT EXISTS {col_nome} {col_tipo};"))
-                        conn.commit()
-                    except Exception:
-                        try:
+                except Exception as e1:
+                    try:
+                        with db.engine.begin() as conn:
                             conn.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {col_nome} {col_tipo};"))
-                            conn.commit()
-                        except Exception:
-                            pass
+                    except Exception as e2:
+                        print(f"Aviso ao alterar {tabela}.{col_nome}: {e2}")
         except Exception as e:
             print(f"Verificação de schema acadêmico: {e}")
 

@@ -174,6 +174,13 @@ def garantir_schema_estoque_movimento():
             from sqlalchemy import text
             db.create_all()
             
+            # Expandir o tamanho da coluna 'tipo' para suportar 'Saída Escola', 'Perda/Avaria', etc.
+            try:
+                db.session.execute(text("ALTER TABLE estoque_movimento ALTER COLUMN tipo TYPE VARCHAR(50);"))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
             colunas = [
                 ("unidade_movimento", "VARCHAR(20)"),
                 ("quantidade_embalagem", "FLOAT"),

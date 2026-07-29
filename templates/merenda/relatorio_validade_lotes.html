@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}Relatório de Controle de Validades (30 Dias) - Merenda Escolar{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+        <div>
+            <h2 class="fw-bold text-danger mb-1">
+                <i class="bi bi-shield-exclamation me-2"></i>Controle Preventivo de Validades (Alerta 30 Dias)
+            </h2>
+            <p class="text-muted mb-0">Prioridade de consumo pela regra FEFO (First Expire, First Out) para prevenir perdas de alimentos.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('merenda.relatorio_validade_lotes', gerar_pdf=1) }}" target="_blank" class="btn btn-danger fw-bold">
+                <i class="bi bi-file-pdf me-1"></i> Gerar PDF Timbrado
+            </a>
+            <a href="{{ url_for('merenda.dashboard') }}" class="btn btn-light border">
+                <i class="bi bi-arrow-left me-1"></i> Voltar ao Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white py-3">
+            <h6 class="m-0 fw-bold text-dark"><i class="bi bi-list-stars text-danger me-2"></i>Lotes de Alimentos Próximos do Vencimento</h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Produto</th>
+                            <th>Lote</th>
+                            <th>Data de Validade</th>
+                            <th>Dias Restantes</th>
+                            <th>Fornecedor</th>
+                            <th>Saldo no Estoque</th>
+                            <th>Prioridade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in lotes %}
+                        {% set dias = (item.data_validade - hoje).days %}
+                        <tr>
+                            <td class="fw-bold text-dark">{{ item.produto_nome }}</td>
+                            <td><span class="badge bg-light text-dark border">{{ item.lote or 'Sem Lote' }}</span></td>
+                            <td class="fw-bold">{{ item.data_validade.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                <span class="fw-bold text-danger">{{ dias }} dias</span>
+                            </td>
+                            <td class="small text-muted">{{ item.fornecedor or '--' }}</td>
+                            <td class="fw-bold text-primary">{{ "%.2f"|format(item.estoque_atual) }} {{ item.unidade_consumo or 'UNID' }}</td>
+                            <td>
+                                {% if dias <= 10 %}
+                                    <span class="badge bg-danger">🚨 MÁXIMA (Utilizar Já)</span>
+                                {% elif dias <= 20 %}
+                                    <span class="badge bg-warning text-dark">⚠️ ALTA (Priorizar)</span>
+                                {% else %}
+                                    <span class="badge bg-info text-dark">🔵 MÉDIA (Atentar)</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-5">
+                                <i class="bi bi-check-circle-fill text-success fs-1 d-block mb-2"></i>
+                                Nenhum lote de alimento a vencer nos próximos 30 dias!
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

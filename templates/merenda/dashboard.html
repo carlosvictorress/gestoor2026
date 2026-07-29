@@ -59,24 +59,174 @@
         </li>
     </ul>
 
+    <!-- CARDS KPIS PRINCIPAIS -->
     <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <div class="card shadow-sm"><div class="card-body d-flex align-items-center">
-                <div class="kpi-icon bg-primary text-white me-3"><i class="bi bi-building"></i></div>
-                <div><h6 class="text-muted mb-0">Escolas Ativas</h6><span class="h3 fw-bold">{{ total_escolas_ativas }}</span></div>
-            </div></div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 border-start border-primary border-4 h-100">
+                <div class="card-body d-flex align-items-center py-3">
+                    <div class="kpi-icon bg-primary-subtle text-primary p-3 rounded-circle me-3"><i class="bi bi-building fs-4"></i></div>
+                    <div><h6 class="text-muted small mb-0 fw-bold text-uppercase">Escolas Ativas</h6><span class="h3 fw-bold text-dark">{{ total_escolas_ativas }}</span></div>
+                </div>
+            </div>
         </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm"><div class="card-body d-flex align-items-center">
-                <div class="kpi-icon bg-success text-white me-3"><i class="bi bi-box-seam"></i></div>
-                <div><h6 class="text-muted mb-0">Produtos no Catálogo</h6><span class="h3 fw-bold">{{ total_produtos }}</span></div>
-            </div></div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 border-start border-success border-4 h-100">
+                <div class="card-body d-flex align-items-center py-3">
+                    <div class="kpi-icon bg-success-subtle text-success p-3 rounded-circle me-3"><i class="bi bi-box-seam fs-4"></i></div>
+                    <div><h6 class="text-muted small mb-0 fw-bold text-uppercase">Produtos no Catálogo</h6><span class="h3 fw-bold text-dark">{{ total_produtos }}</span></div>
+                </div>
+            </div>
         </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm"><div class="card-body d-flex align-items-center">
-                <div class="kpi-icon bg-warning text-dark me-3"><i class="bi bi-hourglass-split"></i></div>
-                <div><h6 class="text-muted mb-0">Pendentes de Aprovação</h6><span class="h3 fw-bold">{{ solicitacoes_pendentes }}</span></div>
-            </div></div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 border-start border-danger border-4 h-100">
+                <div class="card-body d-flex align-items-center py-3">
+                    <div class="kpi-icon bg-danger-subtle text-danger p-3 rounded-circle me-3"><i class="bi bi-calendar-check fs-4"></i></div>
+                    <div><h6 class="text-muted small mb-0 fw-bold text-uppercase">Vencimentos (30 Dias)</h6><span class="h3 fw-bold text-danger">{{ alertas_validade|length }}</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 border-start border-warning border-4 h-100">
+                <div class="card-body d-flex align-items-center py-3">
+                    <div class="kpi-icon bg-warning-subtle text-warning p-3 rounded-circle me-3"><i class="bi bi-hourglass-split fs-4"></i></div>
+                    <div><h6 class="text-muted small mb-0 fw-bold text-uppercase">Solicitações Pendentes</h6><span class="h3 fw-bold text-dark">{{ solicitacoes_pendentes }}</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEÇÃO CENTRAL DE RELATÓRIOS E GESTÃO PÚBLICA -->
+    <div class="card shadow-sm border-0 mb-4 border-top border-primary border-4">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="m-0 fw-bold text-primary">
+                <i class="bi bi-file-earmark-pdf me-2"></i>Central de Relatórios & Prestação de Contas (PNAE/TCE)
+            </h5>
+            <span class="badge bg-primary-subtle text-primary border border-primary">Documentos Timbrados</span>
+        </div>
+        <div class="card-body p-4">
+            <div class="row g-3">
+                
+                <!-- RELATÓRIO 1: DISTRIBUIÇÃO GERAL -->
+                <div class="col-md-3">
+                    <div class="p-3 bg-light rounded border h-100 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-bar-chart-line-fill fs-3 text-primary me-2"></i>
+                                <h6 class="fw-bold mb-0 text-dark">Distribuição Geral</h6>
+                            </div>
+                            <p class="small text-muted mb-3">Consolidado do volume total de alimentos enviados a toda a rede municipal.</p>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('merenda.relatorio_distribuicao_geral') }}" class="btn btn-outline-primary btn-sm fw-bold">
+                                <i class="bi bi-eye"></i> Visualizar Web
+                            </a>
+                            <a href="{{ url_for('merenda.relatorio_distribuicao_geral', gerar_pdf=1) }}" target="_blank" class="btn btn-primary btn-sm fw-bold">
+                                <i class="bi bi-file-pdf"></i> PDF Timbrado
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RELATÓRIO 2: DISTRIBUIÇÃO POR ESCOLA -->
+                <div class="col-md-3">
+                    <div class="p-3 bg-light rounded border h-100 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-building-check fs-3 text-success me-2"></i>
+                                <h6 class="fw-bold mb-0 text-dark">Por Escola Municipal</h6>
+                            </div>
+                            <p class="small text-muted mb-3">Filtrar histórico analítico de entregas de uma unidade específica com datas.</p>
+                        </div>
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-success btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalRelatorioEscola">
+                                <i class="bi bi-funnel"></i> Selecionar Escola
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RELATÓRIO 3: ALERTA DE VALIDADES (30 DIAS) -->
+                <div class="col-md-3">
+                    <div class="p-3 bg-light rounded border h-100 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-shield-exclamation fs-3 text-danger me-2"></i>
+                                <h6 class="fw-bold mb-0 text-dark">Alerta de Validade (30d)</h6>
+                            </div>
+                            <p class="small text-muted mb-3">Relatório preventivo FEFO de lotes próximos do vencimento para prioridade.</p>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('merenda.relatorio_validade_lotes') }}" class="btn btn-outline-danger btn-sm fw-bold">
+                                <i class="bi bi-list-check"></i> Ver Lotes
+                            </a>
+                            <a href="{{ url_for('merenda.relatorio_validade_lotes', gerar_pdf=1) }}" target="_blank" class="btn btn-danger btn-sm fw-bold">
+                                <i class="bi bi-file-pdf"></i> PDF Timbrado
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RELATÓRIO 4: POSIÇÃO DE ESTOQUE (TCE/PNAE) -->
+                <div class="col-md-3">
+                    <div class="p-3 bg-light rounded border h-100 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-journal-check fs-3 text-info me-2"></i>
+                                <h6 class="fw-bold mb-0 text-dark">Posição de Estoque</h6>
+                            </div>
+                            <p class="small text-muted mb-3">Fotografia oficial do almoxarifado para prestação de contas de auditoria.</p>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('merenda.relatorio_posicao_estoque') }}" class="btn btn-outline-info btn-sm fw-bold">
+                                <i class="bi bi-box"></i> Ver Saldos
+                            </a>
+                            <a href="{{ url_for('merenda.relatorio_posicao_estoque', gerar_pdf=1) }}" target="_blank" class="btn btn-info btn-sm fw-bold text-white">
+                                <i class="bi bi-file-pdf"></i> PDF Oficial
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL FILTRO DE RELATÓRIO POR ESCOLA -->
+    <div class="modal fade" id="modalRelatorioEscola" tabindex="-1" aria-labelledby="modalRelatorioEscolaLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form action="{{ url_for('merenda.relatorio_saidas') }}" method="GET">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title fw-bold" id="modalRelatorioEscolaLabel"><i class="bi bi-building me-2"></i>Relatório por Escola Municipal</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="modal_escola_id" class="form-label fw-bold">Selecione a Escola <span class="text-danger">*</span></label>
+                            <select class="form-select" name="escola_id" id="modal_escola_id" required>
+                                <option value="" disabled selected>-- Escolha a escola --</option>
+                                {% for esc in escolas_todas %}
+                                <option value="{{ esc.id }}">{{ esc.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label for="data_inicio" class="form-label fw-bold">Data Inicial</label>
+                                <input type="date" class="form-control" name="data_inicio" id="data_inicio" value="{{ hoje.replace(day=1).strftime('%Y-%m-%d') }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="data_fim" class="form-label fw-bold">Data Final</label>
+                                <input type="date" class="form-control" name="data_fim" id="data_fim" value="{{ hoje.strftime('%Y-%m-%d') }}">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light">
+                        <button type="submit" class="btn btn-outline-success fw-bold"><i class="bi bi-search"></i> Pesquisar na Web</button>
+                        <button type="submit" name="gerar_pdf" value="1" formtarget="_blank" class="btn btn-success fw-bold"><i class="bi bi-file-pdf"></i> Gerar PDF Timbrado</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 

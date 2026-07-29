@@ -45,66 +45,55 @@ merenda_bp = Blueprint('merenda', __name__, url_prefix='/merenda')
 def dashboard():
     # --- KPIs BÁSICOS ---
     total_escolas_ativas = Escola.query.filter_by(status='Ativa').count()
-    total_produtos = ProdutoMerenda.query.count()
+    escolas_todas = Escola.query.order_by(Escola.nome.asc()).all()
+    total_produtos = ProdutoMerenda.query.filter(
+        or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None))
+    ).count()
     solicitacoes_pendentes = SolicitacaoMerenda.query.filter_by(status='Pendente').count()
     
-    # --- LÓGICA DE ALERTA DE VALIDADE ---
+    # --- LÓGICA DE ALERTA DE VALIDADE (30 DIAS) ---
     hoje = date.today()
-    data_limite_alerta = hoje + timedelta(days=45) 
-    data_corte_passado = hoje - timedelta(days=30) 
+    data_limite_alerta = hoje + timedelta(days=30) 
 
     alertas_validade = db.session.query(
         ProdutoMerenda.nome,
         EstoqueMovimento.lote,
         EstoqueMovimento.data_validade,
-        ProdutoMerenda.unidade_medida,
-        ProdutoMerenda.estoque_atual
+        ProdutoMerenda.unidade_consumo,
+        EstoqueMovimento.quantidade
     ).join(ProdutoMerenda)\
      .filter(
+        or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None)),
         EstoqueMovimento.tipo == 'Entrada',
         EstoqueMovimento.data_validade.isnot(None),
         EstoqueMovimento.data_validade <= data_limite_alerta,
-        EstoqueMovimento.data_validade >= data_corte_passado,
+        EstoqueMovimento.data_validade >= hoje,
         ProdutoMerenda.estoque_atual > 0 
      ).order_by(EstoqueMovimento.data_validade.asc()).all()
 
     # --- ESTOQUE BAIXO ---
-    # Busca produtos com estoque abaixo do mínimo definido no cadastro de cada um
     produtos_estoque_baixo = ProdutoMerenda.query.filter(
+        or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None)),
         ProdutoMerenda.estoque_atual <= ProdutoMerenda.estoque_minimo, 
         ProdutoMerenda.estoque_atual > 0
     ).order_by(ProdutoMerenda.estoque_atual.asc()).all()
 
-    # --- NOVO: PRODUTOS PARA O MODAL DE SOLICITAÇÃO (EMPRESA) ---
-    # Filtramos para não mostrar produtos da Agricultura Familiar no pedido para empresa
     produtos_disponiveis = ProdutoMerenda.query.filter(
         or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None))
     ).order_by(ProdutoMerenda.nome.asc()).all()
 
-    # --- NOVO: HISTÓRICO DE PEDIDOS PARA EMPRESA ---
-    # Busca os pedidos realizados, ordenando pelos mais recentes
     pedidos_empresa = PedidoEmpresa.query.order_by(PedidoEmpresa.data_pedido.desc()).limit(10).all()
-
-    # --- QUERIES DOS GRÁFICOS (Exemplo de estrutura caso você as tenha) ---
-    # Se você já tiver a lógica dos gráficos pronta, mantenha os nomes das variáveis abaixo:
-    escolas_labels = [] # Suas labels de consumo por escola
-    escolas_data = []   # Seus dados de consumo por escola
-    produtos_labels = [] # Suas labels de produtos mais saídos
-    produtos_data = []   # Seus dados de produtos mais saídos
 
     return render_template('merenda/dashboard.html',
                            total_escolas_ativas=total_escolas_ativas,
+                           escolas_todas=escolas_todas,
                            total_produtos=total_produtos,
                            solicitacoes_pendentes=solicitacoes_pendentes,
                            alertas_validade=alertas_validade,
                            produtos_estoque_baixo=produtos_estoque_baixo,
                            produtos_disponiveis=produtos_disponiveis,
                            pedidos_empresa=pedidos_empresa,
-                           hoje=hoje,
-                           escolas_labels=escolas_labels,
-                           escolas_data=escolas_data,
-                           produtos_labels=produtos_labels,
-                           produtos_data=produtos_data)
+                           hoje=hoje)
 
 # Rotas para Gerenciamento de Escolas
 @merenda_bp.route('/escolas')
@@ -915,6 +904,231 @@ def gerar_pdf_saidas(titulo, periodo, dados):
     return response                       
     
     
+@merenda_bp.route('/relatorios/validade-lotes', methods=['GET'])
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def relatorio_validade_lotes():
+    gerar_pdf = request.args.get('gerar_pdf')
+    hoje = date.today()
+    data_limite_alerta = hoje + timedelta(days=30)
+
+    lotes_30_dias = db.session.query(
+        ProdutoMerenda.nome.label('produto_nome'),
+        EstoqueMovimento.lote,
+        EstoqueMovimento.data_validade,
+        EstoqueMovimento.fornecedor,
+        ProdutoMerenda.unidade_consumo,
+        ProdutoMerenda.estoque_atual
+    ).join(ProdutoMerenda).filter(
+        or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None)),
+        EstoqueMovimento.tipo == 'Entrada',
+        EstoqueMovimento.data_validade.isnot(None),
+        EstoqueMovimento.data_validade <= data_limite_alerta,
+        EstoqueMovimento.data_validade >= hoje,
+        ProdutoMerenda.estoque_atual > 0
+    ).order_by(EstoqueMovimento.data_validade.asc()).all()
+
+    if gerar_pdf:
+        from utils import cabecalho_e_rodape_moderno
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.units import cm
+        from flask import make_response
+        import io
+
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=3*cm, bottomMargin=2*cm)
+        styles = getSampleStyleSheet()
+        story = []
+
+        story.append(Paragraph("RELATÓRIO DE CONTROLE DE VALIDADE E LOTES (ALERTA 30 DIAS)", styles['h2']))
+        story.append(Paragraph(f"Emissão: {datetime.now().strftime('%d/%m/%Y %H:%M')} | Regra FEFO - Prioridade de Consumo", styles['Normal']))
+        story.append(Spacer(1, 0.5*cm))
+
+        table_data = [['Produto', 'Lote', 'Data Validade', 'Dias Restantes', 'Fornecedor', 'Saldo Atual']]
+        for item in lotes_30_dias:
+            dias = (item.data_validade - hoje).days
+            table_data.append([
+                item.produto_nome,
+                item.lote or 'S/L',
+                item.data_validade.strftime('%d/%m/%Y'),
+                f"{dias} dias",
+                item.fornecedor or '--',
+                f"{item.estoque_atual:.2f} {item.unidade_consumo or 'UNID'}"
+            ])
+
+        t = Table(table_data, colWidths=[4.5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 3.5*cm, 2.5*cm])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#c0392b')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9f9f9')])
+        ]))
+        story.append(t)
+        story.append(Spacer(1, 1.5*cm))
+        story.append(Paragraph("________________________________________", styles['Normal']))
+        story.append(Paragraph("Responsável Técnico / Nutricionista", styles['Normal']))
+
+        doc.build(story, onFirstPage=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Alerta de Validades (30 Dias)"),
+                         onLaterPages=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Alerta de Validades (30 Dias)"))
+        buffer.seek(0)
+        resp = make_response(buffer.getvalue())
+        resp.headers['Content-Type'] = 'application/pdf'
+        resp.headers['Content-Disposition'] = 'inline; filename=relatorio_validade_30dias.pdf'
+        return resp
+
+    return render_template('merenda/relatorio_validade_lotes.html', lotes=lotes_30_dias, hoje=hoje)
+
+
+@merenda_bp.route('/relatorios/posicao-estoque', methods=['GET'])
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def relatorio_posicao_estoque():
+    gerar_pdf = request.args.get('gerar_pdf')
+    produtos = ProdutoMerenda.query.filter(
+        or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None))
+    ).order_by(ProdutoMerenda.nome.asc()).all()
+
+    if gerar_pdf:
+        from utils import cabecalho_e_rodape_moderno
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.units import cm
+        from flask import make_response
+        import io
+
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=3*cm, bottomMargin=2*cm)
+        styles = getSampleStyleSheet()
+        story = []
+
+        story.append(Paragraph("POSIÇÃO OFICIAL DE ESTOQUE - PRESTAÇÃO DE CONTAS", styles['h2']))
+        story.append(Paragraph(f"Data de Emissão: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | Almoxarifado Central", styles['Normal']))
+        story.append(Spacer(1, 0.5*cm))
+
+        table_data = [['Produto', 'Categoria', 'Saldo Real (Escola)', 'Equivalente Master', 'Situação']]
+        for p in produtos:
+            fator = p.fator_conversao if (p.fator_conversao and p.fator_conversao > 0) else 1.0
+            saldo = p.estoque_atual or 0.0
+            eq_master = f"{saldo/fator:.1f} {p.unidade_medida or 'CX'}" if fator > 1.0 else "Avulso"
+            status = "Zerado" if saldo <= 0 else ("Baixo" if saldo <= (p.estoque_minimo or 10) else "Normal")
+            table_data.append([
+                p.nome,
+                p.categoria or 'Geral',
+                f"{saldo:.2f} {p.unidade_consumo or 'UNID'}",
+                eq_master,
+                status
+            ])
+
+        t = Table(table_data, colWidths=[5.5*cm, 3.5*cm, 4*cm, 3*cm, 2*cm])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#004d40')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f5f5')])
+        ]))
+        story.append(t)
+        story.append(Spacer(1, 1.5*cm))
+        story.append(Paragraph("________________________________________", styles['Normal']))
+        story.append(Paragraph("Gestor / Responsável pelo Estoque da Merenda", styles['Normal']))
+
+        doc.build(story, onFirstPage=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Posição Oficial de Estoque"),
+                         onLaterPages=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Posição Oficial de Estoque"))
+        buffer.seek(0)
+        resp = make_response(buffer.getvalue())
+        resp.headers['Content-Type'] = 'application/pdf'
+        resp.headers['Content-Disposition'] = 'inline; filename=posicao_estoque_merenda.pdf'
+        return resp
+
+    return render_template('merenda/relatorio_posicao_estoque.html', produtos=produtos)
+
+
+@merenda_bp.route('/relatorios/distribuicao-geral', methods=['GET'])
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def relatorio_distribuicao_geral():
+    gerar_pdf = request.args.get('gerar_pdf')
+    data_inicio_str = request.args.get('data_inicio')
+    data_fim_str = request.args.get('data_fim')
+
+    query = db.session.query(
+        ProdutoMerenda.nome.label('produto_nome'),
+        ProdutoMerenda.unidade_consumo,
+        func.sum(EstoqueMovimento.quantidade).label('total_quantidade'),
+        func.count(EstoqueMovimento.id).label('total_saidas')
+    ).join(ProdutoMerenda).filter(
+        or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None)),
+        EstoqueMovimento.tipo == 'Saída Escola'
+    )
+
+    if data_inicio_str and data_fim_str:
+        dt_ini = datetime.strptime(data_inicio_str, '%Y-%m-%d')
+        dt_fim = datetime.strptime(data_fim_str, '%Y-%m-%d') + timedelta(days=1, seconds=-1)
+        query = query.filter(EstoqueMovimento.data_movimento.between(dt_ini, dt_fim))
+
+    resultados = query.group_by(ProdutoMerenda.id, ProdutoMerenda.nome, ProdutoMerenda.unidade_consumo).all()
+
+    if gerar_pdf:
+        from utils import cabecalho_e_rodape_moderno
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.units import cm
+        from flask import make_response
+        import io
+
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=3*cm, bottomMargin=2*cm)
+        styles = getSampleStyleSheet()
+        story = []
+
+        story.append(Paragraph("RELATÓRIO CONSOLIDADO DE DISTRIBUIÇÃO DE ALIMENTOS", styles['h2']))
+        periodo_txt = f"Período: {data_inicio_str} a {data_fim_str}" if data_inicio_str and data_fim_str else "Período: Todo o Histórico"
+        story.append(Paragraph(periodo_txt, styles['Normal']))
+        story.append(Spacer(1, 0.5*cm))
+
+        table_data = [['Produto', 'Total Distribuído', 'Registros de Saída']]
+        for res in resultados:
+            table_data.append([
+                res.produto_nome,
+                f"{res.total_quantidade:.2f} {res.unidade_consumo or 'UNID'}",
+                f"{res.total_saidas} baixas"
+            ])
+
+        t = Table(table_data, colWidths=[8*cm, 5*cm, 5*cm])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0d6efd')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f4f9')])
+        ]))
+        story.append(t)
+        story.append(Spacer(1, 1.5*cm))
+        story.append(Paragraph("________________________________________", styles['Normal']))
+        story.append(Paragraph("Coordenadoria de Merenda Escolar", styles['Normal']))
+
+        doc.build(story, onFirstPage=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Distribuição Geral de Alimentos"),
+                         onLaterPages=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Distribuição Geral de Alimentos"))
+        buffer.seek(0)
+        resp = make_response(buffer.getvalue())
+        resp.headers['Content-Type'] = 'application/pdf'
+        resp.headers['Content-Disposition'] = 'inline; filename=distribuicao_geral_merenda.pdf'
+        return resp
+
+    return render_template('merenda/relatorio_distribuicao_geral.html', resultados=resultados, data_inicio=data_inicio_str, data_fim=data_fim_str)
+
+
 @merenda_bp.route('/relatorios/consumo-mensal', methods=['GET'])
 @login_required
 @role_required('Merenda Escolar', 'admin')

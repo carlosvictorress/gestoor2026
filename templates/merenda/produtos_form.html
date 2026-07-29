@@ -1,161 +1,256 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ 'Editar' if produto else 'Cadastrar' }} Produto{% endblock %}
+{% block title %}{{ 'Editar' if produto else 'Cadastrar' }} Produto - Merenda Escolar{% endblock %}
 
 {% block content %}
-<div class="container-fluid px-4">
-    <div class="d-flex justify-content-between align-items-center my-4">
+<div class="container-fluid px-4 py-3">
+    
+    <!-- Cabeçalho -->
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
         <div>
-            <h2 class="fw-bold text-primary"><i class="bi bi-box-seam-fill"></i> {{ 'Editar' if produto else 'Novo' }} Produto</h2>
-            <p class="text-muted">Gestão completa de itens da merenda escolar</p>
+            <h2 class="fw-bold text-primary mb-1">
+                <i class="bi bi-box-seam-fill me-2"></i>{{ 'Editar' if produto else 'Novo' }} Produto da Merenda
+            </h2>
+            <p class="text-muted mb-0">Cadastre ou edite as regras de embalagem, conversão de unidades e controle de estoque.</p>
         </div>
         <a href="{{ url_for('merenda.listar_produtos') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i> Voltar
+            <i class="bi bi-arrow-left me-1"></i> Voltar à Lista
         </a>
     </div>
 
     <form method="POST">
-        <div class="row">
+        <div class="row g-4">
+            
+            <!-- COLUNA PRINCIPAL -->
             <div class="col-lg-8">
                 
-                <div class="card shadow-sm mb-4 border-top-primary">
-    <div class="card-header bg-white py-3">
-        <h5 class="m-0 fw-bold text-dark"><i class="bi bi-info-circle text-primary me-2"></i>Identificação do Produto</h5>
-    </div>
-    <div class="card-body">
-        <div class="row g-3">
-            <div class="col-md-12">
-                <label for="nome" class="form-label fw-bold">Nome do Produto <span class="text-danger">*</span></label>
-                <input type="text" class="form-control form-control-lg" name="nome" id="nome" value="{{ produto.nome if produto else '' }}" required placeholder="Ex: Arroz Agulhinha Tipo 1">
-            </div>
-            
-            <div class="col-md-4">
-                <label for="categoria" class="form-label">Categoria</label>
-                <select class="form-select" name="categoria" id="categoria">
-                    <option value="" disabled selected>Selecione...</option>
-                    <option value="Cereais e Grãos" {{ 'selected' if produto and produto.categoria == 'Cereais e Grãos' }}>Cereais e Grãos</option>
-                    <option value="Proteína Animal" {{ 'selected' if produto and produto.categoria == 'Proteína Animal' }}>Proteína Animal (Carnes/Ovos)</option>
-                    <option value="Hortifrúti" {{ 'selected' if produto and produto.categoria == 'Hortifrúti' }}>Hortifrúti (Legumes/Frutas)</option>
-                    <option value="Laticínios" {{ 'selected' if produto and produto.categoria == 'Laticínios' }}>Laticínios</option>
-                    <option value="Padaria" {{ 'selected' if produto and produto.categoria == 'Padaria' }}>Padaria/Massas</option>
-                    <option value="Temperos" {{ 'selected' if produto and produto.categoria == 'Temperos' }}>Temperos/Óleos</option>
-                </select>
-            </div>
-
-            <div class="col-md-4">
-                <label for="unidade_consumo" class="form-label fw-bold">Unidade de Estoque (Saída p/ Escola)*</label>
-                <select class="form-select border-primary" name="unidade_consumo" id="unidade_consumo" required>
-                    <option value="KG" {{ 'selected' if produto and (produto.unidade_consumo == 'KG' or produto.unidade_medida == 'KG') }}>Quilograma (KG)</option>
-                    <option value="UNID" {{ 'selected' if produto and (produto.unidade_consumo == 'UNID' or produto.unidade_medida == 'UNID') }}>Unidade (UNID)</option>
-                    <option value="L" {{ 'selected' if produto and (produto.unidade_consumo == 'L' or produto.unidade_medida == 'L') }}>Litro (L)</option>
-                    <option value="PCT" {{ 'selected' if produto and (produto.unidade_consumo == 'PCT' or produto.unidade_medida == 'PCT') }}>Pacote (PCT)</option>
-                </select>
-                <div class="form-text">É como o produto será contado na prateleira.</div>
-            </div>
-
-            <div class="col-md-4">
-                <label class="form-label fw-bold">Recebido em Fardo/Caixa?</label>
-                <div class="form-check form-switch mt-2">
-                    <input class="form-check-input" type="checkbox" id="tem_fardo" onchange="toggleFardo()">
-                    <label class="form-check-label" for="tem_fardo">Sim, possui embalagem master</label>
-                </div>
-            </div>
-
-            <div class="col-md-12 bg-light p-3 rounded border" id="secao_fardo" style="display: none;">
-                <div class="row">
-                    <div class="col-md-6">
-                        <label for="unidade_medida" class="form-label fw-bold">Tipo de Embalagem Master</label>
-                        <select class="form-select" name="unidade_medida" id="unidade_medida">
-                            <option value="FRD" {{ 'selected' if produto and produto.unidade_medida == 'FRD' }}>Fardo (FRD)</option>
-                            <option value="CX" {{ 'selected' if produto and produto.unidade_medida == 'CX' }}>Caixa (CX)</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="fator_conversao" class="form-label fw-bold">Qtd de unidades/kg dentro do Fardo/Caixa</label>
-                        <input type="number" step="0.01" class="form-control" name="fator_conversao" id="fator_conversao" value="{{ produto.fator_conversao if produto else '1.0' }}">
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-            <div class="col-lg-4">
-                <div class="card shadow-sm mb-4 border-top-warning">
+                <!-- CARD 1: IDENTIFICAÇÃO -->
+                <div class="card shadow-sm border-0 border-top border-primary border-4 mb-4">
                     <div class="card-header bg-white py-3">
-                        <h5 class="m-0 fw-bold text-dark"><i class="bi bi-truck text-warning me-2"></i>Logística</h5>
+                        <h5 class="m-0 fw-bold text-dark">
+                            <i class="bi bi-info-circle text-primary me-2"></i>1. Identificação do Alimento
+                        </h5>
                     </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label for="estoque_minimo" class="form-label fw-bold">Estoque Mínimo (Alerta)</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="bi bi-bell"></i></span>
-                                <input type="number" step="0.01" class="form-control" name="estoque_minimo" id="estoque_minimo" value="{{ produto.estoque_minimo if produto else '10' }}" placeholder="Qtd mínima">
+                    <div class="card-body p-4">
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label for="nome" class="form-label fw-bold">Nome do Alimento <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control form-control-lg" name="nome" id="nome" value="{{ produto.nome if produto else '' }}" required placeholder="Ex: Arroz Agulhinha Tipo 1">
+                                <div class="form-text">Informe o nome completo conforme especificação técnica.</div>
                             </div>
-                            <div class="form-text">Alerta baseado na unidade de consumo.</div>
+                            
+                            <div class="col-md-4">
+                                <label for="categoria" class="form-label fw-bold">Categoria</label>
+                                <select class="form-select form-select-lg" name="categoria" id="categoria">
+                                    <option value="" disabled {{ 'selected' if not produto or not produto.categoria }}>Selecione...</option>
+                                    <option value="Cereais e Grãos" {{ 'selected' if produto and produto.categoria == 'Cereais e Grãos' }}>Cereais e Grãos (Arroz, Feijão, etc)</option>
+                                    <option value="Proteína Animal" {{ 'selected' if produto and produto.categoria == 'Proteína Animal' }}>Proteína Animal (Carnes, Ovos, Peixe)</option>
+                                    <option value="Hortifrúti" {{ 'selected' if produto and produto.categoria == 'Hortifrúti' }}>Hortifrúti (Legumes, Frutas, Verduras)</option>
+                                    <option value="Laticínios" {{ 'selected' if produto and produto.categoria == 'Laticínios' }}>Laticínios (Leite, Queijo, Iogurte)</option>
+                                    <option value="Padaria" {{ 'selected' if produto and produto.categoria == 'Padaria' }}>Padaria e Massas (Pães, Biscoitos, Macarrão)</option>
+                                    <option value="Temperos" {{ 'selected' if produto and produto.categoria == 'Temperos' }}>Temperos e Óleos (Açúcar, Sal, Óleo)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CARD 2: REGRA DE EMBALAGEM E CONVERSÃO (O FOCO DE CLAREZA) -->
+                <div class="card shadow-sm border-0 border-top border-success border-4 mb-4">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="m-0 fw-bold text-dark">
+                            <i class="bi bi-box-arrow-in-down text-success me-2"></i>2. Regra de Embalagem & Conversão de Unidades
+                        </h5>
+                    </div>
+                    <div class="card-body p-4">
+                        
+                        <div class="alert alert-success-subtle text-dark border border-success-subtle mb-4 rounded-3 p-3">
+                            <div class="d-flex">
+                                <i class="bi bi-lightbulb-fill text-success fs-4 me-3"></i>
+                                <div>
+                                    <h6 class="fw-bold mb-1 text-success">Como funciona o cálculo automático?</h6>
+                                    <p class="mb-0 small">
+                                        Configure abaixo como o alimento <strong>chega do fornecedor</strong> (ex: Fardo ou Caixa) e como ele é <strong>distribuído para as escolas</strong> (ex: Quilogramas ou Pacotes). O sistema fará a conversão do estoque automaticamente!
+                                    </p>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label for="tipo_armazenamento" class="form-label fw-bold">Armazenamento</label>
-                            <select class="form-select" name="tipo_armazenamento">
-                                <option value="Seco/Temperatura Ambiente" {{ 'selected' if produto and produto.tipo_armazenamento == 'Seco/Temperatura Ambiente' }}>Seco (Ambiente)</option>
-                                <option value="Refrigerado" {{ 'selected' if produto and produto.tipo_armazenamento == 'Refrigerado' }}>Refrigerado (Geladeira)</option>
-                                <option value="Congelado" {{ 'selected' if produto and produto.tipo_armazenamento == 'Congelado' }}>Congelado (Freezer)</option>
+                        <div class="row g-3">
+                            
+                            <!-- PASSO A: COMPRA/ENTRADA -->
+                            <div class="col-md-4">
+                                <div class="p-3 bg-light rounded border h-100">
+                                    <label for="unidade_medida" class="form-label fw-bold text-success">
+                                        <i class="bi bi-box-seam me-1"></i> A) Como chega? (Compra)
+                                    </label>
+                                    <select class="form-select border-success" name="unidade_medida" id="unidade_medida" required onchange="atualizarSimulacao()">
+                                        <option value="FRD" {{ 'selected' if not produto or produto.unidade_medida == 'FRD' }}>📦 Fardo (FRD)</option>
+                                        <option value="CX" {{ 'selected' if produto and produto.unidade_medida == 'CX' }}>📦 Caixa (CX)</option>
+                                        <option value="SC" {{ 'selected' if produto and produto.unidade_medida == 'SC' }}>🎒 Saco (SC)</option>
+                                        <option value="PCT" {{ 'selected' if produto and produto.unidade_medida == 'PCT' }}>🛍️ Pacote (PCT)</option>
+                                        <option value="GL" {{ 'selected' if produto and produto.unidade_medida == 'GL' }}>🪣 Galão (GL)</option>
+                                        <option value="UNID" {{ 'selected' if produto and produto.unidade_medida == 'UNID' }}>🔢 Unidade Avulsa (UNID)</option>
+                                    </select>
+                                    <div class="form-text small">Embalagem fechada recebida da distribuidora.</div>
+                                </div>
+                            </div>
+
+                            <!-- PASSO B: DISTRIBUIÇÃO/CONSUMO -->
+                            <div class="col-md-4">
+                                <div class="p-3 bg-light rounded border h-100">
+                                    <label for="unidade_consumo" class="form-label fw-bold text-primary">
+                                        <i class="bi bi-house-door me-1"></i> B) Como envia? (Escola)
+                                    </label>
+                                    <select class="form-select border-primary" name="unidade_consumo" id="unidade_consumo" required onchange="atualizarSimulacao()">
+                                        <option value="KG" {{ 'selected' if not produto or produto.unidade_consumo == 'KG' }}>⚖️ Quilograma (KG)</option>
+                                        <option value="UNID" {{ 'selected' if produto and produto.unidade_consumo == 'UNID' }}>🔢 Unidade / Peça (UNID)</option>
+                                        <option value="L" {{ 'selected' if produto and produto.unidade_consumo == 'L' }}>🥛 Litro (L)</option>
+                                        <option value="PCT" {{ 'selected' if produto and produto.unidade_consumo == 'PCT' }}>🛍️ Pacote (PCT)</option>
+                                    </select>
+                                    <div class="form-text small">Como é fracionado para mandar às escolas.</div>
+                                </div>
+                            </div>
+
+                            <!-- PASSO C: FATOR DE CONVERSÃO -->
+                            <div class="col-md-4">
+                                <div class="p-3 bg-light rounded border h-100">
+                                    <label for="fator_conversao" class="form-label fw-bold text-warning-emphasis">
+                                        <i class="bi bi-calculator me-1"></i> C) Conteúdo da Embalagem
+                                    </label>
+                                    <input type="number" step="0.01" min="0.01" class="form-control border-warning" name="fator_conversao" id="fator_conversao" value="{{ produto.fator_conversao if produto else '30.0' }}" required oninput="atualizarSimulacao()">
+                                    <div class="form-text small">Qtd de unidades/kg contidas dentro de 1 fardo/caixa.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SIMULAÇÃO VISUAL EM TEMPO REAL -->
+                        <div class="mt-4 p-3 bg-primary-subtle text-primary border border-primary-subtle rounded-3 shadow-sm" id="box_simulacao">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-stars fs-3 me-3"></i>
+                                <div>
+                                    <h6 class="fw-bold mb-1">Simulação da Regra de Conversão:</h6>
+                                    <div id="texto_simulacao" class="fs-6 fw-semibold"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- CARD 3: INFORMAÇÕES NUTRICIONAIS (OPCIONAL/EXPANSÍVEL) -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center cursor-pointer" data-bs-toggle="collapse" data-bs-target="#nutricionalCollapse">
+                        <h6 class="m-0 fw-bold text-dark">
+                            <i class="bi bi-journal-medical text-danger me-2"></i>Informações Nutricionais (Opcional - PNAE)
+                        </h6>
+                        <i class="bi bi-chevron-down text-muted"></i>
+                    </div>
+                    <div class="collapse" id="nutricionalCollapse">
+                        <div class="card-body p-4 bg-light">
+                            <p class="text-muted small mb-3">Valores de referência por 100g ou 100ml do produto para elaboração de cardápios pelo Nutricionista.</p>
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <label for="calorias" class="form-label small fw-bold">Calorias (kcal)</label>
+                                    <input type="number" step="0.01" class="form-control" name="calorias" id="calorias" value="{{ produto.calorias if produto else '0' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="proteinas" class="form-label small fw-bold">Proteínas (g)</label>
+                                    <input type="number" step="0.01" class="form-control" name="proteinas" id="proteinas" value="{{ produto.proteinas if produto else '0' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="carboidratos" class="form-label small fw-bold">Carboidratos (g)</label>
+                                    <input type="number" step="0.01" class="form-control" name="carboidratos" id="carboidratos" value="{{ produto.carboidratos if produto else '0' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="lipidios" class="form-label small fw-bold">Gorduras/Lipídios (g)</label>
+                                    <input type="number" step="0.01" class="form-control" name="lipidios" id="lipidios" value="{{ produto.lipidios if produto else '0' }}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- COLUNA LATERAL (LOGÍSTICA & AÇÕES) -->
+            <div class="col-lg-4">
+                
+                <!-- CARD DE LOGÍSTICA -->
+                <div class="card shadow-sm border-0 border-top border-warning border-4 mb-4">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="m-0 fw-bold text-dark"><i class="bi bi-sliders text-warning me-2"></i>3. Controle & Logística</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        
+                        <div class="mb-4">
+                            <label for="estoque_minimo" class="form-label fw-bold">Estoque Mínimo (Alerta de Reposição)</label>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text bg-light"><i class="bi bi-bell text-warning"></i></span>
+                                <input type="number" step="0.01" class="form-control" name="estoque_minimo" id="estoque_minimo" value="{{ produto.estoque_minimo if produto else '10' }}" required>
+                            </div>
+                            <div class="form-text">O sistema alertará quando o saldo estiver abaixo desta quantidade (na unidade de consumo).</div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="tipo_armazenamento" class="form-label fw-bold">Tipo de Armazenamento</label>
+                            <select class="form-select form-select-lg" name="tipo_armazenamento" id="tipo_armazenamento">
+                                <option value="Seco/Temperatura Ambiente" {{ 'selected' if not produto or produto.tipo_armazenamento == 'Seco/Temperatura Ambiente' }}>☀️ Seco (Temperatura Ambiente)</option>
+                                <option value="Refrigerado" {{ 'selected' if produto and produto.tipo_armazenamento == 'Refrigerado' }}>❄️ Refrigerado (Geladeira / Câmara)</option>
+                                <option value="Congelado" {{ 'selected' if produto and produto.tipo_armazenamento == 'Congelado' }}>🧊 Congelado (Freezer)</option>
                             </select>
                         </div>
 
-                        <div class="form-check form-switch mb-3 p-3 bg-light rounded border">
+                        <div class="form-check form-switch p-3 bg-light rounded border">
                             <input class="form-check-input" type="checkbox" id="perecivel" name="perecivel" {{ 'checked' if not produto or produto.perecivel }}>
-                            <label class="form-check-label fw-bold" for="perecivel">Produto Perecível?</label>
-                        </div>
-                        
-                        <div class="alert alert-info d-flex align-items-center" role="alert">
-                            <i class="bi bi-info-circle-fill me-2 fs-4"></i>
-                            <div class="small">
-                                Lembre-se: O <strong>Fator de Conversão</strong> pode ser editado aqui caso o novo lote recebido tenha peso diferente do anterior.
-                            </div>
+                            <label class="form-check-label fw-bold text-dark" for="perecivel">Alimento Perecível? (Possui Validade)</label>
                         </div>
                     </div>
                 </div>
 
-                <div class="d-grid gap-2">
-                    <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-save"></i> Salvar Dados</button>
-                    <a href="{{ url_for('merenda.listar_produtos') }}" class="btn btn-light border">Cancelar</a>
+                <!-- CARD DE AÇÕES -->
+                <div class="card shadow-sm border-0 p-3 bg-white">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg fw-bold shadow-sm">
+                            <i class="bi bi-check-circle me-1"></i> {{ 'Atualizar' if produto else 'Salvar' }} Produto
+                        </button>
+                        <a href="{{ url_for('merenda.listar_produtos') }}" class="btn btn-light border py-2">
+                            Cancelar e Voltar
+                        </a>
+                    </div>
                 </div>
+
             </div>
         </div>
     </form>
 </div>
 
 <script>
-function toggleFardo() {
-    const check = document.getElementById('tem_fardo');
-    const secao = document.getElementById('secao_fardo');
+function atualizarSimulacao() {
+    const unidMedidaSelect = document.getElementById('unidade_medida');
+    const unidConsumoSelect = document.getElementById('unidade_consumo');
     const fatorInput = document.getElementById('fator_conversao');
-    const unidCompra = document.getElementById('unidade_medida');
+    const textoSimulacao = document.getElementById('texto_simulacao');
 
-    if (check.checked) {
-        secao.style.display = 'block';
+    const nomeMaster = unidMedidaSelect.options[unidMedidaSelect.selectedIndex].text.split('(')[0].trim();
+    const siglaMaster = unidMedidaSelect.value;
+    const nomeConsumo = unidConsumoSelect.options[unidConsumoSelect.selectedIndex].text.split('(')[0].trim();
+    const siglaConsumo = unidConsumoSelect.value;
+    const fator = parseFloat(fatorInput.value) || 1;
+
+    let mensagem = "";
+    if (fator > 1) {
+        const total10 = (10 * fator).toFixed(1);
+        mensagem = `1 ${nomeMaster} (${siglaMaster}) contém <strong>${fator} ${siglaConsumo}</strong> (${nomeConsumo}).<br><span class="text-dark small">Exemplo: Ao dar entrada de 10 ${siglaMaster}, o sistema somará <strong>+${total10} ${siglaConsumo}</strong> no estoque da escola.</span>`;
     } else {
-        secao.style.display = 'none';
-        fatorInput.value = "1.0"; // Se não tem fardo, a entrada é 1 pra 1
-        unidCompra.value = document.getElementById('unidade_consumo').value; 
+        mensagem = `Produto com contagem unitária direta (1 para 1 em <strong>${siglaConsumo}</strong>).`;
     }
+
+    textoSimulacao.innerHTML = mensagem;
 }
 
-// Executa ao carregar para verificar se é edição de um produto que já é fardo
 document.addEventListener('DOMContentLoaded', function() {
-    const fator = parseFloat(document.getElementById('fator_conversao').value);
-    if (fator > 1) {
-        document.getElementById('tem_fardo').checked = true;
-        toggleFardo();
-    }
+    atualizarSimulacao();
 });
 </script>
-
-<style>
-    .border-top-primary { border-top: 4px solid #0d6efd !important; }
-    .border-top-success { border-top: 4px solid #198754 !important; }
-    .border-top-warning { border-top: 4px solid #ffc107 !important; }
-</style>
 {% endblock %}

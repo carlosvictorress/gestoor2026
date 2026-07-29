@@ -209,10 +209,11 @@ def novo_produto():
 
             novo = ProdutoMerenda(
                 nome=request.form.get('nome'),
-                unidade_medida=request.form.get('unidade_medida'),
+                unidade_medida=request.form.get('unidade_medida', 'CX'),
+                unidade_consumo=request.form.get('unidade_consumo', 'UNID'),
                 categoria=request.form.get('categoria'),
                 
-                # NOVO CAMPO: Fator de Conversão (Ex: 1 fardo = 10 unidades)
+                # Fator de Conversão (Ex: 1 fardo = 30 pacotes)
                 fator_conversao=fator_final,
                 
                 # Campos Profissionais
@@ -251,12 +252,12 @@ def editar_produto(produto_id):
                 return float(str(val).replace(',', '.'))
             
             # Captura e atualiza o fator de conversão
-            # Se o campo estiver vazio ou for zero, define o padrão como 1.0
             fator_raw = request.form.get('fator_conversao')
             produto.fator_conversao = flt(fator_raw) if fator_raw and flt(fator_raw) > 0 else 1.0
 
             produto.nome = request.form.get('nome')
-            produto.unidade_medida = request.form.get('unidade_medida')
+            produto.unidade_medida = request.form.get('unidade_medida', 'CX')
+            produto.unidade_consumo = request.form.get('unidade_consumo', 'UNID')
             produto.categoria = request.form.get('categoria')
             
             # Atualização dos demais campos

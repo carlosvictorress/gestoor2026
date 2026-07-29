@@ -129,20 +129,32 @@
                 <!-- ABA 1: SALDOS EM ESTOQUE -->
                 <div class="tab-pane fade show active" id="saldos" role="tabpanel">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="fw-bold text-dark m-0"><i class="bi bi-archive me-2 text-primary"></i>Relação de Produtos e Saldos Nativos</h5>
-                        <input type="text" id="filterSaldos" class="form-control form-control-sm w-25" placeholder="🔍 Pesquisar produto...">
+                        <div>
+                            <h5 class="fw-bold text-dark m-0"><i class="bi bi-archive me-2 text-primary"></i>Saldos Atuais no Almoxarifado</h5>
+                            <p class="text-muted small mb-0">Relação completa de alimentos disponíveis e equivalência em caixas/fardos.</p>
+                        </div>
+                        <input type="text" id="filterSaldos" class="form-control form-control-sm w-25" placeholder="🔍 Pesquisar alimento...">
+                    </div>
+
+                    <!-- Banner Explicativo -->
+                    <div class="alert alert-light border d-flex align-items-center mb-3 py-2 px-3 rounded-3 small">
+                        <i class="bi bi-info-circle-fill text-primary fs-5 me-2"></i>
+                        <div>
+                            <strong>Entenda a tabela abaixo:</strong> 
+                            O <span class="text-primary fw-bold">Saldo no Estoque</span> indica o total em quilos, litros ou unidades prontas para envio. A <span class="text-info fw-bold">Qtd em Caixas/Fardos</span> mostra quantas embalagens fechadas isso representa na prateleira.
+                        </div>
                     </div>
 
                     <div class="table-responsive">
                         <table class="table table-hover align-middle border mb-0" id="tableSaldos">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Produto</th>
+                                    <th>Alimento / Produto</th>
                                     <th>Categoria</th>
-                                    <th>Saldo Real (Consumo)</th>
-                                    <th>Equivalência Master</th>
+                                    <th>📦 Saldo no Estoque (Para Escolas)</th>
+                                    <th>🚛 Qtd em Caixas / Fardos</th>
                                     <th>Armazenamento</th>
-                                    <th>Status</th>
+                                    <th>Situação</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -150,6 +162,8 @@
                                 {% set fator = p.fator_conversao if (p.fator_conversao and p.fator_conversao > 0) else 1.0 %}
                                 {% set saldo = p.estoque_atual or 0.0 %}
                                 {% set min = p.estoque_minimo or 10.0 %}
+                                {% set unid_compra = p.unidade_medida or 'CX' %}
+                                {% set unid_escola = p.unidade_consumo or 'UNID' %}
                                 <tr>
                                     <td class="fw-bold text-dark">
                                         {{ p.nome }}
@@ -157,17 +171,17 @@
                                     <td><span class="badge bg-light text-secondary border">{{ p.categoria or 'Geral' }}</span></td>
                                     <td>
                                         <span class="fs-6 fw-bold text-primary">
-                                            {{ "%.2f"|format(saldo) }} {{ p.unidade_consumo or 'UNID' }}
+                                            {{ "%.2f"|format(saldo) }} {{ unid_escola }}
                                         </span>
                                     </td>
                                     <td>
                                         {% if fator > 1.0 %}
                                             {% set qtd_embalagem = saldo / fator %}
-                                            <span class="badge bg-info-subtle text-info border border-info">
-                                                ~ {{ "%.1f"|format(qtd_embalagem) }} {{ p.unidade_medida or 'CX' }} (com {{ fator|int }} {{ p.unidade_consumo }}/{{ p.unidade_medida or 'CX' }})
+                                            <span class="badge bg-info-subtle text-info border border-info px-2 py-1">
+                                                <i class="bi bi-box-seam me-1"></i> ~ {{ "%.1f"|format(qtd_embalagem) }} {{ unid_compra }} (com {{ fator|int }} {{ unid_escola }}/{{ unid_compra }})
                                             </span>
                                         {% else %}
-                                            <span class="text-muted small">Contagem unitária</span>
+                                            <span class="text-muted small"><i class="bi bi-dash-lg me-1"></i> Item avulso (sem fardo/caixa)</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -175,11 +189,11 @@
                                     </td>
                                     <td>
                                         {% if saldo <= 0 %}
-                                            <span class="badge bg-danger">Sem Estoque</span>
+                                            <span class="badge bg-danger">🔴 Zerado</span>
                                         {% elif saldo <= min %}
-                                            <span class="badge bg-warning text-dark">Abaixo do Mínimo ({{ min|int }})</span>
+                                            <span class="badge bg-warning text-dark">⚠️ Estoque Baixo (Mín: {{ min|int }})</span>
                                         {% else %}
-                                            <span class="badge bg-success-subtle text-success border border-success">Normal</span>
+                                            <span class="badge bg-success-subtle text-success border border-success">🟢 Saldo Normal</span>
                                         {% endif %}
                                     </td>
                                 </tr>

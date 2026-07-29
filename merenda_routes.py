@@ -84,6 +84,33 @@ def dashboard():
 
     pedidos_empresa = PedidoEmpresa.query.order_by(PedidoEmpresa.data_pedido.desc()).limit(10).all()
 
+    # --- NOVO: CÁLCULO REAL DOS GRÁFICOS DO DASHBOARD ---
+    top_escolas = db.session.query(
+        Escola.nome,
+        func.sum(EstoqueMovimento.quantidade).label('total')
+    ).join(EstoqueMovimento, EstoqueMovimento.escola_id == Escola.id)\
+     .filter(EstoqueMovimento.tipo == 'Saída Escola')\
+     .group_by(Escola.id, Escola.nome)\
+     .order_by(func.sum(EstoqueMovimento.quantidade).desc())\
+     .limit(5).all()
+
+    escolas_labels = [e.nome[:25] for e in top_escolas] if top_escolas else ["Sem registros"]
+    escolas_data = [float(e.total or 0) for e in top_escolas] if top_escolas else [0]
+
+    top_produtos = db.session.query(
+        ProdutoMerenda.nome,
+        func.sum(EstoqueMovimento.quantidade).label('total')
+    ).join(EstoqueMovimento, EstoqueMovimento.produto_id == ProdutoMerenda.id)\
+     .filter(
+        or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None)),
+        EstoqueMovimento.tipo == 'Saída Escola'
+     ).group_by(ProdutoMerenda.id, ProdutoMerenda.nome)\
+     .order_by(func.sum(EstoqueMovimento.quantidade).desc())\
+     .limit(5).all()
+
+    produtos_labels = [p.nome[:20] for p in top_produtos] if top_produtos else ["Sem baixas"]
+    produtos_data = [float(p.total or 0) for p in top_produtos] if top_produtos else [0]
+
     return render_template('merenda/dashboard.html',
                            total_escolas_ativas=total_escolas_ativas,
                            escolas_todas=escolas_todas,
@@ -93,7 +120,11 @@ def dashboard():
                            produtos_estoque_baixo=produtos_estoque_baixo,
                            produtos_disponiveis=produtos_disponiveis,
                            pedidos_empresa=pedidos_empresa,
-                           hoje=hoje)
+                           hoje=hoje,
+                           escolas_labels=escolas_labels,
+                           escolas_data=escolas_data,
+                           produtos_labels=produtos_labels,
+                           produtos_data=produtos_data)
 
 # Rotas para Gerenciamento de Escolas
 @merenda_bp.route('/escolas')

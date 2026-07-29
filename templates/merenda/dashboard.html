@@ -423,8 +423,8 @@ document.addEventListener('DOMContentLoaded', function () {
     new Chart(document.getElementById('topEscolasChart').getContext('2d'), {
         type: 'bar',
         data: {
-            labels: {{ escolas_labels|tojson }},
-            datasets: [{ label: 'Consumo', data: {{ escolas_data|tojson }}, backgroundColor: '#0d6efd', borderRadius: 5, barThickness: 20 }]
+            labels: {{ (escolas_labels or [])|tojson }},
+            datasets: [{ label: 'Consumo', data: {{ (escolas_data or [])|tojson }}, backgroundColor: '#0d6efd', borderRadius: 5, barThickness: 20 }]
         },
         options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { grid: { display: false } } } }
     });
@@ -432,8 +432,8 @@ document.addEventListener('DOMContentLoaded', function () {
     new Chart(document.getElementById('topProdutosChart').getContext('2d'), {
         type: 'doughnut',
         data: {
-            labels: {{ produtos_labels|tojson }},
-            datasets: [{ data: {{ produtos_data|tojson }}, backgroundColor: ['#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#fd7e14'], hoverOffset: 10, borderWidth: 0 }]
+            labels: {{ (produtos_labels or [])|tojson }},
+            datasets: [{ data: {{ (produtos_data or [])|tojson }}, backgroundColor: ['#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#fd7e14'], hoverOffset: 10, borderWidth: 0 }]
         },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } } }, cutout: '70%' }
     });

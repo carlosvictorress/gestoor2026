@@ -15,13 +15,70 @@ academico_bp = Blueprint('academico', __name__, url_prefix='/academico')
 
 _schema_academico_verificado = False
 
+def executar_migracao_academico_segura():
+    from sqlalchemy import text
+    try:
+        db.create_all()
+    except Exception:
+        pass
+
+    alteracoes = [
+        ("acad_aluno", "nome_social", "VARCHAR(200)"),
+        ("acad_aluno", "nis_aluno", "VARCHAR(20)"),
+        ("acad_aluno", "uf_nascimento", "VARCHAR(2)"),
+        ("acad_aluno", "municipio_nascimento", "VARCHAR(100)"),
+        ("acad_aluno", "rg", "VARCHAR(20)"),
+        ("acad_aluno", "orgao_emissor_rg", "VARCHAR(20)"),
+        ("acad_aluno", "uf_rg", "VARCHAR(2)"),
+        ("acad_aluno", "certidao_matricula", "VARCHAR(35)"),
+        ("acad_aluno", "certidao_termo", "VARCHAR(20)"),
+        ("acad_aluno", "certidao_folha", "VARCHAR(20)"),
+        ("acad_aluno", "certidao_livro", "VARCHAR(20)"),
+        ("acad_aluno", "certidao_cartorio", "VARCHAR(150)"),
+        ("acad_aluno", "cpf_responsavel", "VARCHAR(14)"),
+        ("acad_aluno", "nis_responsavel", "VARCHAR(20)"),
+        ("acad_aluno", "whatsapp_responsavel", "VARCHAR(20)"),
+        ("acad_aluno", "grau_parentesco", "VARCHAR(50)"),
+        ("acad_aluno", "bairro", "VARCHAR(100)"),
+        ("acad_aluno", "cep", "VARCHAR(10)"),
+        ("acad_aluno", "zona_residencia", "VARCHAR(20) DEFAULT 'Urbana'"),
+        ("acad_aluno", "utiliza_transporte_publico", "BOOLEAN DEFAULT FALSE"),
+        ("acad_aluno", "modal_transporte", "VARCHAR(50)"),
+        ("acad_aluno", "cid_laudo", "VARCHAR(20)"),
+        ("acad_aluno", "cuidador_dedicado", "BOOLEAN DEFAULT FALSE"),
+        ("acad_aluno", "restricoes_alimentares", "TEXT"),
+        
+        ("acad_turma", "codigo_inep_turma", "VARCHAR(20)"),
+        ("acad_turma", "tipo_atendimento", "VARCHAR(100) DEFAULT 'Escolarização'"),
+        ("acad_turma", "vagas_pne", "INTEGER DEFAULT 5"),
+
+        ("acad_matricula", "numero_matricula", "VARCHAR(50)"),
+        ("acad_matricula", "data_encerramento", "DATE"),
+        ("acad_matricula", "observacoes", "TEXT"),
+
+        ("acad_nota", "nota_recuperacao", "FLOAT"),
+        ("acad_nota", "conceito", "VARCHAR(20)"),
+        ("acad_nota", "faltas_bimestre", "INTEGER DEFAULT 0")
+    ]
+
+    for tabela, col_nome, col_tipo in alteracoes:
+        try:
+            with db.engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE {tabela} ADD COLUMN IF NOT EXISTS {col_nome} {col_tipo};"))
+        except Exception:
+            try:
+                with db.engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {col_nome} {col_tipo};"))
+            except Exception:
+                pass
+
+
 @academico_bp.before_request
 def verificar_schema():
     global _schema_academico_verificado
     if not _schema_academico_verificado:
         try:
-            from app import garantir_schema_academico
-            garantir_schema_academico()
+            executar_migracao_academico_segura()
             _schema_academico_verificado = True
         except Exception as e:
             print(f"Erro ao verificar schema no before_request: {e}")

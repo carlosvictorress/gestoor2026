@@ -1077,28 +1077,101 @@ def relatorio_distribuicao_geral():
     gerar_pdf = request.args.get('gerar_pdf')
     data_inicio_str = request.args.get('data_inicio')
     data_fim_str = request.args.get('data_fim')
+    categoria_filtro = request.args.get('categoria')
 
-    query = db.session.query(
-        ProdutoMerenda.nome.label('produto_nome'),
-        ProdutoMerenda.unidade_consumo,
-        func.sum(EstoqueMovimento.quantidade).label('total_quantidade'),
-        func.count(EstoqueMovimento.id).label('total_saidas')
-    ).join(ProdutoMerenda).filter(
+    # Base query de movimentos de saída
+    base_filter = [
         or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None)),
-        EstoqueMovimento.tipo == 'Saída Escola'
-    )
+        or_(EstoqueMovimento.tipo == 'Saída', EstoqueMovimento.tipo == 'Saída Escola')
+    ]
 
     if data_inicio_str and data_fim_str:
         dt_ini = datetime.strptime(data_inicio_str, '%Y-%m-%d')
         dt_fim = datetime.strptime(data_fim_str, '%Y-%m-%d') + timedelta(days=1, seconds=-1)
-        query = query.filter(EstoqueMovimento.data_movimento.between(dt_ini, dt_fim))
+        base_filter.append(EstoqueMovimento.data_movimento.between(dt_ini, dt_fim))
 
-    resultados = query.group_by(ProdutoMerenda.id, ProdutoMerenda.nome, ProdutoMerenda.unidade_consumo).all()
+    if categoria_filtro:
+        base_filter.append(ProdutoMerenda.categoria == categoria_filtro)
 
+    # Resultados analíticos agrupados por produto
+    resultados_query = db.session.query(
+        ProdutoMerenda.id,
+        ProdutoMerenda.nome.label('produto_nome'),
+        ProdutoMerenda.categoria,
+        ProdutoMerenda.unidade_medida,
+        ProdutoMerenda.unidade_consumo,
+        ProdutoMerenda.fator_conversao,
+        ProdutoMerenda.estoque_atual,
+        func.sum(EstoqueMovimento.quantidade).label('total_quantidade'),
+        func.count(EstoqueMovimento.id).label('total_saidas')
+    ).join(ProdutoMerenda).filter(*base_filter).group_by(
+        ProdutoMerenda.id,
+        ProdutoMerenda.nome,
+        ProdutoMerenda.categoria,
+        ProdutoMerenda.unidade_medida,
+        ProdutoMerenda.unidade_consumo,
+        ProdutoMerenda.fator_conversao,
+        ProdutoMerenda.estoque_atual
+    ).order_by(func.sum(EstoqueMovimento.quantidade).desc()).all()
+
+    # Formatação de equivalência máster nos resultados
+    resultados = []
+    total_volume_geral = 0.0
+    for r in resultados_query:
+        fator = float(r.fator_conversao) if (r.fator_conversao and r.fator_conversao > 0) else 1.0
+        qtd_total = float(r.total_quantidade or 0.0)
+        total_volume_geral += qtd_total
+        eq_master = f"~ {qtd_total / fator:.1f} {r.unidade_medida or 'CX'}" if fator > 1.0 else "Avulso"
+        resultados.append({
+            'id': r.id,
+            'produto_nome': r.produto_nome,
+            'categoria': r.categoria or 'Geral',
+            'unidade_consumo': r.unidade_consumo or 'UNID',
+            'unidade_medida': r.unidade_medida or 'CX',
+            'total_quantidade': qtd_total,
+            'total_saidas': r.total_saidas,
+            'estoque_atual': r.estoque_atual or 0.0,
+            'eq_master': eq_master
+        })
+
+    # KPIs de Auditoria
+    escolas_atendidas_count = db.session.query(
+        func.count(func.distinct(EstoqueMovimento.escola_id))
+    ).filter(*base_filter).scalar() or 0
+
+    expedicoes_count = db.session.query(
+        func.count(EstoqueMovimento.id)
+    ).filter(*base_filter).scalar() or 0
+
+    # Categorias Stats para gráfico
+    cat_query = db.session.query(
+        ProdutoMerenda.categoria,
+        func.sum(EstoqueMovimento.quantidade).label('total')
+    ).join(ProdutoMerenda).filter(*base_filter).group_by(ProdutoMerenda.categoria).all()
+
+    categorias_labels = [c.categoria or 'Geral' for c in cat_query] if cat_query else ['Geral']
+    categorias_data = [float(c.total or 0.0) for c in cat_query] if cat_query else [0]
+
+    # Top Escolas Stats para gráfico
+    top_escolas_query = db.session.query(
+        Escola.nome,
+        func.sum(EstoqueMovimento.quantidade).label('total')
+    ).join(EstoqueMovimento, EstoqueMovimento.escola_id == Escola.id)\
+     .join(ProdutoMerenda, EstoqueMovimento.produto_id == ProdutoMerenda.id)\
+     .filter(*base_filter).group_by(Escola.id, Escola.nome)\
+     .order_by(func.sum(EstoqueMovimento.quantidade).desc()).limit(5).all()
+
+    top_escolas_labels = [e.nome[:22] for e in top_escolas_query] if top_escolas_query else ['Sem dados']
+    top_escolas_data = [float(e.total or 0.0) for e in top_escolas_query] if top_escolas_query else [0]
+
+    # Lista de todas as categorias cadastradas para o filtro
+    categorias_disponiveis = [r[0] for r in db.session.query(ProdutoMerenda.categoria).distinct().all() if r[0]]
+
+    # PDF EXECUTIVO DE AUDITORIA (PNAE/TCE)
     if gerar_pdf:
         from utils import cabecalho_e_rodape_moderno
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.pagesizes import A4
         from reportlab.lib import colors
         from reportlab.lib.units import cm
@@ -1108,44 +1181,130 @@ def relatorio_distribuicao_geral():
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=3*cm, bottomMargin=2*cm)
         styles = getSampleStyleSheet()
+
+        title_style = ParagraphStyle(
+            name='AuditTitle',
+            parent=styles['Heading2'],
+            fontName='Helvetica-Bold',
+            fontSize=13,
+            leading=16,
+            textColor=colors.HexColor('#004d40'),
+            alignment=1 # Center
+        )
+
+        sub_style = ParagraphStyle(
+            name='AuditSub',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=9,
+            leading=12,
+            textColor=colors.HexColor('#555555'),
+            alignment=1
+        )
+
         story = []
 
-        story.append(Paragraph("RELATÓRIO CONSOLIDADO DE DISTRIBUIÇÃO DE ALIMENTOS", styles['h2']))
-        periodo_txt = f"Período: {data_inicio_str} a {data_fim_str}" if data_inicio_str and data_fim_str else "Período: Todo o Histórico"
-        story.append(Paragraph(periodo_txt, styles['Normal']))
-        story.append(Spacer(1, 0.5*cm))
+        story.append(Paragraph("RELATÓRIO AUDITÁVEL CONSOLIDADO DE DISTRIBUIÇÃO DA MERENDA", title_style))
+        periodo_txt = f"Período de Referência: {data_inicio_str} a {data_fim_str}" if data_inicio_str and data_fim_str else "Período: Histórico Completo de Expedições"
+        story.append(Paragraph(f"{periodo_txt} | Protocolo Oficial: PNAE-{datetime.now().strftime('%Y%m%d%H%M')}", sub_style))
+        story.append(Spacer(1, 0.4*cm))
 
-        table_data = [['Produto', 'Total Distribuído', 'Registros de Saída']]
+        # Quadro de Indicadores Resumidos
+        kpi_table_data = [
+            ['Volume Total Distribuído', 'Expedições Realizadas', 'Escolas Atendidas', 'Variedade de Itens'],
+            [
+                f"{total_volume_geral:,.2f} UN/KG/L",
+                f"{expedicoes_count} guias",
+                f"{escolas_atendidas_count} escolas",
+                f"{len(resultados)} alimentos"
+            ]
+        ]
+        kpi_table = Table(kpi_table_data, colWidths=[4.5*cm, 4.5*cm, 4.5*cm, 4.5*cm])
+        kpi_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#004d40')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#e0f2f1')),
+            ('TEXTCOLOR', (0, 1), (-1, 1), colors.HexColor('#004d40')),
+            ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 1), (-1, 1), 10),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#004d40'))
+        ]))
+        story.append(kpi_table)
+        story.append(Spacer(1, 0.6*cm))
+
+        # Tabela Analítica
+        table_data = [['#', 'Alimento / Produto', 'Categoria', 'Total Distribuído', 'Equiv. Caixas', 'Nº Saídas']]
+        idx = 1
         for res in resultados:
             table_data.append([
-                res.produto_nome,
-                f"{res.total_quantidade:.2f} {res.unidade_consumo or 'UNID'}",
-                f"{res.total_saidas} baixas"
+                str(idx),
+                res['produto_nome'],
+                res['categoria'],
+                f"{res['total_quantidade']:.2f} {res['unidade_consumo']}",
+                res['eq_master'],
+                f"{res['total_saidas']} reg."
             ])
+            idx += 1
 
-        t = Table(table_data, colWidths=[8*cm, 5*cm, 5*cm])
+        t = Table(table_data, colWidths=[1*cm, 6.5*cm, 3.5*cm, 3.5*cm, 2.5*cm, 1.8*cm])
         t.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0d6efd')),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a237e')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('ALIGN', (1, 1), (1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f4f9')])
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cfd8dc')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f5f5')])
         ]))
         story.append(t)
-        story.append(Spacer(1, 1.5*cm))
-        story.append(Paragraph("________________________________________", styles['Normal']))
-        story.append(Paragraph("Coordenadoria de Merenda Escolar", styles['Normal']))
+        story.append(Spacer(1, 1*cm))
 
-        doc.build(story, onFirstPage=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Distribuição Geral de Alimentos"),
-                         onLaterPages=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Distribuição Geral de Alimentos"))
+        # Bloco de Parecer Técnico e Assinaturas Auditáveis
+        story.append(KeepTogether([
+            Paragraph("PARECER E ASSINATURAS DE AUDITORIA E PRESTAÇÃO DE CONTAS", styles['Heading4']),
+            Spacer(1, 0.3*cm),
+            Paragraph("Atestamos para os devidos fins de comprovação junto ao PNAE/FNDE e Tribunal de Contas que a distribuição de gêneros alimentícios discriminada acima obedeceu rigorosamente aos critérios nutricionais e logísticos estabelecidos.", styles['Normal']),
+            Spacer(1, 1.2*cm),
+            Table([
+                [
+                    "___________________________________\nNutricionista Responsável (CRN)",
+                    "___________________________________\nCoordenador da Merenda Escolar",
+                    "___________________________________\nSecretário(a) Municipal de Educação"
+                ]
+            ], colWidths=[6*cm, 6*cm, 6*cm], style=[
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTSIZE', (0, 0), (-1, -1), 7),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
+            ])
+        ]))
+
+        doc.build(story, onFirstPage=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Relatório de Auditoria da Merenda"),
+                         onLaterPages=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Relatório de Auditoria da Merenda"))
         buffer.seek(0)
         resp = make_response(buffer.getvalue())
         resp.headers['Content-Type'] = 'application/pdf'
-        resp.headers['Content-Disposition'] = 'inline; filename=distribuicao_geral_merenda.pdf'
+        resp.headers['Content-Disposition'] = 'inline; filename=relatorio_auditoria_merenda.pdf'
         return resp
 
-    return render_template('merenda/relatorio_distribuicao_geral.html', resultados=resultados, data_inicio=data_inicio_str, data_fim=data_fim_str)
+    return render_template(
+        'merenda/relatorio_distribuicao_geral.html',
+        resultados=resultados,
+        data_inicio=data_inicio_str,
+        data_fim=data_fim_str,
+        categoria_selecionada=categoria_filtro,
+        categorias_disponiveis=categorias_disponiveis,
+        total_volume_geral=total_volume_geral,
+        escolas_atendidas_count=escolas_atendidas_count,
+        expedicoes_count=expedicoes_count,
+        categorias_labels=categorias_labels,
+        categorias_data=categorias_data,
+        top_escolas_labels=top_escolas_labels,
+        top_escolas_data=top_escolas_data
+    )
 
 
 @merenda_bp.route('/relatorios/consumo-mensal', methods=['GET'])

@@ -18,8 +18,11 @@ from reportlab.lib.utils import ImageReader
 from extensions import db
 from models import Log
 
-# Importação do Supabase
-from supabase import create_client
+# Importação do Supabase (Opcional)
+try:
+    from supabase import create_client
+except ImportError:
+    create_client = None
 
 def limpar_cpf(cpf):
     if cpf:

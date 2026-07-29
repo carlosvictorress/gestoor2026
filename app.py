@@ -168,6 +168,38 @@ migrate = Migrate(app, db)
 # ===================================================================
 from models import *
 
+def garantir_schema_estoque_movimento():
+    with app.app_context():
+        try:
+            from sqlalchemy import text
+            db.create_all()
+            
+            colunas = [
+                ("unidade_movimento", "VARCHAR(20)"),
+                ("quantidade_embalagem", "FLOAT"),
+                ("fator_utilizado", "FLOAT DEFAULT 1.0"),
+                ("escola_id", "INTEGER"),
+                ("observacao", "TEXT")
+            ]
+            for col_nome, col_tipo in colunas:
+                try:
+                    db.session.execute(text(f"ALTER TABLE estoque_movimento ADD COLUMN IF NOT EXISTS {col_nome} {col_tipo};"))
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+                    try:
+                        db.session.execute(text(f"ALTER TABLE estoque_movimento ADD COLUMN {col_nome} {col_tipo};"))
+                        db.session.commit()
+                    except Exception:
+                        db.session.rollback()
+        except Exception as e:
+            print(f"Verificação de schema estoque_movimento: {e}")
+
+try:
+    garantir_schema_estoque_movimento()
+except Exception as e:
+    print(f"Aviso ao inicializar schema estoque_movimento: {e}")
+
 
 
 

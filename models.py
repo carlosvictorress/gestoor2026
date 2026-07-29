@@ -494,8 +494,14 @@ class EstoqueMovimento(db.Model):
     produto_id = db.Column(
         db.Integer, db.ForeignKey("produto_merenda.id"), nullable=False
     )
-    tipo = db.Column(db.String(10), nullable=False)  # 'Entrada' ou 'Saída'
-    quantidade = db.Column(db.Float, nullable=False)
+    tipo = db.Column(db.String(50), nullable=False)  # 'Entrada', 'Saída Escola', 'Perda/Avaria', 'Ajuste Saldo'
+    quantidade = db.Column(db.Float, nullable=False) # Quantidade convertida em Unidade Base (Consumo)
+
+    # Dados da Embalagem / Conversão (Auditoria)
+    unidade_movimento = db.Column(db.String(20))     # Ex: 'CX', 'FRD', 'UNID', 'KG'
+    quantidade_embalagem = db.Column(db.Float)       # Ex: 5 (Caixas)
+    fator_utilizado = db.Column(db.Float, default=1.0) # Ex: 24 (unidades por caixa)
+
     data_movimento = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Para Entradas
@@ -503,13 +509,16 @@ class EstoqueMovimento(db.Model):
     lote = db.Column(db.String(50))
     data_validade = db.Column(db.Date)
 
-    # Para Saídas
-    solicitacao_id = db.Column(db.Integer, db.ForeignKey("solicitacao_merenda.id"))
+    # Para Saídas e Distribuição
+    escola_id = db.Column(db.Integer, db.ForeignKey("escola.id"), nullable=True)
+    solicitacao_id = db.Column(db.Integer, db.ForeignKey("solicitacao_merenda.id"), nullable=True)
+    observacao = db.Column(db.Text)
 
     # Rastreabilidade
     usuario_responsavel = db.Column(db.String(80), nullable=False)
 
     produto = db.relationship("ProdutoMerenda", backref="movimentos")
+    escola = db.relationship("Escola")
     solicitacao = db.relationship("SolicitacaoMerenda")
 
 

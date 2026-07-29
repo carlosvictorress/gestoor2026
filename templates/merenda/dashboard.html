@@ -46,6 +46,7 @@
         <li class="nav-item"><a class="nav-link" href="{{ url_for('merenda.listar_cardapios_pnae') }}"><i class="bi bi-calendar-week me-2"></i>Cardápios PNAE</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('merenda.listar_escolas') }}"><i class="bi bi-building me-2"></i>Escolas</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('merenda.listar_produtos') }}"><i class="bi bi-box-seam me-2"></i>Produtos</a></li>
+        <li class="nav-item"><a class="nav-link text-primary fw-bold" href="{{ url_for('merenda.gerenciar_estoque') }}"><i class="bi bi-boxes me-2"></i>Gestão de Estoque</a></li>
         <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#"><i class="bi bi-file-earmark-bar-graph me-2"></i>Relatórios</a>
             <ul class="dropdown-menu">
@@ -137,7 +138,7 @@
                             <div class="fw-bold">{{ p.nome }}</div>
                             <small class="text-danger">Apenas {{ p.estoque_atual }} {{ p.unidade_consumo or 'UNID' }}</small>
                         </div>
-                        <a href="{{ url_for('merenda.entrada_estoque') }}" class="btn btn-sm btn-light border"><i class="bi bi-plus-lg"></i></a>
+                        <a href="{{ url_for('merenda.gerenciar_estoque') }}" class="btn btn-sm btn-light border" title="Gerenciar Estoque"><i class="bi bi-plus-lg"></i></a>
                     </div>
                     {% else %}
                     <div class="text-center py-3 text-success">

@@ -282,7 +282,40 @@ def editar_produto(produto_id):
 # GET /produtos/novo -> Formulário de novo produto
 # POST /produtos/novo -> Salvar novo produto
 
-# Rotas para Movimentação de Estoque
+# ==========================================================
+# GESTÃO INTEGRADA E AUDITÁVEL DE ESTOQUE (MERENDA ESCOLAR)
+# ==========================================================
+
+@merenda_bp.route('/estoque', methods=['GET'])
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def gerenciar_estoque():
+    # REGRA CRÍTICA: Filtrar estritamente apenas produtos de Merenda (excluindo Agricultura Familiar)
+    produtos = ProdutoMerenda.query.filter(
+        or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None))
+    ).order_by(ProdutoMerenda.nome).all()
+
+    escolas = Escola.query.order_by(Escola.nome).all()
+
+    # Estatísticas Rápidas
+    total_produtos = len(produtos)
+    produtos_criticos = [p for p in produtos if (p.estoque_atual or 0) <= (p.estoque_minimo or 10)]
+    
+    # Movimentações recentes da Merenda Escolar
+    historico_recentes = EstoqueMovimento.query.join(ProdutoMerenda).filter(
+        or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None))
+    ).order_by(EstoqueMovimento.data_movimento.desc()).limit(40).all()
+
+    return render_template(
+        'merenda/estoque_gerenciar.html',
+        produtos=produtos,
+        escolas=escolas,
+        total_produtos=total_produtos,
+        produtos_criticos=produtos_criticos,
+        historico=historico_recentes
+    )
+
+
 @merenda_bp.route('/estoque/entradas', methods=['GET', 'POST'])
 @login_required
 @role_required('Merenda Escolar', 'admin')
@@ -290,77 +323,136 @@ def entrada_estoque():
     if request.method == 'POST':
         try:
             produto_id = request.form.get('produto_id', type=int)
-            tipo_entrada = request.form.get('tipo_entrada')  # 'unidade' ou 'fardo'
+            tipo_unidade = request.form.get('tipo_entrada', 'master')  # 'master' (Fardo/Caixa) ou 'base' (Unidade/Kg)
             
-            # Tratamento para aceitar vírgula (padrão brasileiro)
             quantidade_str = request.form.get('quantidade', '0').replace(',', '.')
             quantidade_digitada = float(quantidade_str)
 
             if not produto_id or quantidade_digitada <= 0:
-                flash('Produto e quantidade são obrigatórios.', 'danger')
-                return redirect(url_for('merenda.entrada_estoque'))
+                flash('Selecione o produto e informe uma quantidade válida maior que zero.', 'danger')
+                return redirect(url_for('merenda.gerenciar_estoque'))
 
-            # Localiza o produto no banco de dados
             produto = ProdutoMerenda.query.get(produto_id)
             if not produto:
                 flash('Produto não encontrado.', 'danger')
-                return redirect(url_for('merenda.entrada_estoque'))
+                return redirect(url_for('merenda.gerenciar_estoque'))
 
-            # --- LÓGICA SIMPLIFICADA DE CONVERSÃO ---
-            if tipo_entrada == 'fardo':
-                # Se for fardo, multiplica pelo fator cadastrado (Ex: 10 fardos x 30 unidades)
-                fator = produto.fator_conversao if produto.fator_conversao and produto.fator_conversao > 0 else 1.0
+            fator = float(produto.fator_conversao) if (produto.fator_conversao and produto.fator_conversao > 0) else 1.0
+
+            if tipo_unidade == 'master' and fator > 1.0:
                 quantidade_para_estoque = quantidade_digitada * fator
-                msg_detalhe = f"{quantidade_digitada} fardos ({quantidade_para_estoque:.2f} {produto.unidade_consumo or 'unid'})"
+                unidade_movimento = produto.unidade_medida or 'CX'
+                msg_detalhe = f"{quantidade_digitada:.2f} {unidade_movimento} ({quantidade_para_estoque:.2f} {produto.unidade_consumo or 'UNID'})"
             else:
-                # Se for unidade/avulso, a entrada é 1 para 1
                 quantidade_para_estoque = quantidade_digitada
-                msg_detalhe = f"{quantidade_digitada} {produto.unidade_consumo or 'unid'}"
+                unidade_movimento = produto.unidade_consumo or 'UNID'
+                msg_detalhe = f"{quantidade_digitada:.2f} {unidade_movimento}"
 
-            # 1. Adiciona a quantidade final ao estoque atual
-            produto.estoque_atual += quantidade_para_estoque
-            
-            # 2. Prepara a data de validade
+            produto.estoque_atual = (produto.estoque_atual or 0.0) + quantidade_para_estoque
+
             data_validade_str = request.form.get('data_validade')
             data_validade = datetime.strptime(data_validade_str, '%Y-%m-%d').date() if data_validade_str else None
 
-            # 3. Cria o registro do movimento de estoque
-            # Salvamos a quantidade_para_estoque para que o histórico reflita o saldo real em unidades
             movimento = EstoqueMovimento(
                 produto_id=produto_id,
                 tipo='Entrada',
-                quantidade=quantidade_para_estoque, 
+                quantidade=quantidade_para_estoque,
+                unidade_movimento=unidade_movimento,
+                quantidade_embalagem=quantidade_digitada,
+                fator_utilizado=fator,
                 fornecedor=request.form.get('fornecedor'),
                 lote=request.form.get('lote'),
                 data_validade=data_validade,
-                usuario_responsavel=session.get('username')
+                observacao=request.form.get('observacao'),
+                usuario_responsavel=session.get('username', 'Sistema')
             )
             
             db.session.add(movimento)
             db.session.commit()
             
-            registrar_log(f'Entrada de {msg_detalhe} do produto "{produto.nome}".')
-            flash(f'Sucesso! Adicionado {msg_detalhe} ao estoque de "{produto.nome}".', 'success')
-            return redirect(url_for('merenda.entrada_estoque'))
+            registrar_log(f'Entrada no estoque da Merenda: {msg_detalhe} do produto "{produto.nome}".')
+            flash(f'Sucesso! Entrada de {msg_detalhe} registrada para "{produto.nome}".', 'success')
+            return redirect(url_for('merenda.gerenciar_estoque'))
 
         except Exception as e:
             db.session.rollback()
             flash(f'Erro ao registrar entrada de estoque: {e}', 'danger')
+            return redirect(url_for('merenda.gerenciar_estoque'))
     
-    # --- GET: CARREGAMENTO DA PÁGINA ---
-    # REGRA: Não misturar produtos da Agricultura Familiar
-    produtos = ProdutoMerenda.query.filter(
-        or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None))
-    ).order_by(ProdutoMerenda.nome).all()
+    return redirect(url_for('merenda.gerenciar_estoque'))
 
-    historico_entradas = EstoqueMovimento.query.filter_by(tipo='Entrada')\
-        .order_by(EstoqueMovimento.data_movimento.desc()).limit(20).all()
-    
-    return render_template('merenda/estoque_entradas.html', 
-                           produtos=produtos, 
-                           historico=historico_entradas)
-# GET /estoque/entradas -> Listar histórico de entradas e link para registrar nova
-# POST /estoque/entradas/nova -> Lógica para registrar entrada de produtos e atualizar estoque
+
+@merenda_bp.route('/estoque/saidas', methods=['POST'])
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def saida_estoque():
+    try:
+        produto_id = request.form.get('produto_id', type=int)
+        tipo_saida = request.form.get('tipo_saida', 'Saída Escola')  # 'Saída Escola', 'Perda/Avaria', 'Ajuste Saldo'
+        escola_id = request.form.get('escola_id', type=int) if tipo_saida == 'Saída Escola' else None
+        tipo_unidade = request.form.get('tipo_unidade', 'base')  # 'master' ou 'base'
+        
+        quantidade_str = request.form.get('quantidade', '0').replace(',', '.')
+        quantidade_digitada = float(quantidade_str)
+
+        if not produto_id or quantidade_digitada <= 0:
+            flash('Selecione o produto e informe uma quantidade válida maior que zero.', 'danger')
+            return redirect(url_for('merenda.gerenciar_estoque'))
+
+        produto = ProdutoMerenda.query.get(produto_id)
+        if not produto:
+            flash('Produto não encontrado.', 'danger')
+            return redirect(url_for('merenda.gerenciar_estoque'))
+
+        fator = float(produto.fator_conversao) if (produto.fator_conversao and produto.fator_conversao > 0) else 1.0
+
+        if tipo_unidade == 'master' and fator > 1.0:
+            quantidade_subtrair = quantidade_digitada * fator
+            unidade_movimento = produto.unidade_medida or 'CX'
+            msg_detalhe = f"{quantidade_digitada:.2f} {unidade_movimento} ({quantidade_subtrair:.2f} {produto.unidade_consumo or 'UNID'})"
+        else:
+            quantidade_subtrair = quantidade_digitada
+            unidade_movimento = produto.unidade_consumo or 'UNID'
+            msg_detalhe = f"{quantidade_digitada:.2f} {unidade_movimento}"
+
+        # Validação estrita de saldo disponível
+        saldo_atual = produto.estoque_atual or 0.0
+        if saldo_atual < quantidade_subtrair:
+            flash(
+                f'Estoque insuficiente para "{produto.nome}". Saldo atual: {saldo_atual:.2f} {produto.unidade_consumo or "UNID"}. Tentativa de saída: {quantidade_subtrair:.2f}.',
+                'danger'
+            )
+            return redirect(url_for('merenda.gerenciar_estoque'))
+
+        # Subtrai do estoque atual
+        produto.estoque_atual = saldo_atual - quantidade_subtrair
+
+        escola_obj = Escola.query.get(escola_id) if escola_id else None
+        nome_destino = escola_obj.nome if escola_obj else ('Descarte/Perda' if tipo_saida == 'Perda/Avaria' else 'Ajuste de Estoque')
+
+        movimento = EstoqueMovimento(
+            produto_id=produto_id,
+            tipo=tipo_saida or 'Saída Escola',
+            quantidade=quantidade_subtrair,
+            unidade_movimento=unidade_movimento,
+            quantidade_embalagem=quantidade_digitada,
+            fator_utilizado=fator,
+            escola_id=escola_id,
+            observacao=request.form.get('observacao'),
+            usuario_responsavel=session.get('username', 'Sistema')
+        )
+
+        db.session.add(movimento)
+        db.session.commit()
+
+        registrar_log(f'Saída de estoque da Merenda ({tipo_saida}): {msg_detalhe} do produto "{produto.nome}" para {nome_destino}.')
+        flash(f'Sucesso! Saída de {msg_detalhe} registrada para "{produto.nome}". Destino: {nome_destino}.', 'success')
+        return redirect(url_for('merenda.gerenciar_estoque'))
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao registrar saída de estoque: {e}', 'danger')
+        return redirect(url_for('merenda.gerenciar_estoque'))
 
 # Rotas para Solicitações das Escolas
 @merenda_bp.route('/solicitacoes/nova', methods=['GET', 'POST'])

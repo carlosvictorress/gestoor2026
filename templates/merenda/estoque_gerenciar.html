@@ -1,0 +1,522 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestão de Estoque - Merenda Escolar{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <!-- Cabeçalho -->
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+        <div>
+            <h2 class="fw-bold text-primary mb-1">
+                <i class="bi bi-box-seam me-2"></i>Estoque da Merenda Escolar
+            </h2>
+            <p class="text-muted mb-0">Controle prático de entradas por caixa/fardo, distribuições para escolas e auditoria em tempo real.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('merenda.listar_produtos') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-list-stars me-1"></i> Cadastro de Produtos
+            </a>
+            <a href="{{ url_for('merenda.dashboard') }}" class="btn btn-light border">
+                <i class="bi bi-arrow-left me-1"></i> Voltar ao Painel
+            </a>
+        </div>
+    </div>
+
+    <!-- Cards de Resumo / KPIs -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm border-start border-primary border-4 h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-muted small fw-bold text-uppercase">Itens em Estoque</span>
+                            <h3 class="fw-bold text-dark mb-0 mt-1">{{ total_produtos }}</h3>
+                        </div>
+                        <div class="bg-primary-subtle text-primary p-3 rounded-circle">
+                            <i class="bi bi-boxes fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm border-start border-warning border-4 h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-muted small fw-bold text-uppercase">Estoque Crítico / Baixo</span>
+                            <h3 class="fw-bold text-warning mb-0 mt-1">{{ produtos_criticos|length }}</h3>
+                        </div>
+                        <div class="bg-warning-subtle text-warning p-3 rounded-circle">
+                            <i class="bi bi-exclamation-triangle fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm border-start border-success border-4 h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-muted small fw-bold text-uppercase">Última Movimentação</span>
+                            <h6 class="fw-bold text-dark mb-0 mt-1">
+                                {% if historico %}
+                                    {{ historico[0].data_movimento.strftime('%d/%m %H:%M') }}
+                                {% else %}
+                                    Sem dados
+                                {% endif %}
+                            </h6>
+                        </div>
+                        <div class="bg-success-subtle text-success p-3 rounded-circle">
+                            <i class="bi bi-clock-history fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm border-start border-info border-4 h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-muted small fw-bold text-uppercase">Escolas Atendidas</span>
+                            <h3 class="fw-bold text-info mb-0 mt-1">{{ escolas|length }}</h3>
+                        </div>
+                        <div class="bg-info-subtle text-info p-3 rounded-circle">
+                            <i class="bi bi-building fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navegação por Abas -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white p-0 border-bottom">
+            <ul class="nav nav-tabs nav-justified border-0" id="estoqueTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-item nav-link active py-3 fw-bold border-0 border-bottom border-3 border-primary" id="saldos-tab" data-bs-toggle="tab" data-bs-target="#saldos" type="button" role="tab">
+                        <i class="bi bi-table me-2"></i>Saldos em Estoque
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-item nav-link py-3 fw-bold border-0 text-success" id="entrada-tab" data-bs-toggle="tab" data-bs-target="#entrada" type="button" role="tab">
+                        <i class="bi bi-box-arrow-in-down me-2"></i>Nova Entrada (+ Compra)
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-item nav-link py-3 fw-bold border-0 text-primary" id="saida-tab" data-bs-toggle="tab" data-bs-target="#saida" type="button" role="tab">
+                        <i class="bi bi-truck me-2"></i>Saída p/ Escola (- Distribuição)
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-item nav-link py-3 fw-bold border-0 text-secondary" id="extrato-tab" data-bs-toggle="tab" data-bs-target="#extrato" type="button" role="tab">
+                        <i class="bi bi-journal-text me-2"></i>Extrato Auditável
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <div class="card-body p-4">
+            <div class="tab-content" id="estoqueTabContent">
+                
+                <!-- ABA 1: SALDOS EM ESTOQUE -->
+                <div class="tab-pane fade show active" id="saldos" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold text-dark m-0"><i class="bi bi-archive me-2 text-primary"></i>Relação de Produtos e Saldos Nativos</h5>
+                        <input type="text" id="filterSaldos" class="form-control form-control-sm w-25" placeholder="🔍 Pesquisar produto...">
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle border mb-0" id="tableSaldos">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Produto</th>
+                                    <th>Categoria</th>
+                                    <th>Saldo Real (Consumo)</th>
+                                    <th>Equivalência Master</th>
+                                    <th>Armazenamento</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in produtos %}
+                                {% set fator = p.fator_conversao if (p.fator_conversao and p.fator_conversao > 0) else 1.0 %}
+                                {% set saldo = p.estoque_atual or 0.0 %}
+                                {% set min = p.estoque_minimo or 10.0 %}
+                                <tr>
+                                    <td class="fw-bold text-dark">
+                                        {{ p.nome }}
+                                    </td>
+                                    <td><span class="badge bg-light text-secondary border">{{ p.categoria or 'Geral' }}</span></td>
+                                    <td>
+                                        <span class="fs-6 fw-bold text-primary">
+                                            {{ "%.2f"|format(saldo) }} {{ p.unidade_consumo or 'UNID' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if fator > 1.0 %}
+                                            {% set qtd_embalagem = saldo / fator %}
+                                            <span class="badge bg-info-subtle text-info border border-info">
+                                                ~ {{ "%.1f"|format(qtd_embalagem) }} {{ p.unidade_medida or 'CX' }} (com {{ fator|int }} {{ p.unidade_consumo }}/{{ p.unidade_medida or 'CX' }})
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted small">Contagem unitária</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted"><i class="bi bi-thermometer-half"></i> {{ p.tipo_armazenamento or 'Ambiente' }}</small>
+                                    </td>
+                                    <td>
+                                        {% if saldo <= 0 %}
+                                            <span class="badge bg-danger">Sem Estoque</span>
+                                        {% elif saldo <= min %}
+                                            <span class="badge bg-warning text-dark">Abaixo do Mínimo ({{ min|int }})</span>
+                                        {% else %}
+                                            <span class="badge bg-success-subtle text-success border border-success">Normal</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">Nenhum produto cadastrado na Merenda Escolar.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ABA 2: NOVA ENTRADA (+ COMPRA) -->
+                <div class="tab-pane fade" id="entrada" role="tabpanel">
+                    <form action="{{ url_for('merenda.entrada_estoque') }}" method="POST">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="entrada_produto_id" class="form-label fw-bold">Produto recebido <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-lg" name="produto_id" id="entrada_produto_id" required onchange="atualizarCalcEntrada()">
+                                    <option value="" disabled selected>-- Selecione o alimento --</option>
+                                    {% for p in produtos %}
+                                    <option value="{{ p.id }}" 
+                                            data-fator="{{ p.fator_conversao or 1.0 }}"
+                                            data-unidade-consumo="{{ p.unidade_consumo or 'UNID' }}"
+                                            data-unidade-master="{{ p.unidade_medida or 'CX' }}">
+                                        {{ p.nome }} (Saldo: {{ "%.1f"|format(p.estoque_atual or 0) }} {{ p.unidade_consumo or 'UNID' }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label for="entrada_tipo_unidade" class="form-label fw-bold">Embalagem Contada</label>
+                                <select class="form-select form-select-lg border-success" name="tipo_entrada" id="entrada_tipo_unidade" onchange="atualizarCalcEntrada()">
+                                    <option value="master">📦 Embalagem Master (Fardo/Caixa)</option>
+                                    <option value="base">🔢 Unidades Soltas / Quilos</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label for="entrada_quantidade" class="form-label fw-bold">Quantidade Entrada <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" min="0.01" class="form-control form-control-lg" name="quantidade" id="entrada_quantidade" required placeholder="Ex: 10" oninput="atualizarCalcEntrada()">
+                            </div>
+                        </div>
+
+                        <!-- Card de Feedback da Conversão -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div id="feedback_entrada" class="alert alert-success d-flex align-items-center shadow-sm" style="display: none;">
+                                    <i class="bi bi-calculator-fill fs-3 me-3"></i>
+                                    <div>
+                                        <h6 class="fw-bold mb-1">Cálculo de Conversão Automático</h6>
+                                        <div id="feedback_entrada_texto" class="mb-0 fs-6"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mt-1">
+                            <div class="col-md-4">
+                                <label for="fornecedor" class="form-label fw-bold">Fornecedor / Nota Fiscal</label>
+                                <input type="text" class="form-control" name="fornecedor" id="fornecedor" placeholder="Ex: Distribuidora Silva - NF 1234">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="lote" class="form-label fw-bold">Lote do Produto</label>
+                                <input type="text" class="form-control" name="lote" id="lote" placeholder="Ex: L-2026-X">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="data_validade" class="form-label fw-bold">Data de Validade</label>
+                                <input type="date" class="form-control" name="data_validade" id="data_validade">
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-success btn-lg w-100 fw-bold">
+                                    <i class="bi bi-plus-circle me-1"></i> Confirmar Entrada
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- ABA 3: NOVA SAÍDA / DISTRIBUIÇÃO -->
+                <div class="tab-pane fade" id="saida" role="tabpanel">
+                    <form action="{{ url_for('merenda.saida_estoque') }}" method="POST">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label for="saida_produto_id" class="form-label fw-bold">Produto a enviar <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-lg" name="produto_id" id="saida_produto_id" required onchange="atualizarCalcSaida()">
+                                    <option value="" disabled selected>-- Selecione o alimento --</option>
+                                    {% for p in produtos %}
+                                    <option value="{{ p.id }}" 
+                                            data-saldo="{{ p.estoque_atual or 0.0 }}"
+                                            data-fator="{{ p.fator_conversao or 1.0 }}"
+                                            data-unidade-consumo="{{ p.unidade_consumo or 'UNID' }}"
+                                            data-unidade-master="{{ p.unidade_medida or 'CX' }}">
+                                        {{ p.nome }} (Disponível: {{ "%.1f"|format(p.estoque_atual or 0) }} {{ p.unidade_consumo or 'UNID' }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label for="tipo_saida" class="form-label fw-bold">Tipo de Saída</label>
+                                <select class="form-select form-select-lg border-primary" name="tipo_saida" id="tipo_saida" onchange="toggleEscolaDestino()">
+                                    <option value="Saída Escola">🏫 Envio para Escola Municipal</option>
+                                    <option value="Perda/Avaria">🗑️ Descarte / Avaria / Vencido</option>
+                                    <option value="Ajuste Saldo">⚙️ Ajuste de Inventário Físico</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-5" id="container_escola">
+                                <label for="escola_id" class="form-label fw-bold">Escola Destino <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-lg" name="escola_id" id="escola_id">
+                                    <option value="" disabled selected>-- Selecione a Escola --</option>
+                                    {% for esc in escolas %}
+                                    <option value="{{ esc.id }}">{{ esc.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mt-2">
+                            <div class="col-md-4">
+                                <label for="saida_tipo_unidade" class="form-label fw-bold">Como está medindo a saída?</label>
+                                <select class="form-select border-primary" name="tipo_unidade" id="saida_tipo_unidade" onchange="atualizarCalcSaida()">
+                                    <option value="base">🔢 Unidades Soltas / Quilos (Mais Comum)</option>
+                                    <option value="master">📦 Embalagens Fechadas (Caixa/Fardo Inteiro)</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="saida_quantidade" class="form-label fw-bold">Quantidade de Saída <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" min="0.01" class="form-control" name="quantidade" id="saida_quantidade" required placeholder="Ex: 5" oninput="atualizarCalcSaida()">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="observacao_saida" class="form-label fw-bold">Observação / Justificativa</label>
+                                <input type="text" class="form-control" name="observacao" id="observacao_saida" placeholder="Ex: Ficha de entrega nº 45">
+                            </div>
+                        </div>
+
+                        <!-- Card de Feedback da Saída -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div id="feedback_saida" class="alert alert-primary d-flex align-items-center shadow-sm" style="display: none;">
+                                    <i class="bi bi-info-circle-fill fs-3 me-3"></i>
+                                    <div>
+                                        <h6 class="fw-bold mb-1">Confirmação de Baixa no Saldo</h6>
+                                        <div id="feedback_saida_texto" class="mb-0 fs-6"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 text-end">
+                            <button type="submit" class="btn btn-primary btn-lg px-5 fw-bold">
+                                <i class="bi bi-box-arrow-up-right me-1"></i> Registrar Saída
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- ABA 4: EXTRATO AUDITÁVEL -->
+                <div class="tab-pane fade" id="extrato" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold text-dark m-0"><i class="bi bi-journal-check me-2 text-secondary"></i>Histórico Completo de Movimentações</h5>
+                        <input type="text" id="filterExtrato" class="form-control form-control-sm w-25" placeholder="🔍 Filtrar histórico...">
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle border mb-0" id="tableExtrato">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Data / Hora</th>
+                                    <th>Tipo</th>
+                                    <th>Produto</th>
+                                    <th>Lançamento</th>
+                                    <th>Baixa / Adição Real</th>
+                                    <th>Destino / Fornecedor</th>
+                                    <th>Responsável</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for mov in historico %}
+                                <tr>
+                                    <td class="small">{{ mov.data_movimento.strftime('%d/%m/%Y %H:%M') }}</td>
+                                    <td>
+                                        {% if mov.tipo == 'Entrada' %}
+                                            <span class="badge bg-success-subtle text-success border border-success"><i class="bi bi-arrow-down-left"></i> Entrada</span>
+                                        {% elif mov.tipo == 'Saída Escola' %}
+                                            <span class="badge bg-primary-subtle text-primary border border-primary"><i class="bi bi-building"></i> Escola</span>
+                                        {% elif 'Perda' in mov.tipo or 'Avaria' in mov.tipo %}
+                                            <span class="badge bg-danger-subtle text-danger border border-danger"><i class="bi bi-trash"></i> Perda/Descarte</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary"><i class="bi bi-sliders"></i> {{ mov.tipo }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="fw-bold text-dark">{{ mov.produto.nome if mov.produto else 'Item Removido' }}</td>
+                                    <td>
+                                        {% if mov.quantidade_embalagem %}
+                                            <span class="badge bg-light text-dark border">
+                                                {{ "%.2f"|format(mov.quantidade_embalagem) }} {{ mov.unidade_movimento or 'unid' }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">--</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold {% if mov.tipo == 'Entrada' %}text-success{% else %}text-danger{% endif %}">
+                                            {% if mov.tipo == 'Entrada' %}+{% else %}-{% endif %} {{ "%.2f"|format(mov.quantidade) }} {{ mov.produto.unidade_consumo if mov.produto else '' }}
+                                        </span>
+                                    </td>
+                                    <td class="small">
+                                        {% if mov.escola %}
+                                            <strong class="text-primary"><i class="bi bi-house-door"></i> {{ mov.escola.nome }}</strong>
+                                        {% elif mov.fornecedor %}
+                                            <span class="text-muted"><i class="bi bi-truck"></i> {{ mov.fornecedor }}</span>
+                                        {% else %}
+                                            <span class="text-muted">{{ mov.observacao or '--' }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="small text-muted">{{ mov.usuario_responsavel }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">Nenhuma movimentação registrada no histórico.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- CÁLCULO DINÂMICO PARA ENTRADAS ---
+function atualizarCalcEntrada() {
+    const sel = document.getElementById('entrada_produto_id');
+    const opt = sel.options[sel.selectedIndex];
+    const tipo = document.getElementById('entrada_tipo_unidade').value;
+    const qtd = parseFloat(document.getElementById('entrada_quantidade').value) || 0;
+    const feedback = document.getElementById('feedback_entrada');
+    const texto = document.getElementById('feedback_entrada_texto');
+
+    if (sel.value && qtd > 0 && opt) {
+        const fator = parseFloat(opt.dataset.fator) || 1;
+        const unidConsumo = opt.dataset.unidadeConsumo || 'UNID';
+        const unidMaster = opt.dataset.unidadeMaster || 'CX';
+
+        let totalEstoque = 0;
+        let explicacao = "";
+
+        if (tipo === 'master' && fator > 1) {
+            totalEstoque = qtd * fator;
+            explicacao = `Você está lançando <strong>${qtd} ${unidMaster}</strong> (contendo ${fator} ${unidConsumo} cada).<br>Serão somados <strong>+${totalEstoque.toFixed(2)} ${unidConsumo}</strong> ao estoque real do produto.`;
+        } else {
+            totalEstoque = qtd;
+            explicacao = `Você está lançando <strong>${qtd} ${unidConsumo}</strong> soltas.<br>Serão somados <strong>+${totalEstoque.toFixed(2)} ${unidConsumo}</strong> ao estoque real do produto.`;
+        }
+
+        texto.innerHTML = explicacao;
+        feedback.style.display = 'flex';
+    } else {
+        feedback.style.display = 'none';
+    }
+}
+
+// --- CÁLCULO DINÂMICO PARA SAÍDAS ---
+function atualizarCalcSaida() {
+    const sel = document.getElementById('saida_produto_id');
+    const opt = sel.options[sel.selectedIndex];
+    const tipo = document.getElementById('saida_tipo_unidade').value;
+    const qtd = parseFloat(document.getElementById('saida_quantidade').value) || 0;
+    const feedback = document.getElementById('feedback_saida');
+    const texto = document.getElementById('feedback_saida_texto');
+
+    if (sel.value && qtd > 0 && opt) {
+        const saldoAtual = parseFloat(opt.dataset.saldo) || 0;
+        const fator = parseFloat(opt.dataset.fator) || 1;
+        const unidConsumo = opt.dataset.unidadeConsumo || 'UNID';
+        const unidMaster = opt.dataset.unidadeMaster || 'CX';
+
+        let totalBaixa = 0;
+        if (tipo === 'master' && fator > 1) {
+            totalBaixa = qtd * fator;
+        } else {
+            totalBaixa = qtd;
+        }
+
+        const saldoRestante = saldoAtual - totalBaixa;
+
+        if (totalBaixa > saldoAtual) {
+            feedback.className = "alert alert-danger d-flex align-items-center shadow-sm";
+            texto.innerHTML = `⚠️ <strong>ESTOQUE INSUFICIENTE!</strong><br>Tentativa de baixa: <strong>${totalBaixa.toFixed(2)} ${unidConsumo}</strong> | Saldo em estoque: <strong>${saldoAtual.toFixed(2)} ${unidConsumo}</strong>.`;
+        } else {
+            feedback.className = "alert alert-primary d-flex align-items-center shadow-sm";
+            texto.innerHTML = `Baixa de <strong>${totalBaixa.toFixed(2)} ${unidConsumo}</strong>.<br>Saldo atual: <strong>${saldoAtual.toFixed(2)} ${unidConsumo}</strong> ➔ Saldo após saída: <strong class="text-success">${saldoRestante.toFixed(2)} ${unidConsumo}</strong>.`;
+        }
+        feedback.style.display = 'flex';
+    } else {
+        feedback.style.display = 'none';
+    }
+}
+
+function toggleEscolaDestino() {
+    const tipoSaida = document.getElementById('tipo_saida').value;
+    const containerEscola = document.getElementById('container_escola');
+    const selectEscola = document.getElementById('escola_id');
+
+    if (tipoSaida === 'Saída Escola') {
+        containerEscola.style.display = 'block';
+        selectEscola.required = true;
+    } else {
+        containerEscola.style.display = 'none';
+        selectEscola.required = false;
+    }
+}
+
+// FILTROS DE PESQUISA RÁPIDA
+document.getElementById('filterSaldos').addEventListener('keyup', function() {
+    const term = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#tableSaldos tbody tr');
+    rows.forEach(r => {
+        r.style.display = r.innerText.toLowerCase().includes(term) ? '' : 'none';
+    });
+});
+
+document.getElementById('filterExtrato').addEventListener('keyup', function() {
+    const term = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#tableExtrato tbody tr');
+    rows.forEach(r => {
+        r.style.display = r.innerText.toLowerCase().includes(term) ? '' : 'none';
+    });
+});
+</script>
+{% endblock %}

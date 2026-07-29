@@ -247,17 +247,17 @@ def garantir_schema_academico():
                 ("acad_nota", "faltas_bimestre", "INTEGER DEFAULT 0")
             ]
 
-            for tabela, col_nome, col_tipo in alteracoes:
-                try:
-                    db.session.execute(text(f"ALTER TABLE {tabela} ADD COLUMN IF NOT EXISTS {col_nome} {col_tipo};"))
-                    db.session.commit()
-                except Exception:
-                    db.session.rollback()
+            with db.engine.connect() as conn:
+                for tabela, col_nome, col_tipo in alteracoes:
                     try:
-                        db.session.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {col_nome} {col_tipo};"))
-                        db.session.commit()
+                        conn.execute(text(f"ALTER TABLE {tabela} ADD COLUMN IF NOT EXISTS {col_nome} {col_tipo};"))
+                        conn.commit()
                     except Exception:
-                        db.session.rollback()
+                        try:
+                            conn.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {col_nome} {col_tipo};"))
+                            conn.commit()
+                        except Exception:
+                            pass
         except Exception as e:
             print(f"Verificação de schema acadêmico: {e}")
 

@@ -333,28 +333,8 @@
                   >Almoxarifado</a
                 >
                 {% endif %}
-                   {% if session.get('role') in ['admin', 'academico', 'RH'] %}
-                <a class="dropdown-item fw-bold" href="{{ url_for('academico.dashboard') }}">
-                  <i class="bi bi-building-gear me-1"></i> Gestão Acadêmica (SME)
-                </a>
-                <a class="dropdown-item" href="{{ url_for('academico.gerenciar_alunos') }}">
-                  <i class="bi bi-people me-1"></i> Prontuário de Alunos (Censo)
-                </a>
-                <a class="dropdown-item" href="{{ url_for('academico.gerenciar_turmas') }}">
-                  <i class="bi bi-grid-3x3-gap me-1"></i> Turmas & Grade Horária
-                </a>
-                <a class="dropdown-item" href="{{ url_for('academico.diario_classe') }}">
-                  <i class="bi bi-journal-check me-1"></i> Diário Digital do Professor
-                </a>
-                <a class="dropdown-item" href="{{ url_for('academico.lancar_notas') }}">
-                  <i class="bi bi-award me-1"></i> Lançamento de Notas & Faltas
-                </a>
-                <a class="dropdown-item" href="{{ url_for('academico.central_documentos') }}">
-                  <i class="bi bi-file-earmark-pdf me-1"></i> Boletins & Atas (PDF)
-                </a>
-                <a class="dropdown-item text-success fw-bold" href="{{ url_for('academico.auditoria_educacenso') }}">
-                  <i class="bi bi-shield-check me-1"></i> Validador INEP / Censo
-                </a>
+                {% if session.get('role') in ['admin', 'academico', 'RH'] %}
+                <a class="dropdown-item" href="{{ url_for('academico.dashboard') }}">Módulo Acadêmico (SIGE)</a>
                 {% endif %}
               </div>
             </div>

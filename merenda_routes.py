@@ -1992,7 +1992,7 @@ def pdf_termo_recebimento_pnae(entrega_id):
     
     data_entrega_formatada = entrega.data_entrega.strftime('%d/%m/%Y')
     escola_destino = Escola.query.get(entrega.escola_id) if entrega.escola_id else None
-    nome_escola = escola_destino.nome if escola_destino else "Unidade Escolar Não Informada"
+    nome_escola = escola_destino.nome if escola_destino else "Unidade Escolar não informada"
     
     # Nome do Diretor da Escola
     nome_diretor = "Diretor(a) Escolar"
@@ -2002,173 +2002,52 @@ def pdf_termo_recebimento_pnae(entrega_id):
         elif escola_destino.diretor_responsavel:
             nome_diretor = escola_destino.diretor_responsavel
 
-    # 2. Configuração do Documento A4 com Margens Ajustadas para caber exatamente em 1 folha
+    # 2. Configuração do Buffer e Documento A4 com Margens ajustadas para caber exatamente em 1 página
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=A4, 
-        rightMargin=1.2*cm, 
-        leftMargin=1.2*cm, 
+        rightMargin=1.5*cm, 
+        leftMargin=1.5*cm, 
         topMargin=2.6*cm, 
         bottomMargin=1.0*cm
     )
     
     styles = getSampleStyleSheet()
-    
-    style_title_banner = ParagraphStyle(
-        'TitleBanner', parent=styles['Normal'],
-        fontName='Helvetica-Bold', fontSize=10, leading=12,
-        textColor=colors.white, alignment=TA_CENTER
-    )
-    
-    style_subtitle_banner = ParagraphStyle(
-        'SubtitleBanner', parent=styles['Normal'],
-        fontName='Helvetica-Bold', fontSize=8, leading=10,
-        textColor=colors.HexColor('#d1e7dd'), alignment=TA_CENTER
-    )
+    style_titulo = ParagraphStyle('Titulo', parent=styles['Heading1'], alignment=1, fontSize=11, spaceAfter=4, fontName='Helvetica-Bold')
+    style_normal = ParagraphStyle('Normal', parent=styles['BodyText'], alignment=4, fontSize=9, leading=12)
+    style_ass_nome = ParagraphStyle('AssNome', parent=styles['Normal'], alignment=1, fontSize=8, leading=10, fontName='Helvetica-Bold')
+    style_ass_cargo = ParagraphStyle('AssCargo', parent=styles['Normal'], alignment=1, fontSize=7.5, leading=9, textColor=colors.HexColor('#444444'))
 
-    style_meta_label = ParagraphStyle(
-        'MetaLabel', parent=styles['Normal'],
-        fontName='Helvetica-Bold', fontSize=7.5, leading=9.5,
-        textColor=colors.HexColor('#0f5132')
-    )
-
-    style_meta_val = ParagraphStyle(
-        'MetaVal', parent=styles['Normal'],
-        fontName='Helvetica', fontSize=7.5, leading=9.5,
-        textColor=colors.black
-    )
-
-    style_tbl_hdr = ParagraphStyle(
-        'TblHdr', parent=styles['Normal'],
-        fontName='Helvetica-Bold', fontSize=8, leading=10,
-        textColor=colors.white, alignment=TA_CENTER
-    )
-
-    style_tbl_cell = ParagraphStyle(
-        'TblCell', parent=styles['Normal'],
-        fontName='Helvetica', fontSize=7.5, leading=9.5,
-        textColor=colors.black
-    )
-
-    style_tbl_cell_center = ParagraphStyle(
-        'TblCellCenter', parent=styles['Normal'],
-        fontName='Helvetica', fontSize=7.5, leading=9.5,
-        textColor=colors.black, alignment=TA_CENTER
-    )
-
-    style_tbl_cell_right = ParagraphStyle(
-        'TblCellRight', parent=styles['Normal'],
-        fontName='Helvetica', fontSize=7.5, leading=9.5,
-        textColor=colors.black, alignment=TA_RIGHT
-    )
-
-    style_declaracao = ParagraphStyle(
-        'Declaracao', parent=styles['Normal'],
-        fontName='Helvetica', fontSize=7.5, leading=9.5,
-        alignment=TA_JUSTIFY, textColor=colors.HexColor('#212529')
-    )
-
-    style_ass_nome = ParagraphStyle(
-        'AssNome', parent=styles['Normal'],
-        fontName='Helvetica-Bold', fontSize=8, leading=10,
-        alignment=TA_CENTER, textColor=colors.black
-    )
-
-    style_ass_cargo = ParagraphStyle(
-        'AssCargo', parent=styles['Normal'],
-        fontName='Helvetica', fontSize=7, leading=9,
-        alignment=TA_CENTER, textColor=colors.HexColor('#555555')
-    )
-
-    # --- FUNÇÃO GERADORA DE VIA ---
+    # --- FUNÇÃO GERADORA DE VIA (LAYOUT TRADICIONAL) ---
     def gerar_conteudo_via(titulo_via):
         via = []
+        via.append(Paragraph(f"TERMO DE RECEBIMENTO - {titulo_via}", style_titulo))
+        via.append(Spacer(1, 0.15*cm))
         
-        # 1. Header Banner Verde PNAE
-        header_data = [
-            [Paragraph("TERMO DE RECEBIMENTO DA AGRICULTURA FAMILIAR - PNAE", style_title_banner)],
-            [Paragraph(f"— {titulo_via} —", style_subtitle_banner)]
-        ]
-        t_header = Table(header_data, colWidths=[18.6*cm])
-        t_header.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#0f5132')),
-            ('TOPPADDING', (0,0), (-1,-1), 2),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ]))
-        via.append(t_header)
-        via.append(Spacer(1, 0.1*cm))
+        texto_intro = f"""
+        Atesto o recebimento em <b>{data_entrega_formatada}</b>, pelo fornecedor <b>{agricultor.razao_social}</b>, 
+        referente ao Contrato <b>{contrato.numero_contrato}</b>, destinado à <b>{nome_escola}</b>, os itens abaixo:
+        """
+        via.append(Paragraph(texto_intro, style_normal))
+        via.append(Spacer(1, 0.2*cm))
         
-        # 2. Caixa de Dados (Metadata Grid)
-        meta_data = [
-            [
-                Paragraph("<b>Termo Nº:</b>", style_meta_label),
-                Paragraph(f"AF-{entrega.id:04d}", style_meta_val),
-                Paragraph("<b>Data Entrega:</b>", style_meta_label),
-                Paragraph(data_entrega_formatada, style_meta_val),
-                Paragraph("<b>Nº Nota Fiscal:</b>", style_meta_label),
-                Paragraph(entrega.numero_nota_fiscal or "Não Informada", style_meta_val),
-            ],
-            [
-                Paragraph("<b>Escola Destino:</b>", style_meta_label),
-                Paragraph(nome_escola, style_meta_val),
-                Paragraph("<b>Contrato PNAE:</b>", style_meta_label),
-                Paragraph(contrato.numero_contrato, style_meta_val),
-                Paragraph("<b>Chamada Púb.:</b>", style_meta_label),
-                Paragraph(contrato.chamada_publica or "N/I", style_meta_val),
-            ],
-            [
-                Paragraph("<b>Agricultor:</b>", style_meta_label),
-                Paragraph(agricultor.razao_social, style_meta_val),
-                Paragraph("<b>CPF/CNPJ:</b>", style_meta_label),
-                Paragraph(agricultor.cpf_cnpj or "N/I", style_meta_val),
-                Paragraph("<b>DAP/CAF:</b>", style_meta_label),
-                Paragraph(agricultor.dap_caf_numero or "N/I", style_meta_val),
-            ]
-        ]
-        t_meta = Table(meta_data, colWidths=[2.4*cm, 4.4*cm, 2.3*cm, 3.7*cm, 2.2*cm, 3.6*cm])
-        t_meta.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f8f9fa')),
-            ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#ced4da')),
-            ('INNERGRID', (0,0), (-1,-1), 0.3, colors.HexColor('#e9ecef')),
-            ('TOPPADDING', (0,0), (-1,-1), 1.5),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 1.5),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ]))
-        via.append(t_meta)
-        via.append(Spacer(1, 0.1*cm))
-
-        # 3. Tabela de Produtos
+        # Tabela de Produtos
+        cabecalho = ['Produto', 'Unid.', 'Qtd.']
+        col_widths = [10.0*cm, 2.5*cm, 3.5*cm]
         if exibir_valor:
-            col_widths = [0.8*cm, 7.8*cm, 2.0*cm, 2.4*cm, 2.6*cm, 3.0*cm]
-            headers = [
-                Paragraph("<b>#</b>", style_tbl_hdr),
-                Paragraph("<b>Gênero Alimentício / Produto</b>", style_tbl_hdr),
-                Paragraph("<b>Unid.</b>", style_tbl_hdr),
-                Paragraph("<b>Qtd. Entregue</b>", style_tbl_hdr),
-                Paragraph("<b>Preço Unit.</b>", style_tbl_hdr),
-                Paragraph("<b>Valor Total</b>", style_tbl_hdr),
-            ]
-        else:
-            col_widths = [1.0*cm, 11.6*cm, 3.0*cm, 3.0*cm]
-            headers = [
-                Paragraph("<b>#</b>", style_tbl_hdr),
-                Paragraph("<b>Gênero Alimentício / Produto</b>", style_tbl_hdr),
-                Paragraph("<b>Unid. Medida</b>", style_tbl_hdr),
-                Paragraph("<b>Qtd. Entregue</b>", style_tbl_hdr),
-            ]
-
-        dados_tabela = [headers]
-
+            cabecalho = ['Produto', 'Unid.', 'Qtd.', 'Valor Total']
+            col_widths = [8.0*cm, 2.0*cm, 3.0*cm, 3.0*cm]
+            
+        dados_tabela = [cabecalho]
+        
         if entrega.itens_json:
             try:
                 itens = json.loads(entrega.itens_json)
             except Exception:
                 itens = []
-
-            for idx, item in enumerate(itens, start=1):
+                
+            for item in itens:
                 nome_prod = item.get('nome_produto', 'N/A').upper()
                 qtd = item.get('quantidade', 0)
                 qtd_str = f"{qtd:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') if isinstance(qtd, (int, float)) else str(qtd)
@@ -2180,78 +2059,40 @@ def pdf_termo_recebimento_pnae(entrega_id):
                     if item_pv:
                         unid = item_pv.unidade_medida
                 if not unid:
-                    unid = 'UN'
+                    unid = "Unid."
 
+                linha = [nome_prod, str(unid), qtd_str]
                 if exibir_valor:
-                    p_unit = item.get('preco_unitario', 0)
-                    v_tot = item.get('valor_total', qtd * p_unit if p_unit else 0)
-                    linha = [
-                        Paragraph(str(idx), style_tbl_cell_center),
-                        Paragraph(nome_prod, style_tbl_cell),
-                        Paragraph(str(unid), style_tbl_cell_center),
-                        Paragraph(qtd_str, style_tbl_cell_center),
-                        Paragraph(currency_filter_br(p_unit), style_tbl_cell_right),
-                        Paragraph(currency_filter_br(v_tot), style_tbl_cell_right),
-                    ]
-                else:
-                    linha = [
-                        Paragraph(str(idx), style_tbl_cell_center),
-                        Paragraph(nome_prod, style_tbl_cell),
-                        Paragraph(str(unid), style_tbl_cell_center),
-                        Paragraph(qtd_str, style_tbl_cell_center),
-                    ]
+                    v_tot = item.get('valor_total', 0)
+                    linha.append(currency_filter_br(v_tot))
                 dados_tabela.append(linha)
-
+        
         if exibir_valor:
-            linha_total = [
-                Paragraph("<b>TOTAL GERAL RECEBIDO</b>", style_tbl_cell),
-                Paragraph("", style_tbl_cell),
-                Paragraph("", style_tbl_cell),
-                Paragraph("", style_tbl_cell),
-                Paragraph("", style_tbl_cell),
-                Paragraph(f"<b>{currency_filter_br(entrega.valor_total)}</b>", style_tbl_cell_right),
-            ]
-            dados_tabela.append(linha_total)
-
-        t_prod = Table(dados_tabela, colWidths=col_widths)
+            dados_tabela.append(['TOTAL', '', '', currency_filter_br(entrega.valor_total)])
+            
+        t = Table(dados_tabela, colWidths=col_widths)
         ts = [
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#198754')),
-            ('GRID', (0,0), (-1,-1), 0.4, colors.HexColor('#bdc3c7')),
-            ('TOPPADDING', (0,0), (-1,-1), 1.5),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 1.5),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,-1), 8),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('ALIGN', (0,1), (0,-1), 'LEFT'),
+            ('TOPPADDING', (0,0), (-1,-1), 2),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
         ]
-        for r in range(1, len(dados_tabela)):
-            if exibir_valor and r == len(dados_tabela) - 1:
-                ts.append(('BACKGROUND', (0, r), (-1, r), colors.HexColor('#e8f5e9')))
-                ts.append(('SPAN', (0, r), (4, r)))
-            elif r % 2 == 0:
-                ts.append(('BACKGROUND', (0, r), (-1, r), colors.HexColor('#f9f9f9')))
-        t_prod.setStyle(TableStyle(ts))
-        via.append(t_prod)
-        via.append(Spacer(1, 0.1*cm))
-
-        # 4. Declarativo de Recebimento
-        declaracao_txt = (
-            f"Atesto que em <b>{data_entrega_formatada}</b> foram recebidos nesta Unidade Escolar (<b>{nome_escola}</b>) "
-            f"os gêneros alimentícios acima discriminados, fornecidos por <b>{agricultor.razao_social}</b> referente ao "
-            f"Contrato PNAE Nº <b>{contrato.numero_contrato}</b>, em perfeitas condições quantitativas e de conservação."
-        )
-        via.append(Paragraph(declaracao_txt, style_declaracao))
-        via.append(Spacer(1, 0.2*cm))
-
-        # 5. Apenas DUAS Assinaturas: Diretor Escolar e Agricultor Familiar
+        if exibir_valor and len(dados_tabela) > 1:
+            ts.append(('SPAN', (0, len(dados_tabela)-1), (2, len(dados_tabela)-1)))
+            ts.append(('FONTNAME', (0, len(dados_tabela)-1), (-1, len(dados_tabela)-1), 'Helvetica-Bold'))
+        t.setStyle(TableStyle(ts))
+        via.append(t)
+        
+        via.append(Spacer(1, 0.4*cm))
+        # Apenas DUAS assinaturas: Diretor Escolar e Agricultor Familiar
         t_ass = Table([
-            ["__________________________________________________", "__________________________________________________"],
-            [
-                Paragraph(f"<b>{nome_diretor}</b>", style_ass_nome),
-                Paragraph(f"<b>{agricultor.razao_social}</b>", style_ass_nome)
-            ],
-            [
-                Paragraph("Diretor(a) / Gestor(a) Escolar", style_ass_cargo),
-                Paragraph("Agricultor(a) Familiar / Fornecedor", style_ass_cargo)
-            ]
-        ], colWidths=[9.3*cm, 9.3*cm])
+            ["_____________________________________________", "_____________________________________________"],
+            [Paragraph(f"<b>{nome_diretor}</b>", style_ass_nome), Paragraph(f"<b>{agricultor.razao_social}</b>", style_ass_nome)],
+            [Paragraph("Diretor(a) / Gestor(a) Escolar", style_ass_cargo), Paragraph("Agricultor(a) Familiar", style_ass_cargo)]
+        ], colWidths=[8.5*cm, 8.5*cm])
         t_ass.setStyle(TableStyle([
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
@@ -2261,29 +2102,22 @@ def pdf_termo_recebimento_pnae(entrega_id):
         via.append(t_ass)
         return via
 
-    # --- MONTAGEM DO DOCUMENTO FINAL ---
-    style_cut = ParagraphStyle(
-        'CutLine', parent=styles['Normal'],
-        fontName='Helvetica-Oblique', fontSize=7, leading=8,
-        alignment=TA_CENTER, textColor=colors.HexColor('#6c757d')
-    )
-
+    # --- MONTAGEM DO STORY ---
     story = []
-    story.extend(gerar_conteudo_via("1ª VIA — UNIDADE ESCOLAR"))
-    story.append(Spacer(1, 0.25*cm))
-    story.append(Paragraph("✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -", style_cut))
-    story.append(Paragraph("Corte na linha pontilhada | 1ª Via: Unidade Escolar — 2ª Via: Produtor / Agricultor Familiar", style_cut))
-    story.append(Spacer(1, 0.25*cm))
-    story.extend(gerar_conteudo_via("2ª VIA — AGRICULTOR FAMILIAR"))
-
-    # 8. Geração do PDF
+    story.extend(gerar_conteudo_via("1ª VIA (ESCOLA)"))
+    story.append(Spacer(1, 0.3*cm))
+    story.append(Paragraph("----------------------------------------------------------------------------------------------------------------------------------", styles['Normal']))
+    story.append(Spacer(1, 0.3*cm))
+    story.extend(gerar_conteudo_via("2ª VIA (FORNECEDOR)"))
+    
+    # 8. Geração Final
     doc.build(story, onFirstPage=lambda c, d: cabecalho_e_rodape(c, d), 
                      onLaterPages=lambda c, d: cabecalho_e_rodape(c, d))
     
     buffer.seek(0)
     response = make_response(buffer.getvalue())
     response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = f'inline; filename=Termo_Recebimento_PNAE_{entrega.id}.pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=Termo_Recebimento_{entrega.id}.pdf'
     
     return response
 

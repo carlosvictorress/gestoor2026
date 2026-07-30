@@ -66,10 +66,20 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def obter_data_hora_br_str():
+    try:
+        import pytz
+        fuso_br = pytz.timezone('America/Sao_Paulo')
+        return datetime.now(fuso_br).strftime('%d/%m/%Y %H:%M:%S')
+    except Exception:
+        from datetime import timezone, timedelta
+        fuso_br = timezone(timedelta(hours=-3))
+        return datetime.now(fuso_br).strftime('%d/%m/%Y %H:%M:%S')
+
 def cabecalho_e_rodape(canvas, doc):
     canvas.saveState()
     canvas.setFont('Helvetica', 9)
-    canvas.drawString(2*cm, 1.5*cm, f"Emitido em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    canvas.drawString(2*cm, 1.5*cm, f"Emitido em: {obter_data_hora_br_str()}")
     canvas.drawRightString(doc.width + doc.leftMargin, 1.5*cm, f"Página {doc.page}")
 
     if doc.page == 1:
@@ -112,7 +122,7 @@ def cabecalho_e_rodape_moderno(canvas, doc, titulo_doc="Relatório"):
     canvas.rect(doc.leftMargin, doc.bottomMargin - 0.5*cm, doc.width, 0.3*cm, fill=1, stroke=0)
     canvas.setFont('Helvetica', 8)
     canvas.setFillColor(colors.grey)
-    canvas.drawString(doc.leftMargin, doc.bottomMargin - 0.4*cm, f"SysEduca | Emitido em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    canvas.drawString(doc.leftMargin, doc.bottomMargin - 0.4*cm, f"SysEduca | Emitido em: {obter_data_hora_br_str()}")
     canvas.drawRightString(doc.width + doc.leftMargin, doc.bottomMargin - 0.4*cm, f"Página {doc.page}")
 
     canvas.restoreState()

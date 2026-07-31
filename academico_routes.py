@@ -19,8 +19,128 @@ def executar_migracao_academico_segura():
     from sqlalchemy import text
     try:
         db.create_all()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Aviso db.create_all(): {e}")
+
+    # Criação explícita de tabelas do módulo acadêmico para PostgreSQL / Supabase
+    tabelas_sql = [
+        """
+        CREATE TABLE IF NOT EXISTS acad_aluno (
+            id SERIAL PRIMARY KEY,
+            nome_completo VARCHAR(200) NOT NULL,
+            cpf VARCHAR(14) UNIQUE,
+            data_nascimento DATE NOT NULL,
+            sexo VARCHAR(20),
+            cor_raca VARCHAR(30),
+            necessidade_especial BOOLEAN DEFAULT FALSE,
+            tipo_deficiencia VARCHAR(100),
+            nome_mae VARCHAR(200),
+            nome_pai VARCHAR(200),
+            telefone_responsavel VARCHAR(20),
+            status VARCHAR(20) DEFAULT 'Ativo',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS acad_turma (
+            id SERIAL PRIMARY KEY,
+            escola_id INTEGER NOT NULL,
+            nome VARCHAR(100) NOT NULL,
+            ano_letivo INTEGER NOT NULL,
+            etapa_ensino VARCHAR(100) NOT NULL,
+            turno VARCHAR(20) NOT NULL,
+            vagas INTEGER DEFAULT 30
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS acad_matricula (
+            id SERIAL PRIMARY KEY,
+            aluno_id INTEGER NOT NULL,
+            turma_id INTEGER NOT NULL,
+            data_matricula DATE NOT NULL,
+            status VARCHAR(50) NOT NULL DEFAULT 'Cursando'
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS acad_disciplina (
+            id SERIAL PRIMARY KEY,
+            nome VARCHAR(100) NOT NULL,
+            codigo VARCHAR(20),
+            area_conhecimento VARCHAR(100)
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS acad_periodo (
+            id SERIAL PRIMARY KEY,
+            nome VARCHAR(50) NOT NULL,
+            ano_letivo INTEGER NOT NULL,
+            data_inicio DATE,
+            data_fim DATE
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS acad_nota (
+            id SERIAL PRIMARY KEY,
+            matricula_id INTEGER NOT NULL,
+            disciplina_id INTEGER NOT NULL,
+            periodo_id INTEGER NOT NULL,
+            nota_valor FLOAT,
+            nota_recuperacao FLOAT,
+            conceito VARCHAR(20),
+            faltas_bimestre INTEGER DEFAULT 0
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS acad_horario_aula (
+            id SERIAL PRIMARY KEY,
+            turma_id INTEGER NOT NULL,
+            disciplina_id INTEGER NOT NULL,
+            professor_num_contrato VARCHAR(50),
+            dia_semana VARCHAR(20) NOT NULL,
+            ordem_aula INTEGER NOT NULL,
+            horario_inicio VARCHAR(10),
+            horario_fim VARCHAR(10)
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS acad_frequencia_diaria (
+            id SERIAL PRIMARY KEY,
+            data_chamada DATE NOT NULL,
+            matricula_id INTEGER NOT NULL,
+            turma_id INTEGER NOT NULL,
+            disciplina_id INTEGER,
+            status_presenca VARCHAR(10) NOT NULL DEFAULT 'P',
+            justificativa TEXT,
+            usuario_registro VARCHAR(100)
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS acad_diario_conteudo (
+            id SERIAL PRIMARY KEY,
+            data_aula DATE NOT NULL,
+            turma_id INTEGER NOT NULL,
+            disciplina_id INTEGER NOT NULL,
+            professor_num_contrato VARCHAR(50),
+            conteudo_ministrado TEXT NOT NULL,
+            habilidades_bncc TEXT,
+            tarefa_casa TEXT
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS acad_turma_disciplinas_professores (
+            turma_id INTEGER NOT NULL,
+            servidor_cpf VARCHAR(14) NOT NULL,
+            PRIMARY KEY (turma_id, servidor_cpf)
+        );
+        """
+    ]
+
+    for sql in tabelas_sql:
+        try:
+            with db.engine.begin() as conn:
+                conn.execute(text(sql))
+        except Exception as e:
+            print(f"Aviso ao criar tabela acadêmica: {e}")
 
     alteracoes = [
         ("acad_aluno", "nome_social", "VARCHAR(200)"),
@@ -92,59 +212,99 @@ def verificar_schema():
 def dashboard():
     ano_atual = datetime.now().year
     
-    total_alunos = AcadAluno.query.filter_by(status='Ativo').count()
-    alunos_bolsa_familia = AcadAluno.query.filter(AcadAluno.nis_aluno.isnot(None), AcadAluno.nis_aluno != '').count()
-    alunos_aee = AcadAluno.query.filter_by(necessidade_especial=True).count()
-    total_turmas = AcadTurma.query.filter_by(ano_letivo=ano_atual).count()
-    total_escolas = Escola.query.filter_by(status='Ativa').count()
+    try:
+        total_alunos = AcadAluno.query.filter_by(status='Ativo').count()
+    except Exception:
+        db.session.rollback()
+        total_alunos = 0
+
+    try:
+        alunos_bolsa_familia = AcadAluno.query.filter(AcadAluno.nis_aluno.isnot(None), AcadAluno.nis_aluno != '').count()
+    except Exception:
+        db.session.rollback()
+        alunos_bolsa_familia = 0
+
+    try:
+        alunos_aee = AcadAluno.query.filter_by(necessidade_especial=True).count()
+    except Exception:
+        db.session.rollback()
+        alunos_aee = 0
+
+    try:
+        total_turmas = AcadTurma.query.filter_by(ano_letivo=ano_atual).count()
+    except Exception:
+        db.session.rollback()
+        total_turmas = 0
+
+    try:
+        total_escolas = Escola.query.filter_by(status='Ativa').count()
+    except Exception:
+        db.session.rollback()
+        total_escolas = 0
 
     # Cálculo da taxa de ocupação das vagas
-    vagas_totais_query = db.session.query(func.sum(AcadTurma.vagas)).filter_by(ano_letivo=ano_atual).scalar() or 0
-    matriculas_ativas_query = db.session.query(func.count(AcadMatricula.id)).join(AcadTurma).filter(
-        AcadTurma.ano_letivo == ano_atual,
-        AcadMatricula.status.in_(['Cursando', 'Aprovado', 'Aprovado pelo Conselho'])
-    ).scalar() or 0
-    
-    taxa_ocupacao = round((matriculas_ativas_query / vagas_totais_query * 100), 1) if vagas_totais_query > 0 else 0
+    try:
+        vagas_totais_query = db.session.query(func.sum(AcadTurma.vagas)).filter_by(ano_letivo=ano_atual).scalar() or 0
+        matriculas_ativas_query = db.session.query(func.count(AcadMatricula.id)).join(AcadTurma).filter(
+            AcadTurma.ano_letivo == ano_atual,
+            AcadMatricula.status.in_(['Cursando', 'Aprovado', 'Aprovado pelo Conselho'])
+        ).scalar() or 0
+        taxa_ocupacao = round((matriculas_ativas_query / vagas_totais_query * 100), 1) if vagas_totais_query > 0 else 0
+    except Exception:
+        db.session.rollback()
+        taxa_ocupacao = 0
 
     # Gráfico de Alunos por Etapa de Ensino
-    etapas_query = db.session.query(
-        AcadTurma.etapa_ensino,
-        func.count(AcadMatricula.id).label('total')
-    ).join(AcadMatricula).filter(
-        AcadTurma.ano_letivo == ano_atual,
-        AcadMatricula.status == 'Cursando'
-    ).group_by(AcadTurma.etapa_ensino).all()
-
-    etapas_labels = [e.etapa_ensino for e in etapas_query] if etapas_query else ['Sem matrículas']
-    etapas_data = [int(e.total) for e in etapas_query] if etapas_query else [0]
+    try:
+        etapas_query = db.session.query(
+            AcadTurma.etapa_ensino,
+            func.count(AcadMatricula.id).label('total')
+        ).join(AcadMatricula).filter(
+            AcadTurma.ano_letivo == ano_atual,
+            AcadMatricula.status == 'Cursando'
+        ).group_by(AcadTurma.etapa_ensino).all()
+        etapas_labels = [e.etapa_ensino for e in etapas_query] if etapas_query else ['Sem matrículas']
+        etapas_data = [int(e.total) for e in etapas_query] if etapas_query else [0]
+    except Exception:
+        db.session.rollback()
+        etapas_labels = ['Sem dados']
+        etapas_data = [0]
 
     # Gráfico de Matrículas por Escola
-    escolas_query = db.session.query(
-        Escola.nome,
-        func.count(AcadMatricula.id).label('total')
-    ).join(AcadTurma, AcadTurma.escola_id == Escola.id)\
-     .join(AcadMatricula, AcadMatricula.turma_id == AcadTurma.id)\
-     .filter(AcadTurma.ano_letivo == ano_atual, AcadMatricula.status == 'Cursando')\
-     .group_by(Escola.id, Escola.nome).limit(6).all()
-
-    escolas_labels = [e.nome[:22] for e in escolas_query] if escolas_query else ['Sem dados']
-    escolas_data = [int(e.total) for e in escolas_query] if escolas_query else [0]
+    try:
+        escolas_query = db.session.query(
+            Escola.nome,
+            func.count(AcadMatricula.id).label('total')
+        ).join(AcadTurma, AcadTurma.escola_id == Escola.id)\
+         .join(AcadMatricula, AcadMatricula.turma_id == AcadTurma.id)\
+         .filter(AcadTurma.ano_letivo == ano_atual, AcadMatricula.status == 'Cursando')\
+         .group_by(Escola.id, Escola.nome).limit(6).all()
+        escolas_labels = [e.nome[:22] for e in escolas_query] if escolas_query else ['Sem dados']
+        escolas_data = [int(e.total) for e in escolas_query] if escolas_query else [0]
+    except Exception:
+        db.session.rollback()
+        escolas_labels = ['Sem dados']
+        escolas_data = [0]
 
     # Alerta de Evasão Escolar (Falta acentuada > 15%)
-    alunos_alerta_evasao = db.session.query(
-        AcadAluno.nome_completo,
-        Escola.nome.label('escola_nome'),
-        AcadTurma.nome.label('turma_nome'),
-        func.count(AcadFrequenciaDiaria.id).label('total_faltas')
-    ).join(AcadMatricula, AcadMatricula.aluno_id == AcadAluno.id)\
-     .join(AcadTurma, AcadMatricula.turma_id == AcadTurma.id)\
-     .join(Escola, AcadTurma.escola_id == Escola.id)\
-     .join(AcadFrequenciaDiaria, AcadFrequenciaDiaria.matricula_id == AcadMatricula.id)\
-     .filter(AcadFrequenciaDiaria.status_presenca == 'F')\
-     .group_by(AcadAluno.id, AcadAluno.nome_completo, Escola.nome, AcadTurma.nome)\
-     .having(func.count(AcadFrequenciaDiaria.id) >= 5)\
-     .order_by(func.count(AcadFrequenciaDiaria.id).desc()).limit(10).all()
+    try:
+        alunos_alerta_evasao = db.session.query(
+            AcadAluno.nome_completo,
+            Escola.nome.label('escola_nome'),
+            AcadTurma.nome.label('turma_nome'),
+            func.count(AcadFrequenciaDiaria.id).label('total_faltas')
+        ).join(AcadMatricula, AcadMatricula.aluno_id == AcadAluno.id)\
+         .join(AcadTurma, AcadMatricula.turma_id == AcadTurma.id)\
+         .join(Escola, AcadTurma.escola_id == Escola.id)\
+         .join(AcadFrequenciaDiaria, AcadFrequenciaDiaria.matricula_id == AcadMatricula.id)\
+         .filter(AcadFrequenciaDiaria.status_presenca == 'F')\
+         .group_by(AcadAluno.id, AcadAluno.nome_completo, Escola.nome, AcadTurma.nome)\
+         .having(func.count(AcadFrequenciaDiaria.id) >= 5)\
+         .order_by(func.count(AcadFrequenciaDiaria.id).desc()).limit(10).all()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Aviso ao carregar alerta de evasão: {e}")
+        alunos_alerta_evasao = []
 
     return render_template(
         'academico/dashboard.html',

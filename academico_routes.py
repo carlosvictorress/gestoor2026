@@ -334,6 +334,7 @@ def dashboard():
 # 2. PRONTUÁRIO DO ALUNO & GESTÃO COMPLETA (EDUCACENSO / INEP)
 # ===================================================================
 @academico_bp.route('/alunos', methods=['GET', 'POST'])
+@academico_bp.route('/alunos/lista', methods=['GET', 'POST'], endpoint='listar_alunos')
 @role_required('admin', 'academico', 'RH')
 def gerenciar_alunos():
     if request.method == 'POST':
@@ -509,6 +510,7 @@ def ficha_aluno(aluno_id):
 # 3. GESTÃO DE TURMAS, VAGAS E GRADE HORÁRIA SEMANAL
 # ===================================================================
 @academico_bp.route('/turmas', methods=['GET'])
+@academico_bp.route('/turmas/lista', methods=['GET'], endpoint='listar_turmas')
 @role_required('admin', 'academico', 'RH')
 def gerenciar_turmas():
     ano_selecionado = request.args.get('ano', datetime.now().year, type=int)
@@ -746,6 +748,7 @@ def diario_classe():
 # 6. LANÇAMENTO DE NOTAS, CONCEITOS E FECHAMENTO ANUAL
 # ===================================================================
 @academico_bp.route('/notas', methods=['GET', 'POST'])
+@academico_bp.route('/notas/lancamento', methods=['GET', 'POST'], endpoint='lancamento_notas')
 @role_required('admin', 'academico', 'RH')
 def lancar_notas():
     turma_id = request.args.get('turma_id', type=int) or request.form.get('turma_id', type=int)

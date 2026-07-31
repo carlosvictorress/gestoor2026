@@ -158,7 +158,7 @@
             </a>
 
             <div class="sige-nav-header">Gestão Acadêmica</div>
-            <a href="{{ url_for('academico.listar_alunos') }}" class="sige-nav-link {% if 'aluno' in request.endpoint %}active{% endif %}">
+            <a href="{{ url_for('academico.gerenciar_alunos') }}" class="sige-nav-link {% if 'aluno' in request.endpoint %}active{% endif %}">
                 <i class="bi bi-people-fill"></i> Alunos & Matrículas
             </a>
             <a href="{{ url_for('academico.gerenciar_turmas') }}" class="sige-nav-link {% if 'turma' in request.endpoint %}active{% endif %}">
@@ -175,7 +175,7 @@
             <a href="{{ url_for('academico.diario_classe') }}" class="sige-nav-link {% if 'diario' in request.endpoint %}active{% endif %}">
                 <i class="bi bi-calendar-check-fill"></i> Diário de Classe
             </a>
-            <a href="{{ url_for('academico.lancamento_notas') }}" class="sige-nav-link {% if 'nota' in request.endpoint %}active{% endif %}">
+            <a href="{{ url_for('academico.lancar_notas') }}" class="sige-nav-link {% if 'nota' in request.endpoint %}active{% endif %}">
                 <i class="bi bi-pencil-square"></i> Boletins & Notas
             </a>
             <a href="{{ url_for('academico.auditoria_educacenso') }}" class="sige-nav-link {% if 'educacenso' in request.endpoint %}active{% endif %}">

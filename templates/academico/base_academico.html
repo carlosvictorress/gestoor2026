@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SIGE 360 | Gestão Escolar{% endblock %}</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --sige-primary: #0f5132;
+            --sige-primary-dark: #0a3622;
+            --sige-accent: #198754;
+            --sige-bg: #f4f6f8;
+            --sige-card-bg: #ffffff;
+            --sige-sidebar-width: 260px;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--sige-bg);
+            color: #2b2d42;
+            overflow-x: hidden;
+        }
+
+        /* Sidebar Sub-sistema SIGE 360 */
+        .sige-sidebar {
+            width: var(--sige-sidebar-width);
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: linear-gradient(180deg, var(--sige-primary-dark) 0%, var(--sige-primary) 100%);
+            color: #ffffff;
+            z-index: 1040;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sige-brand {
+            padding: 1.5rem 1.25rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .sige-brand-logo {
+            width: 42px;
+            height: 42px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            color: #52b788;
+        }
+
+        .sige-nav {
+            padding: 1rem 0.75rem;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .sige-nav-header {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(255,255,255,0.45);
+            margin: 1.2rem 0.75rem 0.4rem;
+        }
+
+        .sige-nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            padding: 0.65rem 0.9rem;
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 0.92rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .sige-nav-link:hover, .sige-nav-link.active {
+            background: rgba(255,255,255,0.15);
+            color: #ffffff;
+            transform: translateX(3px);
+        }
+
+        .sige-nav-link i {
+            font-size: 1.15rem;
+            opacity: 0.9;
+        }
+
+        .sige-main-wrapper {
+            margin-left: var(--sige-sidebar-width);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sige-topbar {
+            height: 65px;
+            background: #ffffff;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 1030;
+        }
+
+        .sige-content {
+            padding: 2rem;
+            flex-grow: 1;
+        }
+
+        .card-sige {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+            background: var(--sige-card-bg);
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    <!-- Sidebar Exclusiva SIGE 360 -->
+    <aside class="sige-sidebar">
+        <div class="sige-brand">
+            <div class="sige-brand-logo">
+                <i class="bi bi-mortarboard-fill"></i>
+            </div>
+            <div>
+                <h6 class="mb-0 fw-bold text-white fs-6">SIGE 360</h6>
+                <small class="text-white-50" style="font-size: 0.72rem;">Gestão Escolar & Pedagógica</small>
+            </div>
+        </div>
+
+        <nav class="sige-nav">
+            <div class="sige-nav-header">Visão Geral</div>
+            <a href="{{ url_for('academico.dashboard') }}" class="sige-nav-link {% if request.endpoint == 'academico.dashboard' %}active{% endif %}">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+
+            <div class="sige-nav-header">Gestão Acadêmica</div>
+            <a href="{{ url_for('academico.listar_alunos') }}" class="sige-nav-link {% if 'aluno' in request.endpoint %}active{% endif %}">
+                <i class="bi bi-people-fill"></i> Alunos & Matrículas
+            </a>
+            <a href="{{ url_for('academico.gerenciar_turmas') }}" class="sige-nav-link {% if 'turma' in request.endpoint %}active{% endif %}">
+                <i class="bi bi-building"></i> Turmas & Ensalamento
+            </a>
+            <a href="{{ url_for('academico.gerenciar_disciplinas') }}" class="sige-nav-link {% if 'disciplina' in request.endpoint %}active{% endif %}">
+                <i class="bi bi-journal-bookmark-fill"></i> Disciplinas (Matriz)
+            </a>
+            <a href="{{ url_for('academico.gerenciar_professores') }}" class="sige-nav-link {% if 'professor' in request.endpoint %}active{% endif %}">
+                <i class="bi bi-person-badge-fill"></i> Corpo Docente
+            </a>
+
+            <div class="sige-nav-header">Rotinas Escolares</div>
+            <a href="{{ url_for('academico.diario_classe') }}" class="sige-nav-link {% if 'diario' in request.endpoint %}active{% endif %}">
+                <i class="bi bi-calendar-check-fill"></i> Diário de Classe
+            </a>
+            <a href="{{ url_for('academico.lancamento_notas') }}" class="sige-nav-link {% if 'nota' in request.endpoint %}active{% endif %}">
+                <i class="bi bi-pencil-square"></i> Boletins & Notas
+            </a>
+            <a href="{{ url_for('academico.auditoria_educacenso') }}" class="sige-nav-link {% if 'educacenso' in request.endpoint %}active{% endif %}">
+                <i class="bi bi-shield-check"></i> Audit. Educacenso
+            </a>
+        </nav>
+
+        <div class="p-3 border-top border-white-10">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-light w-100 btn-sm d-flex align-items-center justify-content-center gap-2" style="border-color: rgba(255,255,255,0.25);">
+                <i class="bi bi-house-door"></i> Voltar ao Gestor 360
+            </a>
+        </div>
+    </aside>
+
+    <!-- ÁREA PRINCIPAL DO SUB-SISTEMA -->
+    <div class="sige-main-wrapper">
+        <header class="sige-topbar">
+            <div class="d-flex align-items-center gap-3">
+                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill fw-semibold">
+                    <i class="bi bi-bank me-1"></i> Secretaria de Educação
+                </span>
+                <span class="text-muted small d-none d-md-inline">| Sistema de Registro Escolar & Frequência</span>
+            </div>
+
+            <div class="d-flex align-items-center gap-3">
+                <div class="dropdown">
+                    <button class="btn btn-light border dropdown-toggle btn-sm px-3 rounded-pill fw-medium" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle me-1 text-success"></i> {{ session.get('username', 'Usuário') }}
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                        <li><a class="dropdown-item small" href="{{ url_for('academico.dashboard') }}"><i class="bi bi-person me-2"></i>Perfil Pedagógico</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item small text-danger" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-right me-2"></i>Sair</a></li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+
+        <main class="sige-content">
+            <!-- FLASH MESSAGES -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm rounded-3 mb-4" role="alert">
+                            <i class="bi bi-info-circle-fill me-2"></i> {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

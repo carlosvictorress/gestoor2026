@@ -1,0 +1,131 @@
+{% extends "academico/base_academico.html" %}
+
+{% block title %}Corpo Docente & Professores | SIGE 360{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h4 class="fw-bold mb-1 text-success"><i class="bi bi-person-badge-fill me-2"></i>Corpo Docente & Alocação de Professores</h4>
+        <p class="text-muted small mb-0">Gerencie a equipe de professores da rede e atribua turmas e disciplinas a cada docente.</p>
+    </div>
+    <button class="btn btn-success px-4 rounded-pill shadow-sm fw-medium" data-bs-toggle="modal" data-bs-target="#modalAtribuir">
+        <i class="bi bi-person-plus me-1"></i> Vincular Professor a Turma
+    </button>
+</div>
+
+<!-- CARDS RESUMO -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card card-sige p-3 border-start border-success border-4">
+            <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.7rem;">Professores Cadastrados</small>
+            <h3 class="fw-bold text-success my-1">{{ professores|length }}</h3>
+            <span class="text-muted small">Docentes da rede municipal</span>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-sige p-3 border-start border-primary border-4">
+            <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.7rem;">Turmas Ativas</small>
+            <h3 class="fw-bold text-primary my-1">{{ turmas|length }}</h3>
+            <span class="text-muted small">Ano letivo atual</span>
+        </div>
+    </div>
+</div>
+
+<!-- TABELA DE PROFESSORES -->
+<div class="card card-sige">
+    <div class="card-header bg-white py-3 border-0 d-flex align-items-center justify-content-between">
+        <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-person-workspace me-2"></i>Lista de Docentes & Turmas Vinculadas</h6>
+        <span class="badge bg-light text-dark border">Ano Letivo Vigente</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-4">Professor(a)</th>
+                    <th>CPF / Vínculo</th>
+                    <th>Cargo / Função</th>
+                    <th>Escola de Lotação</th>
+                    <th>Turmas Atribuídas</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for prof in professores %}
+                <tr>
+                    <td class="ps-4">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 36px; height: 36px;">
+                                {{ prof.nome[:1] }}
+                            </div>
+                            <div>
+                                <span class="fw-bold text-dark d-block">{{ prof.nome }}</span>
+                                <small class="text-muted" style="font-size: 0.75rem;">Contrato: {{ prof.num_contrato or 'N/A' }}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="font-monospace small">{{ prof.cpf or 'Não informado' }}</td>
+                    <td>
+                        <span class="badge bg-light text-dark border">{{ prof.funcao or 'Professor' }}</span>
+                    </td>
+                    <td class="small">{{ prof.escola_vinculada.nome if prof.escola_vinculada else (prof.lotacao or 'Secretaria') }}</td>
+                    <td>
+                        {% if prof.turmas_lecionadas %}
+                            {% for t in prof.turmas_lecionadas %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill me-1 mb-1">{{ t.nome }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <span class="text-muted small italic">Sem turmas vinculadas</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center py-5 text-muted">
+                        <i class="bi bi-person-x fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                        Nenhum professor cadastrado no banco de servidores da educação.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- MODAL ATRIBUIR PROFESSOR -->
+<div class="modal fade" id="modalAtribuir" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-plus me-2"></i>Vincular Professor a Turma</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('academico.gerenciar_professores') }}">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-medium">Selecione o(a) Professor(a) *</label>
+                        <select name="servidor_cpf" class="form-select" required>
+                            <option value="">-- Selecione o Docente --</option>
+                            {% for p in professores %}
+                                <option value="{{ p.cpf }}">{{ p.nome }} (CPF: {{ p.cpf or 'S/N' }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-medium">Selecione a Turma *</label>
+                        <select name="turma_id" class="form-select" required>
+                            <option value="">-- Selecione a Turma --</option>
+                            {% for t in turmas %}
+                                <option value="{{ t.id }}">{{ t.nome }} - {{ t.etapa_ensino }} ({{ t.turno }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-secondary px-4 rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success px-4 rounded-pill fw-medium">Confirmar Vinculação</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

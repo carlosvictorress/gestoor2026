@@ -334,7 +334,7 @@
                 >
                 {% endif %}
                 {% if session.get('role') in ['admin', 'academico', 'RH'] %}
-                <a class="dropdown-item" href="{{ url_for('academico.dashboard') }}">Módulo Acadêmico (SIGE)</a>
+                <a class="dropdown-item" href="{{ url_for('academico.dashboard') }}" target="_blank"><i class="bi bi-mortarboard me-2"></i>Módulo Acadêmico (SIGE 360)</a>
                 {% endif %}
               </div>
             </div>

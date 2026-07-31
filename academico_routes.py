@@ -6,10 +6,17 @@ from models import (
     AcadHorarioAula, AcadFrequenciaDiaria, AcadDiarioConteudo
 )
 from extensions import db
-from utils import role_required, cabecalho_e_rodape_moderno
+from utils import role_required, cabecalho_e_rodape_moderno, currency_filter_br
 from datetime import datetime, date, timedelta
 from sqlalchemy import func, or_, and_
 import io
+
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, HRFlowable
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
+from reportlab.lib import colors
+from reportlab.lib.units import cm
+from reportlab.lib.pagesizes import A4, landscape
 
 academico_bp = Blueprint('academico', __name__, url_prefix='/academico')
 
@@ -551,7 +558,9 @@ def detalhes_turma(turma_id):
     ).order_by(AcadAluno.nome_completo).all()
 
     disciplinas = AcadDisciplina.query.order_by(AcadDisciplina.nome).all()
-    professores = Servidor.query.filter(Servidor.cargo.ilike('%profess%')).order_by(Servidor.nome).all()
+    professores = Servidor.query.filter(or_(Servidor.funcao.ilike('%profess%'), Servidor.funcao.ilike('%docent%'), Servidor.funcao.ilike('%educador%'))).order_by(Servidor.nome).all()
+    if not professores:
+        professores = Servidor.query.order_by(Servidor.nome).all()
     horarios = AcadHorarioAula.query.filter_by(turma_id=turma_id).order_by(AcadHorarioAula.ordem_aula).all()
 
     return render_template(
@@ -985,3 +994,307 @@ def auditoria_educacenso():
         total_alunos_ok=total_alunos_ok,
         taxa_conformidade=taxa_conformidade
     )
+
+
+# ===================================================================
+# 9. GESTÃO DE DISCIPLINAS & MATRIZ CURRICULAR
+# ===================================================================
+@academico_bp.route('/disciplinas', methods=['GET', 'POST'])
+@role_required('admin', 'academico', 'RH')
+def gerenciar_disciplinas():
+    if request.method == 'POST':
+        try:
+            disc_id = request.form.get('id', type=int)
+            nome = request.form.get('nome')
+            codigo = request.form.get('codigo')
+            area = request.form.get('area_conhecimento', 'Outros')
+            
+            if disc_id:
+                disc = AcadDisciplina.query.get_or_404(disc_id)
+                disc.nome = nome
+                disc.codigo = codigo
+                disc.area_conhecimento = area
+                flash(f'Disciplina "{nome}" atualizada com sucesso!', 'success')
+            else:
+                nova_disc = AcadDisciplina(
+                    nome=nome,
+                    codigo=codigo,
+                    area_conhecimento=area
+                )
+                db.session.add(nova_disc)
+                flash(f'Disciplina "{nome}" cadastrada com sucesso!', 'success')
+            
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao salvar disciplina: {e}', 'danger')
+        return redirect(url_for('academico.gerenciar_disciplinas'))
+
+    disciplinas = AcadDisciplina.query.order_by(AcadDisciplina.area_conhecimento, AcadDisciplina.nome).all()
+    areas = ['Linguagens', 'Matemática', 'Ciências da Natureza', 'Ciências Humanas', 'Ensino Religioso', 'Diversificada', 'Outros']
+    return render_template('academico/disciplinas.html', disciplinas=disciplinas, areas=areas)
+
+
+@academico_bp.route('/disciplinas/excluir/<int:id>')
+@role_required('admin', 'academico')
+def excluir_disciplina(id):
+    disc = AcadDisciplina.query.get_or_404(id)
+    try:
+        db.session.delete(disc)
+        db.session.commit()
+        flash(f'Disciplina "{disc.nome}" excluída.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Não foi possível excluir a disciplina: {e}', 'danger')
+    return redirect(url_for('academico.gerenciar_disciplinas'))
+
+
+# ===================================================================
+# 10. GESTÃO DE PROFESSORES & ATRIBUIÇÕES DE AULA
+# ===================================================================
+@academico_bp.route('/professores', methods=['GET', 'POST'])
+@role_required('admin', 'academico', 'RH')
+def gerenciar_professores():
+    ano_atual = datetime.now().year
+    
+    if request.method == 'POST':
+        try:
+            turma_id = request.form.get('turma_id', type=int)
+            servidor_cpf = request.form.get('servidor_cpf')
+            
+            turma = AcadTurma.query.get_or_404(turma_id)
+            servidor = Servidor.query.filter_by(cpf=servidor_cpf).first()
+            
+            if servidor and servidor not in turma.disciplinas_professores:
+                turma.disciplinas_professores.append(servidor)
+                db.session.commit()
+                flash(f'Professor(a) {servidor.nome} vinculado(a) à turma {turma.nome}!', 'success')
+            else:
+                flash('Professor(a) já está vinculado(a) a esta turma ou servidor não encontrado.', 'warning')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao atribuir professor: {e}', 'danger')
+        return redirect(url_for('academico.gerenciar_professores'))
+
+    professores = Servidor.query.filter(or_(Servidor.funcao.ilike('%profess%'), Servidor.funcao.ilike('%docent%'), Servidor.funcao.ilike('%educador%'))).order_by(Servidor.nome).all()
+    if not professores:
+        professores = Servidor.query.order_by(Servidor.nome).all()
+        
+    turmas = AcadTurma.query.filter_by(ano_letivo=ano_atual).order_by(AcadTurma.nome).all()
+    disciplinas = AcadDisciplina.query.order_by(AcadDisciplina.nome).all()
+
+    return render_template(
+        'academico/professores.html',
+        professores=professores,
+        turmas=turmas,
+        disciplinas=disciplinas
+    )
+
+
+# ===================================================================
+# 11. GERADOR EXECUTIVO DE RELATÓRIOS EM PDF (SIGE 360)
+# ===================================================================
+
+@academico_bp.route('/boletim/<int:matricula_id>/pdf')
+@role_required('admin', 'academico', 'RH')
+def pdf_boletim_escolar(matricula_id):
+    matricula = AcadMatricula.query.get_or_404(matricula_id)
+    aluno = matricula.aluno
+    turma = matricula.turma
+    escola = turma.escola
+
+    periodos = AcadPeriodo.query.filter_by(ano_letivo=turma.ano_letivo).order_by(AcadPeriodo.id).all()
+    if not periodos:
+        periodos = [AcadPeriodo(id=1, nome="1º Bimestre"), AcadPeriodo(id=2, nome="2º Bimestre"), AcadPeriodo(id=3, nome="3º Bimestre"), AcadPeriodo(id=4, nome="4º Bimestre")]
+
+    disciplinas = AcadDisciplina.query.order_by(AcadDisciplina.nome).all()
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=2.8*cm, bottomMargin=1.5*cm)
+    
+    styles = getSampleStyleSheet()
+    style_titulo = ParagraphStyle('Titulo', parent=styles['Heading1'], alignment=TA_CENTER, fontSize=12, leading=14, fontName='Helvetica-Bold', textColor=colors.HexColor('#0f5132'))
+    style_sub = ParagraphStyle('Sub', parent=styles['Normal'], alignment=TA_CENTER, fontSize=9, leading=11, fontName='Helvetica-Oblique', textColor=colors.HexColor('#444444'))
+    style_label = ParagraphStyle('Label', parent=styles['Normal'], fontSize=8, leading=10, fontName='Helvetica-Bold', textColor=colors.HexColor('#1b4332'))
+    style_val = ParagraphStyle('Val', parent=styles['Normal'], fontSize=8, leading=10, fontName='Helvetica')
+    style_cell = ParagraphStyle('Cell', parent=styles['Normal'], fontSize=8, leading=10, alignment=TA_CENTER)
+    style_cell_left = ParagraphStyle('CellLeft', parent=styles['Normal'], fontSize=8, leading=10, alignment=TA_LEFT)
+
+    story = []
+    story.append(Paragraph("SIGE 360 - BOLETIM ESCOLAR OFICIAL", style_titulo))
+    story.append(Paragraph(f"Ano Letivo: {turma.ano_letivo} | Documento Autêntico do Sistema Escolar", style_sub))
+    story.append(Spacer(1, 0.2*cm))
+
+    meta_dados = [
+        [Paragraph("<b>Aluno(a):</b>", style_label), Paragraph(aluno.nome_completo.upper(), style_val), Paragraph("<b>Matrícula:</b>", style_label), Paragraph(matricula.numero_matricula or f"MAT-{aluno.id:04d}", style_val)],
+        [Paragraph("<b>Escola:</b>", style_label), Paragraph(escola.nome, style_val), Paragraph("<b>Turma:</b>", style_label), Paragraph(f"{turma.nome} ({turma.turno})", style_val)],
+        [Paragraph("<b>Etapa Ensino:</b>", style_label), Paragraph(turma.etapa_ensino, style_val), Paragraph("<b>Situação:</b>", style_label), Paragraph(f"<b>{matricula.status}</b>", style_val)],
+    ]
+    t_meta = Table(meta_dados, colWidths=[2.5*cm, 7.5*cm, 2.5*cm, 5.5*cm])
+    t_meta.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f8f9fa')),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#ced4da')),
+        ('INNERGRID', (0,0), (-1,-1), 0.3, colors.HexColor('#e9ecef')),
+        ('TOPPADDING', (0,0), (-1,-1), 2),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+    ]))
+    story.append(t_meta)
+    story.append(Spacer(1, 0.3*cm))
+
+    # Tabela de Notas por Disciplina
+    headers = [Paragraph("<b>Componente Curricular</b>", style_cell_left)]
+    for p in periodos:
+        headers.append(Paragraph(f"<b>{p.nome[:6]}</b>", style_cell))
+    headers.extend([Paragraph("<b>Média</b>", style_cell), Paragraph("<b>Faltas</b>", style_cell), Paragraph("<b>Situação</b>", style_cell)])
+
+    dados_tabela = [headers]
+
+    for disc in disciplinas:
+        linha = [Paragraph(disc.nome, style_cell_left)]
+        soma_notas = 0.0
+        qtd_notas = 0
+        total_faltas_disc = 0
+
+        for p in periodos:
+            nota_obj = AcadNota.query.filter_by(matricula_id=matricula.id, disciplina_id=disc.id, periodo_id=p.id).first()
+            if nota_obj and nota_obj.nota_valor is not None:
+                val = nota_obj.nota_valor
+                soma_notas += val
+                qtd_notas += 1
+                total_faltas_disc += (nota_obj.faltas_bimestre or 0)
+                txt_nota = f"{val:.1f}".replace('.', ',')
+            else:
+                txt_nota = "-"
+            linha.append(Paragraph(txt_nota, style_cell))
+
+        media_final = (soma_notas / qtd_notas) if qtd_notas > 0 else 0.0
+        media_txt = f"{media_final:.1f}".replace('.', ',') if qtd_notas > 0 else "-"
+        situacao_disc = "Aprovado" if media_final >= 6.0 else ("Em Curso" if qtd_notas < len(periodos) else "Retido")
+        
+        linha.extend([
+            Paragraph(f"<b>{media_txt}</b>", style_cell),
+            Paragraph(str(total_faltas_disc), style_cell),
+            Paragraph(situacao_disc, style_cell)
+        ])
+        dados_tabela.append(linha)
+
+    col_w = [6.0*cm] + [1.5*cm]*len(periodos) + [1.8*cm, 1.5*cm, 2.2*cm]
+    t_notas = Table(dados_tabela, colWidths=col_w)
+    ts = [
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1b4332')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('GRID', (0,0), (-1,-1), 0.4, colors.HexColor('#bc4749')),
+        ('TOPPADDING', (0,0), (-1,-1), 2.5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+    ]
+    for r in range(1, len(dados_tabela)):
+        if r % 2 == 0:
+            ts.append(('BACKGROUND', (0, r), (-1, r), colors.HexColor('#f8f9fa')))
+    t_notas.setStyle(TableStyle(ts))
+    story.append(t_notas)
+    story.append(Spacer(1, 0.6*cm))
+
+    # Assinaturas
+    t_ass = Table([
+        ["_____________________________________________", "_____________________________________________"],
+        [Paragraph("<b>Secretaria Escolar / Direção</b>", style_cell), Paragraph("<b>Responsável pelo Aluno</b>", style_cell)]
+    ], colWidths=[9.0*cm, 9.0*cm])
+    t_ass.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+    story.append(t_ass)
+
+    doc.build(story, onFirstPage=lambda c, d: cabecalho_e_rodape_moderno(c, d, "SIGE 360 - BOLETIM ESCOLAR"),
+                     onLaterPages=lambda c, d: cabecalho_e_rodape_moderno(c, d, "SIGE 360 - BOLETIM ESCOLAR"))
+
+    buffer.seek(0)
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=Boletim_{aluno.id}.pdf'
+    return response
+
+
+@academico_bp.route('/turmas/<int:turma_id>/ata-pdf')
+@role_required('admin', 'academico', 'RH')
+def pdf_ata_resultados_finais(turma_id):
+    turma = AcadTurma.query.get_or_404(turma_id)
+    escola = turma.escola
+    matriculas = AcadMatricula.query.filter_by(turma_id=turma_id).join(AcadAluno).order_by(AcadAluno.nome_completo).all()
+    disciplinas = AcadDisciplina.query.order_by(AcadDisciplina.nome).all()
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=1.0*cm, leftMargin=1.0*cm, topMargin=2.5*cm, bottomMargin=1.2*cm)
+    styles = getSampleStyleSheet()
+    
+    style_tit = ParagraphStyle('TitAta', parent=styles['Heading1'], alignment=TA_CENTER, fontSize=12, leading=14, fontName='Helvetica-Bold', textColor=colors.HexColor('#004d40'))
+    style_sub = ParagraphStyle('SubAta', parent=styles['Normal'], alignment=TA_CENTER, fontSize=8, leading=10)
+    style_cell = ParagraphStyle('CellAta', parent=styles['Normal'], fontSize=7, leading=8.5, alignment=TA_CENTER)
+    style_cell_left = ParagraphStyle('CellLeftAta', parent=styles['Normal'], fontSize=7, leading=8.5, alignment=TA_LEFT)
+
+    story = []
+    story.append(Paragraph(f"ATA DE RESULTADOS FINAIS E RENDIMENTO ESCOLAR — ANO LETIVO {turma.ano_letivo}", style_tit))
+    story.append(Paragraph(f"Unidade Escolar: {escola.nome} | Turma: {turma.nome} | Etapa: {turma.etapa_ensino} | Turno: {turma.turno}", style_sub))
+    story.append(Spacer(1, 0.2*cm))
+
+    headers = [Paragraph("<b>Nº</b>", style_cell), Paragraph("<b>Nome do Aluno(a)</b>", style_cell_left)]
+    for d in disciplinas:
+        headers.append(Paragraph(f"<b>{d.nome[:8]}</b>", style_cell))
+    headers.extend([Paragraph("<b>Total Faltas</b>", style_cell), Paragraph("<b>Resultado Final</b>", style_cell)])
+
+    dados = [headers]
+
+    for idx, mat in enumerate(matriculas, start=1):
+        aluno = mat.aluno
+        linha = [Paragraph(str(idx), style_cell), Paragraph(aluno.nome_completo, style_cell_left)]
+        
+        soma_geral = 0.0
+        qtd_disc = 0
+        faltas_aluno = 0
+
+        for d in disciplinas:
+            notas = AcadNota.query.filter_by(matricula_id=mat.id, disciplina_id=d.id).all()
+            if notas:
+                med = sum(n.nota_valor for n in notas if n.nota_valor is not None) / len(notas)
+                faltas_aluno += sum(n.faltas_bimestre or 0 for n in notas)
+                soma_geral += med
+                qtd_disc += 1
+                med_txt = f"{med:.1f}".replace('.', ',')
+            else:
+                med_txt = "-"
+            linha.append(Paragraph(med_txt, style_cell))
+
+        res_final = mat.status
+        linha.extend([Paragraph(str(faltas_aluno), style_cell), Paragraph(f"<b>{res_final}</b>", style_cell)])
+        dados.append(linha)
+
+    col_w = [0.8*cm, 6.5*cm] + [2.0*cm]*len(disciplinas) + [1.8*cm, 3.0*cm]
+    t_ata = Table(dados, colWidths=col_w)
+    ts = [
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#004d40')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('GRID', (0,0), (-1,-1), 0.3, colors.HexColor('#6c757d')),
+        ('TOPPADDING', (0,0), (-1,-1), 2),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+    ]
+    for r in range(1, len(dados)):
+        if r % 2 == 0:
+            ts.append(('BACKGROUND', (0, r), (-1, r), colors.HexColor('#f8f9fa')))
+    t_ata.setStyle(TableStyle(ts))
+    story.append(t_ata)
+    story.append(Spacer(1, 0.5*cm))
+
+    t_ass = Table([
+        ["_______________________________________", "_______________________________________", "_______________________________________"],
+        [Paragraph("Secretário(a) Escolar", style_cell), Paragraph("Diretor(a) Escolar", style_cell), Paragraph("Presidente do Conselho de Classe", style_cell)]
+    ], colWidths=[9.0*cm, 9.0*cm, 9.0*cm])
+    t_ass.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+    story.append(t_ass)
+
+    doc.build(story, onFirstPage=lambda c, d: cabecalho_e_rodape_moderno(c, d, "ATA DE RESULTADOS FINAIS"),
+                     onLaterPages=lambda c, d: cabecalho_e_rodape_moderno(c, d, "ATA DE RESULTADOS FINAIS"))
+
+    buffer.seek(0)
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=Ata_Resultados_Turma_{turma.id}.pdf'
+    return response

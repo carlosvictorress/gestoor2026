@@ -1,0 +1,150 @@
+{% extends "academico/base_academico.html" %}
+
+{% block title %}Busca Ativa & Controle de Evasão | SIGE 360{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h4 class="fw-bold mb-1 text-danger"><i class="bi bi-shield-exclamation me-2"></i>Busca Ativa & Monitoramento de Infrequência</h4>
+        <p class="text-muted small mb-0">Identifique alunos em risco de evasão escolar, registre visitas domiciliares e acompanhe o direito à educação.</p>
+    </div>
+</div>
+
+<!-- CARDS RESUMO -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card card-sige p-3 border-start border-danger border-4">
+            <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.7rem;">Alunos em Risco Crítico</small>
+            <h3 class="fw-bold text-danger my-1">{{ alunos_risco|length }}</h3>
+            <span class="text-muted small">Faltas acumuladas >= 5</span>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-sige p-3 border-start border-warning border-4">
+            <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.7rem;">Limite Frequência LDB</small>
+            <h3 class="fw-bold text-warning-emphasis my-1">75%</h3>
+            <span class="text-muted small">Frequência mínima obrigatória</span>
+        </div>
+    </div>
+</div>
+
+<!-- TABELA DE ALUNOS EM RISCO -->
+<div class="card card-sige">
+    <div class="card-header bg-white py-3 border-0 d-flex align-items-center justify-content-between">
+        <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-person-exclamation me-2"></i>Lista de Alunos com Alerta de Infrequência</h6>
+        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-1">Busca Ativa Prioritária</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-4">Aluno(a)</th>
+                    <th>Escola / Turma</th>
+                    <th>Total Faltas</th>
+                    <th>Frequência Est.</th>
+                    <th>Histórico Busca Ativa</th>
+                    <th class="text-end pe-4">Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in alunos_risco %}
+                <tr>
+                    <td class="ps-4">
+                        <span class="fw-bold text-dark d-block">{{ r.aluno.nome_completo }}</span>
+                        <small class="text-muted">CPF: {{ r.aluno.cpf or 'S/N' }} | NIS: {{ r.aluno.nis_aluno or 'S/N' }}</small>
+                    </td>
+                    <td>
+                        <span class="fw-medium d-block">{{ r.escola.nome }}</span>
+                        <small class="text-muted">{{ r.turma.nome }} ({{ r.turma.turno }})</small>
+                    </td>
+                    <td>
+                        <span class="badge bg-danger fs-6 px-3 py-1">{{ r.faltas }} faltas</span>
+                    </td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2" style="width: 130px;">
+                            <div class="progress flex-grow-1" style="height: 8px;">
+                                <div class="progress-bar {% if r.frequencia_pct < 75 %}bg-danger{% else %}bg-warning{% endif %}" style="width: {{ r.frequencia_pct }}%;"></div>
+                            </div>
+                            <small class="fw-bold">{{ r.frequencia_pct }}%</small>
+                        </div>
+                    </td>
+                    <td>
+                        {% if r.acoes %}
+                            {% for a in r.acoes %}
+                                <span class="badge bg-light text-dark border d-block mb-1 text-start" style="font-size: 0.72rem;">
+                                    <i class="bi bi-check-circle text-success me-1"></i> {{ a.tipo_acao }} ({{ a.data_registro.strftime('%d/%m/%Y') }})
+                                </span>
+                            {% endfor %}
+                        {% else %}
+                            <span class="badge bg-secondary-subtle text-secondary border">Pendente de intervenção</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end pe-4">
+                        <button class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-medium" onclick="abrirModalBuscaAtiva('{{ r.matricula.id }}', '{{ r.aluno.nome_completo }}')">
+                            <i class="bi bi-plus-circle me-1"></i> Registrar Ação
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center py-5 text-muted">
+                        <i class="bi bi-check-circle-fill fs-1 d-block mb-2 text-success opacity-75"></i>
+                        Excelente! Nenhum aluno cadastrado em situação crítica de infrequência ou evasão.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- MODAL REGISTRAR BUSCA ATIVA -->
+<div class="modal fade" id="modalBuscaAtiva" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-shield-plus me-2"></i>Registrar Ação de Busca Ativa</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('academico.controle_evasao') }}">
+                <div class="modal-body p-4">
+                    <input type="hidden" name="matricula_id" id="busca_matricula_id">
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-medium">Aluno(a)</label>
+                        <input type="text" id="busca_aluno_nome" class="form-control bg-light" readonly>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-medium">Tipo de Intervenção / Ação *</label>
+                        <select name="tipo_acao" class="form-select" required>
+                            <option value="Visita Domiciliar Pedagógica">Visita Domiciliar Pedagógica</option>
+                            <option value="Contato Telefônico com Responsável">Contato Telefônico com Responsável</option>
+                            <option value="Notificação Formal ao Conselho Tutelar">Notificação Formal ao Conselho Tutelar</option>
+                            <option value="Encaminhamento ao CRAS / CREAS">Encaminhamento ao CRAS / CREAS</option>
+                            <option value="Reunião Presencial na Escola">Reunião Presencial na Escola</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-medium">Relato / Observações da Ação *</label>
+                        <textarea name="observacoes" class="form-control" rows="4" placeholder="Descreva os motivos informados pela família e as providências combinadas para o retorno do estudante às aulas..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-secondary px-4 rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger px-4 rounded-pill fw-medium">Salvar Ação de Busca Ativa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function abrirModalBuscaAtiva(matId, alunoNome) {
+        document.getElementById('busca_matricula_id').value = matId;
+        document.getElementById('busca_aluno_nome').value = alunoNome;
+        new bootstrap.Modal(document.getElementById('modalBuscaAtiva')).show();
+    }
+</script>
+{% endblock %}

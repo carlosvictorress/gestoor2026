@@ -1,0 +1,140 @@
+{% extends "academico/base_academico.html" %}
+
+{% block title %}Calendário Escolar Anual | SIGE 360{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h4 class="fw-bold mb-1 text-success"><i class="bi bi-calendar-event-fill me-2"></i>Calendário Escolar & Dias Letivos</h4>
+        <p class="text-muted small mb-0">Planejamento anual da rede municipal de ensino com garantia dos 200 dias letivos exigidos pela LDB.</p>
+    </div>
+    <button class="btn btn-success px-4 rounded-pill shadow-sm fw-medium" data-bs-toggle="modal" data-bs-target="#modalCalendario">
+        <i class="bi bi-plus-circle me-1"></i> Adicionar Evento / Data
+    </button>
+</div>
+
+<!-- CARDS INDICADORES LDB -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card card-sige p-3 border-start border-success border-4">
+            <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.7rem;">Dias Letivos Registrados</small>
+            <div class="d-flex align-items-baseline justify-content-between my-1">
+                <h3 class="fw-bold text-success mb-0">{{ total_dias_letivos }} / 200</h3>
+                <span class="badge {% if total_dias_letivos >= 200 %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                    {% if total_dias_letivos >= 200 %}Cumprido LDB{% else %}Faltam {{ 200 - total_dias_letivos }} dias{% endif %}
+                </span>
+            </div>
+            <div class="progress mt-2" style="height: 6px;">
+                <div class="progress-bar bg-success" style="width: {{ (total_dias_letivos / 200 * 100)|round }}%;"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-sige p-3 border-start border-primary border-4">
+            <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.7rem;">Ano Letivo Vigente</small>
+            <h3 class="fw-bold text-primary my-1">{{ ano_selecionado }}</h3>
+            <span class="text-muted small">Secretaria Municipal de Educação</span>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-sige p-3 border-start border-info border-4">
+            <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.7rem;">Total de Eventos no Calendário</small>
+            <h3 class="fw-bold text-info my-1">{{ eventos|length }}</h3>
+            <span class="text-muted small">Feriados, recessos e conselhos</span>
+        </div>
+    </div>
+</div>
+
+<!-- TABELA DE EVENTOS DO CALENDÁRIO -->
+<div class="card card-sige">
+    <div class="card-header bg-white py-3 border-0 d-flex align-items-center justify-content-between">
+        <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-calendar3 me-2"></i>Datas e Eventos Cadastrados ({{ ano_selecionado }})</h6>
+        <span class="badge bg-light text-dark border">Ano {{ ano_selecionado }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-4">Data do Evento</th>
+                    <th>Tipo de Evento</th>
+                    <th>Descrição / Detalhes</th>
+                    <th class="text-end pe-4">Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in eventos %}
+                <tr>
+                    <td class="ps-4 fw-bold font-monospace text-dark">
+                        <i class="bi bi-clock-history text-success me-2"></i>{{ e.data_evento.strftime('%d/%m/%Y (%a)') }}
+                    </td>
+                    <td>
+                        {% if e.tipo_evento == 'Dia Letivo' %}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3"><i class="bi bi-check-circle me-1"></i>Dia Letivo</span>
+                        {% elif e.tipo_evento == 'Feriado' %}
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3"><i class="bi bi-calendar-x me-1"></i>Feriado</span>
+                        {% elif e.tipo_evento == 'Recesso Escolar' %}
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3"><i class="bi bi-sun me-1"></i>Recesso Escolar</span>
+                        {% elif e.tipo_evento == 'Conselho de Classe' %}
+                            <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-3"><i class="bi bi-person-video3 me-1"></i>Conselho de Classe</span>
+                        {% else %}
+                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-3">{{ e.tipo_evento }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="fw-medium text-secondary">{{ e.descricao }}</td>
+                    <td class="text-end pe-4">
+                        <a href="{{ url_for('academico.excluir_evento_calendario', id=e.id) }}" class="btn btn-sm btn-light border text-danger" onclick="return confirm('Excluir este evento do calendário escolar?')">
+                            <i class="bi bi-trash"></i> Excluir
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center py-5 text-muted">
+                        <i class="bi bi-calendar-x fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                        Nenhum evento cadastrado no calendário letivo de {{ ano_selecionado }}.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- MODAL CADASTRAR EVENTO -->
+<div class="modal fade" id="modalCalendario" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-calendar-plus me-2"></i>Adicionar Data ao Calendário</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('academico.gerenciar_calendario', ano=ano_selecionado) }}">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-medium">Data do Evento *</label>
+                        <input type="date" name="data_evento" class="form-control" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-medium">Tipo de Evento *</label>
+                        <select name="tipo_evento" class="form-select" required>
+                            {% for t in tipos_eventos %}
+                                <option value="{{ t }}">{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-medium">Descrição / Observação *</label>
+                        <input type="text" name="descricao" class="form-control" placeholder="Ex: Início das Aulas do 1º Bimestre, Feriado de Tiradentes" required>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-secondary px-4 rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success px-4 rounded-pill fw-medium">Salvar no Calendário</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

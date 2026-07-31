@@ -983,6 +983,28 @@ AcadTurma.disciplinas_professores = db.relationship('Servidor',
     lazy='dynamic'
 )
 
+
+class AcadCalendarioLetivo(db.Model):
+    __tablename__ = 'acad_calendario_letivo'
+    id = db.Column(db.Integer, primary_key=True)
+    ano_letivo = db.Column(db.Integer, nullable=False, default=2026)
+    data_evento = db.Column(db.Date, nullable=False, index=True)
+    tipo_evento = db.Column(db.String(50), nullable=False)
+    descricao = db.Column(db.String(250), nullable=False)
+    escola_id = db.Column(db.Integer, db.ForeignKey('escola.id'), nullable=True)
+
+
+class AcadBuscaAtiva(db.Model):
+    __tablename__ = 'acad_busca_ativa'
+    id = db.Column(db.Integer, primary_key=True)
+    data_registro = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    matricula_id = db.Column(db.Integer, db.ForeignKey('acad_matricula.id'), nullable=False)
+    tipo_acao = db.Column(db.String(100), nullable=False)
+    observacoes = db.Column(db.Text, nullable=False)
+    responsavel_registro = db.Column(db.String(100))
+
+    matricula = db.relationship('AcadMatricula', backref='buscas_ativas')
+
 # ==========================================================
 # MÓDULO DE ATENDIMENTO EDUCACIONAL ESPECIALIZADO (CAEE)
 # ==========================================================

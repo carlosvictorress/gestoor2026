@@ -172,6 +172,12 @@
             </a>
 
             <div class="sige-nav-header">Rotinas Escolares</div>
+            <a href="{{ url_for('academico.gerenciar_calendario') }}" class="sige-nav-link {% if 'calendario' in request.endpoint %}active{% endif %}">
+                <i class="bi bi-calendar-event-fill"></i> Calendário Letivo
+            </a>
+            <a href="{{ url_for('academico.controle_evasao') }}" class="sige-nav-link {% if 'evasao' in request.endpoint %}active{% endif %}">
+                <i class="bi bi-shield-exclamation"></i> Busca Ativa / Evasão
+            </a>
             <a href="{{ url_for('academico.diario_classe') }}" class="sige-nav-link {% if 'diario' in request.endpoint %}active{% endif %}">
                 <i class="bi bi-calendar-check-fill"></i> Diário de Classe
             </a>

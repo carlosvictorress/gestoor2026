@@ -1116,8 +1116,10 @@ def gerar_pdf_devolutiva(devolutiva_id):
     elements = []
 
     if secretaria:
-        elements.append(Paragraph(f"<b>{secretaria.nome_municipio or 'PREFEITURA MUNICIPAL'}</b>", title_style))
-        elements.append(Paragraph(f"{secretaria.nome or 'SECRETARIA MUNICIPAL DE EDUCAÇÃO'}", subtitle_style))
+        nome_mun = getattr(secretaria, 'nome_municipio', None) or 'PREFEITURA MUNICIPAL'
+        nome_sec = getattr(secretaria, 'nome', None) or 'SECRETARIA MUNICIPAL DE EDUCAÇÃO'
+        elements.append(Paragraph(f"<b>{nome_mun}</b>", title_style))
+        elements.append(Paragraph(f"{nome_sec}", subtitle_style))
         elements.append(Paragraph("CENTRO DE ATENDIMENTO EDUCACIONAL ESPECIALIZADO - CAEE", subtitle_style))
         elements.append(Spacer(1, 0.4*cm))
 

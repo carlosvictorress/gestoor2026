@@ -77,6 +77,7 @@ def executar_migracao_caee_segura():
 @login_required
 @role_required('admin', 'RH', 'CAEE')
 def dashboard():
+    executar_migracao_caee_segura()
     secretaria_id_logada = session.get('secretaria_id')
     
     # Importação da nova model vinculada à tabela caee_escolas

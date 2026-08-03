@@ -8,7 +8,7 @@
         <h4 class="fw-bold mb-1 text-success"><i class="bi bi-journal-bookmark-fill me-2"></i>Matriz Curricular & Disciplinas</h4>
         <p class="text-muted small mb-0">Cadastre e organize as disciplinas da rede municipal de ensino conforme a BNCC.</p>
     </div>
-    <button class="btn btn-success px-4 rounded-pill shadow-sm fw-medium" data-bs-toggle="modal" data-bs-target="#modalDisciplina">
+    <button class="btn btn-success px-4 rounded-pill shadow-sm fw-medium" onclick="novaDisciplina()">
         <i class="bi bi-plus-circle me-1"></i> Nova Disciplina
     </button>
 </div>
@@ -103,7 +103,7 @@
                     
                     <div class="mb-3">
                         <label class="form-label fw-medium">Nome da Disciplina / Componente *</label>
-                        <input type="text" name="nome" id="disc_nome" class="form-control" placeholder="Ex: Língua Portuguesa, Matemática, História" required>
+                        <input type="text" name="nome" id="disc_nome" class="form-control" placeholder="Ex: Língua Portuguesa, Matemática, História, Robótica" required>
                     </div>
 
                     <div class="mb-3">
@@ -113,11 +113,17 @@
 
                     <div class="mb-3">
                         <label class="form-label fw-medium">Área do Conhecimento (BNCC)</label>
-                        <select name="area_conhecimento" id="disc_area" class="form-select">
+                        <select name="area_conhecimento" id="disc_area" class="form-select" onchange="verificarAreaOutros()">
                             {% for area in areas %}
                                 <option value="{{ area }}">{{ area }}</option>
                             {% endfor %}
                         </select>
+                    </div>
+
+                    <!-- CAMPO DINÂMICO QUANDO 'OUTROS' FOR SELECIONADO -->
+                    <div class="mb-3 d-none" id="div_area_outros">
+                        <label class="form-label fw-medium text-success"><i class="bi bi-pencil me-1"></i>Especifique a Área / Categoria Personalizada *</label>
+                        <input type="text" name="area_conhecimento_outros" id="disc_area_outros" class="form-control" placeholder="Ex: Robótica Educativa, Projeto de Vida, Empreendedorismo">
                     </div>
                 </div>
                 <div class="modal-footer bg-light border-0">
@@ -130,12 +136,43 @@
 </div>
 
 <script>
+    function verificarAreaOutros() {
+        var val = document.getElementById('disc_area').value;
+        var divOutros = document.getElementById('div_area_outros');
+        if (val === 'Outros') {
+            divOutros.classList.remove('d-none');
+        } else {
+            divOutros.classList.add('d-none');
+        }
+    }
+
+    function novaDisciplina() {
+        document.getElementById('modalTitulo').innerHTML = '<i class="bi bi-plus-circle me-2"></i>Nova Disciplina';
+        document.getElementById('disc_id').value = '';
+        document.getElementById('disc_nome').value = '';
+        document.getElementById('disc_codigo').value = '';
+        document.getElementById('disc_area').value = 'Linguagens';
+        document.getElementById('disc_area_outros').value = '';
+        verificarAreaOutros();
+        new bootstrap.Modal(document.getElementById('modalDisciplina')).show();
+    }
+
     function editarDisciplina(id, nome, codigo, area) {
         document.getElementById('modalTitulo').innerHTML = '<i class="bi bi-pencil me-2"></i>Editar Disciplina';
         document.getElementById('disc_id').value = id;
         document.getElementById('disc_nome').value = nome;
         document.getElementById('disc_codigo').value = codigo;
-        document.getElementById('disc_area').value = area;
+        
+        var selectArea = document.getElementById('disc_area');
+        var opt = Array.from(selectArea.options).find(o => o.value === area);
+        if (opt) {
+            selectArea.value = area;
+            document.getElementById('disc_area_outros').value = '';
+        } else {
+            selectArea.value = 'Outros';
+            document.getElementById('disc_area_outros').value = area;
+        }
+        verificarAreaOutros();
         new bootstrap.Modal(document.getElementById('modalDisciplina')).show();
     }
 </script>

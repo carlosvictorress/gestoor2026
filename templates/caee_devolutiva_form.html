@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Devolutiva Escolar | CAEE{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <span class="badge bg-success rounded-pill px-3 py-2 text-uppercase mb-2"><i class="bi bi-file-earmark-pdf-fill me-1"></i> Devolutiva para a Escola Regular</span>
+            <h3 class="fw-bold text-dark mb-1">Elaborar Devolutiva Escolar</h3>
+            <p class="text-muted small mb-0">Relatório com diretrizes pedagógicas e parecer multidisciplinar para envio aos professores da sala regular.</p>
+        </div>
+        <a href="{{ url_for('caee.prontuario_aluno', aluno_id=aluno.id) }}" class="btn btn-outline-secondary rounded-pill px-4">
+            <i class="bi bi-arrow-left me-1"></i> Voltar ao Prontuário
+        </a>
+    </div>
+
+    <!-- DADOS DO ALUNO E SÍNTESE DA ESCUTA -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="fw-bold text-dark mb-2">{{ aluno.nome_completo }}</h5>
+                    <p class="text-muted small mb-1"><i class="bi bi-building me-1"></i> <strong>Escola:</strong> {{ aluno.escola_origem or 'Não Informada' }}</p>
+                    <p class="text-muted small mb-1"><i class="bi bi-journal-medical me-1"></i> <strong>CID/Diagnóstico:</strong> {{ aluno.cid_diagnostico or ('Laudado' if aluno.aluno_laudado else 'Em Avaliação') }}</p>
+                    <p class="text-muted small mb-0"><i class="bi bi-person me-1"></i> <strong>Responsável:</strong> {{ aluno.nome_responsavel }} ({{ aluno.telefone_responsavel }})</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100 bg-light">
+                <div class="card-body">
+                    <h6 class="fw-bold text-primary mb-2"><i class="bi bi-chat-left-text me-1"></i> Escuta da Assistência Social</h6>
+                    {% if escuta %}
+                        <p class="small text-secondary mb-1" style="max-height: 100px; overflow-y: auto;">
+                            {{ escuta.relatorio_resumo }}
+                        </p>
+                        <small class="text-muted"><i class="bi bi-clock me-1"></i> Realizada em {{ escuta.data_escuta.strftime('%d/%m/%Y') }}</small>
+                    {% else %}
+                        <p class="text-muted small mb-0">Nenhuma escuta inicial registrada ainda.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FORMULÁRIO DE DEVOLUTIVA -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3 border-bottom">
+            <h5 class="fw-bold text-success mb-0"><i class="bi bi-pencil-square me-2"></i>Parecer Multidisciplinar para a Escola de Origem</h5>
+        </div>
+        <form method="POST" action="{{ url_for('caee.criar_devolutiva', aluno_id=aluno.id) }}">
+            <div class="card-body p-4">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-dark">Profissional Responsável pela Devolutiva *</label>
+                        <select name="profissional_id" class="form-select" required>
+                            <option value="">-- Selecione o Profissional --</option>
+                            {% for p in profissionais %}
+                                <option value="{{ p.id }}">{{ p.nome_completo }} ({{ p.funcao }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-dark">Quantidade de Consultas / Sessões Realizadas *</label>
+                        <input type="number" name="qtd_consultas_realizadas" class="form-control" value="2" min="1" required>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-dark">Parecer Multidisciplinar e Evolução do Aluno nas Consultas *</label>
+                    <textarea name="relatorio_devolutiva" class="form-control" rows="6" placeholder="Descreva os resultados observados nas consultas presenciais, comportamentos, avanços psicopedagógicos e habilidades trabalhadas..." required></textarea>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-dark">Orientações e Recomendações Pedagógicas para os Professores da Sala Regular *</label>
+                    <textarea name="orientacoes_sala_regular" class="form-control" rows="5" placeholder="Instruções claras para a equipe escolar (Ex: posição da carteira na sala, tempo ampliado em provas, recursos de comunicação alternativa, adaptação de material...)" required></textarea>
+                </div>
+            </div>
+            <div class="card-footer bg-light p-3 text-end border-top">
+                <a href="{{ url_for('caee.prontuario_aluno', aluno_id=aluno.id) }}" class="btn btn-secondary px-4 me-2">Cancelar</a>
+                <button type="submit" class="btn btn-success px-4 font-weight-bold">
+                    <i class="bi bi-file-earmark-pdf-fill me-1"></i> Gerar Devolutiva Escolar (Salvar & Emitir PDF)
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

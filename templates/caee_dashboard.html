@@ -140,6 +140,60 @@
         </div>
     </div>
 
+    <!-- MESA DE ESCUTA INICIAL DA ASSISTÊNCIA SOCIAL (PASSO 1) -->
+    <div class="card border-0 shadow-sm mb-4" style="border-radius: 15px; border-left: 5px solid #0d6efd !important;">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold text-primary"><i class="bi bi-person-heart me-2"></i>Mesa de Escuta Inicial (Assistência Social)</h5>
+            <span class="badge bg-primary-subtle text-primary border px-3 py-2 rounded-pill font-monospace fw-bold">Passo 1 do Fluxo</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Aluno(a)</th>
+                            <th>Escola de Origem</th>
+                            <th>Classificação da Entrada</th>
+                            <th>Motivo do Encaminhamento</th>
+                            <th class="text-end pe-4">Ação Requerida</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for aluno in ultimos_alunos if aluno.status_fluxo == 'Aguardando Escuta' or not aluno.status_fluxo %}
+                        <tr>
+                            <td class="ps-4">
+                                <span class="fw-bold text-dark">{{ aluno.nome_completo }}</span>
+                                <small class="d-block text-muted">{{ aluno.nome_responsavel }} ({{ aluno.telefone_responsavel }})</small>
+                            </td>
+                            <td><i class="bi bi-building me-1 text-secondary"></i>{{ aluno.escola_origem or 'Não Informada' }}</td>
+                            <td>
+                                {% if aluno.prioridade_fila == 'Urgência' %}
+                                    <span class="badge bg-danger rounded-pill px-3"><i class="bi bi-exclamation-triangle-fill me-1"></i>🚨 URGÊNCIA</span>
+                                {% else %}
+                                    <span class="badge bg-info text-dark rounded-pill px-3"><i class="bi bi-clock-history me-1"></i>Fila de Espera</span>
+                                {% endif %}
+                            </td>
+                            <td><small class="text-secondary">{{ aluno.motivo_encaminhamento or 'Encaminhamento Escolar' }}</small></td>
+                            <td class="text-end pe-4">
+                                <a href="{{ url_for('caee.escuta_inicial', aluno_id=aluno.id) }}" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold">
+                                    <i class="bi bi-chat-left-dots-fill me-1"></i> Realizar Escuta Inicial
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">
+                                <i class="bi bi-check2-circle text-success fs-3 d-block mb-1"></i>
+                                Nenhum aluno pendente de escuta inicial.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <div class="card border-0 shadow-sm" style="border-radius: 15px;">
         <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
             <h5 class="mb-0 fw-bold text-secondary"><i class="bi bi-list-stars me-2"></i>{{ titulo_tabela }}</h5>

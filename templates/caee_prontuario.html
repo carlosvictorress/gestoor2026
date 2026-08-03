@@ -309,6 +309,105 @@
 
         <div class="col-xl-8 col-lg-7">
             
+            <!-- PASSO 1: ESCUTA INICIAL (ASSISTÊNCIA SOCIAL) -->
+            <div class="card premium-card border-0 border-start border-primary border-4 mb-4">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-primary rounded-pill px-3 py-1 text-uppercase mb-1"><i class="bi bi-person-heart me-1"></i> Passo 1 - Assistência Social</span>
+                        <h5 class="fw-bold text-dark mb-0">Escuta Inicial da Família</h5>
+                    </div>
+                    {% if not escuta_inicial %}
+                        <a href="{{ url_for('caee.escuta_inicial', aluno_id=aluno.id) }}" class="btn btn-primary rounded-pill px-3 fw-bold">
+                            <i class="bi bi-chat-left-dots-fill me-1"></i> Realizar Escuta Inicial
+                        </a>
+                    {% endif %}
+                </div>
+                <div class="card-body pt-0">
+                    {% if escuta_inicial %}
+                        <div class="p-3 bg-light rounded-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold text-dark"><i class="bi bi-check-circle-fill text-success me-1"></i> Escuta Realizada por {{ escuta_inicial.assistente_social.nome_completo if escuta_inicial.assistente_social else 'Assistente Social' }}</span>
+                                <small class="text-muted"><i class="bi bi-clock me-1"></i> {{ escuta_inicial.data_escuta.strftime('%d/%m/%Y às %H:%M') }}</small>
+                            </div>
+                            <p class="text-dark small mb-2" style="white-space: pre-line;">{{ escuta_inicial.relatorio_resumo }}</p>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-white text-dark border"><i class="bi bi-signpost-split me-1"></i> Destinado para: {{ escuta_inicial.profissionais_destinados }}</span>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning border-0 shadow-sm mb-0">
+                            <i class="bi bi-exclamation-circle-fill me-2"></i> <strong>Aguardando Escuta Inicial:</strong> Conforme o fluxo do CAEE, este aluno deve passar primeiramente pela escuta da Assistente Social antes das consultas multidisciplinares.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- PASSO 2: AGENDAMENTO & ATENDIMENTO MULTIDISCIPLINAR -->
+            <div class="card premium-card border-0 border-start border-info border-4 mb-4">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-info text-dark rounded-pill px-3 py-1 text-uppercase mb-1"><i class="bi bi-calendar-event me-1"></i> Passo 2 - Equipe Multidisciplinar</span>
+                        <h5 class="fw-bold text-dark mb-0">Agendamentos & Consultas</h5>
+                    </div>
+                    <button type="button" class="btn btn-info text-dark rounded-pill px-3 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAgendarConsulta">
+                        <i class="bi bi-calendar-plus-fill me-1"></i> Agendar na Agenda
+                    </button>
+                </div>
+                <div class="card-body pt-0">
+                    {% if aluno.agendamentos %}
+                        <div class="list-group list-group-flush">
+                            {% for ag in aluno.agendamentos | sort(attribute='data_hora', reverse=True) %}
+                            <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center bg-transparent border-bottom">
+                                <div>
+                                    <span class="fw-bold text-dark"><i class="bi bi-clock-history me-1 text-info"></i> {{ ag.data_hora.strftime('%d/%m/%Y às %H:%M') }}</span>
+                                    <small class="d-block text-muted">Com {{ ag.profissional.nome_completo }} ({{ ag.profissional.funcao }})</small>
+                                </div>
+                                <span class="badge bg-{{ 'success' if ag.status == 'Realizado' else 'warning text-dark' }} rounded-pill px-3">{{ ag.status }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted small mb-0"><i class="bi bi-calendar-x me-1"></i> Nenhuma consulta agendada na agenda do profissional ainda.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- PASSO 3: DEVOLUTIVA ESCOLAR (APÓS 2+ CONSULTAS) -->
+            <div class="card premium-card border-0 border-start border-success border-4 mb-4">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-success rounded-pill px-3 py-1 text-uppercase mb-1"><i class="bi bi-file-earmark-pdf-fill me-1"></i> Passo 3 - Retorno à Escola Regular</span>
+                        <h5 class="fw-bold text-dark mb-0">Devolutiva Escolar (PDF)</h5>
+                    </div>
+                    {% if pode_gerar_devolutiva %}
+                        <a href="{{ url_for('caee.criar_devolutiva', aluno_id=aluno.id) }}" class="btn btn-success rounded-pill px-3 fw-bold shadow-sm">
+                            <i class="bi bi-plus-circle-fill me-1"></i> Elaborar Devolutiva Escolar
+                        </a>
+                    {% else %}
+                        <span class="badge bg-light text-muted border p-2"><i class="bi bi-lock-fill me-1"></i> Habilita após 2 consultas (Atual: {{ total_consultas }}/2)</span>
+                    {% endif %}
+                </div>
+                <div class="card-body pt-0">
+                    {% if devolutivas %}
+                        <div class="list-group list-group-flush">
+                            {% for d in devolutivas %}
+                            <div class="list-group-item px-0 py-3 d-flex justify-content-between align-items-center bg-transparent border-bottom">
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-1"><i class="bi bi-file-pdf text-danger me-2"></i> Devolutiva Emitida em {{ d.data_emissao.strftime('%d/%m/%Y') }}</h6>
+                                    <small class="text-muted">Por {{ d.profissional.nome_completo }} ({{ d.profissional.funcao }}) • {{ d.qtd_consultas_realizadas }} Consultas Base</small>
+                                </div>
+                                <a href="{{ url_for('caee.gerar_pdf_devolutiva', devolutiva_id=d.id) }}" target="_blank" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-bold">
+                                    <i class="bi bi-printer-fill me-1"></i> Imprimir PDF
+                                </a>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhuma devolutiva emitida até o momento. O botão de emissão é ativado após 2 consultas registradas.</p>
+                    {% endif %}
+                </div>
+            </div>
+
             <div class="card premium-card border-0">
                 <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
                     <div class="section-indicator">Fluxo de Encaminhamentos & Histórico</div>
@@ -639,6 +738,44 @@
                     <a href="#" id="btnConfirmarExclusaoLink" class="btn btn-danger rounded-pill flex-fill shadow-sm fw-semibold small">Excluir</a>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL AGENDAR CONSULTA NA AGENDA DO PROFISSIONAL -->
+<div class="modal fade" id="modalAgendarConsulta" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-info text-dark border-0">
+                <h5 class="modal-title fw-bold"><i class="bi bi-calendar-plus-fill me-2"></i>Agendar Consulta na Agenda</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('caee.agendar_consulta') }}">
+                <input type="hidden" name="aluno_id" value="{{ aluno.id }}">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Profissional Multidisciplinar *</label>
+                        <select name="profissional_id" class="form-select" required>
+                            <option value="">-- Selecione o Profissional --</option>
+                            {% for p in profissionais %}
+                                <option value="{{ p.id }}">{{ p.nome_completo }} ({{ p.funcao }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Data e Hora da Consulta *</label>
+                        <input type="datetime-local" name="data_hora" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Observações / Sala de Atendimento</label>
+                        <input type="text" name="observacoes" class="form-control" placeholder="Ex: Sala de Psicopedagogia 01">
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-secondary px-4 rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-info text-dark px-4 rounded-pill fw-bold">Confirmar Agendamento</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

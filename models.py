@@ -898,6 +898,7 @@ class AcadDisciplina(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), unique=True, nullable=False)
     area_conhecimento = db.Column(db.String(100))
+    codigo = db.Column(db.String(50), nullable=True)
 
 
 class AcadPeriodo(db.Model):
@@ -994,6 +995,19 @@ class AcadCalendarioLetivo(db.Model):
     escola_id = db.Column(db.Integer, db.ForeignKey('escola.id'), nullable=True)
 
 
+class AcadConfiguracaoCalendario(db.Model):
+    __tablename__ = 'acad_configuracao_calendario'
+    id = db.Column(db.Integer, primary_key=True)
+    ano_letivo = db.Column(db.Integer, nullable=False, unique=True, default=2026)
+    meta_dias_letivos = db.Column(db.Integer, default=200)
+    data_inicio_ano = db.Column(db.Date)
+    data_fim_ano = db.Column(db.Date)
+    data_inicio_ferias = db.Column(db.Date)
+    data_fim_ferias = db.Column(db.Date)
+    dias_ferias_qtd = db.Column(db.Integer, default=30)
+    observacoes = db.Column(db.Text)
+
+
 class AcadBuscaAtiva(db.Model):
     __tablename__ = 'acad_busca_ativa'
     id = db.Column(db.Integer, primary_key=True)
@@ -1039,6 +1053,8 @@ class CaeeAluno(db.Model):
     
     # --- Dados do Prontuário ---
     status = db.Column(db.String(50), nullable=False, default='Em Avaliação')
+    prioridade_fila = db.Column(db.String(20), default='Fila de Espera') # 'Fila de Espera' ou 'Urgência'
+    status_fluxo = db.Column(db.String(50), default='Aguardando Escuta') # 'Aguardando Escuta', 'Encaminhado', 'Em Atendimento', 'Devolutiva Gerada', 'Desligado'
     data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
     
     # --- Campos de Encaminhamento e Histórico ---
@@ -1205,6 +1221,59 @@ class CaeeLinhaTempo(db.Model):
     # Mantemos as chaves estrangeiras explícitas para os profissionais
     profissional_origem = db.relationship('CaeeProfissional', foreign_keys=[profissional_origem_id])
     profissional_destino = db.relationship('CaeeProfissional', foreign_keys=[profissional_destino_id])   
+
+
+class CaeeEscutaInicial(db.Model):
+    """
+    Registro da Escuta Inicial realizada obrigatoriamente pela Assistente Social.
+    """
+    __tablename__ = 'caee_escuta_inicial'
+    id = db.Column(db.Integer, primary_key=True)
+    aluno_id = db.Column(db.Integer, db.ForeignKey('caee_aluno.id'), nullable=False)
+    assistente_social_id = db.Column(db.Integer, db.ForeignKey('caee_profissional.id'), nullable=True)
+    data_escuta = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    relatorio_resumo = db.Column(db.Text, nullable=False) # Resumo da escuta inicial
+    profissionais_destinados = db.Column(db.String(300)) # Ex: "Psicólogo, Fonoaudiólogo"
+    observacoes_familia = db.Column(db.Text)
+    
+    aluno = db.relationship('CaeeAluno', backref=db.backref('escutas', lazy=True, cascade="all, delete-orphan"))
+    assistente_social = db.relationship('CaeeProfissional', foreign_keys=[assistente_social_id])
+
+
+class CaeeDevolutivaEscolar(db.Model):
+    """
+    Relatório de Devolutiva Escolar gerado após 2+ consultas com o mesmo profissional.
+    """
+    __tablename__ = 'caee_devolutiva_escolar'
+    id = db.Column(db.Integer, primary_key=True)
+    aluno_id = db.Column(db.Integer, db.ForeignKey('caee_aluno.id'), nullable=False)
+    profissional_id = db.Column(db.Integer, db.ForeignKey('caee_profissional.id'), nullable=False)
+    data_emissao = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    qtd_consultas_realizadas = db.Column(db.Integer, default=2)
+    relatorio_devolutiva = db.Column(db.Text, nullable=False)
+    orientacoes_sala_regular = db.Column(db.Text)
+    
+    aluno = db.relationship('CaeeAluno', backref=db.backref('devolutivas', lazy=True, cascade="all, delete-orphan"))
+    profissional = db.relationship('CaeeProfissional', foreign_keys=[profissional_id])
+
+
+class CaeeAgendamento(db.Model):
+    """
+    Agendamento de consulta na agenda do profissional a partir do encaminhamento da Assistência Social.
+    """
+    __tablename__ = 'caee_agendamento'
+    id = db.Column(db.Integer, primary_key=True)
+    aluno_id = db.Column(db.Integer, db.ForeignKey('caee_aluno.id'), nullable=False)
+    profissional_id = db.Column(db.Integer, db.ForeignKey('caee_profissional.id'), nullable=False)
+    data_hora = db.Column(db.DateTime, nullable=False)
+    status = db.Column(db.String(50), default='Agendado') # 'Agendado', 'Realizado', 'Cancelado'
+    observacoes = db.Column(db.Text)
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    aluno = db.relationship('CaeeAluno', backref=db.backref('agendamentos', lazy=True, cascade="all, delete-orphan"))
+    profissional = db.relationship('CaeeProfissional', backref=db.backref('agendamentos', lazy=True))
 
 
 class FiscalContrato(db.Model):

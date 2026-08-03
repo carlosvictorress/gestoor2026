@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Escuta Inicial (Assistência Social) | CAEE{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <span class="badge bg-primary rounded-pill px-3 py-2 text-uppercase mb-2"><i class="bi bi-person-heart me-1"></i> Assistência Social - CAEE</span>
+            <h3 class="fw-bold text-dark mb-1">Escuta Inicial do Aluno</h3>
+            <p class="text-muted small mb-0">Registre a escuta sensível da família e defina quais profissionais multidisciplinares farão o acompanhamento.</p>
+        </div>
+        <a href="{{ url_for('caee.prontuario_aluno', aluno_id=aluno.id) }}" class="btn btn-outline-secondary rounded-pill px-4">
+            <i class="bi bi-arrow-left me-1"></i> Voltar ao Prontuário
+        </a>
+    </div>
+
+    <!-- CARTÃO COM DADOS RESUMIDOS DO ALUNO -->
+    <div class="card border-0 shadow-sm mb-4 bg-light">
+        <div class="card-body p-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <div class="d-flex align-items-center mb-2">
+                        <h4 class="fw-bold text-dark mb-0 me-3">{{ aluno.nome_completo }}</h4>
+                        {% if aluno.prioridade_fila == 'Urgência' %}
+                            <span class="badge bg-danger rounded-pill px-3"><i class="bi bi-exclamation-triangle-fill me-1"></i>URGÊNCIA</span>
+                        {% else %}
+                            <span class="badge bg-info text-dark rounded-pill px-3"><i class="bi bi-clock-history me-1"></i>Fila de Espera</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-muted small mb-0">
+                        <i class="bi bi-building me-1"></i> <strong>Escola de Origem:</strong> {{ aluno.escola_origem or 'Não Informada' }} |
+                        <i class="bi bi-telephone me-1"></i> <strong>Responsável:</strong> {{ aluno.nome_responsavel }} ({{ aluno.telefone_responsavel }}) |
+                        <i class="bi bi-journal-medical me-1"></i> <strong>CID:</strong> {{ aluno.cid_diagnostico or ('Laudado' if aluno.aluno_laudado else 'Em Avaliação') }}
+                    </p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <span class="badge bg-white text-dark border p-3 rounded-3 shadow-sm">
+                        <small class="text-muted d-block text-uppercase font-monospace mb-1">Motivo do Encaminhamento</small>
+                        <span class="fw-bold text-wrap">{{ aluno.motivo_encaminhamento or 'Encaminhamento Escolar' }}</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FORMULÁRIO DE ESCUTA INICIAL -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3 border-bottom">
+            <h5 class="fw-bold text-success mb-0"><i class="bi bi-chat-left-text-fill me-2"></i>Relatório Resumo da Escuta Inicial</h5>
+        </div>
+        <form method="POST" action="{{ url_for('caee.escuta_inicial', aluno_id=aluno.id) }}">
+            <div class="card-body p-4">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-dark">Assistente Social Responsável *</label>
+                        <select name="assistente_social_id" class="form-select" required>
+                            <option value="">-- Selecione o Assistente Social --</option>
+                            {% for a in assistentes %}
+                                <option value="{{ a.id }}">{{ a.nome_completo }} ({{ a.funcao }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-dark">Próximos Profissionais Indicados para o Atendimento *</label>
+                        <div class="d-flex flex-wrap gap-2 pt-1">
+                            {% for prof in profissionais_equipe %}
+                                <div class="form-check form-check-inline bg-light border px-3 py-2 rounded-pill">
+                                    <input class="form-check-input" type="checkbox" name="profissionais_destinados" value="{{ prof.funcao }} - {{ prof.nome_completo }}" id="prof_{{ prof.id }}">
+                                    <label class="form-check-label text-dark fw-medium" for="prof_{{ prof.id }}">
+                                        {{ prof.funcao }} ({{ prof.nome_completo }})
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-dark">Relatório Resumo da Escuta (Escuta Humana e Diagnóstico Social) *</label>
+                    <textarea name="relatorio_resumo" class="form-control" rows="6" placeholder="Descreva a conversa inicial com a família, contexto socioeconômico, histórico escolar e necessidades essenciais da criança..." required></textarea>
+                    <small class="text-muted">Este relatório ficará visível para os próximos profissionais da equipe multidisciplinar antes do atendimento.</small>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-dark">Observações Relevantes sobre a Família / Rotina do Aluno (Opcional)</label>
+                    <textarea name="observacoes_familia" class="form-control" rows="3" placeholder="Informações de rotina, medicamentos, rede de apoio familiar, horários disponíveis..."></textarea>
+                </div>
+            </div>
+            <div class="card-footer bg-light p-3 text-end border-top">
+                <a href="{{ url_for('caee.prontuario_aluno', aluno_id=aluno.id) }}" class="btn btn-secondary px-4 me-2">Cancelar</a>
+                <button type="submit" class="btn btn-success px-4 font-weight-bold">
+                    <i class="bi bi-check-circle-fill me-1"></i> Salvar Escuta e Encaminhar para Atendimento
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -4,7 +4,7 @@ from models import (
     AcadDisciplina, AcadPeriodo, Servidor, 
     acad_turma_disciplinas_professores, AcadNota,
     AcadHorarioAula, AcadFrequenciaDiaria, AcadDiarioConteudo,
-    AcadCalendarioLetivo, AcadBuscaAtiva
+    AcadCalendarioLetivo, AcadBuscaAtiva, AcadConfiguracaoCalendario
 )
 from extensions import db
 from utils import role_required, cabecalho_e_rodape_moderno, currency_filter_br
@@ -160,6 +160,22 @@ def executar_migracao_academico_segura():
             observacoes TEXT NOT NULL,
             responsavel_registro VARCHAR(100)
         );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS acad_configuracao_calendario (
+            id SERIAL PRIMARY KEY,
+            ano_letivo INTEGER NOT NULL UNIQUE DEFAULT 2026,
+            meta_dias_letivos INTEGER DEFAULT 200,
+            data_inicio_ano DATE,
+            data_fim_ano DATE,
+            data_inicio_ferias DATE,
+            data_fim_ferias DATE,
+            dias_ferias_qtd INTEGER DEFAULT 30,
+            observacoes TEXT
+        );
+        """,
+        """
+        ALTER TABLE acad_disciplina ADD COLUMN IF NOT EXISTS codigo VARCHAR(50);
         """
     ]
 
@@ -1032,19 +1048,22 @@ def gerenciar_disciplinas():
             nome = request.form.get('nome')
             codigo = request.form.get('codigo')
             area = request.form.get('area_conhecimento', 'Outros')
-            
+            area_outros = request.form.get('area_conhecimento_outros')
+            if area == 'Outros' and area_outros:
+                area = area_outros.strip()
+
             if disc_id:
                 disc = AcadDisciplina.query.get_or_404(disc_id)
                 disc.nome = nome
-                disc.codigo = codigo
+                if hasattr(disc, 'codigo'):
+                    disc.codigo = codigo
                 disc.area_conhecimento = area
                 flash(f'Disciplina "{nome}" atualizada com sucesso!', 'success')
             else:
-                nova_disc = AcadDisciplina(
-                    nome=nome,
-                    codigo=codigo,
-                    area_conhecimento=area
-                )
+                kwargs_disc = {'nome': nome, 'area_conhecimento': area}
+                if hasattr(AcadDisciplina, 'codigo'):
+                    kwargs_disc['codigo'] = codigo
+                nova_disc = AcadDisciplina(**kwargs_disc)
                 db.session.add(nova_disc)
                 flash(f'Disciplina "{nome}" cadastrada com sucesso!', 'success')
             
@@ -1423,37 +1442,77 @@ def controle_evasao():
 @role_required('admin', 'academico', 'RH')
 def gerenciar_calendario():
     ano_selecionado = request.args.get('ano', datetime.now().year, type=int)
+    
+    config = AcadConfiguracaoCalendario.query.filter_by(ano_letivo=ano_selecionado).first()
+    if not config:
+        config = AcadConfiguracaoCalendario(
+            ano_letivo=ano_selecionado,
+            meta_dias_letivos=200,
+            dias_ferias_qtd=30
+        )
+        db.session.add(config)
+        db.session.commit()
 
     if request.method == 'POST':
-        try:
-            data_str = request.form.get('data_evento')
-            data_evt = datetime.strptime(data_str, '%Y-%m-%d').date() if data_str else None
-            tipo = request.form.get('tipo_evento')
-            desc = request.form.get('descricao')
+        action_type = request.form.get('action_type', 'evento')
+        
+        if action_type == 'configuracao':
+            try:
+                config.meta_dias_letivos = request.form.get('meta_dias_letivos', 200, type=int)
+                config.dias_ferias_qtd = request.form.get('dias_ferias_qtd', 30, type=int)
+                
+                dt_ini_f = request.form.get('data_inicio_ferias')
+                dt_fim_f = request.form.get('data_fim_ferias')
+                config.data_inicio_ferias = datetime.strptime(dt_ini_f, '%Y-%m-%d').date() if dt_ini_f else None
+                config.data_fim_ferias = datetime.strptime(dt_fim_f, '%Y-%m-%d').date() if dt_fim_f else None
+                
+                db.session.commit()
+                flash('Parâmetros do Calendário Letivo atualizados com sucesso!', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Erro ao atualizar configurações: {e}', 'danger')
+        else:
+            try:
+                data_str = request.form.get('data_evento')
+                data_evt = datetime.strptime(data_str, '%Y-%m-%d').date() if data_str else None
+                tipo = request.form.get('tipo_evento')
+                desc = request.form.get('descricao')
 
-            novo_evt = AcadCalendarioLetivo(
-                ano_letivo=ano_selecionado,
-                data_evento=data_evt,
-                tipo_evento=tipo,
-                descricao=desc
-            )
-            db.session.add(novo_evt)
-            db.session.commit()
-            flash('Evento adicionado ao Calendário Letivo!', 'success')
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Erro ao cadastrar evento: {e}', 'danger')
+                novo_evt = AcadCalendarioLetivo(
+                    ano_letivo=ano_selecionado,
+                    data_evento=data_evt,
+                    tipo_evento=tipo,
+                    descricao=desc
+                )
+                db.session.add(novo_evt)
+                db.session.commit()
+                flash('Evento adicionado ao Calendário Letivo!', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Erro ao cadastrar evento: {e}', 'danger')
+
         return redirect(url_for('academico.gerenciar_calendario', ano=ano_selecionado))
 
     eventos = AcadCalendarioLetivo.query.filter_by(ano_letivo=ano_selecionado).order_by(AcadCalendarioLetivo.data_evento).all()
-    total_dias_letivos = AcadCalendarioLetivo.query.filter_by(ano_letivo=ano_selecionado, tipo_evento='Dia Letivo').count()
+    
+    total_dias_letivos = AcadCalendarioLetivo.query.filter(
+        AcadCalendarioLetivo.ano_letivo == ano_selecionado,
+        or_(AcadCalendarioLetivo.tipo_evento == 'Dia Letivo', AcadCalendarioLetivo.tipo_evento == 'Sábado Letivo')
+    ).count()
 
-    tipos_eventos = ['Dia Letivo', 'Feriado', 'Recesso Escolar', 'Jornada Pedagógica', 'Conselho de Classe', 'Início de Bimestre', 'Fim de Bimestre']
+    total_sabados_letivos = AcadCalendarioLetivo.query.filter_by(
+        ano_letivo=ano_selecionado,
+        tipo_evento='Sábado Letivo'
+    ).count()
+
+    tipos_eventos = ['Dia Letivo', 'Sábado Letivo', 'Feriado', 'Recesso Escolar', 'Férias Escolares', 'Jornada Pedagógica', 'Conselho de Classe', 'Início de Bimestre', 'Fim de Bimestre']
 
     return render_template(
         'academico/calendario.html',
         eventos=eventos,
+        config=config,
         total_dias_letivos=total_dias_letivos,
+        total_sabados_letivos=total_sabados_letivos,
         ano_selecionado=ano_selecionado,
         tipos_eventos=tipos_eventos
     )

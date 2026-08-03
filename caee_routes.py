@@ -4,10 +4,10 @@ import os
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, send_from_directory, make_response
 from models import (
     CaeeAluno, CaeeProfissional, Secretaria, CaeePlanoAtendimento, 
-    CaeeSessao, CaeeLaudo, CaeeRelatorioPeriodico, CaeeLinhaTempo, CaeeEscola
+    CaeeSessao, CaeeLaudo, CaeeRelatorioPeriodico, CaeeLinhaTempo, CaeeEscola,
+    CaeeEscutaInicial, CaeeDevolutivaEscolar, CaeeAgendamento
 )
 from extensions import db
-# --- IMPORTANTE: Adicionado upload_arquivo_para_nuvem ---
 from utils import login_required, role_required, cabecalho_e_rodape, upload_arquivo_para_nuvem
 from datetime import datetime
 from werkzeug.utils import secure_filename
@@ -23,6 +23,51 @@ from sqlalchemy import or_
 
 
 caee_bp = Blueprint('caee', __name__, url_prefix='/caee')
+
+def executar_migracao_caee_segura():
+    queries = [
+        "ALTER TABLE caee_aluno ADD COLUMN IF NOT EXISTS prioridade_fila VARCHAR(20) DEFAULT 'Fila de Espera';",
+        "ALTER TABLE caee_aluno ADD COLUMN IF NOT EXISTS status_fluxo VARCHAR(50) DEFAULT 'Aguardando Escuta';",
+        """
+        CREATE TABLE IF NOT EXISTS caee_escuta_inicial (
+            id SERIAL PRIMARY KEY,
+            aluno_id INTEGER NOT NULL,
+            assistente_social_id INTEGER,
+            data_escuta TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            relatorio_resumo TEXT NOT NULL,
+            profissionais_destinados VARCHAR(300),
+            observacoes_familia TEXT
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS caee_devolutiva_escolar (
+            id SERIAL PRIMARY KEY,
+            aluno_id INTEGER NOT NULL,
+            profissional_id INTEGER NOT NULL,
+            data_emissao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            qtd_consultas_realizadas INTEGER DEFAULT 2,
+            relatorio_devolutiva TEXT NOT NULL,
+            orientacoes_sala_regular TEXT
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS caee_agendamento (
+            id SERIAL PRIMARY KEY,
+            aluno_id INTEGER NOT NULL,
+            profissional_id INTEGER NOT NULL,
+            data_hora TIMESTAMP NOT NULL,
+            status VARCHAR(50) DEFAULT 'Agendado',
+            observacoes TEXT,
+            data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+    ]
+    for sql in queries:
+        try:
+            db.session.execute(db.text(sql))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
 
 # ==========================================================
 # 1. DASHBOARD E CRUD ALUNO
@@ -254,6 +299,7 @@ def editar_aluno(aluno_id):
 @login_required
 @role_required('admin', 'RH', 'CAEE')
 def prontuario_aluno(aluno_id):
+    executar_migracao_caee_segura()
     aluno = CaeeAluno.query.get_or_404(aluno_id)
     planos = aluno.planos 
     linha_tempo = CaeeLinhaTempo.query.filter_by(aluno_id=aluno.id).order_by(CaeeLinhaTempo.data_evento.desc()).all()
@@ -261,9 +307,16 @@ def prontuario_aluno(aluno_id):
     secretaria_id_logada = session.get('secretaria_id')
     profissionais = CaeeProfissional.query.filter_by(secretaria_id=secretaria_id_logada, status='Ativo').all()
 
+    escuta_inicial = CaeeEscutaInicial.query.filter_by(aluno_id=aluno.id).order_by(CaeeEscutaInicial.data_escuta.desc()).first()
+    devolutivas = CaeeDevolutivaEscolar.query.filter_by(aluno_id=aluno.id).order_by(CaeeDevolutivaEscolar.data_emissao.desc()).all()
+    total_consultas = len(sessoes)
+    pode_gerar_devolutiva = total_consultas >= 2
+
     return render_template('caee_prontuario.html', 
         aluno=aluno, planos=planos, sessoes=sessoes, 
-        linha_tempo=linha_tempo, profissionais=profissionais
+        linha_tempo=linha_tempo, profissionais=profissionais,
+        escuta_inicial=escuta_inicial, devolutivas=devolutivas,
+        total_consultas=total_consultas, pode_gerar_devolutiva=pode_gerar_devolutiva
     )
 
 @caee_bp.route('/aluno/<int:aluno_id>/plano/novo', methods=['GET', 'POST'])
@@ -445,13 +498,77 @@ def adicionar_sessao(plano_id):
         )
         
         db.session.add(nova)
+
+        # Alimentação automática da Linha do Tempo (Prontuário Digital)
+        evento = CaeeLinhaTempo(
+            aluno_id=plano.aluno_id,
+            etapa=f"Sessão - {plano.profissional.especialidade or plano.profissional.funcao}",
+            status="Concluído" if nova.presenca else "Falta",
+            observacao=f"Atendimento por {prof_nome}. Evolução: {nova.observacoes_evolucao or 'Atendimento realizado.'}"
+        )
+        db.session.add(evento)
+
         db.session.commit()
-        flash('Sessão registrada!', 'success')
+        flash('Sessão registrada com sucesso e prontuário atualizado!', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Erro ao registrar sessão: {e}', 'danger')
         
     return redirect(url_for('caee.prontuario_aluno', aluno_id=plano.aluno_id))
+
+
+@caee_bp.route('/agendar', methods=['POST'])
+@login_required
+@role_required('admin', 'RH', 'CAEE')
+def agendar_consulta():
+    executar_migracao_caee_segura()
+    try:
+        aluno_id = request.form.get('aluno_id', type=int)
+        profissional_id = request.form.get('profissional_id', type=int)
+        dt_str = request.form.get('data_hora')
+        obs = request.form.get('observacoes')
+
+        aluno = CaeeAluno.query.get_or_404(aluno_id)
+        profissional = CaeeProfissional.query.get_or_404(profissional_id)
+
+        dt_hora = datetime.strptime(dt_str, '%Y-%m-%dT%H:%M') if dt_str else datetime.utcnow()
+
+        agendamento = CaeeAgendamento(
+            aluno_id=aluno.id,
+            profissional_id=profissional.id,
+            data_hora=dt_hora,
+            observacoes=obs,
+            status='Agendado'
+        )
+        db.session.add(agendamento)
+
+        aluno.status_fluxo = 'Em Atendimento'
+
+        plano_existente = CaeePlanoAtendimento.query.filter_by(aluno_id=aluno.id, profissional_id=profissional.id).first()
+        if not plano_existente:
+            novo_plano = CaeePlanoAtendimento(
+                aluno_id=aluno.id,
+                profissional_id=profissional.id,
+                status_plano='Ativo',
+                objetivos_gerais=f"Acompanhamento especializado em {profissional.especialidade or profissional.funcao}"
+            )
+            db.session.add(novo_plano)
+
+        evento = CaeeLinhaTempo(
+            aluno_id=aluno.id,
+            etapa=f"Consulta Agendada ({profissional.funcao})",
+            status="Em Andamento",
+            observacao=f"Consulta agendada para {dt_hora.strftime('%d/%m/%Y às %H:%M')} com {profissional.nome_completo}."
+        )
+        db.session.add(evento)
+
+        db.session.commit()
+        flash(f'Consulta agendada para {aluno.nome_completo} com {profissional.nome_completo}!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao agendar consulta: {e}', 'danger')
+
+    return redirect(url_for('caee.prontuario_aluno', aluno_id=aluno_id))
 
 @caee_bp.route('/sessao/<int:sessao_id>/editar', methods=['GET', 'POST'])
 @login_required
@@ -856,4 +973,204 @@ def navegar_por_escolas():
     return render_template('caee_navegacao_escolas.html', 
                            escolas=escolas, 
                            alunos=alunos, 
-                           escola_selecionada=escola_selecionada)    
+                           escola_selecionada=escola_selecionada)
+
+
+# ==========================================================
+# 4. NOVAS ROTAS DO FLUXO OPERACIONAL (ESCUTA & DEVOLUTIVA)
+# ==========================================================
+
+@caee_bp.route('/escuta/<int:aluno_id>', methods=['GET', 'POST'])
+@login_required
+@role_required('admin', 'RH', 'CAEE')
+def escuta_inicial(aluno_id):
+    executar_migracao_caee_segura()
+    aluno = CaeeAluno.query.get_or_404(aluno_id)
+    secretaria_id_logada = session.get('secretaria_id')
+    
+    if request.method == 'POST':
+        try:
+            relatorio = request.form.get('relatorio_resumo')
+            profissionais_lista = request.form.getlist('profissionais_destinados')
+            profissionais_str = ", ".join(profissionais_lista) if profissionais_lista else "Equipe Multidisciplinar"
+            obs_familia = request.form.get('observacoes_familia')
+            assistente_id = request.form.get('assistente_social_id', type=int)
+
+            escuta = CaeeEscutaInicial(
+                aluno_id=aluno.id,
+                assistente_social_id=assistente_id,
+                relatorio_resumo=relatorio,
+                profissionais_destinados=profissionais_str,
+                observacoes_familia=obs_familia
+            )
+            db.session.add(escuta)
+
+            # Atualiza o status no fluxo para 'Encaminhado'
+            aluno.status_fluxo = 'Encaminhado'
+            aluno.status = 'Em Avaliação'
+
+            # Registra evento na linha do tempo
+            evento = CaeeLinhaTempo(
+                aluno_id=aluno.id,
+                etapa="Escuta Inicial (Assistência Social)",
+                status="Concluído",
+                observacao=f"Escuta realizada pela Assistência Social. Encaminhado para: {profissionais_str}"
+            )
+            db.session.add(evento)
+
+            db.session.commit()
+            flash(f'Escuta Inicial do aluno "{aluno.nome_completo}" registrada com sucesso!', 'success')
+            return redirect(url_for('caee.prontuario_aluno', aluno_id=aluno.id))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao registrar Escuta Inicial: {e}', 'danger')
+
+    assistentes = CaeeProfissional.query.filter_by(secretaria_id=secretaria_id_logada, status='Ativo').all()
+    profissionais_equipe = CaeeProfissional.query.filter_by(secretaria_id=secretaria_id_logada, status='Ativo').all()
+
+    return render_template(
+        'caee_escuta_form.html',
+        aluno=aluno,
+        assistentes=assistentes,
+        profissionais_equipe=profissionais_equipe
+    )
+
+
+@caee_bp.route('/devolutiva/<int:aluno_id>/novo', methods=['GET', 'POST'])
+@login_required
+@role_required('admin', 'RH', 'CAEE')
+def criar_devolutiva(aluno_id):
+    executar_migracao_caee_segura()
+    aluno = CaeeAluno.query.get_or_404(aluno_id)
+    secretaria_id_logada = session.get('secretaria_id')
+
+    if request.method == 'POST':
+        try:
+            profissional_id = request.form.get('profissional_id', type=int)
+            relatorio = request.form.get('relatorio_devolutiva')
+            orientacoes = request.form.get('orientacoes_sala_regular')
+            qtd_consultas = request.form.get('qtd_consultas_realizadas', type=int) or 2
+
+            devolutiva = CaeeDevolutivaEscolar(
+                aluno_id=aluno.id,
+                profissional_id=profissional_id,
+                qtd_consultas_realizadas=qtd_consultas,
+                relatorio_devolutiva=relatorio,
+                orientacoes_sala_regular=orientacoes
+            )
+            db.session.add(devolutiva)
+
+            aluno.status_fluxo = 'Devolutiva Gerada'
+
+            evento = CaeeLinhaTempo(
+                aluno_id=aluno.id,
+                etapa="Devolutiva Escolar Gerada",
+                status="Concluído",
+                observacao=f"Devolutiva elaborada após {qtd_consultas} consultas para envio à escola {aluno.escola_origem or ''}."
+            )
+            db.session.add(evento)
+
+            db.session.commit()
+            flash(f'Devolutiva Escolar do aluno "{aluno.nome_completo}" gerada com sucesso!', 'success')
+            return redirect(url_for('caee.prontuario_aluno', aluno_id=aluno.id))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao gerar Devolutiva Escolar: {e}', 'danger')
+
+    profissionais = CaeeProfissional.query.filter_by(secretaria_id=secretaria_id_logada, status='Ativo').all()
+    escuta_mais_recente = CaeeEscutaInicial.query.filter_by(aluno_id=aluno.id).order_by(CaeeEscutaInicial.data_escuta.desc()).first()
+
+    return render_template(
+        'caee_devolutiva_form.html',
+        aluno=aluno,
+        profissionais=profissionais,
+        escuta=escuta_mais_recente
+    )
+
+
+@caee_bp.route('/devolutiva/<int:devolutiva_id>/pdf')
+@login_required
+@role_required('admin', 'RH', 'CAEE')
+def gerar_pdf_devolutiva(devolutiva_id):
+    devolutiva = CaeeDevolutivaEscolar.query.get_or_404(devolutiva_id)
+    aluno = devolutiva.aluno
+    profissional = devolutiva.profissional
+    secretaria = Secretaria.query.get(session.get('secretaria_id'))
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=1.5*cm, leftMargin=1.5*cm,
+        topMargin=1.5*cm, bottomMargin=1.5*cm
+    )
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('DocTitle', parent=styles['Heading1'], fontSize=14, leading=18, alignment=1, textColor=colors.HexColor('#1b4332'))
+    subtitle_style = ParagraphStyle('DocSub', parent=styles['Heading2'], fontSize=11, leading=14, alignment=1, textColor=colors.HexColor('#2d6a4f'))
+    h2_style = ParagraphStyle('H2Style', parent=styles['Heading3'], fontSize=11, leading=15, textColor=colors.HexColor('#1b4332'), spaceBefore=10, spaceAfter=4)
+    normal_style = ParagraphStyle('NormalStyle', parent=styles['Normal'], fontSize=10, leading=14, textColor=colors.HexColor('#212529'))
+    bold_label = ParagraphStyle('BoldLabel', parent=styles['Normal'], fontSize=10, leading=14, fontName='Helvetica-Bold')
+
+    elements = []
+
+    if secretaria:
+        elements.append(Paragraph(f"<b>{secretaria.nome_municipio or 'PREFEITURA MUNICIPAL'}</b>", title_style))
+        elements.append(Paragraph(f"{secretaria.nome or 'SECRETARIA MUNICIPAL DE EDUCAÇÃO'}", subtitle_style))
+        elements.append(Paragraph("CENTRO DE ATENDIMENTO EDUCACIONAL ESPECIALIZADO - CAEE", subtitle_style))
+        elements.append(Spacer(1, 0.4*cm))
+
+    elements.append(Paragraph("<b>RELATÓRIO OFICIAL DE DEVOLUTIVA ESCOLAR</b>", title_style))
+    elements.append(Paragraph("<b>(AEE - Atendimento Educacional Especializado)</b>", subtitle_style))
+    elements.append(Spacer(1, 0.5*cm))
+
+    dados_aluno = [
+        [Paragraph("<b>Aluno:</b>", bold_label), Paragraph(aluno.nome_completo, normal_style), Paragraph("<b>Data Nasc:</b>", bold_label), Paragraph(aluno.data_nascimento.strftime('%d/%m/%Y') if aluno.data_nascimento else "N/A", normal_style)],
+        [Paragraph("<b>Escola de Origem:</b>", bold_label), Paragraph(aluno.escola_origem or "Não Informada", normal_style), Paragraph("<b>Ano/Turma:</b>", bold_label), Paragraph(f"{aluno.ano_escolar or ''} ({aluno.turno or ''})", normal_style)],
+        [Paragraph("<b>CID / Diagnóstico:</b>", bold_label), Paragraph(aluno.cid_diagnostico or ("Laudado" if aluno.aluno_laudado else "Em Avaliação"), normal_style), Paragraph("<b>Responsável:</b>", bold_label), Paragraph(f"{aluno.nome_responsavel} ({aluno.telefone_responsavel})", normal_style)],
+        [Paragraph("<b>Profissional Responsável:</b>", bold_label), Paragraph(f"{profissional.nome_completo} - {profissional.funcao}", normal_style), Paragraph("<b>Data de Emissão:</b>", bold_label), Paragraph(devolutiva.data_emissao.strftime('%d/%m/%Y'), normal_style)]
+    ]
+    t_aluno = Table(dados_aluno, colWidths=[3.5*cm, 6*cm, 3.5*cm, 5*cm])
+    t_aluno.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f8f9fa')),
+        ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#dee2e6')),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e9ecef')),
+        ('PADDING', (0,0), (-1,-1), 4),
+    ]))
+    elements.append(t_aluno)
+    elements.append(Spacer(1, 0.5*cm))
+
+    escuta = CaeeEscutaInicial.query.filter_by(aluno_id=aluno.id).order_by(CaeeEscutaInicial.data_escuta.desc()).first()
+    if escuta:
+        elements.append(Paragraph("1. Síntese da Escuta Inicial (Assistência Social)", h2_style))
+        elements.append(Paragraph(escuta.relatorio_resumo.replace('\n', '<br/>'), normal_style))
+        elements.append(Spacer(1, 0.4*cm))
+
+    elements.append(Paragraph(f"2. Avaliação e Evolução Multidisciplinar (Após {devolutiva.qtd_consultas_realizadas} Atendimentos)", h2_style))
+    elements.append(Paragraph(devolutiva.relatorio_devolutiva.replace('\n', '<br/>'), normal_style))
+    elements.append(Spacer(1, 0.4*cm))
+
+    if devolutiva.orientacoes_sala_regular:
+        elements.append(Paragraph("3. Recomendações e Orientações para os Professores da Sala Regular", h2_style))
+        elements.append(Paragraph(devolutiva.orientacoes_sala_regular.replace('\n', '<br/>'), normal_style))
+        elements.append(Spacer(1, 0.5*cm))
+
+    elements.append(Spacer(1, 1*cm))
+    dados_assinaturas = [
+        [
+            Paragraph(f"___________________________________<br/><b>Profissional Responsável</b><br/>{profissional.nome_completo}<br/>{profissional.funcao}", ParagraphStyle('Assin', parent=normal_style, alignment=1)),
+            Paragraph("___________________________________<br/><b>Coordenação do CAEE</b><br/>Educação Inclusiva Municipal", ParagraphStyle('Assin2', parent=normal_style, alignment=1))
+        ]
+    ]
+    t_ass = Table(dados_assinaturas, colWidths=[9*cm, 9*cm])
+    t_ass.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+    elements.append(t_ass)
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    filename = f"Devolutiva_Escolar_{aluno.nome_completo.replace(' ', '_')}.pdf"
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response    

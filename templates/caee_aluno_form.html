@@ -128,6 +128,14 @@
                             <option value="Desligado" {% if aluno and aluno.status == 'Desligado' %}selected{% endif %}>Desligado</option>
                         </select>
                     </div>
+
+                    <div class="col-md-3">
+                        <label for="prioridade_fila" class="form-label fw-bold">Classificação da Entrada *</label>
+                        <select id="prioridade_fila" name="prioridade_fila" class="form-select border-warning fw-bold text-uppercase" required>
+                            <option value="Fila de Espera" {% if (aluno and aluno.prioridade_fila == 'Fila de Espera') or not aluno %}selected{% endif %}>Fila de Espera</option>
+                            <option value="Urgência" {% if aluno and aluno.prioridade_fila == 'Urgência' %}selected{% endif %}>🚨 URGÊNCIA</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="form-section-title">2. Filiação e Localização</div>

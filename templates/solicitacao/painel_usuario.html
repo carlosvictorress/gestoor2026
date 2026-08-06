@@ -148,6 +148,30 @@
         color: #ffffff !important;
     }
 
+    /* Estilo das Abas de Meses */
+    .nav-pills-delicate .nav-link {
+        background-color: #f8fafc;
+        color: #64748b;
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+    }
+
+    .nav-pills-delicate .nav-link:hover {
+        background-color: #e2e8f0;
+        color: #1e293b;
+    }
+
+    .nav-pills-delicate .nav-link.active {
+        background: var(--primary-gradient);
+        color: #ffffff !important;
+        border-color: #2563eb;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    }
+
     /* Badges de Status Refinados */
     .status-badge-delicate {
         padding: 6px 14px;
@@ -380,16 +404,16 @@
         </div>
     </div>
 
-    <!-- SEÇÃO HISTÓRICO E REQUISIÇÕES -->
+    <!-- SEÇÃO HISTÓRICO E REQUISIÇÕES EM ABAS MENSAIS -->
     <div class="row">
         <div class="col-12">
             <div class="delicate-card p-4">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 pb-3 border-bottom">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 pb-3 border-bottom">
                     <div>
                         <h5 class="fw-bold text-slate-800 mb-1">
                             <i class="fas fa-clock-rotate-left text-blue-600 me-2"></i>Status & Histórico de Requisições
                         </h5>
-                        <p class="text-slate-500 text-xs mb-0">Consulte o andamento das requisições e gerencie cancelamentos</p>
+                        <p class="text-slate-500 text-xs mb-0">Navegue pelas abas mensais para visualizar e gerenciar as solicitações</p>
                     </div>
 
                     <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -410,17 +434,7 @@
 
                         <div class="vr mx-1 opacity-25"></div>
 
-                        <!-- FILTROS LOCAIS -->
-                        <select id="filtro-mes" class="form-select-delicate py-1 px-3 text-xs" style="width: auto;">
-                            <option value="">Todos os Meses</option>
-                            <option value="01">Janeiro</option><option value="02">Fevereiro</option>
-                            <option value="03">Março</option><option value="04">Abril</option>
-                            <option value="05">Maio</option><option value="06">Junho</option>
-                            <option value="07">Julho</option><option value="08">Agosto</option>
-                            <option value="09">Setembro</option><option value="10">Outubro</option>
-                            <option value="11">Novembro</option><option value="12">Dezembro</option>
-                        </select>
-
+                        <!-- FILTRO POR SETOR -->
                         <select id="filtro-setor" class="form-select-delicate py-1 px-3 text-xs" style="width: auto;">
                             <option value="">Todos os Setores</option>
                             {% for s in setores %}
@@ -428,6 +442,29 @@
                             {% endfor %}
                         </select>
                     </div>
+                </div>
+
+                <!-- ABAS DE NAVEGAÇÃO MENSAL (NAV PILLS) -->
+                <div class="mb-4 overflow-x-auto pb-1">
+                    <ul class="nav nav-pills nav-pills-delicate gap-1.5 flex-nowrap" id="abas-meses" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link btn-aba-mes active rounded-pill px-3 py-1.5" data-mes="">
+                                <i class="fas fa-list me-1"></i> TODAS
+                            </button>
+                        </li>
+                        <li class="nav-item"><button class="nav-link btn-aba-mes rounded-pill px-3 py-1.5" data-mes="01">JANEIRO</button></li>
+                        <li class="nav-item"><button class="nav-link btn-aba-mes rounded-pill px-3 py-1.5" data-mes="02">FEVEREIRO</button></li>
+                        <li class="nav-item"><button class="nav-link btn-aba-mes rounded-pill px-3 py-1.5" data-mes="03">MARÇO</button></li>
+                        <li class="nav-item"><button class="nav-link btn-aba-mes rounded-pill px-3 py-1.5" data-mes="04">ABRIL</button></li>
+                        <li class="nav-item"><button class="nav-link btn-aba-mes rounded-pill px-3 py-1.5" data-mes="05">MAIO</button></li>
+                        <li class="nav-item"><button class="nav-link btn-aba-mes rounded-pill px-3 py-1.5" data-mes="06">JUNHO</button></li>
+                        <li class="nav-item"><button class="nav-link btn-aba-mes rounded-pill px-3 py-1.5" data-mes="07">JULHO</button></li>
+                        <li class="nav-item"><button class="nav-link btn-aba-mes rounded-pill px-3 py-1.5" data-mes="08">AGOSTO</button></li>
+                        <li class="nav-item"><button class="nav-link btn-aba-mes rounded-pill px-3 py-1.5" data-mes="09">SETEMBRO</button></li>
+                        <li class="nav-item"><button class="nav-link btn-aba-mes rounded-pill px-3 py-1.5" data-mes="10">OUTUBRO</button></li>
+                        <li class="nav-item"><button class="nav-link btn-aba-mes rounded-pill px-3 py-1.5" data-mes="11">NOVEMBRO</button></li>
+                        <li class="nav-item"><button class="nav-link btn-aba-mes rounded-pill px-3 py-1.5" data-mes="12">DEZEMBRO</button></li>
+                    </ul>
                 </div>
 
                 <!-- TABELA -->
@@ -493,13 +530,19 @@
                                 </td>
                             </tr>
                             {% else %}
-                            <tr>
+                            <tr id="linha-vazia">
                                 <td colspan="7" class="text-center py-5 text-slate-400">
                                     <i class="fas fa-folder-open d-block mb-3 fs-1 text-slate-300"></i>
                                     Nenhuma solicitação de veículo cadastrada.
                                 </td>
                             </tr>
                             {% endfor %}
+                            <tr id="linha-sem-resultados" style="display: none;">
+                                <td colspan="7" class="text-center py-5 text-slate-400">
+                                    <i class="fas fa-calendar-xmark d-block mb-3 fs-1 text-slate-300"></i>
+                                    Nenhuma solicitação encontrada para o mês selecionado.
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -540,27 +583,50 @@
             calendar.render();
         }
 
-        // --- 2. FILTROS INTELIGENTES ---
-        const filtroMes = document.getElementById('filtro-mes');
+        // --- 2. GERENCIAMENTO DE ABAS MENSAIS E FILTROS ---
+        const abasMeses = document.querySelectorAll('.btn-aba-mes');
         const filtroSetor = document.getElementById('filtro-setor');
-        const linhasTabela = document.querySelectorAll('#tabela-agendamentos tbody tr');
+        const linhasTabela = document.querySelectorAll('#tabela-agendamentos tbody tr:not(#linha-vazia):not(#linha-sem-resultados)');
+        const linhaSemResultados = document.getElementById('linha-sem-resultados');
 
-        function filtrarTabela() {
-            if (!filtroMes || !filtroSetor) return;
-            const mes = filtroMes.value;
-            const setor = filtroSetor.value.toLowerCase();
+        let mesSelecionado = "";
+
+        function aplicarFiltros() {
+            let visiveis = 0;
+            const setorFiltro = (filtroSetor ? filtroSetor.value : '').toLowerCase();
 
             linhasTabela.forEach(linha => {
-                const m = linha.getAttribute('data-mes');
-                const s = (linha.getAttribute('data-setor') || '').toLowerCase();
-                const mMatch = (mes === "" || m === mes);
-                const sMatch = (setor === "" || s === setor);
-                linha.style.display = (mMatch && sMatch) ? '' : 'none';
+                const mesLinha = linha.getAttribute('data-mes');
+                const setorLinha = (linha.getAttribute('data-setor') || '').toLowerCase();
+
+                const matchMes = (mesSelecionado === "" || mesLinha === mesSelecionado);
+                const matchSetor = (setorFiltro === "" || setorLinha === setorFiltro);
+
+                if (matchMes && matchSetor) {
+                    linha.style.display = '';
+                    visiveis++;
+                } else {
+                    linha.style.display = 'none';
+                }
             });
+
+            if (linhaSemResultados) {
+                linhaSemResultados.style.display = (visiveis === 0 && linhasTabela.length > 0) ? '' : 'none';
+            }
         }
 
-        if (filtroMes) filtroMes.addEventListener('change', filtrarTabela);
-        if (filtroSetor) filtroSetor.addEventListener('change', filtrarTabela);
+        abasMeses.forEach(aba => {
+            aba.addEventListener('click', function() {
+                abasMeses.forEach(a => a.classList.remove('active'));
+                this.classList.add('active');
+                mesSelecionado = this.getAttribute('data-mes');
+                aplicarFiltros();
+            });
+        });
+
+        if (filtroSetor) {
+            filtroSetor.addEventListener('change', aplicarFiltros);
+        }
 
         // --- 3. CANCELAMENTO COM JUSTIFICATIVA OBRIGATÓRIA (SWEETALERT2) ---
         document.querySelectorAll('.btn-cancelar').forEach(btn => {

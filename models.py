@@ -1740,7 +1740,8 @@ class SolicitacaoVeiculo(db.Model):
     horario_saida = db.Column(db.Time, nullable=False)
     horario_chegada = db.Column(db.Time, nullable=False)
     responsavel = db.Column(db.String(100), nullable=False)
-    status = db.Column(db.String(20), default='Pendente') # Pendente, Aprovada, Reprovada
+    status = db.Column(db.String(20), default='Pendente') # Pendente, Aprovada, Reprovada, Cancelada
+    justificativa = db.Column(db.Text, nullable=True)
     data_criacao = db.Column(db.DateTime, default=datetime.utcnow)    
     
     # Adicionando o server_default para evitar quebrar o banco de dados atual

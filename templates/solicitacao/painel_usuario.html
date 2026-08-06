@@ -3,182 +3,416 @@
 {% block content %}
 <style>
     :root {
-        --primary-gradient: linear-gradient(135deg, #1e40af 0%, #197fe6 100%);
-        --glass-bg: rgba(255, 255, 255, 0.95);
+        --primary-brand: #2563eb;
+        --primary-gradient: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+        --surface-card: #ffffff;
+        --border-color: #e2e8f0;
     }
 
-    body { background-color: #f8fafc; font-family: 'Inter', sans-serif; }
-    
-    .dashboard-card {
-        border: none;
-        border-radius: 16px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    /* Animações suaves de entrada */
+    @keyframes fadeInSlideUp {
+        from {
+            opacity: 0;
+            transform: translateY(18px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
-    .form-section {
-        background: var(--glass-bg);
-        border-left: 5px solid #1e40af;
+    @keyframes pulseSubtle {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.85; transform: scale(0.98); }
     }
 
-    .btn-primary-custom {
+    .animate-fade-in {
+        animation: fadeInSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Cards e Containers com Efeito Glassmorphism & Sombra Suave */
+    .delicate-card {
+        background: var(--surface-card);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        border-radius: 20px;
+        box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.04), 0 4px 6px -2px rgba(15, 23, 42, 0.02);
+        transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+    }
+
+    .delicate-card:hover {
+        box-shadow: 0 20px 35px -10px rgba(15, 23, 42, 0.08), 0 8px 10px -4px rgba(15, 23, 42, 0.03);
+    }
+
+    .kpi-card {
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 18px;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        transition: all 0.25s ease;
+    }
+
+    .kpi-card:hover {
+        transform: translateY(-3px);
+    }
+
+    .kpi-icon-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+
+    /* Formulário Estilizado */
+    .form-control-delicate, .form-select-delicate {
+        border: 1.5px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 0.65rem 1rem;
+        font-size: 0.925rem;
+        background-color: #f8fafc;
+        transition: all 0.2s ease;
+    }
+
+    .form-control-delicate:focus, .form-select-delicate:focus {
+        background-color: #ffffff;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+        outline: none;
+    }
+
+    .input-icon-group {
+        position: relative;
+    }
+
+    .input-icon-group i {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+    }
+
+    .input-icon-group .form-control-delicate {
+        padding-left: 2.75rem;
+    }
+
+    .btn-submit-custom {
         background: var(--primary-gradient);
         border: none;
-        border-radius: 10px;
-        padding: 12px;
-        font-weight: 600;
-        letter-spacing: 0.5px;
-        transition: all 0.3s;
+        border-radius: 12px;
+        padding: 0.85rem 1.5rem;
+        font-weight: 700;
+        font-size: 0.95rem;
+        letter-spacing: 0.3px;
+        color: #ffffff;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+        transition: all 0.25s ease;
     }
 
-    .btn-primary-custom:hover {
+    .btn-submit-custom:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 15px rgba(30, 64, 175, 0.3);
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+        color: #ffffff;
+    }
+
+    /* FullCalendar Customization */
+    #calendar {
+        border-radius: 14px;
+        overflow: hidden;
+        background: #ffffff;
+        padding: 0.5rem;
+    }
+
+    .fc .fc-toolbar-title {
+        font-size: 1.15rem !important;
+        font-weight: 700 !important;
+        color: #1e293b;
     }
 
     .fc .fc-button-primary {
-        background-color: #1e40af !important;
-        border: none !important;
-        text-transform: capitalize;
+        background-color: #f1f5f9 !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #334155 !important;
+        border-radius: 10px !important;
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        text-transform: capitalize !important;
+        box-shadow: none !important;
     }
 
-    .table thead th {
+    .fc .fc-button-primary:hover, .fc .fc-button-primary.fc-button-active {
+        background-color: #2563eb !important;
+        border-color: #2563eb !important;
+        color: #ffffff !important;
+    }
+
+    /* Badges de Status Refinados */
+    .status-badge-delicate {
+        padding: 6px 14px;
+        border-radius: 50px;
+        font-size: 0.775rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .status-aprovada {
+        background-color: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+    }
+
+    .status-pendente {
+        background-color: #fffbeb;
+        color: #b45309;
+        border: 1px solid #fde68a;
+        animation: pulseSubtle 3s infinite ease-in-out;
+    }
+
+    .status-reprovada {
+        background-color: #fef2f2;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+    }
+
+    .status-cancelada {
         background-color: #f1f5f9;
-        text-transform: uppercase;
-        font-size: 0.75rem;
-        letter-spacing: 0.05em;
-        color: #64748b;
-        border: none;
+        color: #475569;
+        border: 1px solid #cbd5e1;
     }
 
-    .status-badge {
-        padding: 6px 12px;
-        border-radius: 20px;
+    /* Estilo da Tabela */
+    .table-delicate thead th {
+        background-color: #f8fafc;
+        color: #64748b;
         font-size: 0.75rem;
         font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #e2e8f0;
     }
 
-    .status-aprovada { background: #dcfce7; color: #166534; }
-    .status-reprovada { background: #fee2e2; color: #991b1b; }
-    .status-pendente { background: #fef9c3; color: #854d0e; }
+    .table-delicate tbody td {
+        padding: 1.1rem 1.25rem;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.9rem;
+    }
 
-    #calendar {
-        border-radius: 12px;
-        overflow: hidden;
-        background: white;
+    .table-delicate tbody tr {
+        transition: background-color 0.2s ease;
+    }
+
+    .table-delicate tbody tr:hover {
+        background-color: rgba(241, 245, 249, 0.6);
     }
 </style>
 
-<div class="container-fluid py-4 px-lg-5">
-    <div class="d-flex justify-content-between align-items-end mb-5">
+<div class="container-fluid py-4 px-lg-5 animate-fade-in">
+    <!-- TOP HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
         <div>
-            <h2 class="fw-black text-slate-900 mb-1">Central de Transportes</h2>
-            <div class="d-flex align-items-center gap-2">
-                <span class="text-muted">Operando sob:</span>
-                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill fw-bold">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-blue-50 text-blue-700 border border-blue-200 rounded-pill px-3 py-1 text-xs fw-bold">
+                    <i class="fas fa-layer-group me-1"></i> Módulo Transportes
+                </span>
+                <span class="badge bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-pill px-3 py-1 text-xs fw-bold">
                     <i class="fas fa-building me-1"></i> {{ session.get('setor_nome') }}
                 </span>
             </div>
+            <h2 class="fw-extrabold text-slate-900 tracking-tight mb-0" style="font-size: 1.75rem;">
+                Agendamento de Veículos
+            </h2>
+            <p class="text-slate-500 text-sm mb-0">Gerencie e acompanhe solicitações de frota municipal com praticidade</p>
         </div>
-        <a href="{{ url_for('solicitacao.login_setor') }}" class="btn btn-outline-danger rounded-pill px-4 fw-bold transition-soft">
-            <i class="fas fa-sign-out-alt me-2"></i>Encerrar Sessão
-        </a>
+
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ url_for('solicitacao.login_setor') }}" class="btn btn-outline-danger btn-sm rounded-pill px-4 py-2 fw-semibold transition-all">
+                <i class="fas fa-sign-out-alt me-2"></i>Trocar Setor
+            </a>
+        </div>
     </div>
 
-    <div class="row g-4">
+    <!-- CARDS COM INDICADORES (KPIs) -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="kpi-card shadow-sm">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-slate-500 text-xs font-semibold text-uppercase tracking-wider">Total do Setor</span>
+                    <div class="kpi-icon-wrapper bg-blue-50 text-blue-600">
+                        <i class="fas fa-car-side"></i>
+                    </div>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                    <h3 class="fw-bold text-slate-800 mb-0">{{ stats.total }}</h3>
+                    <span class="text-xs text-slate-400">requisição(ões)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="kpi-card shadow-sm">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-slate-500 text-xs font-semibold text-uppercase tracking-wider">Confirmadas</span>
+                    <div class="kpi-icon-wrapper bg-emerald-50 text-emerald-600">
+                        <i class="fas fa-circle-check"></i>
+                    </div>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                    <h3 class="fw-bold text-emerald-700 mb-0">{{ stats.aprovadas }}</h3>
+                    <span class="text-xs text-emerald-600">autorizada(s)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="kpi-card shadow-sm">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-slate-500 text-xs font-semibold text-uppercase tracking-wider">Em Análise</span>
+                    <div class="kpi-icon-wrapper bg-amber-50 text-amber-600">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                    <h3 class="fw-bold text-amber-700 mb-0">{{ stats.pendentes }}</h3>
+                    <span class="text-xs text-amber-600">aguardando</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="kpi-card shadow-sm">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-slate-500 text-xs font-semibold text-uppercase tracking-wider">Canceladas/Outros</span>
+                    <div class="kpi-icon-wrapper bg-slate-100 text-slate-600">
+                        <i class="fas fa-ban"></i>
+                    </div>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                    <h3 class="fw-bold text-slate-700 mb-0">{{ stats.canceladas }}</h3>
+                    <span class="text-xs text-slate-500">finalizada(s)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN GRID (ESCALA & FORMULÁRIO) -->
+    <div class="row g-4 mb-5">
+        <!-- ESQUERDA: FULLCALENDAR DE ESCALA -->
         <div class="col-xl-7">
-            <div class="card dashboard-card h-100">
-                <div class="card-header bg-white border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
-                    <h5 class="fw-bold text-slate-800 mb-0"><i class="fas fa-calendar-check text-primary me-2"></i>Escala de Veículos</h5>
-                    <small class="text-muted">Consulte datas ocupadas antes de solicitar</small>
+            <div class="delicate-card h-100 p-4">
+                <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                    <div>
+                        <h5 class="fw-bold text-slate-800 mb-1">
+                            <i class="fas fa-calendar-alt text-blue-600 me-2"></i>Escala e Ocupação da Frota
+                        </h5>
+                        <p class="text-slate-500 text-xs mb-0">Consulte datas e horários ocupados para evitar conflitos</p>
+                    </div>
+                    <span class="badge bg-slate-100 text-slate-600 rounded-pill px-3 py-1 text-xs fw-medium">
+                        Tempo Real
+                    </span>
                 </div>
-                <div class="card-body">
-                    <div id="calendar" class="shadow-sm border"></div>
-                </div>
+                <div id="calendar" class="shadow-sm border border-slate-100"></div>
             </div>
         </div>
 
+        <!-- DIREITA: FORMULÁRIO DE NOVA REQUISIÇÃO -->
         <div class="col-xl-5">
-            <div class="card dashboard-card form-section h-100">
-                <div class="card-header bg-transparent border-0 pt-4 px-4">
-                    <h5 class="fw-bold text-slate-800 mb-0">Nova Requisição</h5>
-                    <p class="text-muted small">Preencha os detalhes da viagem abaixo</p>
+            <div class="delicate-card h-100 p-4">
+                <div class="mb-4 pb-2 border-bottom">
+                    <h5 class="fw-bold text-slate-800 mb-1">
+                        <i class="fas fa-paper-plane text-blue-600 me-2"></i>Nova Requisição
+                    </h5>
+                    <p class="text-slate-500 text-xs mb-0">Preencha as informações para agendar um veículo</p>
                 </div>
-                <div class="card-body px-4 pb-4">
-                   <form action="{{ url_for('solicitacao.salvar_solicitacao') }}" method="POST">
-                        <div class="mb-4">
-                            <label class="form-label text-slate-500 fw-bold small">DATA DA VIAGEM</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light border-end-0"><i class="fas fa-calendar-day"></i></span>
-                                <input type="date" name="data_solicitada" class="form-control border-start-0 bg-light" required>
-                            </div>
-                        </div>
-                        
-                        <div class="row g-3">
-                            <div class="col-6 mb-4">
-                                <label class="form-label text-slate-500 fw-bold small">HORA SAÍDA</label>
-                                <input type="time" name="horario_saida" class="form-control bg-light" required>
-                            </div>
-                            <div class="col-6 mb-4">
-                                <label class="form-label text-slate-500 fw-bold small">PREVISÃO RETORNO</label>
-                                <input type="time" name="horario_chegada" class="form-control bg-light" required>
-                            </div>
-                        </div>
 
-                        <div class="mb-4">
-                            <label class="form-label text-slate-500 fw-bold small">VEÍCULO REQUERIDO</label>
-                            <select name="veiculo" class="form-select bg-light" required>
-                                <option value="" selected disabled>Selecione a categoria...</option>
-                                <option value="FIAT STRADA">FIAT STRADA (Pick-up)</option>
-                                <option value="FIAT MOBI">FIAT MOBI (Hatch)</option>
-                                <option value="ONIBUS">ÔNIBUS (Coletivo)</option>
-                            </select>
+                <form action="{{ url_for('solicitacao.salvar_solicitacao') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label text-slate-600 fw-semibold text-xs text-uppercase tracking-wider">Data da Viagem *</label>
+                        <div class="input-icon-group">
+                            <i class="fas fa-calendar-day"></i>
+                            <input type="date" name="data_solicitada" class="form-control-delicate w-100" required>
                         </div>
+                    </div>
 
-                        <div class="mb-4">
-                            <label class="form-label text-slate-500 fw-bold small">FINALIDADE E ROTEIRO</label>
-                            <textarea name="motivo" class="form-control bg-light" rows="3" placeholder="Ex: Transporte de insumos para zona rural..." required></textarea>
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label class="form-label text-slate-600 fw-semibold text-xs text-uppercase tracking-wider">Hora Saída *</label>
+                            <input type="time" name="horario_saida" class="form-control-delicate w-100" required>
                         </div>
-
-                        <div class="mb-5">
-                            <label class="form-label text-slate-500 fw-bold small">SERVIDOR RESPONSÁVEL</label>
-                            <input type="text" name="responsavel" class="form-control bg-light" placeholder="Nome completo do acompanhante" required>
+                        <div class="col-6">
+                            <label class="form-label text-slate-600 fw-semibold text-xs text-uppercase tracking-wider">Previsão Retorno *</label>
+                            <input type="time" name="horario_chegada" class="form-control-delicate w-100" required>
                         </div>
+                    </div>
 
-                        <button type="submit" class="btn btn-primary-custom w-100 text-white">
-                            <i class="fas fa-paper-plane me-2"></i>ENVIAR SOLICITAÇÃO
-                        </button>
-                    </form>
-                </div>
+                    <div class="mb-3">
+                        <label class="form-label text-slate-600 fw-semibold text-xs text-uppercase tracking-wider">Veículo Desejado *</label>
+                        <select name="veiculo" class="form-select-delicate w-100" required>
+                            <option value="" selected disabled>Selecione a categoria do veículo...</option>
+                            <option value="FIAT STRADA">FIAT STRADA (Pick-up Utilitário)</option>
+                            <option value="FIAT MOBI">FIAT MOBI (Hatch Leve)</option>
+                            <option value="ONIBUS">ÔNIBUS (Coletivo / Escolar)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-slate-600 fw-semibold text-xs text-uppercase tracking-wider">Servidor Responsável *</label>
+                        <div class="input-icon-group">
+                            <i class="fas fa-user-tie"></i>
+                            <input type="text" name="responsavel" class="form-control-delicate w-100" placeholder="Nome completo do servidor acompanhante" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label text-slate-600 fw-semibold text-xs text-uppercase tracking-wider">Finalidade & Roteiro *</label>
+                        <textarea name="motivo" class="form-control-delicate w-100" rows="3" placeholder="Descreva o motivo da viagem e o destino..." required></textarea>
+                    </div>
+
+                    <button type="submit" class="btn-submit-custom w-100">
+                        <i class="fas fa-paper-plane me-2"></i>Enviar Solicitação
+                    </button>
+                </form>
             </div>
         </div>
     </div>
 
-    <div class="row mt-5">
+    <!-- SEÇÃO HISTÓRICO E REQUISIÇÕES -->
+    <div class="row">
         <div class="col-12">
-            <div class="card dashboard-card">
-                <div class="card-header bg-white border-bottom py-4 px-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
-                    <h5 class="fw-bold text-slate-800 mb-0"><i class="fas fa-history text-primary me-2"></i>Status das Requisições</h5>
-                    
-                    <div class="d-flex gap-3 align-items-center">
-                        <form action="{{ url_for('solicitacao.exportar_agenda') }}" method="POST" class="d-flex gap-2">
-                            <select name="mes_agenda" class="form-select form-select-sm rounded-pill shadow-none" required>
-                                <option value="01">Janeiro</option> <option value="02">Fevereiro</option>
-                                <option value="03">Março</option> <option value="04">Abril</option>
-                                <option value="05">Maio</option> <option value="06">Junho</option>
-                                <option value="07">Julho</option> <option value="08">Agosto</option>
-                                <option value="09">Setembro</option> <option value="10">Outubro</option>
-                                <option value="11">Novembro</option> <option value="12">Dezembro</option>
+            <div class="delicate-card p-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 pb-3 border-bottom">
+                    <div>
+                        <h5 class="fw-bold text-slate-800 mb-1">
+                            <i class="fas fa-clock-rotate-left text-blue-600 me-2"></i>Status & Histórico de Requisições
+                        </h5>
+                        <p class="text-slate-500 text-xs mb-0">Consulte o andamento das requisições e gerencie cancelamentos</p>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <!-- EXPORTAR AGENDA PDF -->
+                        <form action="{{ url_for('solicitacao.exportar_agenda') }}" method="POST" class="d-flex gap-2 align-items-center">
+                            <select name="mes_agenda" class="form-select-delicate py-1 px-3 text-xs" style="width: auto;" required>
+                                <option value="01">Jan</option><option value="02">Fev</option>
+                                <option value="03">Mar</option><option value="04">Abr</option>
+                                <option value="05">Mai</option><option value="06">Jun</option>
+                                <option value="07">Jul</option><option value="08">Ago</option>
+                                <option value="09">Set</option><option value="10">Out</option>
+                                <option value="11">Nov</option><option value="12">Dez</option>
                             </select>
-                            <button type="submit" class="btn btn-sm btn-danger rounded-pill px-3">
+                            <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3 py-1 text-xs fw-semibold">
                                 <i class="fas fa-file-pdf me-1"></i>Agenda PDF
                             </button>
                         </form>
 
-                        <div class="vr mx-2"></div>
+                        <div class="vr mx-1 opacity-25"></div>
 
-                        <select id="filtro-mes" class="form-select form-select-sm rounded-pill border-primary shadow-none">
-                            <option value="">Filtrar Mês</option>
+                        <!-- FILTROS LOCAIS -->
+                        <select id="filtro-mes" class="form-select-delicate py-1 px-3 text-xs" style="width: auto;">
+                            <option value="">Todos os Meses</option>
                             <option value="01">Janeiro</option><option value="02">Fevereiro</option>
                             <option value="03">Março</option><option value="04">Abril</option>
                             <option value="05">Maio</option><option value="06">Junho</option>
@@ -186,7 +420,8 @@
                             <option value="09">Setembro</option><option value="10">Outubro</option>
                             <option value="11">Novembro</option><option value="12">Dezembro</option>
                         </select>
-                        <select id="filtro-setor" class="form-select form-select-sm rounded-pill border-primary shadow-none">
+
+                        <select id="filtro-setor" class="form-select-delicate py-1 px-3 text-xs" style="width: auto;">
                             <option value="">Todos os Setores</option>
                             {% for s in setores %}
                             <option value="{{ s.nome_setor }}">{{ s.nome_setor }}</option>
@@ -194,93 +429,116 @@
                         </select>
                     </div>
                 </div>
-                
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0" id="tabela-agendamentos">
-                            <thead>
-                                <tr>
-                                    <th class="ps-4">Situação</th>
-                                    <th>Data Viagem</th>
-                                    <th>Departamento</th>
-                                    <th>Veículo</th>
-                                    <th>Janela de Horário</th>
-                                    <th>Responsável</th>
-                                    <th class="text-end pe-4">Documentação</th>
-                                </tr>
-                            </thead>
-                            <tbody class="border-top-0">
-                                {% for sol in solicitacoes %}
-                                <tr data-mes="{{ sol.data_solicitada.strftime('%m') }}" data-setor="{{ sol.setor.nome_setor }}">
-                                    <td class="ps-4">
-                                        {% if sol.status == 'Aprovada' %}
-                                            <span class="status-badge status-aprovada"><i class="fas fa-check-circle me-1"></i> Confirmado</span>
-                                        {% elif sol.status == 'Reprovada' %}
-                                            <span class="status-badge status-reprovada" title="{{ sol.justificativa }}"><i class="fas fa-times-circle me-1"></i> Indeferido</span>
-                                        {% else %}
-                                            <span class="status-badge status-pendente"><i class="fas fa-hourglass-half me-1"></i> Em Análise</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="fw-bold text-slate-700">{{ sol.data_solicitada.strftime('%d/%m/%Y') }}</td>
-                                    <td><span class="text-slate-600 fw-medium">{{ sol.setor.nome_setor }}</span></td>
-                                    <td><span class="badge bg-secondary text-white">{{ sol.veiculo_solicitado }}</span></td>
-                                    <td>
-                                        <div class="d-flex align-items-center text-slate-500">
-                                            <i class="far fa-clock me-2"></i>
-                                            <span>{{ sol.horario_saida.strftime('%H:%M') }} — {{ sol.horario_chegada.strftime('%H:%M') }}</span>
-                                        </div>
-                                    </td>
-                                    <td class="text-slate-600">{{ sol.responsavel }}</td>
-                                    <td class="text-end pe-4">
-                                        {% if sol.status == 'Aprovada' %}
-                                            <a href="{{ url_for('solicitacao.reimprimir_comprovante', id=sol.id) }}" class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm transition-soft">
-                                                <i class="fas fa-print me-1"></i> Comprovante
-                                            </a>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% else %}
-                                <tr>
-                                    <td colspan="7" class="text-center py-5 text-muted">
-                                        <i class="fas fa-folder-open d-block mb-2 fs-2"></i>
-                                        Nenhuma solicitação registrada no sistema.
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+
+                <!-- TABELA -->
+                <div class="table-responsive">
+                    <table class="table table-delicate align-middle mb-0" id="tabela-agendamentos">
+                        <thead>
+                            <tr>
+                                <th class="ps-3">Situação</th>
+                                <th>Data Viagem</th>
+                                <th>Departamento</th>
+                                <th>Veículo</th>
+                                <th>Janela de Horário</th>
+                                <th>Responsável</th>
+                                <th class="text-end pe-3">Ações / Documentos</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sol in solicitacoes %}
+                            <tr data-mes="{{ sol.data_solicitada.strftime('%m') }}" data-setor="{{ sol.setor.nome_setor }}">
+                                <td class="ps-3">
+                                    {% if sol.status == 'Aprovada' %}
+                                        <span class="status-badge-delicate status-aprovada">
+                                            <i class="fas fa-circle-check"></i> Confirmado
+                                        </span>
+                                    {% elif sol.status == 'Reprovada' %}
+                                        <span class="status-badge-delicate status-reprovada" title="Motivo: {{ sol.justificativa }}">
+                                            <i class="fas fa-circle-xmark"></i> Indeferido
+                                        </span>
+                                    {% elif sol.status == 'Cancelada' %}
+                                        <span class="status-badge-delicate status-cancelada" title="{{ sol.justificativa or 'Cancelado pelo solicitante' }}">
+                                            <i class="fas fa-ban"></i> Cancelado
+                                        </span>
+                                    {% else %}
+                                        <span class="status-badge-delicate status-pendente">
+                                            <i class="fas fa-hourglass-half"></i> Em Análise
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="fw-bold text-slate-800">{{ sol.data_solicitada.strftime('%d/%m/%Y') }}</td>
+                                <td><span class="text-slate-600 font-medium">{{ sol.setor.nome_setor }}</span></td>
+                                <td><span class="badge bg-slate-100 text-slate-700 border border-slate-200 rounded-md font-semibold px-2 py-1">{{ sol.veiculo_solicitado }}</span></td>
+                                <td>
+                                    <div class="d-flex align-items-center text-slate-500 text-xs">
+                                        <i class="far fa-clock me-2 text-slate-400"></i>
+                                        <span>{{ sol.horario_saida.strftime('%H:%M') }} às {{ sol.horario_chegada.strftime('%H:%M') }}</span>
+                                    </div>
+                                </td>
+                                <td class="text-slate-700 font-medium">{{ sol.responsavel }}</td>
+                                <td class="text-end pe-3">
+                                    {% if sol.status == 'Aprovada' %}
+                                        <a href="{{ url_for('solicitacao.reimprimir_comprovante', id=sol.id) }}" class="btn btn-sm btn-primary rounded-pill px-3 py-1 shadow-sm font-semibold transition-all">
+                                            <i class="fas fa-print me-1"></i> Comprovante
+                                        </a>
+                                    {% elif sol.status == 'Pendente' and sol.setor_id == session.get('setor_id') %}
+                                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 py-1 font-semibold transition-all btn-cancelar" data-id="{{ sol.id }}">
+                                            <i class="fas fa-trash-alt me-1"></i> Cancelar
+                                        </button>
+                                    {% elif sol.justificativa %}
+                                        <button type="button" class="btn btn-sm btn-light border text-slate-600 rounded-pill px-2 py-1 text-xs" onclick="Swal.fire({title:'Justificativa', text:'{{ sol.justificativa }}', icon:'info'})">
+                                            <i class="fas fa-info-circle me-1"></i> Detalhes
+                                        </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center py-5 text-slate-400">
+                                    <i class="fas fa-folder-open d-block mb-3 fs-1 text-slate-300"></i>
+                                    Nenhuma solicitação de veículo cadastrada.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
+<!-- FORM OCULTO PARA CANCELAMENTO VIA SWEETALERT -->
+<form id="form-cancelar" action="" method="POST" style="display: none;">
+    <input type="hidden" name="justificativa" id="input-justificativa-cancelamento">
+</form>
+
+<!-- FULLCALENDAR & DEPENDÊNCIAS -->
 <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/pt-br.js'></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // --- 1. CALENDÁRIO ENTERPRISE ---
+        // --- 1. FULLCALENDAR INTEGRATION ---
         var calendarEl = document.getElementById('calendar');
-        var calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth',
-            locale: 'pt-br',
-            height: 520,
-            headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,dayGridWeek'
-            },
-            themeSystem: 'bootstrap5',
-            events: '/solicitacao/api/eventos',
-            eventColor: '#1e40af',
-            eventTextColor: '#ffffff',
-            dayMaxEvents: true
-        });
-        calendar.render();
+        if (calendarEl) {
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'pt-br',
+                height: 480,
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,dayGridWeek'
+                },
+                events: '/solicitacao/api/eventos',
+                eventColor: '#2563eb',
+                eventTextColor: '#ffffff',
+                dayMaxEvents: true
+            });
+            calendar.render();
+        }
 
         // --- 2. FILTROS INTELIGENTES ---
         const filtroMes = document.getElementById('filtro-mes');
@@ -301,31 +559,66 @@
             });
         }
 
-        filtroMes?.addEventListener('change', filtrarTabela);
-        filtroSetor?.addEventListener('change', filtrarTabela);
+        if (filtroMes) filtroMes.addEventListener('change', filtrarTabela);
+        if (filtroSetor) filtroSetor.addEventListener('change', filtrarTabela);
+
+        // --- 3. CANCELAMENTO COM JUSTIFICATIVA OBRIGATÓRIA (SWEETALERT2) ---
+        document.querySelectorAll('.btn-cancelar').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const solId = this.getAttribute('data-id');
+                
+                Swal.fire({
+                    title: 'Cancelar Agendamento?',
+                    text: 'Informe a justificativa do cancelamento abaixo (obrigatório):',
+                    input: 'textarea',
+                    inputPlaceholder: 'Ex: Reunião cancelada / Impossibilidade de comparecimento...',
+                    inputAttributes: {
+                        'aria-label': 'Escreva a justificativa do cancelamento'
+                    },
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fas fa-check me-1"></i> Sim, Cancelar',
+                    cancelButtonText: 'Voltar',
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonColor: '#64748b',
+                    inputValidator: (value) => {
+                        if (!value || !value.trim()) {
+                            return 'Você precisa escrever uma justificativa para cancelar!';
+                        }
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed && result.value) {
+                        const form = document.getElementById('form-cancelar');
+                        form.action = `/solicitacao/cancelar/${solId}`;
+                        document.getElementById('input-justificativa-cancelamento').value = result.value.trim();
+                        form.submit();
+                    }
+                });
+            });
+        });
     });
 </script>
 
+<!-- NOTIFICAÇÕES FLASH COM SWEETALERT TOAST -->
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         <script>
             document.addEventListener('DOMContentLoaded', function() {
+                const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 4500,
+                    timerProgressBar: true
+                });
+
                 {% for category, message in messages %}
-                    Swal.fire({
-                        icon: '{{ "error" if category == "danger" else "warning" if category == "warning" else "success" }}',
-                        title: '{{ "Atenção" if category in ["danger", "warning"] else "Sucesso!" }}',
-                        text: '{{ message }}',
-                        confirmButtonText: 'Ok',
-                        confirmButtonColor: '#1e40af',
-                        background: '#ffffff',
-                        customClass: {
-                            popup: 'rounded-4 shadow'
-                        }
+                    Toast.fire({
+                        icon: '{{ "error" if category in ["danger", "error"] else "warning" if category == "warning" else "info" if category == "info" else "success" }}',
+                        title: '{{ message }}'
                     });
                 {% endfor %}
             });
         </script>
     {% endif %}
 {% endwith %}
-
 {% endblock %}

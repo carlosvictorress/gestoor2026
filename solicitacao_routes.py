@@ -173,9 +173,21 @@ def login_setor():
 def painel_usuario():
     if 'setor_id' not in session:
         return redirect(url_for('solicitacao.login_setor'))
+    
+    setor_id = session['setor_id']
     solicitacoes = SolicitacaoVeiculo.query.join(SetorTransporte).order_by(SolicitacaoVeiculo.data_solicitada.desc()).all()
     setores = SetorTransporte.query.order_by(SetorTransporte.nome_setor).all()
-    return render_template('solicitacao/painel_usuario.html', solicitacoes=solicitacoes, setores=setores)
+    
+    # Métricas e Indicadores do Setor
+    minhas_sols = [s for s in solicitacoes if s.setor_id == setor_id]
+    stats = {
+        'total': len(minhas_sols),
+        'aprovadas': sum(1 for s in minhas_sols if s.status == 'Aprovada'),
+        'pendentes': sum(1 for s in minhas_sols if s.status == 'Pendente'),
+        'canceladas': sum(1 for s in minhas_sols if s.status in ['Cancelada', 'Reprovada'])
+    }
+    
+    return render_template('solicitacao/painel_usuario.html', solicitacoes=solicitacoes, setores=setores, stats=stats)
 
 @solicitacao_bp.route('/painel', methods=['POST'])
 def salvar_solicitacao():
@@ -203,7 +215,7 @@ def salvar_solicitacao():
         SolicitacaoVeiculo.setor_id == session['setor_id'],
         SolicitacaoVeiculo.data_solicitada >= inicio_semana,
         SolicitacaoVeiculo.data_solicitada <= fim_semana,
-        SolicitacaoVeiculo.status != 'Reprovada'
+        SolicitacaoVeiculo.status.notin_(['Reprovada', 'Cancelada'])
     ).distinct().all()]
 
     if len(dias_existentes) >= 2 and data_obj not in dias_existentes:
@@ -213,7 +225,7 @@ def salvar_solicitacao():
     conflito = SolicitacaoVeiculo.query.filter(
         SolicitacaoVeiculo.data_solicitada == data_obj,
         SolicitacaoVeiculo.veiculo_solicitado == veiculo_escolhido,
-        SolicitacaoVeiculo.status != 'Reprovada',
+        SolicitacaoVeiculo.status.notin_(['Reprovada', 'Cancelada']),
         SolicitacaoVeiculo.horario_saida < horario_chegada_obj,
         SolicitacaoVeiculo.horario_chegada > horario_saida_obj
     ).first()
@@ -230,6 +242,31 @@ def salvar_solicitacao():
     db.session.add(nova_sol)
     db.session.commit()
     flash('Solicitação enviada com sucesso!', 'success')
+    return redirect(url_for('solicitacao.painel_usuario'))
+
+@solicitacao_bp.route('/cancelar/<int:id>', methods=['POST'])
+def cancelar_solicitacao(id):
+    if 'setor_id' not in session:
+        return redirect(url_for('solicitacao.login_setor'))
+    
+    sol = SolicitacaoVeiculo.query.get_or_404(id)
+    if sol.setor_id != session['setor_id']:
+        flash('Você não tem permissão para cancelar esta solicitação.', 'danger')
+        return redirect(url_for('solicitacao.painel_usuario'))
+        
+    if sol.status != 'Pendente':
+        flash('Apenas solicitações em análise podem ser canceladas.', 'warning')
+        return redirect(url_for('solicitacao.painel_usuario'))
+        
+    justificativa = request.form.get('justificativa', '').strip()
+    if not justificativa:
+        flash('A justificativa de cancelamento é obrigatória!', 'danger')
+        return redirect(url_for('solicitacao.painel_usuario'))
+        
+    sol.status = 'Cancelada'
+    sol.justificativa = f"Cancelado pelo solicitante: {justificativa}"
+    db.session.commit()
+    flash('Solicitação cancelada com sucesso.', 'info')
     return redirect(url_for('solicitacao.painel_usuario'))
 
 @solicitacao_bp.route('/admin/painel')

@@ -15,7 +15,7 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, HRFlowable
 
 solicitacao_bp = Blueprint('solicitacao', __name__, url_prefix='/solicitacao')
 
@@ -44,67 +44,159 @@ def transporte_admin_required(f):
 def gerar_pdf_autorizacao(solicitacao):
     buffer = io.BytesIO()
     
-    # Tenta localizar o timbre na pasta static na raiz do projeto
     base_dir = os.path.dirname(os.path.abspath(__file__))
     caminho_timbre = os.path.join(base_dir, 'static', 'timbre.png')
     
     def on_page(canvas, doc):
+        # Marca d'água elegante
         canvas.saveState()
-        canvas.setFont('Helvetica-Bold', 80)
-        canvas.setFillAlpha(0.1)
+        canvas.setFont('Helvetica-Bold', 55)
+        canvas.setFillColor(colors.HexColor("#1e40af"))
+        canvas.setFillAlpha(0.04)
         canvas.translate(A4[0]/2, A4[1]/2)
         canvas.rotate(45)
-        canvas.drawCentredString(0, 0, "APROVADO")
+        canvas.drawCentredString(0, 0, "DOCUMENTO AUTORIZADO")
+        canvas.restoreState()
+        
+        # Rodapé Institucional
+        canvas.saveState()
+        canvas.setFont('Helvetica', 8)
+        canvas.setFillColor(colors.HexColor("#64748b"))
+        data_emissao = datetime.now().strftime('%d/%m/%Y às %H:%M')
+        rodape_texto = f"Gestor 360 • Prefeitura Municipal de Valença do Piauí | Emitido em {data_emissao} | Validação: AUT-{solicitacao.id:06d}"
+        canvas.drawCentredString(A4[0]/2, 1.2*cm, rodape_texto)
+        canvas.setStrokeColor(colors.HexColor("#cbd5e1"))
+        canvas.setLineWidth(0.5)
+        canvas.line(1.5*cm, 1.6*cm, A4[0] - 1.5*cm, 1.6*cm)
         canvas.restoreState()
 
-    doc = SimpleDocTemplate(buffer, pagesize=A4, margin=1.5*cm)
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4, 
+        leftMargin=1.5*cm, 
+        rightMargin=1.5*cm, 
+        topMargin=1.5*cm, 
+        bottomMargin=2.2*cm
+    )
     elements = []
     styles = getSampleStyleSheet()
-    style_n = styles['Normal']
-    style_n.fontSize = 11
 
-    # Cabeçalho / Timbre
+    # Estilos customizados
+    style_normal = ParagraphStyle('Norm', parent=styles['Normal'], fontName='Helvetica', fontSize=10, textColor=colors.HexColor("#334155"), leading=14)
+    style_bold_label = ParagraphStyle('LabelBold', parent=style_normal, fontName='Helvetica-Bold', fontSize=10, textColor=colors.HexColor("#1e3a8a"))
+    style_title = ParagraphStyle('DocTitle', parent=styles['Title'], fontName='Helvetica-Bold', fontSize=15, textColor=colors.HexColor("#1e40af"), alignment=1, spaceAfter=4)
+    style_subtitle = ParagraphStyle('DocSubTitle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, textColor=colors.HexColor("#475569"), alignment=1, spaceAfter=15)
+
+    # 1. CABEÇALHO / TIMBRE
     if os.path.exists(caminho_timbre):
         try:
-            img = Image(caminho_timbre, width=17*cm, height=2.5*cm)
+            img = Image(caminho_timbre, width=17.5*cm, height=2.4*cm)
             elements.append(img)
-        except:
-            elements.append(Paragraph("<b>PREFEITURA DE VALENÇA DO PIAUÍ</b>", styles['Title']))
+            elements.append(Spacer(1, 0.3*cm))
+        except Exception:
+            elements.append(Paragraph("<b>PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ</b>", styles['Title']))
+            elements.append(Spacer(1, 0.4*cm))
     else:
-        elements.append(Paragraph("<b>PREFEITURA DE VALENÇA DO PIAUÍ</b>", styles['Title']))
-    
-    elements.append(Spacer(1, 0.8*cm))
+        elements.append(Paragraph("<b>PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ</b>", styles['Title']))
+        elements.append(Spacer(1, 0.4*cm))
 
-    titulo_style = ParagraphStyle('Tit', parent=styles['Title'], fontSize=16, textColor=colors.HexColor("#2c3e50"), spaceAfter=20)
-    elements.append(Paragraph(f"AUTORIZAÇÃO DE TRANSPORTE Nº {solicitacao.id:04d}", titulo_style))
+    # Linha divisória com acento de cor
+    elements.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor("#1e40af"), spaceAfter=12))
 
-    # Tabela com Paragraph para interpretar o <b>
-    data = [
-        [Paragraph("<b>SETOR SOLICITANTE:</b>", style_n), Paragraph(solicitacao.setor.nome_setor, style_n)],
-        [Paragraph("<b>RESPONSÁVEL:</b>", style_n), Paragraph(solicitacao.responsavel, style_n)],
-        [Paragraph("<b>VEÍCULO AUTORIZADO:</b>", style_n), Paragraph(f"<b>{solicitacao.veiculo_solicitado}</b>", style_n)],
-        [Paragraph("<b>DATA DA VIAGEM:</b>", style_n), Paragraph(solicitacao.data_solicitada.strftime('%d/%m/%Y'), style_n)],
-        [Paragraph("<b>HORÁRIO:</b>", style_n), Paragraph(f"{solicitacao.horario_saida.strftime('%H:%M')} às {solicitacao.horario_chegada.strftime('%H:%M')}", style_n)],
-        [Paragraph("<b>MOTIVO / DESTINO:</b>", style_n), Paragraph(solicitacao.motivo, style_n)]
+    # TÍTULO PRINCIPAL & PROTOCOLO
+    elements.append(Paragraph("ORDEM DE TRÁFEGO E AUTORIZAÇÃO DE VEÍCULO", style_title))
+    elements.append(Paragraph(f"AUTORIZAÇÃO Nº <b>#{solicitacao.id:06d}</b> • STATUS: <font color='#047857'><b>APROVADO</b></font>", style_subtitle))
+
+    # 2. BLOCO DE INFORMAÇÕES DA VIAGEM (TABELA PRINCIPAL ESTILIZADA)
+    data_viagem = solicitacao.data_solicitada.strftime('%d/%m/%Y')
+    horario_formatado = f"{solicitacao.horario_saida.strftime('%H:%M')} às {solicitacao.horario_chegada.strftime('%H:%M')}"
+
+    table_data = [
+        [
+            Paragraph("<b>ÓRGÃO / SETOR SOLICITANTE:</b>", style_bold_label),
+            Paragraph(f"<b>{solicitacao.setor.nome_setor.upper()}</b>", style_normal)
+        ],
+        [
+            Paragraph("<b>SERVIDOR RESPONSÁVEL:</b>", style_bold_label),
+            Paragraph(solicitacao.responsavel, style_normal)
+        ],
+        [
+            Paragraph("<b>VEÍCULO AUTORIZADO:</b>", style_bold_label),
+            Paragraph(f"<font color='#1e40af'><b>{solicitacao.veiculo_solicitado.upper()}</b></font>", style_normal)
+        ],
+        [
+            Paragraph("<b>DATA DA VIAGEM:</b>", style_bold_label),
+            Paragraph(f"<b>{data_viagem}</b>", style_normal)
+        ],
+        [
+            Paragraph("<b>HORÁRIO DE SAÍDA / RETORNO:</b>", style_bold_label),
+            Paragraph(horario_formatado, style_normal)
+        ],
+        [
+            Paragraph("<b>FINALIDADE / ROTEIRO:</b>", style_bold_label),
+            Paragraph(solicitacao.motivo, style_normal)
+        ]
     ]
 
-    t = Table(data, colWidths=[5*cm, 12*cm])
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, -1), colors.whitesmoke),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+    t_info = Table(table_data, colWidths=[5.5*cm, 12*cm])
+    t_info.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor("#f8fafc")),
+        ('BACKGROUND', (1, 0), (1, -1), colors.HexColor("#ffffff")),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('LEFTPADDING', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
     ]))
-    elements.append(t)
+    elements.append(t_info)
 
-    elements.append(Spacer(1, 4*cm))
+    elements.append(Spacer(1, 0.6*cm))
+
+    # 3. CAIXA DE INSTRUÇÕES DE SEGURANÇA E TRÂNSITO
+    instrucoes_html = """
+    <b>INSTRUÇÕES E NORMAS DE USO DO VEÍCULO:</b><br/>
+    • Esta autorização é de porte obrigatório e deve permanecer no veículo durante todo o percurso.<br/>
+    • O condutor designado deve possuir CNH compatível com a categoria do veículo e respeitar as leis de trânsito.<br/>
+    • O uso do veículo é estritamente institucional, sendo vedado o transporte de terceiros não autorizados.
+    """
+    p_instrucoes = Paragraph(instrucoes_html, ParagraphStyle('Inst', parent=style_normal, fontSize=8.5, leading=12, textColor=colors.HexColor("#475569")))
+    
+    t_box = Table([[p_instrucoes]], colWidths=[17.5*cm])
+    t_box.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#f1f5f9")),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor("#cbd5e1")),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(t_box)
+
+    elements.append(Spacer(1, 1.8*cm))
+
+    # 4. BLOCO DE ASSINATURAS E CAMPO CIDADE/DATA
+    meses_pt = {
+        1: 'janeiro', 2: 'fevereiro', 3: 'março', 4: 'abril',
+        5: 'maio', 6: 'junho', 7: 'julho', 8: 'agosto',
+        9: 'setembro', 10: 'outubro', 11: 'novembro', 12: 'dezembro'
+    }
+    hoje = datetime.now()
+    data_extenso = f"Valença do Piauí - PI, {hoje.day} de {meses_pt[hoje.month]} de {hoje.year}."
+
+    elements.append(Paragraph(f"<b>{data_extenso}</b>", ParagraphStyle('DateLine', parent=style_normal, alignment=1, fontSize=9.5, spaceAfter=25)))
+
     assinatura_data = [
-        ["_______________________________________", "_______________________________________"],
-        ["Assinatura do Responsável", "Visto da Administração / Secretaria"]
+        [
+            Paragraph("__________________________________________<br/><b>" + solicitacao.responsavel + "</b><br/><font size=8 color='#64748b'>Servidor Responsável / Solicitante</font>", ParagraphStyle('Ass1', parent=style_normal, alignment=1)),
+            Paragraph("__________________________________________<br/><b>SECRETARIA MUNICIPAL DE TRANSPORTES</b><br/><font size=8 color='#64748b'>Visto da Administração / Chefia da Frota</font>", ParagraphStyle('Ass2', parent=style_normal, alignment=1))
+        ]
     ]
-    t_ass = Table(assinatura_data, colWidths=[8.5*cm, 8.5*cm])
-    t_ass.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER'), ('FONTSIZE', (0, 0), (-1, -1), 9)]))
+    t_ass = Table(assinatura_data, colWidths=[8.75*cm, 8.75*cm])
+    t_ass.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER')
+    ]))
     elements.append(t_ass)
 
     doc.build(elements, onFirstPage=on_page, onLaterPages=on_page)
@@ -118,37 +210,45 @@ def gerar_pdf_relatorio_consolidado(solicitacoes, mes, ano):
     elements = []
     styles = getSampleStyleSheet()
     
+    style_header = ParagraphStyle('RepHeader', parent=styles['Title'], fontName='Helvetica-Bold', fontSize=14, textColor=colors.HexColor("#1e40af"), alignment=1, spaceAfter=10)
+    
     if os.path.exists(caminho_timbre):
         try:
-            img = Image(caminho_timbre, width=20*cm, height=2.5*cm)
+            img = Image(caminho_timbre, width=22*cm, height=2.5*cm)
             elements.append(img)
+            elements.append(Spacer(1, 0.3*cm))
         except Exception:
-            elements.append(Paragraph("PREFEITURA DE VALENÇA DO PIAUÍ", styles['Title']))
+            elements.append(Paragraph("<b>PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ</b>", styles['Title']))
     else:
-        elements.append(Paragraph("PREFEITURA DE VALENÇA DO PIAUÍ", styles['Title']))
+        elements.append(Paragraph("<b>PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ</b>", styles['Title']))
     
-    elements.append(Spacer(1, 0.5*cm))
-    elements.append(Paragraph(f"RELATÓRIO MENSAL DE TRANSPORTES - {mes}/{ano}", styles['Title']))
-    elements.append(Spacer(1, 0.5*cm))
+    elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#1e40af"), spaceAfter=10))
+    elements.append(Paragraph(f"RELATÓRIO DE CONSOLIDADO DE VIAGENS E TRANSPORTES - {mes}/{ano}", style_header))
+    elements.append(Spacer(1, 0.4*cm))
 
-    data = [['DATA', 'SETOR', 'RESPONSÁVEL', 'VEÍCULO', 'HORÁRIO', 'MOTIVO']]
+    data = [['DATA', 'SETOR / DEPARTAMENTO', 'RESPONSÁVEL', 'VEÍCULO', 'JANELA HORÁRIO', 'FINALIDADE / MOTIVO']]
     for s in solicitacoes:
         data.append([
             s.data_solicitada.strftime('%d/%m/%Y'),
             s.setor.nome_setor,
             s.responsavel,
             s.veiculo_solicitado,
-            f"{s.horario_saida.strftime('%H:%M')} - {s.horario_chegada.strftime('%H:%M')}",
+            f"{s.horario_saida.strftime('%H:%M')} às {s.horario_chegada.strftime('%H:%M')}",
             Paragraph(s.motivo, styles['Normal'])
         ])
 
-    t = Table(data, colWidths=[2.5*cm, 4*cm, 4*cm, 4*cm, 3.5*cm, 8*cm])
+    t = Table(data, colWidths=[2.5*cm, 5*cm, 4.5*cm, 4*cm, 3.5*cm, 8.2*cm])
     t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#0d6efd")),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#1e40af")),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+        ('FONTSIZE', (0, 0), (-1, -1), 8.5),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
     ]))
     elements.append(t)
     doc.build(elements)

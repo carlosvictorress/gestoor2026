@@ -181,7 +181,7 @@
                             <div class="p-2 bg-light border rounded font-monospace fw-bold text-primary mb-3">
                                 {{ protocolo.codigo_validacao or 'N/A' }}
                             </div>
-                            <a href="{{ url_for('protocolo.validar_qrcode', codigo_validacao=protocolo.codigo_validacao) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                            <a href="{{ url_for('protocolo.validar_qrcode', codigo_validacao=(protocolo.codigo_validacao or 'SEME')) }}" target="_blank" class="btn btn-sm btn-outline-primary">
                                 <i class="bi bi-box-arrow-up-right me-1"></i> Testar Validação Pública
                             </a>
                         </div>

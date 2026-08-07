@@ -144,6 +144,15 @@ def garantir_schema_protocolo():
             for tit, tipo_doc, cont in modelos_iniciais:
                 md = ModeloDocumento(titulo=tit, tipo_documento=tipo_doc, conteudo=cont)
                 db.session.add(md)
+        # Popula codigo_validacao para protocolos legados que não possuem código
+        protocolos_sem_codigo = Protocolo.query.filter(
+            or_(Protocolo.codigo_validacao == None, Protocolo.codigo_validacao == '')
+        ).all()
+        for p in protocolos_sem_codigo:
+            cod = uuid.uuid4().hex[:12].upper()
+            p.codigo_validacao = cod
+            p.qrcode_hash = cod
+        if protocolos_sem_codigo:
             db.session.commit()
 
     except Exception as e:
@@ -169,18 +178,37 @@ def registrar_auditoria(protocolo_id, acao, detalhes=""):
 
 
 def gerar_numero_protocolo():
-    """Format: YYYY-MM-SEQ (Ex: 2026-08-001)"""
+    """
+    Gera um número de protocolo no formato SEME + Sequencial (3 dígitos) + - + ANO.
+    Exemplo: SEME001-2026, SEME002-2026
+    """
     now = datetime.now()
     ano = now.year
-    mes = now.month
 
-    ultimo_protocolo = Protocolo.query.filter(
-        extract('year', Protocolo.data_criacao) == ano,
-        extract('month', Protocolo.data_criacao) == mes
-    ).count()
+    # Busca todos os protocolos do ano vigente
+    protocolos_ano = Protocolo.query.filter(
+        or_(
+            extract('year', Protocolo.data_criacao) == ano,
+            Protocolo.numero_protocolo.like(f"%{ano}")
+        )
+    ).all()
 
-    seq = ultimo_protocolo + 1
-    return f"{ano}-{mes:02d}-{seq:03d}"
+    max_seq = 0
+    for p in protocolos_ano:
+        num = p.numero_protocolo or ""
+        if num.startswith("SEME") and "-" in num:
+            try:
+                meio = num.replace("SEME", "").split("-")[0]
+                if meio.isdigit():
+                    max_seq = max(max_seq, int(meio))
+            except Exception:
+                pass
+
+    if max_seq == 0:
+        max_seq = len(protocolos_ano)
+
+    proximo_seq = max_seq + 1
+    return f"SEME{proximo_seq:03d}-{ano}"
 
 
 # --- ROTAS PRINCIPAIS ---
@@ -457,6 +485,11 @@ def detalhes_protocolo(protocolo_id):
         joinedload(Protocolo.tramitacoes),
         joinedload(Protocolo.logs_auditoria)
     ).get_or_404(protocolo_id)
+
+    if not protocolo.codigo_validacao:
+        protocolo.codigo_validacao = uuid.uuid4().hex[:12].upper()
+        protocolo.qrcode_hash = protocolo.codigo_validacao
+        db.session.commit()
 
     # Processamento de Nova Tramitação (Envio para outro setor)
     if request.method == 'POST':

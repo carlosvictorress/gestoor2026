@@ -2,223 +2,435 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>{{ doc.tipo_documento }} {{ doc.numero_documento }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ doc.tipo_documento }} {{ doc.numero_documento }} - Valença do Piauí</title>
 
     <style>
-        /* ================= CONFIGURAÇÃO DA PÁGINA ================= */
+        /* ==========================================================================
+           CONFIGURAÇÕES DE IMPRESSÃO DA PÁGINA (PADRÃO REDAÇÃO OFICIAL DA PRESIDÊNCIA)
+           ========================================================================== */
         @page {
-            size: A4;
-            /* Margens padrão - Deixe a impressora respirar */
-            margin: 1cm 1.5cm; 
+            size: A4 portrait;
+            margin: 2cm 2cm 2.2cm 2cm;
+        }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: #fff !important; }
+            .page-container { box-shadow: none !important; margin: 0 !important; width: 100% !important; }
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
-            font-family: "Times New Roman", Times, serif;
+            font-family: "Times New Roman", Times, "Georgia", serif;
             font-size: 12pt;
-            line-height: 1.35;
-            color: #000;
+            line-height: 1.5;
+            color: #111111;
+            background-color: #eef2f6;
             margin: 0;
             padding: 0;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
 
-        /* CONFIGURAÇÃO DO FUNDO (MARCA D'ÁGUA) 
-           Aplicamos no body para cobrir tudo */
-        body {
-            background-image: 
-                linear-gradient(rgba(255, 255, 255, 0.80), rgba(255, 255, 255, 0.80)),
-                url("{{ url_for('static', filename='marcadagua.png') }}");
-            background-repeat: no-repeat;
-            background-position: center center;
-            background-size: 60%; /* Um pouco menor para garantir que caiba */
-            background-attachment: fixed;
+        /* Container que simula a folha A4 na tela */
+        .page-container {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 20px auto;
+            background: #ffffff;
+            padding: 1.8cm 2cm 2cm 2cm;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            border-radius: 2px;
         }
 
-        /* ================= ESTRUTURA MÁGICA DE TABELA ================= */
-        /* Isso garante que cabeçalho e rodapé se repitam e respeitem as margens */
-        table {
-            width: 100%;
-            border-collapse: collapse;
+        /* MARCA D'ÁGUA SUAVE */
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 65%;
+            opacity: 0.05;
+            pointer-events: none;
+            z-index: 0;
         }
 
-        /* O Header e o Footer da tabela têm altura fixa */
-        thead { display: table-header-group; }
-        tfoot { display: table-footer-group; }
-        
-        /* Espaços vazios para garantir que o conteúdo não cubra o cabeçalho/rodapé */
-        .header-space { height: 3.5cm; }
-        .footer-space { height: 2cm; }
+        .content-area {
+            position: relative;
+            z-index: 1;
+        }
 
-        /* ================= CONTEÚDO FIXO (Header e Footer Reais) ================= */
-        .page-header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 3.5cm;
+        /* ================= CABEÇALHO INSTITUCIONAL OFICIAL ================= */
+        .header-official {
             text-align: center;
-            background: transparent; /* Importante para ver a marca d'agua */
+            margin-bottom: 1.5rem;
         }
 
-        .page-footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 1.5cm; /* Altura do rodapé */
-            
-            /* Estilo do Rodapé */
-            text-align: center;
-            font-size: 10pt;
-            border-top: 1px solid #000;
-            padding-top: 5px;
-            background: rgba(255, 255, 255, 0.9); /* Fundo branco leve para leitura */
+        .header-official img {
+            height: 2.3cm;
+            width: auto;
+            display: block;
+            margin: 0 auto 8px auto;
         }
 
-        /* ================= ESTILOS DO TEXTO ================= */
-        .doc-title {
-            text-align: center;
+        .header-official .entidade-maior {
+            font-size: 13pt;
             font-weight: bold;
-            font-size: 14pt;
             text-transform: uppercase;
-            text-decoration: underline;
-            margin: 1cm 0;
+            letter-spacing: 0.5px;
+            color: #07132b;
+            margin: 0;
         }
 
-        .block { margin-bottom: 0.6cm; }
-
-        .destinatario strong { display: block; margin-bottom: 4px; }
-        .destinatario .nome { font-weight: bold; font-size: 1.05em; margin-bottom: 3px; }
-
-        .assunto { font-weight: bold; margin-top: 0.8cm; }
-
-        .paragraph {
-            text-align: justify;
-            text-indent: 2cm;
-            margin-bottom: 0.5cm;
+        .header-official .entidade-secundaria {
+            font-size: 11pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: #1c3d5a;
+            margin: 2px 0;
         }
 
-        /* Classes de Alinhamento e Formatação do Editor WYSIWYG */
-        .ql-align-center, [style*="text-align: center"], [style*="text-align:center"] { text-align: center !important; text-indent: 0 !important; }
-        .ql-align-right, [style*="text-align: right"], [style*="text-align:right"] { text-align: right !important; text-indent: 0 !important; }
-        .ql-align-justify, [style*="text-align: justify"], [style*="text-align:justify"] { text-align: justify !important; }
-        .ql-align-left, [style*="text-align: left"], [style*="text-align:left"] { text-align: left !important; text-indent: 0 !important; }
-        
+        .header-official .entidade-setor {
+            font-size: 9.5pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #475569;
+            margin: 0;
+        }
+
+        /* Linhas Duplas Decorativas Oficiais */
+        .header-divider {
+            margin-top: 10px;
+            margin-bottom: 25px;
+            border-top: 2px solid #07132b;
+            border-bottom: 1px solid #c5a059;
+            height: 3px;
+        }
+
+        /* ================= IDENTIFICAÇÃO E DATA ================= */
+        .meta-documento {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 1.5cm;
+            font-size: 12pt;
+        }
+
+        .num-doc-tag {
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 12pt;
+            color: #000;
+        }
+
+        .data-local-tag {
+            text-align: right;
+            font-size: 12pt;
+        }
+
+        .doc-header-title {
+            text-align: center;
+            font-size: 14pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 1.5cm;
+            letter-spacing: 1px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+
+        /* ================= DESTINATÁRIO E ASSUNTO ================= */
+        .block-destinatario {
+            margin-bottom: 1.2cm;
+            line-height: 1.4;
+        }
+
+        .block-destinatario .vocativo {
+            font-size: 12pt;
+            margin-bottom: 3px;
+        }
+
+        .block-destinatario .nome-dest {
+            font-size: 12pt;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .block-destinatario .cargo-dest {
+            font-size: 11pt;
+            color: #222;
+        }
+
+        .block-assunto {
+            background-color: #f8fafc;
+            border-left: 4px solid #07132b;
+            padding: 8px 12px;
+            margin-bottom: 1.2cm;
+            font-size: 11.5pt;
+        }
+
+        .block-assunto strong {
+            text-transform: uppercase;
+            color: #07132b;
+            margin-right: 5px;
+        }
+
+        /* ================= CORPO DO TEXTO (FORMATADO) ================= */
         .corpo-documento {
             font-size: 12pt;
             line-height: 1.5;
-        }
-        .corpo-documento p {
-            margin-bottom: 0.5cm;
             text-align: justify;
+            margin-bottom: 1.5cm;
         }
+
+        .corpo-documento p {
+            margin-top: 0;
+            margin-bottom: 0.6cm;
+            text-indent: 2cm; /* Indentação oficial de parágrafo */
+        }
+
+        /* Suporte aos Alinhamentos do Editor WYSIWYG */
+        .ql-align-center, [style*="text-align: center"], [style*="text-align:center"] { 
+            text-align: center !important; 
+            text-indent: 0 !important; 
+        }
+        .ql-align-right, [style*="text-align: right"], [style*="text-align:right"] { 
+            text-align: right !important; 
+            text-indent: 0 !important; 
+        }
+        .ql-align-justify, [style*="text-align: justify"], [style*="text-align:justify"] { 
+            text-align: justify !important; 
+        }
+        .ql-align-left, [style*="text-align: left"], [style*="text-align:left"] { 
+            text-align: left !important; 
+            text-indent: 0 !important; 
+        }
+
         .corpo-documento ul, .corpo-documento ol {
-            margin-bottom: 0.5cm;
-            padding-left: 1.5cm;
+            margin-bottom: 0.6cm;
+            padding-left: 2.5cm;
         }
 
-        .fecho { text-align: right; margin-top: 1cm; margin-bottom: 2cm; }
+        .corpo-documento li {
+            margin-bottom: 4px;
+        }
 
-        .signature { text-align: center; page-break-inside: avoid; }
-        .signature-line { border-top: 1px solid #000; width: 55%; margin: 0 auto 5px auto; }
-        .signature-name { font-weight: bold; }
-        .signature-role { font-size: 10pt; font-style: italic; }
+        /* ================= FECHO E ASSINATURA ================= */
+        .fecho-block {
+            margin-top: 1.5cm;
+            margin-bottom: 2cm;
+            font-size: 12pt;
+            text-indent: 2cm;
+        }
 
-        .header-content img { height: 2.2cm; width: auto; display: block; margin: 0 auto 5px auto; }
-        .header-content h3 { margin: 0; font-size: 14pt; font-weight: bold; text-transform: uppercase; }
-        .header-content h4 { margin: 2px 0 0 0; font-size: 12pt; font-weight: bold; text-transform: uppercase; }
-        
-        .footer-content p { margin: 2px 0; font-weight: bold; }
+        .signature-box {
+            text-align: center;
+            page-break-inside: avoid;
+            margin-top: 2.5cm;
+        }
 
-        /* Botão */
-        .no-print { position: fixed; top: 10px; right: 10px; padding: 8px 15px; background: #333; color: #fff; border-radius: 5px; cursor: pointer; z-index: 9999; }
-        @media print { .no-print { display: none; } }
+        .signature-line {
+            border-top: 1.5px solid #000000;
+            width: 60%;
+            margin: 0 auto 6px auto;
+        }
 
+        .signature-name {
+            font-size: 12pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+
+        .signature-role {
+            font-size: 10.5pt;
+            font-style: italic;
+            color: #333;
+        }
+
+        /* ================= ANEXOS BOX ================= */
+        {% if doc.anexos %}
+        .anexos-box {
+            margin-top: 1.5cm;
+            padding: 10px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            background-color: #f8fafc;
+            font-size: 10pt;
+            page-break-inside: avoid;
+        }
+        .anexos-box h6 {
+            margin: 0 0 5px 0;
+            font-size: 10pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #07132b;
+        }
+        .anexos-box ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        {% endif %}
+
+        /* ================= RODAPÉ INSTITUCIONAL ================= */
+        .footer-official {
+            position: absolute;
+            bottom: 1.2cm;
+            left: 2cm;
+            right: 2cm;
+            text-align: center;
+            font-size: 8.5pt;
+            color: #475569;
+            border-top: 1px solid #cbd5e1;
+            padding-top: 6px;
+            line-height: 1.3;
+        }
+
+        .footer-official strong {
+            color: #07132b;
+        }
+
+        /* BARRA DE AÇÕES FLUTUANTE NA TELA */
+        .toolbar-actions {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ffffff;
+            padding: 10px 16px;
+            border-radius: 50px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            z-index: 99999;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        .btn-action {
+            border: none;
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.2s;
+        }
+
+        .btn-print { background: #0d6efd; color: #fff; }
+        .btn-print:hover { background: #0b5ed7; }
+        .btn-close-window { background: #e2e8f0; color: #334155; }
+        .btn-close-window:hover { background: #cbd5e1; }
     </style>
 </head>
-
 <body>
-    <button class="no-print" onclick="window.print()">🖨️ IMPRIMIR</button>
 
-    <div class="page-header">
-        <div class="header-content">
-            <img src="{{ url_for('static', filename='timbre.jpg') }}" alt="Brasão">
-            <h3>PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ</h3>
-            <h4>SECRETARIA MUNICIPAL DE EDUCAÇÃO</h4>
-        </div>
+    <!-- BARRA DE AÇÕES (ESCONDIDA NA IMPRESSÃO) -->
+    <div class="toolbar-actions no-print">
+        <button class="btn-action btn-print" onclick="window.print()">
+            🖨️ Imprimir / Salvar PDF
+        </button>
+        <button class="btn-action btn-close-window" onclick="window.close()">
+            ✖️ Fechar
+        </button>
     </div>
 
-    <div class="page-footer">
-        <div class="footer-content">
-            <p>Rua Epaminondas Nogueira 1425 - Centro - Valença do Piauí</p>
-            <p>CNPJ: 06.095.146/0001-44 - e-mail: seme.valenca@yahoo.com.br</p>
+    <div class="page-container">
+        
+        <!-- MARCA D'ÁGUA INSTITUCIONAL -->
+        {% if marcadagua_b64 %}
+            <img src="data:image/png;base64,{{ marcadagua_b64 }}" class="watermark" alt="Marca D'água">
+        {% else %}
+            <img src="{{ url_for('static', filename='marcadagua.png') }}" class="watermark" alt="Marca D'água" onerror="this.style.display='none'">
+        {% endif %}
+
+        <div class="content-area">
+
+            <!-- CABEÇALHO DA PREFEITURA -->
+            <div class="header-official">
+                {% if timbre_b64 %}
+                    <img src="data:image/jpeg;base64,{{ timbre_b64 }}" alt="Brasão">
+                {% else %}
+                    <img src="{{ url_for('static', filename='timbre.jpg') }}" alt="Brasão" onerror="this.style.display='none'">
+                {% endif %}
+                <h1 class="entidade-maior">Prefeitura Municipal de Valença do Piauí</h1>
+                <h2 class="entidade-secundaria">Secretaria Municipal de Educação - SEME</h2>
+                <h3 class="entidade-setor">Setor de Nutrição e Alimentação Escolar (PNAE)</h3>
+            </div>
+
+            <div class="header-divider"></div>
+
+            <!-- METADADOS DE CABEÇALHO -->
+            <div class="meta-documento">
+                <div class="num-doc-tag">
+                    {{ doc.tipo_documento|upper }} Nº {{ doc.numero_documento }}
+                </div>
+                <div class="data-local-tag">
+                    {{ doc.local_emissao }}, {{ data_extenso }}.
+                </div>
+            </div>
+
+            <!-- DESTINATÁRIO -->
+            <div class="block-destinatario">
+                <div class="vocativo">{{ doc.vocativo if doc.vocativo else 'Ao(A) Senhor(a),' }}</div>
+                <div class="nome-dest">{{ doc.destinatario_nome|upper }}</div>
+                {% if doc.destinatario_cargo %}
+                    <div class="cargo-dest">{{ doc.destinatario_cargo }}</div>
+                {% endif %}
+            </div>
+
+            <!-- ASSUNTO -->
+            <div class="block-assunto">
+                <strong>ASSUNTO:</strong> {{ doc.assunto }}
+            </div>
+
+            <!-- CORPO DO TEXTO (FORMATADO VIA WYSIWYG) -->
+            <div class="corpo-documento">
+                {{ doc.corpo_texto|safe }}
+            </div>
+
+            <!-- FECHO OFICIAL -->
+            <div class="fecho-block">
+                {{ doc.fecho if doc.fecho else 'Atenciosamente,' }}
+            </div>
+
+            <!-- ASSINATURA OFICIAL -->
+            <div class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-name">{{ doc.responsavel_assinatura|upper }}</div>
+                <div class="signature-role">Nutricionista / Responsável Técnico - PNAE</div>
+            </div>
+
+            <!-- LISTAGEM DE ANEXOS (SE HOUVER) -->
+            {% if doc.anexos %}
+            <div class="anexos-box">
+                <h6><i class="bi bi-paperclip"></i> Anexos Integrantes deste Documento ({{ doc.anexos|length }}):</h6>
+                <ul>
+                    {% for anexo in doc.anexos %}
+                    <li>{{ loop.index }}. {{ anexo.nome_original }} {% if anexo.descricao %}- {{ anexo.descricao }}{% endif %}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
         </div>
+
+        <!-- RODAPÉ INSTITUCIONAL DA PÁGINA -->
+        <div class="footer-official">
+            <strong>Rua Epaminondas Nogueira, 1425 - Centro - Valença do Piauí / PI</strong><br>
+            CNPJ: 06.095.146/0001-44 • E-mail: seme.valenca@yahoo.com.br<br>
+            <span style="font-size: 7.5pt; color: #64748b;">Documento emitido e autenticado digitalmente pelo Sistema Gestoor360º SEME</span>
+        </div>
+
     </div>
-
-    <table>
-        <thead>
-            <tr>
-                <td>
-                    <div class="header-space">&nbsp;</div>
-                </td>
-            </tr>
-        </thead>
-
-        <tbody>
-            <tr>
-                <td>
-                    <div class="content-wrapper" style="padding: 0 1cm;">
-                        
-                        <div class="doc-title">
-                            {{ doc.tipo_documento|upper }} Nº {{ doc.numero_documento }}
-                        </div>
-
-                        <div class="block destinatario">
-                            <strong>A Sua Senhoria o(a) Senhor(a)</strong>
-                            <div class="nome">{{ doc.destinatario_nome|upper }}</div>
-                            {% if doc.destinatario_cargo %}
-                                <div>{{ doc.destinatario_cargo }}</div>
-                            {% endif %}
-                        </div>
-
-                        <div class="block assunto">
-                            ASSUNTO: {{ doc.assunto }}
-                        </div>
-
-                        <div class="block">
-                            <div class="paragraph">
-                                {{ doc.vocativo if doc.vocativo else 'Prezado(a) Senhor(a),' }}
-                            </div>
-                            <div class="corpo-documento">
-                                {{ doc.corpo_texto|safe }}
-                            </div>
-                        </div>
-
-                        <div class="fecho">
-                            <p>{{ doc.fecho if doc.fecho else 'Atenciosamente,' }}</p>
-                            {{ doc.local_emissao }}, {{ data_extenso }}.
-                        </div>
-
-                        <div class="signature">
-                            <div class="signature-line"></div>
-                            <div class="signature-name">{{ doc.responsavel_assinatura|upper }}</div>
-                            <div class="signature-role">Responsável Técnico / PNAE</div>
-                        </div>
-
-                    </div>
-                    </td>
-            </tr>
-        </tbody>
-
-        <tfoot>
-            <tr>
-                <td>
-                    <div class="footer-space">&nbsp;</div>
-                </td>
-            </tr>
-        </tfoot>
-    </table>
 
 </body>
 </html>

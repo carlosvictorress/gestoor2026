@@ -42,10 +42,13 @@
             min-height: 297mm;
             margin: 20px auto;
             background: #ffffff;
-            padding: 1.8cm 2cm 2cm 2cm;
+            padding: 1.8cm 2cm 1.5cm 2cm;
             position: relative;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
             border-radius: 2px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
 
         /* MARCA D'ÁGUA SUAVE */
@@ -63,6 +66,8 @@
         .content-area {
             position: relative;
             z-index: 1;
+            flex-grow: 1;
+            margin-bottom: 1cm;
         }
 
         /* ================= CABEÇALHO INSTITUCIONAL OFICIAL ================= */
@@ -186,7 +191,7 @@
             font-size: 12pt;
             line-height: 1.5;
             text-align: justify;
-            margin-bottom: 1.5cm;
+            margin-bottom: 1.2cm;
         }
 
         .corpo-documento p {
@@ -223,8 +228,8 @@
 
         /* ================= FECHO E ASSINATURA ================= */
         .fecho-block {
-            margin-top: 1.5cm;
-            margin-bottom: 2cm;
+            margin-top: 1.2cm;
+            margin-bottom: 1.5cm;
             font-size: 12pt;
             text-indent: 2cm;
         }
@@ -232,7 +237,8 @@
         .signature-box {
             text-align: center;
             page-break-inside: avoid;
-            margin-top: 2.5cm;
+            margin-top: 2cm;
+            margin-bottom: 1.5cm;
         }
 
         .signature-line {
@@ -257,7 +263,7 @@
         /* ================= ANEXOS BOX ================= */
         {% if doc.anexos %}
         .anexos-box {
-            margin-top: 1.5cm;
+            margin-top: 1.2cm;
             padding: 10px 14px;
             border: 1px solid #cbd5e1;
             border-radius: 4px;
@@ -280,16 +286,17 @@
 
         /* ================= RODAPÉ INSTITUCIONAL ================= */
         .footer-official {
-            position: absolute;
-            bottom: 1.2cm;
-            left: 2cm;
-            right: 2cm;
+            position: relative;
+            margin-top: 1.5cm;
+            padding-top: 8px;
+            border-top: 1px solid #cbd5e1;
             text-align: center;
             font-size: 8.5pt;
             color: #475569;
-            border-top: 1px solid #cbd5e1;
-            padding-top: 6px;
-            line-height: 1.3;
+            line-height: 1.35;
+            page-break-inside: avoid;
+            width: 100%;
+            z-index: 2;
         }
 
         .footer-official strong {

@@ -1,170 +1,207 @@
 {% extends 'base.html' %}
 
-{% block title %}Lista de Protocolos{% endblock %}
+{% block title %}Pesquisa e Gestão de Protocolos Eletrônicos{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2><i class="bi bi-table"></i> Protocolos Registados</h2>
-    <a href="{{ url_for('protocolo.novo_protocolo') }}" class="btn btn-primary"><i class="bi bi-plus-circle-fill"></i> Novo Protocolo</a>
-</div>
-
-<!-- NOVO: Formulário de Pesquisa -->
-<div class="card shadow-sm mb-4">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-search"></i> Pesquisar Protocolos</h5>
+<div class="container-fluid px-0">
+    <!-- Cabeçalho -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="h3 mb-1"><i class="bi bi-list-columns-reverse text-primary me-2"></i> Gestão e Pesquisa de Protocolos Eletrônicos</h2>
+            <p class="text-muted mb-0">Listagem geral com pesquisa inteligente, controle de SLA e atalhos operacionais.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('protocolo.exportar_relatorio') }}" class="btn btn-outline-success">
+                <i class="bi bi-file-earmark-excel me-1"></i> Exportar CSV
+            </a>
+            <a href="{{ url_for('protocolo.novo_protocolo') }}" class="btn btn-primary shadow-sm">
+                <i class="bi bi-plus-circle-fill me-1"></i> Novo Protocolo
+            </a>
+        </div>
     </div>
-    <div class="card-body">
-        <form method="GET" action="{{ url_for('protocolo.listar_protocolos') }}">
-            <div class="row g-3">
-                <div class="col-md-3">
-                    <label for="q_numero" class="form-label">Nº Protocolo</label>
-                    <input type="text" class="form-control" id="q_numero" name="q_numero" value="{{ q_numero or '' }}">
-                </div>
-                <div class="col-md-3">
-                    <label for="q_interessado" class="form-label">Interessado</label>
-                    <input type="text" class="form-control" id="q_interessado" name="q_interessado" value="{{ q_interessado or '' }}">
-                </div>
-                <div class="col-md-3">
-                    <label for="q_assunto" class="form-label">Assunto</label>
-                    <input type="text" class="form-control" id="q_assunto" name="q_assunto" value="{{ q_assunto or '' }}">
-                </div>
-                <div class="col-md-3">
-                    <label for="q_status" class="form-label">Status</label>
-                    <select id="q_status" name="q_status" class="form-select">
-                        <option value="">Todos</option>
-                        <option value="Aberto" {% if q_status == 'Aberto' %}selected{% endif %}>Aberto/Recebido</option>
-                        <option value="Em Tramitação" {% if q_status == 'Em Tramitação' %}selected{% endif %}>Em Tramitação</option>
-                        <option value="Finalizado" {% if q_status == 'Finalizado' %}selected{% endif %}>Finalizado</option>
-                        <option value="Cancelado" {% if q_status == 'Cancelado' %}selected{% endif %}>Cancelado</option>
-                    </select>
-                </div>
-            </div>
-            <div class="mt-3 text-end">
-                <a href="{{ url_for('protocolo.listar_protocolos') }}" class="btn btn-secondary">Limpar Filtros</a>
-                <button type="submit" class="btn btn-primary">Pesquisar</button>
-            </div>
-        </form>
-    </div>
-</div>
 
-<div class="card shadow-sm">
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Nº Protocolo</th>
-                        <th>Assunto</th>
-                        <th>Interessado</th>
-                        <th>Data de Abertura</th>
-                        <th>Setor Atual</th>
-                        <th>Status</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p in protocolos %}
-                    <tr>
-                        <td><strong>{{ p.numero_protocolo }}</strong></td>
-                        <td>{{ p.assunto }}</td>
-                        <td>{{ p.interessado }}</td>
-                        <td>{{ p.data_criacao.strftime('%d/%m/%Y %H:%M') }}</td>
-                        <td>{{ p.setor_atual }}</td>
-                        <td>
-                            <span class="badge 
-                                {% if p.status == 'Aberto' %} bg-info text-dark
-                                {% elif p.status == 'Em Tramitação' %} bg-warning text-dark
-                                {% elif p.status == 'Finalizado' %} bg-success
-                                {% elif p.status == 'Cancelado' %} bg-danger
-                                {% else %} bg-secondary {% endif %}">
-                                {{ p.status }}
-                            </span>
-                        </td>
-                        <td>
-                            <a href="{{ url_for('protocolo.detalhes_protocolo', protocolo_id=p.id) }}" class="btn btn-sm btn-info" title="Ver Detalhes"><i class="bi bi-eye-fill"></i></a>
-                            <a href="{{ url_for('protocolo.imprimir_comprovante', protocolo_id=p.id) }}" target="_blank" class="btn btn-sm btn-secondary" title="Imprimir Comprovante"><i class="bi bi-printer-fill"></i></a>
-                            <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#statusModal"
-                                    data-protocolo-id="{{ p.id }}"
-                                    data-status-atual="{{ p.status }}"
-                                    title="Mudar Status">
-                                <i class="bi bi-check-circle-fill"></i>
-                            </button>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="7" class="text-center">Nenhum protocolo encontrado para os critérios de pesquisa.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <!-- Barra de Pesquisa Inteligente (Google-Style) -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body p-4 bg-light rounded">
+            <form method="GET" action="{{ url_for('protocolo.listar_protocolos') }}" id="formBusca">
+                
+                <div class="row g-2 mb-3">
+                    <div class="col-md-9">
+                        <div class="input-group input-group-lg">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-primary"></i></span>
+                            <input type="text" class="form-control border-start-0 ps-0" name="q_busca_geral" id="q_busca_geral" value="{{ q_busca_geral or '' }}" placeholder="Pesquise por número do protocolo, nome do solicitante, CPF/CNPJ, assunto ou tags...">
+                            {% if q_busca_geral or q_numero or q_interessado or q_assunto or q_status or q_setor or q_prioridade or q_sla %}
+                            <a href="{{ url_for('protocolo.listar_protocolos') }}" class="btn btn-outline-secondary d-flex align-items-center">Limpar</a>
+                            {% endif %}
+                            <button type="submit" class="btn btn-primary px-4"><i class="bi bi-search me-1"></i> Pesquisar</button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="button" class="btn btn-outline-secondary btn-lg w-100" data-bs-toggle="collapse" data-bs-target="#collapseFiltros">
+                            <i class="bi bi-funnel me-1"></i> Filtros Avançados
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Painel de Filtros Avançados (Colapsável) -->
+                <div class="collapse {% if q_numero or q_interessado or q_assunto or q_status or q_setor or q_prioridade or q_sla %}show{% endif %}" id="collapseFiltros">
+                    <div class="p-3 bg-white border rounded shadow-sm">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label for="q_numero" class="form-label small fw-semibold">Nº do Protocolo</label>
+                                <input type="text" class="form-control form-control-sm" id="q_numero" name="q_numero" value="{{ q_numero or '' }}" placeholder="Ex: 2026-08-001">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="q_interessado" class="form-label small fw-semibold">Solicitante / CPF / CNPJ</label>
+                                <input type="text" class="form-control form-control-sm" id="q_interessado" name="q_interessado" value="{{ q_interessado or '' }}" placeholder="Nome, CPF ou CNPJ">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="q_assunto" class="form-label small fw-semibold">Assunto / Conteúdo</label>
+                                <input type="text" class="form-control form-control-sm" id="q_assunto" name="q_assunto" value="{{ q_assunto or '' }}" placeholder="Termos do assunto">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="q_status" class="form-label small fw-semibold">Situação do Processo</label>
+                                <select id="q_status" name="q_status" class="form-select form-select-sm">
+                                    <option value="">Todas as Situações</option>
+                                    <option value="Aberto" {% if q_status == 'Aberto' %}selected{% endif %}>Aberto / Recebido</option>
+                                    <option value="Em Tramitação" {% if q_status == 'Em Tramitação' %}selected{% endif %}>Em Tramitação</option>
+                                    <option value="Aguardando Documentos" {% if q_status == 'Aguardando Documentos' %}selected{% endif %}>Aguardando Documentos</option>
+                                    <option value="Deferido" {% if q_status == 'Deferido' %}selected{% endif %}>Deferido (Aprovado)</option>
+                                    <option value="Indeferido" {% if q_status == 'Indeferido' %}selected{% endif %}>Indeferido (Recusado)</option>
+                                    <option value="Finalizado" {% if q_status == 'Finalizado' %}selected{% endif %}>Finalizado / Concluído</option>
+                                    <option value="Cancelado" {% if q_status == 'Cancelado' %}selected{% endif %}>Cancelado</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="q_setor" class="form-label small fw-semibold">Setor Atual</label>
+                                <select id="q_setor" name="q_setor" class="form-select form-select-sm">
+                                    <option value="">Todos os Setores</option>
+                                    {% for s in setores %}
+                                    <option value="{{ s }}" {% if q_setor == s %}selected{% endif %}>{{ s }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="q_prioridade" class="form-label small fw-semibold">Prioridade</label>
+                                <select id="q_prioridade" name="q_prioridade" class="form-select form-select-sm">
+                                    <option value="">Todas as Prioridades</option>
+                                    <option value="Baixa" {% if q_prioridade == 'Baixa' %}selected{% endif %}>🟢 Baixa</option>
+                                    <option value="Média" {% if q_prioridade == 'Média' %}selected{% endif %}>🔵 Média</option>
+                                    <option value="Alta" {% if q_prioridade == 'Alta' %}selected{% endif %}>🟡 Alta</option>
+                                    <option value="Urgente" {% if q_prioridade == 'Urgente' %}selected{% endif %}>🔴 Urgente</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="q_sla" class="form-label small fw-semibold">Status de SLA</label>
+                                <select id="q_sla" name="q_sla" class="form-select form-select-sm">
+                                    <option value="">Todos os Prazos</option>
+                                    <option value="Atrasado" {% if q_sla == 'Atrasado' %}selected{% endif %}>🔴 Atrasados</option>
+                                    <option value="Vence Hoje" {% if q_sla == 'Vence Hoje' %}selected{% endif %}>🟡 Vencendo Hoje</option>
+                                    <option value="Dentro do Prazo" {% if q_sla == 'Dentro do Prazo' %}selected{% endif %}>🟢 Dentro do Prazo</option>
+                                    <option value="Concluído" {% if q_sla == 'Concluído' %}selected{% endif %}>⚪ Concluídos</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabela de Resultados -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-light py-3 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fs-6 text-primary"><i class="bi bi-table me-1"></i> Resultados da Busca</h5>
+            <span class="badge bg-secondary">Total: {{ total_encontrados }} processo(s)</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3" style="width: 130px;">Nº Protocolo</th>
+                            <th>Solicitante / CPF / CNPJ</th>
+                            <th>Tipo & Assunto</th>
+                            <th>Setor Atual</th>
+                            <th class="text-center" style="width: 120px;">Prioridade</th>
+                            <th class="text-center" style="width: 120px;">SLA</th>
+                            <th class="text-center" style="width: 130px;">Situação</th>
+                            <th class="text-center pe-3" style="width: 140px;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in protocolos %}
+                        <tr>
+                            <td class="ps-3">
+                                <span class="fw-bold text-primary">{{ p.numero_protocolo }}</span>
+                                <small class="text-muted d-block">{{ p.data_criacao.strftime('%d/%m/%Y %H:%M') }}</small>
+                            </td>
+                            <td>
+                                <div class="fw-semibold text-dark">{{ p.interessado }}</div>
+                                <small class="text-muted">{{ p.solicitante_cpf_cnpj or p.solicitante_tipo }}</small>
+                            </td>
+                            <td>
+                                <div><span class="badge bg-light text-dark border">{{ p.tipo_documento }}</span></div>
+                                <div class="small fw-semibold text-dark text-truncate" style="max-width: 250px;">{{ p.assunto }}</div>
+                            </td>
+                            <td><span class="badge bg-info-subtle text-info-emphasis border border-info-subtle">{{ p.setor_atual }}</span></td>
+                            <td class="text-center">
+                                {% if p.prioridade == 'Urgente' %}
+                                    <span class="badge bg-danger">🔴 Urgente</span>
+                                {% elif p.prioridade == 'Alta' %}
+                                    <span class="badge bg-warning text-dark">🟡 Alta</span>
+                                {% elif p.prioridade == 'Baixa' %}
+                                    <span class="badge bg-success">🟢 Baixa</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">🔵 Média</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% set sla = p.status_sla %}
+                                {% if sla == 'Atrasado' %}
+                                    <span class="badge bg-danger" title="Atrasado">🔴 Atrasado</span>
+                                {% elif sla == 'Vence Hoje' %}
+                                    <span class="badge bg-warning text-dark" title="Vence Hoje">🟡 Vence Hoje</span>
+                                {% elif sla == 'Concluído' %}
+                                    <span class="badge bg-light text-muted border">Concluído</span>
+                                {% else %}
+                                    <span class="badge bg-success" title="No prazo">🟢 No Prazo</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge 
+                                    {% if p.status in ['Aberto', 'Em Análise'] %} bg-primary
+                                    {% elif p.status == 'Em Tramitação' %} bg-warning text-dark
+                                    {% elif p.status in ['Finalizado', 'Concluído', 'Deferido'] %} bg-success
+                                    {% elif p.status in ['Cancelado', 'Indeferido'] %} bg-danger
+                                    {% else %} bg-secondary {% endif %}">
+                                    {{ p.status }}
+                                </span>
+                            </td>
+                            <td class="text-center pe-3">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('protocolo.detalhes_protocolo', protocolo_id=p.id) }}" class="btn btn-outline-primary" title="Abrir Detalhes e Tramitar">
+                                        <i class="bi bi-folder2-open"></i>
+                                    </a>
+                                    <a href="{{ url_for('protocolo.imprimir_comprovante', protocolo_id=p.id) }}" target="_blank" class="btn btn-outline-danger" title="Imprimir PDF">
+                                        <i class="bi bi-printer-fill"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-5">
+                                <i class="bi bi-search fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                                Nenhum protocolo localizado com os parâmetros informados.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
-
-<!-- Modal para Alteração de Status -->
-<div class="modal fade" id="statusModal" tabindex="-1" aria-labelledby="statusModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="statusModalLabel">Alterar Status do Protocolo</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <form id="statusForm" method="POST" action="{{ url_for('protocolo.mudar_status_protocolo') }}">
-        <div class="modal-body">
-            <input type="hidden" name="protocolo_id" id="modal_protocolo_id">
-            <div class="mb-3">
-                <label for="novo_status" class="form-label">Novo Status*</label>
-                <select class="form-select" id="novo_status" name="novo_status" required>
-                    <option value="Aberto">Aberto/Recebido</option>
-                    <option value="Em Tramitação">Em Tramitação</option>
-                    <option value="Finalizado">Finalizado</option>
-                    <option value="Cancelado">Cancelado</option>
-                </select>
-            </div>
-            <div class="mb-3" id="motivo-cancelamento-div" style="display: none;">
-                <label for="motivo_cancelamento" class="form-label">Motivo do Cancelamento*</label>
-                <textarea class="form-control" id="motivo_cancelamento" name="motivo_cancelamento" rows="3"></textarea>
-            </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Salvar Alteração</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    var statusModal = document.getElementById('statusModal');
-    if (statusModal) {
-        var statusSelect = document.getElementById('novo_status');
-        var motivoDiv = document.getElementById('motivo-cancelamento-div');
-        var motivoTextarea = document.getElementById('motivo_cancelamento');
-
-        statusSelect.addEventListener('change', function() {
-            if (this.value === 'Cancelado') {
-                motivoDiv.style.display = 'block';
-                motivoTextarea.required = true;
-            } else {
-                motivoDiv.style.display = 'none';
-                motivoTextarea.required = false;
-            }
-        });
-
-        statusModal.addEventListener('show.bs.modal', function (event) {
-            var button = event.relatedTarget;
-            var protocoloId = button.getAttribute('data-protocolo-id');
-            var statusAtual = button.getAttribute('data-status-atual');
-            var modalProtocoloIdInput = statusModal.querySelector('#modal_protocolo_id');
-            
-            modalProtocoloIdInput.value = protocoloId;
-            statusSelect.value = statusAtual;
-            statusSelect.dispatchEvent(new Event('change'));
-        });
-    }
-});
-</script>
 {% endblock %}

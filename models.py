@@ -300,6 +300,7 @@ class Protocolo(db.Model):
     __tablename__ = "protocolo"
     id = db.Column(db.Integer, primary_key=True)
     numero_protocolo = db.Column(db.String(20), unique=True, nullable=False)
+    ano = db.Column(db.Integer, nullable=True)
     assunto = db.Column(db.String(300), nullable=False)
     tipo_documento = db.Column(db.String(100), nullable=False)
     interessado = db.Column(db.String(200), nullable=False)
@@ -308,12 +309,52 @@ class Protocolo(db.Model):
     data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
     status = db.Column(db.String(50), default="Aberto")
     motivo_cancelamento = db.Column(db.Text, nullable=True)
+    
+    # NOVOS CAMPOS SEI / GESTOR360
+    prioridade = db.Column(db.String(20), default="Média") # Baixa, Média, Alta, Urgente
+    prazo_dias = db.Column(db.Integer, default=5)
+    data_limite = db.Column(db.DateTime, nullable=True)
+    sigilo = db.Column(db.String(20), default="Público") # Público, Reservado, Confidencial
+    descricao = db.Column(db.Text, nullable=True)
+    tags = db.Column(db.String(255), nullable=True) # Ex: "MP, FNDE, Urgente"
+    
+    # DADOS DO SOLICITANTE
+    solicitante_tipo = db.Column(db.String(20), default="Pessoa Física") # Pessoa Física, Pessoa Jurídica, Servidor
+    solicitante_cpf_cnpj = db.Column(db.String(20), nullable=True)
+    solicitante_nome = db.Column(db.String(200), nullable=True)
+    solicitante_email = db.Column(db.String(120), nullable=True)
+    solicitante_telefone = db.Column(db.String(50), nullable=True)
+    solicitante_cargo = db.Column(db.String(100), nullable=True)
+    solicitante_matricula = db.Column(db.String(50), nullable=True)
+    
+    # VALIDAÇÃO PÚBLICA / QR CODE
+    codigo_validacao = db.Column(db.String(64), unique=True, nullable=True)
+    qrcode_hash = db.Column(db.String(64), nullable=True)
+
     tramitacoes = db.relationship(
         "Tramitacao", backref="protocolo", lazy=True, cascade="all, delete-orphan"
     )
     anexos = db.relationship(
         "Anexo", backref="protocolo", lazy=True, cascade="all, delete-orphan"
     )
+    logs_auditoria = db.relationship(
+        "LogAuditoriaProtocolo", backref="protocolo", lazy=True, cascade="all, delete-orphan"
+    )
+
+    @property
+    def status_sla(self):
+        if self.status in ['Finalizado', 'Concluído', 'Arquivado', 'Cancelado']:
+            return 'Concluído'
+        if not self.data_limite:
+            return 'Dentro do Prazo'
+        today = datetime.utcnow().date()
+        limite = self.data_limite.date()
+        if limite < today:
+            return 'Atrasado'
+        elif limite == today:
+            return 'Vence Hoje'
+        else:
+            return 'Dentro do Prazo'
 
 
 class Tramitacao(db.Model):
@@ -325,6 +366,11 @@ class Tramitacao(db.Model):
     data_envio = db.Column(db.DateTime, default=datetime.utcnow)
     despacho = db.Column(db.Text, nullable=True)
     usuario_responsavel = db.Column(db.String(100))
+    prazo_dias = db.Column(db.Integer, nullable=True)
+    data_limite = db.Column(db.DateTime, nullable=True)
+    status_prazo = db.Column(db.String(50), default="Dentro do Prazo")
+    assinatura_digital_tipo = db.Column(db.String(50), default="Interna") # Interna, Gov.br, ICP-Brasil
+    assinatura_hash = db.Column(db.String(255), nullable=True)
 
 
 class Anexo(db.Model):
@@ -333,7 +379,53 @@ class Anexo(db.Model):
     protocolo_id = db.Column(db.Integer, db.ForeignKey("protocolo.id"), nullable=False)
     nome_arquivo = db.Column(db.String(255), nullable=False)
     nome_original = db.Column(db.String(255), nullable=False)
+    tamanho_bytes = db.Column(db.Integer, nullable=True, default=0)
+    extensao = db.Column(db.String(20), nullable=True)
+    versao = db.Column(db.Integer, default=1)
+    usuario_uploader = db.Column(db.String(100), nullable=True)
     data_upload = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class TipoProtocolo(db.Model):
+    __tablename__ = "tipo_protocolo"
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), unique=True, nullable=False)
+    descricao = db.Column(db.String(255), nullable=True)
+    prazo_padrao_dias = db.Column(db.Integer, default=5)
+    setor_padrao = db.Column(db.String(150), nullable=True)
+    ativo = db.Column(db.Boolean, default=True)
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class ModeloDocumento(db.Model):
+    __tablename__ = "modelo_documento"
+    id = db.Column(db.Integer, primary_key=True)
+    titulo = db.Column(db.String(150), nullable=False)
+    tipo_documento = db.Column(db.String(100), nullable=False)
+    conteudo = db.Column(db.Text, nullable=False)
+    ativo = db.Column(db.Boolean, default=True)
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class LogAuditoriaProtocolo(db.Model):
+    __tablename__ = "log_auditoria_protocolo"
+    id = db.Column(db.Integer, primary_key=True)
+    protocolo_id = db.Column(db.Integer, db.ForeignKey("protocolo.id"), nullable=False)
+    usuario = db.Column(db.String(100), nullable=False)
+    acao = db.Column(db.String(100), nullable=False) # Ex: Criou, Tramitou, Visualizou, Assinou, Imprimiu
+    detalhes = db.Column(db.Text, nullable=True)
+    ip = db.Column(db.String(50), nullable=True)
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class NotificacaoProtocolo(db.Model):
+    __tablename__ = "notificacao_protocolo"
+    id = db.Column(db.Integer, primary_key=True)
+    usuario = db.Column(db.String(100), nullable=False)
+    protocolo_id = db.Column(db.Integer, db.ForeignKey("protocolo.id"), nullable=False)
+    mensagem = db.Column(db.String(255), nullable=False)
+    lida = db.Column(db.Boolean, default=False)
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class Contrato(db.Model):

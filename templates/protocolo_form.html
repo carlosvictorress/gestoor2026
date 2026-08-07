@@ -1,55 +1,275 @@
 {% extends 'base.html' %}
 
-{% block title %}Novo Protocolo{% endblock %}
+{% block title %}Novo Protocolo Eletrônico - Autuação SEI{% endblock %}
 
 {% block content %}
-<h2><i class="bi bi-plus-circle-fill"></i> Registar Novo Protocolo</h2>
-<p class="text-muted">Preencha as informações abaixo para abrir um novo processo.</p>
-
-<form method="POST" enctype="multipart/form-data" class="mt-4">
-    <div class="card shadow-sm">
-        <div class="card-header">
-            <h5>Dados do Processo</h5>
+<div class="container-fluid px-0">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="h3 mb-1"><i class="bi bi-file-earmark-plus text-primary me-2"></i> Autuação de Novo Processo Eletrônico</h2>
+            <p class="text-muted mb-0">Preencha os dados do solicitante, processo, prazos e anexos para abrir um protocolo oficial.</p>
         </div>
-        <div class="card-body">
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label for="tipo_documento" class="form-label">Tipo de Documento*</label>
-                    <input type="text" class="form-control" id="tipo_documento" name="tipo_documento" placeholder="Ex: Ofício, Requerimento, Memorando" required>
-                </div>
-                <div class="col-md-6">
-                    <label for="interessado" class="form-label">Interessado*</label>
-                    <input type="text" class="form-control" id="interessado" name="interessado" placeholder="Nome da pessoa, empresa ou setor" required>
-                </div>
-                <div class="col-12">
-                    <label for="assunto" class="form-label">Assunto*</label>
-                    <textarea class="form-control" id="assunto" name="assunto" rows="3" required></textarea>
-                </div>
-                <div class="col-md-6">
-                    <label for="setor_origem" class="form-label">Setor de Destino Inicial*</label>
-                    <select class="form-select" id="setor_origem" name="setor_origem" required>
-                        <option value="" selected disabled>-- Selecione um setor --</option>
-                        <option value="Gabinete do Secretário">Gabinete do Secretário</option>
-                        <option value="Recursos Humanos">Recursos Humanos</option>
-                        <option value="Departamento Pedagógico">Departamento Pedagógico</option>
-                        <option value="Transporte Escolar">Transporte Escolar</option>
-                        <option value="Almoxarifado">Almoxarifado</option>
-                        <option value="Financeiro">Financeiro</option>
-						<option value="Administracao">Administracao</option>
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label for="anexos" class="form-label">Anexar Ficheiros (Opcional)</label>
-                    <input class="form-control" type="file" id="anexos" name="anexos" multiple>
-                    <div class="form-text">Pode selecionar múltiplos ficheiros.</div>
+        <a href="{{ url_for('protocolo.listar_protocolos') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Voltar à Lista
+        </a>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" id="formNovoProtocolo">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-light py-3">
+                <ul class="nav nav-pills card-header-pills" id="pills-tab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-semibold" id="pills-solicitante-tab" data-bs-toggle="pill" data-bs-target="#pills-solicitante" type="button" role="tab">
+                            <i class="bi bi-person-vcard me-1"></i> 1. Solicitante / Interessado
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" id="pills-processo-tab" data-bs-toggle="pill" data-bs-target="#pills-processo" type="button" role="tab">
+                            <i class="bi bi-file-text me-1"></i> 2. Dados do Processo
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" id="pills-prazos-tab" data-bs-toggle="pill" data-bs-target="#pills-prazos" type="button" role="tab">
+                            <i class="bi bi-shield-lock me-1"></i> 3. Prioridade, Sigilo & SLA
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" id="pills-anexos-tab" data-bs-toggle="pill" data-bs-target="#pills-anexos" type="button" role="tab">
+                            <i class="bi bi-paperclip me-1"></i> 4. Anexos & Documentos
+                        </button>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="card-body p-4">
+                <div class="tab-content" id="pills-tabContent">
+                    
+                    <!-- ETAPA 1: SOLICITANTE -->
+                    <div class="tab-pane fade show active" id="pills-solicitante" role="tabpanel">
+                        <h5 class="fw-bold text-primary mb-3">Identificação do Solicitante</h5>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Tipo de Solicitante*</label>
+                            <div class="d-flex gap-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="solicitante_tipo" id="tipoPF" value="Pessoa Física" checked>
+                                    <label class="form-check-label fw-semibold" for="tipoPF">Pessoa Física</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="solicitante_tipo" id="tipoPJ" value="Pessoa Jurídica">
+                                    <label class="form-check-label fw-semibold" for="tipoPJ">Pessoa Jurídica</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="solicitante_tipo" id="tipoServidor" value="Servidor Público">
+                                    <label class="form-check-label fw-semibold" for="tipoServidor">Servidor Público / SEME</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="solicitante_nome" class="form-label fw-semibold">Nome Completo / Razão Social*</label>
+                                <input type="text" class="form-control" id="solicitante_nome" name="solicitante_nome" placeholder="Ex: Maria das Dores da Silva" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="solicitante_cpf_cnpj" class="form-label fw-semibold" id="lblCpfCnpj">CPF / CNPJ</label>
+                                <input type="text" class="form-control" id="solicitante_cpf_cnpj" name="solicitante_cpf_cnpj" placeholder="000.000.000-00">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="solicitante_email" class="form-label fw-semibold">E-mail para Notificações</label>
+                                <input type="email" class="form-control" id="solicitante_email" name="solicitante_email" placeholder="usuario@email.com">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="solicitante_telefone" class="form-label fw-semibold">Telefone / WhatsApp</label>
+                                <input type="text" class="form-control" id="solicitante_telefone" name="solicitante_telefone" placeholder="(86) 99999-0000">
+                            </div>
+                            <div class="col-md-4" id="divMatricula" style="display: none;">
+                                <label for="solicitante_matricula" class="form-label fw-semibold">Matrícula / Contrato</label>
+                                <input type="text" class="form-control" id="solicitante_matricula" name="solicitante_matricula" placeholder="Ex: 12345-6">
+                            </div>
+                            <div class="col-md-4" id="divCargo" style="display: none;">
+                                <label for="solicitante_cargo" class="form-label fw-semibold">Cargo / Função</label>
+                                <input type="text" class="form-control" id="solicitante_cargo" name="solicitante_cargo" placeholder="Ex: Professor I">
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end mt-4">
+                            <button type="button" class="btn btn-primary px-4 btn-proximo" data-next="#pills-processo-tab">Próximo: Dados do Processo <i class="bi bi-arrow-right ms-1"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- ETAPA 2: DADOS DO PROCESSO -->
+                    <div class="tab-pane fade" id="pills-processo" role="tabpanel">
+                        <h5 class="fw-bold text-primary mb-3">Especificações do Processo</h5>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="tipo_documento" class="form-label fw-semibold">Tipo de Protocolo / Documento*</label>
+                                <select class="form-select" id="tipo_documento" name="tipo_documento" required>
+                                    <option value="" disabled selected>-- Selecione o Tipo --</option>
+                                    {% for tp in tipos %}
+                                    <option value="{{ tp.nome }}" data-prazo="{{ tp.prazo_padrao_dias }}" data-setor="{{ tp.setor_padrao or '' }}">{{ tp.nome }}</option>
+                                    {% endfor %}
+                                    <option value="Outro">Outro Documento / Requerimento Diversos</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="setor_origem" class="form-label fw-semibold">Setor Destinatário Inicial*</label>
+                                <select class="form-select" id="setor_origem" name="setor_origem" required>
+                                    <option value="" disabled selected>-- Selecione o Setor --</option>
+                                    {% for setor in setores %}
+                                    <option value="{{ setor }}">{{ setor }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label for="assunto" class="form-label fw-semibold">Assunto / Título Resumido*</label>
+                                <input type="text" class="form-control" id="assunto" name="assunto" placeholder="Ex: Solicitação de Transporte Escolar para evento pedagógico" required>
+                            </div>
+                            <div class="col-12">
+                                <label for="descricao" class="form-label fw-semibold">Descrição Detalhada do Pedido / Motivação</label>
+                                <textarea class="form-control" id="descricao" name="descricao" rows="4" placeholder="Detalhe aqui o pedido, motivos e contextualização do requerimento..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <button type="button" class="btn btn-outline-secondary btn-anterior" data-prev="#pills-solicitante-tab"><i class="bi bi-arrow-left me-1"></i> Anterior</button>
+                            <button type="button" class="btn btn-primary px-4 btn-proximo" data-next="#pills-prazos-tab">Próximo: Prazos & Classificação <i class="bi bi-arrow-right ms-1"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- ETAPA 3: PRAZOS E CLASSIFICAÇÃO -->
+                    <div class="tab-pane fade" id="pills-prazos" role="tabpanel">
+                        <h5 class="fw-bold text-primary mb-3">Prioridade, Nível de Sigilo e SLA</h5>
+
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label for="prioridade" class="form-label fw-semibold">Prioridade de Tramitação*</label>
+                                <select class="form-select" id="prioridade" name="prioridade" required>
+                                    <option value="Baixa">🟢 Baixa</option>
+                                    <option value="Média" selected>🔵 Média (Padrão)</option>
+                                    <option value="Alta">🟡 Alta</option>
+                                    <option value="Urgente">🔴 Urgente</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="sigilo" class="form-label fw-semibold">Nível de Acesso / Sigilo*</label>
+                                <select class="form-select" id="sigilo" name="sigilo" required>
+                                    <option value="Público" selected>🔓 Público (Visível na Consulta Pública)</option>
+                                    <option value="Reservado">🔒 Reservado (Acesso Interno Apenas)</option>
+                                    <option value="Confidencial">🚫 Confidencial (Acesso Restrito ao Setor)</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="prazo_dias" class="form-label fw-semibold">Prazo de Resposta (SLA em Dias Úteis)</label>
+                                <input type="number" class="form-control" id="prazo_dias" name="prazo_dias" value="5" min="1" max="90" required>
+                            </div>
+
+                            <div class="col-12">
+                                <label for="tags" class="form-label fw-semibold">Etiquetas / Tags de Identificação (Separadas por vírgula)</label>
+                                <input type="text" class="form-control" id="tags" name="tags" placeholder="Ex: MP, FNDE, TCE, Urgente, Transporte, Prestação de Contas">
+                                <div class="form-text">As tags facilitam a organização e busca por agrupamentos temáticos.</div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <button type="button" class="btn btn-outline-secondary btn-anterior" data-prev="#pills-processo-tab"><i class="bi bi-arrow-left me-1"></i> Anterior</button>
+                            <button type="button" class="btn btn-primary px-4 btn-proximo" data-next="#pills-anexos-tab">Próximo: Anexos <i class="bi bi-arrow-right ms-1"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- ETAPA 4: ANEXOS -->
+                    <div class="tab-pane fade" id="pills-anexos" role="tabpanel">
+                        <h5 class="fw-bold text-primary mb-3">Upload de Documentos e Comprovantes</h5>
+
+                        <div class="mb-4">
+                            <label for="anexos" class="form-label fw-semibold">Selecionar Ficheiros / Documentos (Opcional)</label>
+                            <input class="form-control form-control-lg" type="file" id="anexos" name="anexos" multiple>
+                            <div class="form-text">
+                                Extensões aceitas: PDF, DOCX, XLSX, JPG, PNG, ZIP. Você pode enviar múltiplos arquivos de uma só vez.
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info border-0 shadow-sm d-flex align-items-center">
+                            <i class="bi bi-info-circle-fill fs-3 me-3 text-info"></i>
+                            <div>
+                                <strong>Numeração e Validação Automática:</strong><br>
+                                Ao clicar em <b>Finalizar Autuação</b>, o sistema irá gerar o número oficial do protocolo (ex: <code>2026-08-001</code>) e o código de autenticidade para validação via QR Code.
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <button type="button" class="btn btn-outline-secondary btn-anterior" data-prev="#pills-prazos-tab"><i class="bi bi-arrow-left me-1"></i> Anterior</button>
+                            <button type="submit" class="btn btn-success btn-lg px-5 shadow-sm">
+                                <i class="bi bi-check-circle-fill me-2"></i> Finalizar Autuação de Protocolo
+                            </button>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
-    </div>
+    </form>
+</div>
 
-    <div class="mt-4">
-        <a href="{{ url_for('protocolo.listar_protocolos') }}" class="btn btn-secondary">Cancelar</a>
-        <button type="submit" class="btn btn-primary">Registar Protocolo</button>
-    </div>
-</form>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Navegação de Próximo e Anterior das Abas
+        document.querySelectorAll('.btn-proximo').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const targetTab = this.getAttribute('data-next');
+                const trigger = document.querySelector(targetTab);
+                if (trigger) bootstrap.Tab.getOrCreateInstance(trigger).show();
+            });
+        });
+
+        document.querySelectorAll('.btn-anterior').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const targetTab = this.getAttribute('data-prev');
+                const trigger = document.querySelector(targetTab);
+                if (trigger) bootstrap.Tab.getOrCreateInstance(trigger).show();
+            });
+        });
+
+        // Alternar campos conforme Tipo de Solicitante
+        const tipoRadios = document.querySelectorAll('input[name="solicitante_tipo"]');
+        const divMatricula = document.getElementById('divMatricula');
+        const divCargo = document.getElementById('divCargo');
+        const lblCpfCnpj = document.getElementById('lblCpfCnpj');
+
+        tipoRadios.forEach(r => {
+            r.addEventListener('change', function() {
+                if (this.value === 'Servidor Público') {
+                    divMatricula.style.display = 'block';
+                    divCargo.style.display = 'block';
+                    lblCpfCnpj.innerText = 'CPF do Servidor';
+                } else if (this.value === 'Pessoa Jurídica') {
+                    divMatricula.style.display = 'none';
+                    divCargo.style.display = 'none';
+                    lblCpfCnpj.innerText = 'CNPJ da Empresa';
+                } else {
+                    divMatricula.style.display = 'none';
+                    divCargo.style.display = 'none';
+                    lblCpfCnpj.innerText = 'CPF do Solicitante';
+                }
+            });
+        });
+
+        // Preenchimento automático de prazo e setor padrão ao escolher tipo de protocolo
+        const selectTipoDoc = document.getElementById('tipo_documento');
+        const inputPrazo = document.getElementById('prazo_dias');
+        const selectSetor = document.getElementById('setor_origem');
+
+        selectTipoDoc.addEventListener('change', function() {
+            const selectedOpt = this.options[this.selectedIndex];
+            const prazo = selectedOpt.getAttribute('data-prazo');
+            const setor = selectedOpt.getAttribute('data-setor');
+
+            if (prazo) inputPrazo.value = prazo;
+            if (setor && setor !== '') selectSetor.value = setor;
+        });
+    });
+</script>
 {% endblock %}

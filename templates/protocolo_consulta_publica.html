@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Consulta Pública de Protocolos - SEME Valença do Piauí</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
+        .hero-banner { background: linear-gradient(135deg, #07132b 0%, #1c3d5a 100%); color: white; padding: 3rem 1rem; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div class="hero-banner shadow-sm mb-4">
+        <div class="container">
+            <h1 class="h3 fw-bold mb-2"><i class="bi bi-shield-check me-2"></i> Portal de Consulta Pública de Processos</h1>
+            <p class="lead fs-6 mb-0">Prefeitura Municipal de Valença do Piauí • Secretaria Municipal de Educação</p>
+        </div>
+    </div>
+
+    <div class="container py-3" style="max-width: 850px;">
+        
+        <!-- Formulário de Consulta -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-3"><i class="bi bi-search text-primary me-2"></i> Consultar Andamento de Processo</h5>
+                <form method="POST">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="numero_protocolo" class="form-label fw-semibold">Número do Protocolo*</label>
+                            <input type="text" class="form-control form-control-lg" id="numero_protocolo" name="numero_protocolo" placeholder="Ex: 2026-08-001" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="cpf_cnpj" class="form-label fw-semibold">CPF ou CNPJ do Solicitante</label>
+                            <input type="text" class="form-control form-control-lg" id="cpf_cnpj" name="cpf_cnpj" placeholder="Digite apenas os números">
+                        </div>
+                        <div class="col-12 text-end">
+                            <button type="submit" class="btn btn-primary btn-lg px-5 shadow-sm">
+                                <i class="bi bi-search me-1"></i> Consultar Processo
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if erro %}
+        <div class="alert alert-danger border-0 shadow-sm d-flex align-items-center mb-4">
+            <i class="bi bi-exclamation-octagon-fill fs-3 me-3"></i>
+            <div>{{ erro }}</div>
+        </div>
+        {% endif %}
+
+        {% if resultado %}
+        <!-- Resultado Encontrado -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-primary text-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fs-6"><i class="bi bi-file-earmark-text me-1"></i> Processo Nº {{ resultado.numero_protocolo }}</h5>
+                <span class="badge bg-light text-primary">{{ resultado.status }}</span>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <small class="text-muted d-block fw-bold text-uppercase">Solicitante</small>
+                        <strong>{{ resultado.interessado }}</strong>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block fw-bold text-uppercase">Data de Autuação</small>
+                        <strong>{{ resultado.data_criacao.strftime('%d/%m/%Y às %H:%M') }}</strong>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block fw-bold text-uppercase">Tipo de Documento</small>
+                        <strong>{{ resultado.tipo_documento }}</strong>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block fw-bold text-uppercase">Setor Atual</small>
+                        <strong class="text-primary">{{ resultado.setor_atual }}</strong>
+                    </div>
+                    <div class="col-12 border-top pt-2">
+                        <small class="text-muted d-block fw-bold text-uppercase">Assunto</small>
+                        <div>{{ resultado.assunto }}</div>
+                    </div>
+                </div>
+
+                <h6 class="fw-bold text-primary mb-3"><i class="bi bi-clock-history me-1"></i> Histórico de Tramitação</h6>
+                <div class="list-group list-group-flush border rounded">
+                    {% for tr in resultado.tramitacoes|reverse %}
+                    <div class="list-group-item p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-bold">Para: {{ tr.setor_destino }}</span>
+                            <small class="text-muted">{{ tr.data_envio.strftime('%d/%m/%Y %H:%M') }}</small>
+                        </div>
+                        <p class="mb-0 text-muted small">Origem: {{ tr.setor_origem }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="text-center text-muted small mt-4">
+            Prefeitura Municipal de Valença do Piauí • Sistema Eletrônico de Protocolo Gestoor360º
+        </div>
+    </div>
+
+</body>
+</html>

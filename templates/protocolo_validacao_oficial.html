@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Validação de Autenticidade - Gestoor360º SEME</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .valid-card { max-width: 650px; margin: 3rem auto; border-radius: 1rem; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="card valid-card shadow-lg border-0">
+            <div class="card-header bg-success text-white text-center py-4 rounded-top">
+                <i class="bi bi-patch-check-fill fs-1 d-block mb-2"></i>
+                <h3 class="h4 mb-0 fw-bold">DOCUMENTO AUTÊNTICO E OFICIAL</h3>
+                <small class="text-white-50">Validação Digital Garantida pelo Sistema Gestoor360º</small>
+            </div>
+            <div class="card-body p-4">
+                <div class="alert alert-success border-0 d-flex align-items-center mb-4">
+                    <i class="bi bi-shield-lock-fill fs-3 me-3"></i>
+                    <div>
+                        <strong>Confirmação de Validade:</strong><br>
+                        Este processo eletrônico foi devidamente autuado e registrado no acervo oficial da Secretaria Municipal de Educação.
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle">
+                        <tbody>
+                            <tr>
+                                <th class="bg-light" style="width: 40%;">Número do Protocolo</th>
+                                <td class="fw-bold text-primary">{{ protocolo.numero_protocolo }}</td>
+                            </tr>
+                            <tr>
+                                <th class="bg-light">Solicitante</th>
+                                <td>{{ protocolo.interessado }}</td>
+                            </tr>
+                            <tr>
+                                <th class="bg-light">Tipo de Documento</th>
+                                <td>{{ protocolo.tipo_documento }}</td>
+                            </tr>
+                            <tr>
+                                <th class="bg-light">Data de Autuação</th>
+                                <td>{{ protocolo.data_criacao.strftime('%d/%m/%Y às %H:%M:%S') }}</td>
+                            </tr>
+                            <tr>
+                                <th class="bg-light">Setor Atual</th>
+                                <td><span class="badge bg-info text-dark">{{ protocolo.setor_atual }}</span></td>
+                            </tr>
+                            <tr>
+                                <th class="bg-light">Situação Atual</th>
+                                <td><span class="badge bg-success">{{ protocolo.status }}</span></td>
+                            </tr>
+                            <tr>
+                                <th class="bg-light">Código de Validação</th>
+                                <td class="font-monospace fw-bold">{{ protocolo.codigo_validacao }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('protocolo.consulta_publica') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-search me-1"></i> Nova Consulta
+                    </a>
+                </div>
+            </div>
+            <div class="card-footer bg-light text-center text-muted small py-3">
+                Prefeitura Municipal de Valença do Piauí • Secretaria Municipal de Educação
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

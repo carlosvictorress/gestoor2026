@@ -2171,9 +2171,31 @@ def relatorios_tecnicos():
             db.session.rollback()
             flash(f'Erro ao salvar documento: {e}', 'danger')
 
-    # Listagem para o GET
-    documentos = RelatorioTecnico.query.order_by(RelatorioTecnico.data_emissao.desc()).all()
-    return render_template('merenda/relatorios_tecnicos.html', documentos=documentos)
+    # Geração automática do número sugerido (Ex: 001/2026)
+    ano_atual = datetime.now().year
+    documentos = RelatorioTecnico.query.order_by(RelatorioTecnico.data_emissao.desc(), RelatorioTecnico.id.desc()).all()
+    
+    max_seq = 0
+    for doc in documentos:
+        if doc.numero_documento and '/' in doc.numero_documento:
+            parts = doc.numero_documento.split('/')
+            if len(parts) == 2 and parts[1].strip() == str(ano_atual) and parts[0].strip().isdigit():
+                max_seq = max(max_seq, int(parts[0].strip()))
+    
+    numero_sugerido = f"{max_seq + 1:03d}/{ano_atual}"
+    
+    metricas = {
+        'total': len(documentos),
+        'relatorios': sum(1 for d in documentos if d.tipo_documento == 'Relatório Técnico'),
+        'oficios': sum(1 for d in documentos if d.tipo_documento in ['Ofício', 'Memorando']),
+        'ano': sum(1 for d in documentos if d.data_emissao and d.data_emissao.year == ano_atual)
+    }
+
+    return render_template('merenda/relatorios_tecnicos.html', 
+                           documentos=documentos, 
+                           numero_sugerido=numero_sugerido, 
+                           metricas=metricas,
+                           data_hoje=datetime.now().strftime('%Y-%m-%d'))
 
 
 @merenda_bp.route('/relatorios/anexo/<int:anexo_id>/download')

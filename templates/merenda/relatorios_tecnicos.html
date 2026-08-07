@@ -1,203 +1,500 @@
 {% extends 'base.html' %}
 
-{% block title %}Relatórios Técnicos e Ofícios{% endblock %}
+{% block title %}Gestão de Relatórios Técnicos e Ofícios{% endblock %}
 
 {% block content %}
-<h2><i class="bi bi-file-earmark-richtext"></i> Gestão de Relatórios Técnicos e Ofícios</h2>
-<p class="text-muted">Área destinada à elaboração de documentos oficiais da Nutrição Escolar.</p>
-<hr>
+<!-- Estilos Adicionais do Quill e Customizações da Página -->
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+<style>
+    .ql-editor {
+        min-height: 250px;
+        font-size: 1rem;
+        background-color: #ffffff;
+    }
+    .ql-toolbar.ql-snow {
+        border-top-left-radius: 0.375rem;
+        border-top-right-radius: 0.375rem;
+        background-color: #f8f9fa;
+    }
+    .ql-container.ql-snow {
+        border-bottom-left-radius: 0.375rem;
+        border-bottom-right-radius: 0.375rem;
+    }
+    
+    /* Suporte a alinhamento nos previews e modais */
+    .ql-align-center, [style*="text-align: center"], [style*="text-align:center"] { text-align: center !important; }
+    .ql-align-right, [style*="text-align: right"], [style*="text-align:right"] { text-align: right !important; }
+    .ql-align-justify, [style*="text-align: justify"], [style*="text-align:justify"] { text-align: justify !important; }
+    .ql-align-left, [style*="text-align: left"], [style*="text-align:left"] { text-align: left !important; }
+    
+    .nav-tabs .nav-link {
+        font-weight: 500;
+        color: #495057;
+        border-radius: 0.375rem 0.375rem 0 0;
+        padding: 0.75rem 1.25rem;
+    }
+    .nav-tabs .nav-link.active {
+        font-weight: 600;
+        color: #0d6efd;
+        background-color: #fff;
+        border-bottom-color: transparent;
+    }
+    .metric-card {
+        border: none;
+        border-radius: 0.5rem;
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .metric-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important;
+    }
+</style>
 
-<!-- Formulário de Criação -->
-<div class="card shadow-sm mb-5">
-    <div class="card-header bg-light">
-        <h5 class="mb-0"><i class="bi bi-pen"></i> Redigir Novo Documento</h5>
-    </div>
-    <div class="card-body">
-        <form method="POST" enctype="multipart/form-data">
-            <!-- Cabeçalho do Documento -->
-            <div class="row g-3 mb-3">
-                <div class="col-md-3">
-                    <label for="tipo_documento" class="form-label">Tipo de Documento*</label>
-                    <select class="form-select" name="tipo_documento" id="tipo_documento" required>
-                        <option value="Relatório Técnico">Relatório Técnico</option>
-                        <option value="Parecer Técnico">Parecer Técnico</option>
-                        <option value="Ofício">Ofício</option>
-                        <option value="Memorando">Memorando</option>
-                        <option value="Notificação">Notificação de Irregularidade</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label for="numero_documento" class="form-label">Nº / Ano*</label>
-                    <input type="text" class="form-control" name="numero_documento" id="numero_documento" placeholder="Ex: 001/2024" required>
-                </div>
-                <div class="col-md-3">
-                    <label for="data_emissao" class="form-label">Data de Emissão*</label>
-                    <input type="date" class="form-control" name="data_emissao" id="data_emissao" value="{{ data_hoje }}" required>
-                </div>
-                <div class="col-md-3">
-                    <label for="local_emissao" class="form-label">Local*</label>
-                    <input type="text" class="form-control" name="local_emissao" id="local_emissao" value="Prefeitura Municipal" required>
-                </div>
-            </div>
-
-            <!-- Destinatário -->
-            <div class="row g-3 mb-3">
-                <div class="col-md-2">
-                    <label for="vocativo" class="form-label">Vocativo</label>
-                    <select class="form-select" name="vocativo" id="vocativo">
-                        <option value="Ilmo(a). Sr(a).">Ilmo(a). Sr(a).</option>
-                        <option value="Exmo(a). Sr(a).">Exmo(a). Sr(a).</option>
-                        <option value="Ao(A) Senhor(a)">Ao(A) Senhor(a)</option>
-                        <option value="Aos Diretores">Aos Diretores</option>
-                    </select>
-                </div>
-                <div class="col-md-5">
-                    <label for="destinatario_nome" class="form-label">Nome do Destinatário*</label>
-                    <input type="text" class="form-control" name="destinatario_nome" id="destinatario_nome" placeholder="Ex: João da Silva" required>
-                </div>
-                <div class="col-md-5">
-                    <label for="destinatario_cargo" class="form-label">Cargo / Setor</label>
-                    <input type="text" class="form-control" name="destinatario_cargo" id="destinatario_cargo" placeholder="Ex: Secretário de Educação">
-                </div>
-            </div>
-
-            <!-- Assunto e Corpo -->
-            <div class="mb-3">
-                <label for="assunto" class="form-label">Assunto*</label>
-                <input type="text" class="form-control" name="assunto" id="assunto" placeholder="Resumo do conteúdo (Ex: Vistoria na Escola X)" required>
-            </div>
-
-            <div class="mb-3">
-                <label for="corpo_texto" class="form-label">Corpo do Texto*</label>
-                <textarea class="form-control" name="corpo_texto" id="corpo_texto" rows="10" placeholder="Digite aqui o conteúdo técnico do relatório ou ofício..." required></textarea>
-                <div class="form-text">Seja claro e objetivo. Para relatórios de visita, descreva as condições encontradas e as recomendações.</div>
-            </div>
-
-            <!-- Anexos -->
-            <div class="mb-3">
-                <label for="anexos" class="form-label">Anexos (Fotos, Laudos, etc.)</label>
-                <input class="form-control" type="file" id="anexos" name="anexos" multiple>
-                <div class="form-text">Selecione um ou mais arquivos para anexar ao relatório.</div>
-            </div>
-
-            <!-- Fecho e Assinatura -->
-            <div class="row g-3 mb-3">
-                <div class="col-md-4">
-                    <label for="fecho" class="form-label">Fecho</label>
-                    <select class="form-select" name="fecho" id="fecho">
-                        <option value="Atenciosamente,">Atenciosamente,</option>
-                        <option value="Respeitosamente,">Respeitosamente,</option>
-                        <option value="Nestes termos, pede deferimento.">Nestes termos, pede deferimento.</option>
-                    </select>
-                </div>
-                <div class="col-md-8">
-                    <label for="responsavel_assinatura" class="form-label">Responsável pela Assinatura*</label>
-                    <input type="text" class="form-control" name="responsavel_assinatura" id="responsavel_assinatura" value="{{ current_user.nome if current_user else '' }}" placeholder="Nome do Nutricionista / Servidor" required>
-                </div>
-            </div>
-
-            <div class="text-end">
-                <button type="reset" class="btn btn-secondary">Limpar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Salvar Documento</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Lista de Relatórios Salvos -->
-<div class="card shadow-sm">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-archive"></i> Histórico de Documentos Emitidos</h5>
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover table-striped align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>Data</th>
-                        <th>Nº Documento</th>
-                        <th>Tipo</th>
-                        <th>Assunto</th>
-                        <th>Destinatário</th>
-                        <th class="text-center">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for doc in documentos %}
-                    <tr>
-                        <td>{{ doc.data_emissao.strftime('%d/%m/%Y') }}</td>
-                        <td class="fw-bold">{{ doc.numero_documento }}</td>
-                        <td><span class="badge bg-info text-dark">{{ doc.tipo_documento }}</span></td>
-                        <td>
-                            {{ doc.assunto }}
-                            {% if doc.anexos %}
-                            <span class="badge bg-light text-secondary border ms-1" title="{{ doc.anexos|length }} arquivo(s) anexado(s)"><i class="bi bi-paperclip"></i> {{ doc.anexos|length }}</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ doc.destinatario_nome }}</td>
-                        <td class="text-center">
-                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalVisualizar{{ doc.id }}" title="Visualizar"><i class="bi bi-eye"></i></button>
-                            <a href="{{ url_for('merenda.imprimir_relatorio', id=doc.id) }}" target="_blank" class="btn btn-sm btn-danger" title="Imprimir Oficial"><i class="bi bi-printer-fill"></i> PDF</a>
-                        </td>
-                    </tr>
-
-                    <!-- Modal de Visualização -->
-                    <div class="modal fade" id="modalVisualizar{{ doc.id }}" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-lg">
-                            <div class="modal-content">
-                                <div class="modal-header bg-light">
-                                    <h5 class="modal-title"><i class="bi bi-file-text"></i> Detalhes do Documento</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body text-start">
-                                    <div class="row mb-3">
-                                        <div class="col-md-6">
-                                            <strong>Tipo:</strong> {{ doc.tipo_documento }}<br>
-                                            <strong>Número:</strong> {{ doc.numero_documento }}<br>
-                                            <strong>Data:</strong> {{ doc.data_emissao.strftime('%d/%m/%Y') }}
-                                        </div>
-                                        <div class="col-md-6">
-                                            <strong>Destinatário:</strong> {{ doc.destinatario_nome }}<br>
-                                            <strong>Cargo:</strong> {{ doc.destinatario_cargo or '-' }}
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        <strong>Assunto:</strong> {{ doc.assunto }}
-                                    </div>
-                                    
-                                    <div class="p-3 bg-light border rounded mb-3" style="max-height: 300px; overflow-y: auto; white-space: pre-wrap;">{{ doc.corpo_texto }}</div>
-                                    
-                                    {% if doc.anexos %}
-                                    <h6 class="border-bottom pb-2 mb-2">Anexos</h6>
-                                    <div class="list-group">
-                                        {% for anexo in doc.anexos %}
-                                        <a href="{{ url_for('merenda.download_anexo', anexo_id=anexo.id) }}" target="_blank" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <i class="bi bi-paperclip"></i> {{ anexo.nome_original }}
-                                                <small class="text-muted d-block">{{ anexo.descricao or '' }}</small>
-                                            </div>
-                                            <span class="badge bg-secondary rounded-pill"><i class="bi bi-download"></i> Baixar</span>
-                                        </a>
-                                        {% endfor %}
-                                    </div>
-                                    {% endif %}
-                                </div>
-                                <div class="modal-footer">
-                                    <a href="{{ url_for('merenda.imprimir_relatorio', id=doc.id) }}" target="_blank" class="btn btn-danger"><i class="bi bi-printer"></i> Gerar PDF Oficial</a>
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% else %}
-                    <tr>
-                        <td colspan="6" class="text-center text-muted py-4">Nenhum documento registrado até o momento.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+<div class="container-fluid px-0">
+    <!-- Cabeçalho -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="h3 mb-1"><i class="bi bi-file-earmark-richtext text-primary"></i> Gestão de Relatórios Técnicos e Ofícios</h2>
+            <p class="text-muted mb-0">Elaboração e controle de documentos oficiais da Nutrição Escolar (PNAE).</p>
         </div>
     </div>
+
+    <!-- Cards de Métricas / Resumo -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card metric-card shadow-sm bg-primary text-white h-100">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-white-50 small fw-bold text-uppercase">Total Emitidos</div>
+                        <div class="fs-3 fw-bold">{{ metricas.total }}</div>
+                    </div>
+                    <i class="bi bi-files fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card metric-card shadow-sm bg-success text-white h-100">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-white-50 small fw-bold text-uppercase">Relatórios Técnicos</div>
+                        <div class="fs-3 fw-bold">{{ metricas.relatorios }}</div>
+                    </div>
+                    <i class="bi bi-clipboard-check fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card metric-card shadow-sm bg-info text-white h-100">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-white-50 small fw-bold text-uppercase">Ofícios & Memos</div>
+                        <div class="fs-3 fw-bold">{{ metricas.oficios }}</div>
+                    </div>
+                    <i class="bi bi-envelope-paper fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card metric-card shadow-sm bg-dark text-white h-100">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-white-50 small fw-bold text-uppercase">Ano Vigente</div>
+                        <div class="fs-3 fw-bold">{{ metricas.ano }}</div>
+                    </div>
+                    <i class="bi bi-calendar-event fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navegação por Abas -->
+    <ul class="nav nav-tabs mb-4" id="relatoriosTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-redigir-btn" data-bs-toggle="tab" data-bs-target="#tab-redigir" type="button" role="tab" aria-controls="tab-redigir" aria-selected="true">
+                <i class="bi bi-pencil-square me-1"></i> Redigir Novo Documento
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-historico-btn" data-bs-toggle="tab" data-bs-target="#tab-historico" type="button" role="tab" aria-controls="tab-historico" aria-selected="false">
+                <i class="bi bi-archive me-1"></i> Documentos Emitidos <span class="badge bg-secondary rounded-pill ms-1">{{ documentos|length }}</span>
+            </button>
+        </li>
+    </ul>
+
+    <!-- Conteúdo das Abas -->
+    <div class="tab-content" id="relatoriosTabsContent">
+        
+        <!-- ABA 1: FORMULÁRIO DE CRIAÇÃO -->
+        <div class="tab-pane fade show active" id="tab-redigir" role="tabpanel" aria-labelledby="tab-redigir-btn">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center py-3">
+                    <h5 class="mb-0 fs-6 text-primary"><i class="bi bi-file-earmark-plus me-1"></i> Formulário de Emissão de Documento Oficial</h5>
+                    <span class="badge bg-info text-dark"><i class="bi bi-magic me-1"></i> Numeração Automática Ativa</span>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" enctype="multipart/form-data" id="formDocumento">
+                        
+                        <!-- Cabeçalho do Documento -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-3">
+                                <label for="tipo_documento" class="form-label fw-semibold">Tipo de Documento*</label>
+                                <select class="form-select" name="tipo_documento" id="tipo_documento" required>
+                                    <option value="Relatório Técnico">Relatório Técnico</option>
+                                    <option value="Parecer Técnico">Parecer Técnico</option>
+                                    <option value="Ofício">Ofício</option>
+                                    <option value="Memorando">Memorando</option>
+                                    <option value="Notificação de Irregularidade">Notificação de Irregularidade</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="numero_documento" class="form-label fw-semibold">Nº / Ano*</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control fw-bold text-primary" name="numero_documento" id="numero_documento" value="{{ numero_sugerido }}" required>
+                                    <button class="btn btn-outline-secondary" type="button" id="btnResetNumero" title="Restaurar número automático recomendado"><i class="bi bi-arrow-counterclockwise"></i></button>
+                                </div>
+                                <div class="form-text">Gerado automaticamente para o ano corrente. Pode ser ajustado se necessário.</div>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="data_emissao" class="form-label fw-semibold">Data de Emissão*</label>
+                                <input type="date" class="form-control" name="data_emissao" id="data_emissao" value="{{ data_hoje }}" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="local_emissao" class="form-label fw-semibold">Local de Emissão*</label>
+                                <input type="text" class="form-control" name="local_emissao" id="local_emissao" value="Prefeitura Municipal" required>
+                            </div>
+                        </div>
+
+                        <!-- Destinatário -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-3">
+                                <label for="vocativo" class="form-label fw-semibold">Vocativo</label>
+                                <select class="form-select" name="vocativo" id="vocativo">
+                                    <option value="Ilmo(a). Sr(a).">Ilmo(a). Sr(a).</option>
+                                    <option value="Exmo(a). Sr(a).">Exmo(a). Sr(a).</option>
+                                    <option value="Ao(A) Senhor(a)">Ao(A) Senhor(a)</option>
+                                    <option value="Aos Diretores Escolares">Aos Diretores Escolares</option>
+                                    <option value="À Coordenação Pedagógica">À Coordenação Pedagógica</option>
+                                </select>
+                            </div>
+                            <div class="col-md-5">
+                                <label for="destinatario_nome" class="form-label fw-semibold">Nome do Destinatário*</label>
+                                <input type="text" class="form-control" name="destinatario_nome" id="destinatario_nome" placeholder="Ex: João da Silva" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="destinatario_cargo" class="form-label fw-semibold">Cargo / Setor</label>
+                                <input type="text" class="form-control" name="destinatario_cargo" id="destinatario_cargo" placeholder="Ex: Secretário Municipal de Educação">
+                            </div>
+                        </div>
+
+                        <!-- Assunto -->
+                        <div class="mb-3">
+                            <label for="assunto" class="form-label fw-semibold">Assunto*</label>
+                            <input type="text" class="form-control" name="assunto" id="assunto" placeholder="Resumo do conteúdo (Ex: Vistoria técnica nas instalações da cozinha escolar)" required>
+                        </div>
+
+                        <!-- Editor Rich Text (Word-like) para Corpo do Texto -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold d-flex justify-content-between align-items-center">
+                                <span>Corpo do Texto*</span>
+                                <span class="badge bg-light text-muted border fw-normal"><i class="bi bi-fonts me-1"></i> Use a barra acima para formatar (Estilo Word)</span>
+                            </label>
+                            <!-- Editor Container -->
+                            <div id="editor-wrapper">
+                                <div id="quill-editor"></div>
+                            </div>
+                            <!-- Textarea Oculto para sincronização antes de enviar -->
+                            <textarea name="corpo_texto" id="corpo_texto_hidden" class="d-none" required></textarea>
+                            <div class="form-text mt-1">Utilize a barra de ferramentas para formatar em <b>negrito</b>, <i>itálico</i>, ajustar <u>alinhamentos</u> (esquerda, centro, direita, <b>justificado</b>) e adicionar listas.</div>
+                        </div>
+
+                        <!-- Anexos -->
+                        <div class="mb-3">
+                            <label for="anexos" class="form-label fw-semibold">Anexos (Fotos, Laudos, Relatórios fotográficos)</label>
+                            <input class="form-control" type="file" id="anexos" name="anexos" multiple>
+                            <div class="form-text">Selecione um ou mais arquivos para anexar ao documento oficial.</div>
+                        </div>
+
+                        <!-- Fecho e Assinatura -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <label for="fecho" class="form-label fw-semibold">Fecho</label>
+                                <select class="form-select" name="fecho" id="fecho">
+                                    <option value="Atenciosamente,">Atenciosamente,</option>
+                                    <option value="Respeitosamente,">Respeitosamente,</option>
+                                    <option value="Nestes termos, pede deferimento.">Nestes termos, pede deferimento.</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8">
+                                <label for="responsavel_assinatura" class="form-label fw-semibold">Responsável pela Assinatura*</label>
+                                <input type="text" class="form-control" name="responsavel_assinatura" id="responsavel_assinatura" value="{{ current_user.nome if current_user else '' }}" placeholder="Nome do Nutricionista / Responsável Técnico" required>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="reset" class="btn btn-outline-secondary px-4" id="btnLimparForm">Limpar</button>
+                            <button type="submit" class="btn btn-primary px-4"><i class="bi bi-save me-1"></i> Salvar e Registrar Documento</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA 2: HISTÓRICO DE DOCUMENTOS -->
+        <div class="tab-pane fade" id="tab-historico" role="tabpanel" aria-labelledby="tab-historico-btn">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-light py-3">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-5">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                                <input type="text" id="buscaDocumento" class="form-control" placeholder="Buscar por Nº, assunto, destinatário...">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <select id="filtroTipoDoc" class="form-select form-select-sm">
+                                <option value="">Todos os tipos de documento</option>
+                                <option value="Relatório Técnico">Relatório Técnico</option>
+                                <option value="Parecer Técnico">Parecer Técnico</option>
+                                <option value="Ofício">Ofício</option>
+                                <option value="Memorando">Memorando</option>
+                                <option value="Notificação de Irregularidade">Notificação de Irregularidade</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 text-end">
+                            <span class="text-muted small" id="contadorResultados">Exibindo <strong>{{ documentos|length }}</strong> registro(s)</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" id="tabelaDocumentos">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3" style="width: 110px;">Data</th>
+                                    <th style="width: 140px;">Nº Documento</th>
+                                    <th style="width: 170px;">Tipo</th>
+                                    <th>Assunto / Anexos</th>
+                                    <th>Destinatário</th>
+                                    <th class="text-center pe-3" style="width: 150px;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for doc in documentos %}
+                                <tr class="item-documento" data-tipo="{{ doc.tipo_documento }}" data-texto="{{ doc.numero_documento }} {{ doc.assunto }} {{ doc.destinatario_nome }}">
+                                    <td class="ps-3 text-nowrap"><small class="text-muted">{{ doc.data_emissao.strftime('%d/%m/%Y') }}</small></td>
+                                    <td><span class="fw-bold text-dark">{{ doc.numero_documento }}</span></td>
+                                    <td>
+                                        {% if doc.tipo_documento == 'Relatório Técnico' %}
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">{{ doc.tipo_documento }}</span>
+                                        {% elif doc.tipo_documento == 'Parecer Técnico' %}
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">{{ doc.tipo_documento }}</span>
+                                        {% elif doc.tipo_documento == 'Ofício' %}
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">{{ doc.tipo_documento }}</span>
+                                        {% elif doc.tipo_documento == 'Memorando' %}
+                                            <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-2 py-1">{{ doc.tipo_documento }}</span>
+                                        {% else %}
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">{{ doc.tipo_documento }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark">{{ doc.assunto }}</div>
+                                        {% if doc.anexos %}
+                                        <span class="badge bg-light text-secondary border mt-1" title="{{ doc.anexos|length }} arquivo(s) anexado(s)">
+                                            <i class="bi bi-paperclip"></i> {{ doc.anexos|length }} anexo(s)
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="small fw-semibold">{{ doc.destinatario_nome }}</div>
+                                        <small class="text-muted d-block">{{ doc.destinatario_cargo or '' }}</small>
+                                    </td>
+                                    <td class="text-center pe-3">
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalVisualizar{{ doc.id }}" title="Visualizar Detalhes">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <a href="{{ url_for('merenda.imprimir_relatorio', id=doc.id) }}" target="_blank" class="btn btn-danger" title="Gerar PDF / Imprimir Oficial">
+                                                <i class="bi bi-printer-fill"></i> PDF
+                                            </a>
+                                            <a href="{{ url_for('merenda.excluir_relatorio', id=doc.id) }}" class="btn btn-outline-danger" onclick="return confirm('Tem certeza que deseja excluir este documento ({{ doc.numero_documento }})?');" title="Excluir Documento">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <!-- Modal de Visualização -->
+                                <div class="modal fade" id="modalVisualizar{{ doc.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                        <div class="modal-content">
+                                            <div class="modal-header bg-light">
+                                                <h5 class="modal-title fs-6"><i class="bi bi-file-text text-primary me-1"></i> Visualizar Documento - {{ doc.numero_documento }}</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="row g-3 p-3 bg-light rounded border mb-3">
+                                                    <div class="col-md-6">
+                                                        <small class="text-muted d-block text-uppercase fw-bold">Tipo & Número</small>
+                                                        <strong>{{ doc.tipo_documento }} {{ doc.numero_documento }}</strong>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <small class="text-muted d-block text-uppercase fw-bold">Data & Local</small>
+                                                        <strong>{{ doc.data_emissao.strftime('%d/%m/%Y') }} - {{ doc.local_emissao }}</strong>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <small class="text-muted d-block text-uppercase fw-bold">Destinatário</small>
+                                                        <strong>{{ doc.vocativo or '' }} {{ doc.destinatario_nome }}</strong>
+                                                        <div class="small text-muted">{{ doc.destinatario_cargo or '' }}</div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <small class="text-muted d-block text-uppercase fw-bold">Assinatura</small>
+                                                        <strong>{{ doc.responsavel_assinatura }}</strong>
+                                                    </div>
+                                                    <div class="col-12 border-top pt-2">
+                                                        <small class="text-muted d-block text-uppercase fw-bold">Assunto</small>
+                                                        <strong>{{ doc.assunto }}</strong>
+                                                    </div>
+                                                </div>
+                                                
+                                                <label class="fw-bold mb-2">Conteúdo do Documento:</label>
+                                                <div class="p-3 bg-white border rounded mb-3 shadow-sm" style="min-height: 150px; line-height: 1.6;">
+                                                    {{ doc.corpo_texto|safe }}
+                                                </div>
+
+                                                {% if doc.anexos %}
+                                                <h6 class="fw-bold border-bottom pb-2 mb-2"><i class="bi bi-paperclip me-1"></i> Anexos Vinculados ({{ doc.anexos|length }})</h6>
+                                                <div class="list-group list-group-flush border rounded mb-3">
+                                                    {% for anexo in doc.anexos %}
+                                                    <a href="{{ url_for('merenda.download_anexo', anexo_id=anexo.id) }}" target="_blank" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2">
+                                                        <div>
+                                                            <i class="bi bi-file-earmark-arrow-down text-primary me-2"></i> {{ anexo.nome_original }}
+                                                            <small class="text-muted d-block">{{ anexo.descricao or '' }}</small>
+                                                        </div>
+                                                        <span class="btn btn-sm btn-outline-secondary"><i class="bi bi-download me-1"></i> Baixar</span>
+                                                    </a>
+                                                    {% endfor %}
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="modal-footer bg-light">
+                                                <a href="{{ url_for('merenda.imprimir_relatorio', id=doc.id) }}" target="_blank" class="btn btn-danger">
+                                                    <i class="bi bi-printer me-1"></i> Gerar PDF Oficial
+                                                </a>
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-5">
+                                        <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                                        Nenhum documento registrado até o momento.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
 </div>
+
+<!-- Script do Editor Quill e Manipulação da Página -->
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // 1. Inicializa o Editor Quill (Estilo Word com opções completas de alinhamento)
+        const quill = new Quill('#quill-editor', {
+            theme: 'snow',
+            placeholder: 'Digite aqui o conteúdo técnico do relatório ou ofício...',
+            modules: {
+                toolbar: [
+                    [{ 'header': [1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ 'align': [] }], // Esquerda, Centro, Direita, Justificado
+                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                    [{ 'indent': '-1'}, { 'indent': '+1' }],
+                    ['clean']
+                ]
+            }
+        });
+
+        // Sincroniza o conteúdo do Quill para o textarea oculto antes de enviar o formulário
+        const formDocumento = document.getElementById('formDocumento');
+        const hiddenTextarea = document.getElementById('corpo_texto_hidden');
+
+        formDocumento.addEventListener('submit', function (e) {
+            const htmlContent = quill.root.innerHTML;
+            // Se o conteúdo for apenas um parágrafo vazio do quill, valida a inclusão
+            if (quill.getText().trim().length === 0) {
+                e.preventDefault();
+                alert('Por favor, preencha o Corpo do Texto do documento.');
+                return false;
+            }
+            hiddenTextarea.value = htmlContent;
+        });
+
+        // Botão para restaurar o número automático sugerido
+        const btnResetNumero = document.getElementById('btnResetNumero');
+        const inputNumero = document.getElementById('numero_documento');
+        const numeroSugerido = "{{ numero_sugerido }}";
+
+        if (btnResetNumero && inputNumero) {
+            btnResetNumero.addEventListener('click', function() {
+                inputNumero.value = numeroSugerido;
+            });
+        }
+
+        // Limpar o formulário e resetar o Quill
+        const btnLimparForm = document.getElementById('btnLimparForm');
+        if (btnLimparForm) {
+            btnLimparForm.addEventListener('click', function() {
+                setTimeout(function() {
+                    quill.setText('');
+                    inputNumero.value = numeroSugerido;
+                }, 50);
+            });
+        }
+
+        // 2. Filtro e Pesquisa ao Vivo na Tabela de Histórico
+        const buscaInput = document.getElementById('buscaDocumento');
+        const filtroTipo = document.getElementById('filtroTipoDoc');
+        const linhasTabela = document.querySelectorAll('.item-documento');
+        const contadorResultados = document.getElementById('contadorResultados');
+
+        function filtrarDocumentos() {
+            const termo = buscaInput ? buscaInput.value.toLowerCase().trim() : '';
+            const tipoSelecionado = filtroTipo ? filtroTipo.value : '';
+            let visiveis = 0;
+
+            linhasTabela.forEach(function (linha) {
+                const textoLinha = (linha.getAttribute('data-texto') || '').toLowerCase();
+                const tipoLinha = linha.getAttribute('data-tipo') || '';
+
+                const bateuTexto = termo === '' || textoLinha.includes(termo);
+                const bateuTipo = tipoSelecionado === '' || tipoLinha === tipoSelecionado;
+
+                if (bateuTexto && bateuTipo) {
+                    linha.style.display = '';
+                    visiveis++;
+                } else {
+                    linha.style.display = 'none';
+                }
+            });
+
+            if (contadorResultados) {
+                contadorResultados.innerHTML = `Exibindo <strong>${visiveis}</strong> registro(s)`;
+            }
+        }
+
+        if (buscaInput) buscaInput.addEventListener('keyup', filtrarDocumentos);
+        if (filtroTipo) filtroTipo.addEventListener('change', filtrarDocumentos);
+    });
+</script>
 {% endblock %}

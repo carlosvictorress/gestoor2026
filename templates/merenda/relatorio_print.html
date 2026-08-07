@@ -97,7 +97,25 @@
             text-align: justify;
             text-indent: 2cm;
             margin-bottom: 0.5cm;
-            white-space: pre-wrap;
+        }
+
+        /* Classes de Alinhamento e Formatação do Editor WYSIWYG */
+        .ql-align-center, [style*="text-align: center"], [style*="text-align:center"] { text-align: center !important; text-indent: 0 !important; }
+        .ql-align-right, [style*="text-align: right"], [style*="text-align:right"] { text-align: right !important; text-indent: 0 !important; }
+        .ql-align-justify, [style*="text-align: justify"], [style*="text-align:justify"] { text-align: justify !important; }
+        .ql-align-left, [style*="text-align: left"], [style*="text-align:left"] { text-align: left !important; text-indent: 0 !important; }
+        
+        .corpo-documento {
+            font-size: 12pt;
+            line-height: 1.5;
+        }
+        .corpo-documento p {
+            margin-bottom: 0.5cm;
+            text-align: justify;
+        }
+        .corpo-documento ul, .corpo-documento ol {
+            margin-bottom: 0.5cm;
+            padding-left: 1.5cm;
         }
 
         .fecho { text-align: right; margin-top: 1cm; margin-bottom: 2cm; }
@@ -172,8 +190,8 @@
                             <div class="paragraph">
                                 {{ doc.vocativo if doc.vocativo else 'Prezado(a) Senhor(a),' }}
                             </div>
-                            <div class="paragraph">
-                                {{ doc.corpo_texto }}
+                            <div class="corpo-documento">
+                                {{ doc.corpo_texto|safe }}
                             </div>
                         </div>
 

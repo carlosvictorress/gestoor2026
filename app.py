@@ -3782,7 +3782,7 @@ def exportar_frequencia_individual_excel(cpf):
 _cache_config_sistema = {"data": None, "timestamp": 0}
 
 def obter_config_sistema_cached():
-    agora = time.time()
+    agora = datetime.now().timestamp()
     if _cache_config_sistema["data"] is not None and (agora - _cache_config_sistema["timestamp"]) < 15:
         return _cache_config_sistema["data"]
     try:

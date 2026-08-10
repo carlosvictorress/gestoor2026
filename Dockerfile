@@ -33,4 +33,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 8080
 
 # Inicia o servidor
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8080", "--timeout", "120"]
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8080", "--workers", "4", "--threads", "2", "--worker-class", "gthread", "--timeout", "120"]

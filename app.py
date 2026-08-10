@@ -3,6 +3,7 @@
 # PARTE 1: Importações de Bibliotecas
 # ===================================================================
 import os
+import time
 import io
 from dotenv import load_dotenv
 load_dotenv()
@@ -162,6 +163,13 @@ mail = Mail(app)
 db.init_app(app)
 bcrypt.init_app(app)
 migrate = Migrate(app, db)
+
+try:
+    from flask_compress import Compress
+    Compress(app)
+except Exception as e:
+    print(f"Aviso Flask-Compress: {e}")
+
 
 # ===================================================================
 # PARTE 3: Importação dos Modelos
@@ -3771,6 +3779,31 @@ def exportar_frequencia_individual_excel(cpf):
     registrar_log(f"Gerou relatório Excel de frequência para {servidor.nome}.")
     return response
 
+_cache_config_sistema = {"data": None, "timestamp": 0}
+
+def obter_config_sistema_cached():
+    agora = time.time()
+    if _cache_config_sistema["data"] is not None and (agora - _cache_config_sistema["timestamp"]) < 15:
+        return _cache_config_sistema["data"]
+    try:
+        config = ConfiguracaoSistema.query.filter_by(chave_unica="GLOBAL").first()
+        if config:
+            dados = {
+                "manutencao_ativa": config.manutencao_ativa,
+                "exibir_alerta": config.exibir_alerta,
+                "mensagem_alerta": config.mensagem_alerta
+            }
+            _cache_config_sistema["data"] = dados
+            _cache_config_sistema["timestamp"] = agora
+            return dados
+    except Exception:
+        pass
+    return None
+
+def invalidar_cache_config_sistema():
+    _cache_config_sistema["data"] = None
+    _cache_config_sistema["timestamp"] = 0
+
 @app.route('/admin/controle-sistema', methods=['GET', 'POST'])
 @login_required
 @role_required('admin')
@@ -3791,6 +3824,7 @@ def painel_controle_sistema():
         config.mensagem_alerta = request.form.get('mensagem_alerta')
         
         db.session.commit()
+        invalidar_cache_config_sistema()
         flash("Configurações do sistema atualizadas!", "success")
         return redirect(url_for('painel_controle_sistema'))
 
@@ -3804,26 +3838,26 @@ def verificar_status_sistema():
     if request.endpoint in vias_livres:
         return
 
-    # 2. Busca a configuração no banco de dados
-    config = ConfiguracaoSistema.query.filter_by(chave_unica="GLOBAL").first()
+    # 2. Busca a configuração no cache em memória
+    config = obter_config_sistema_cached()
     if not config:
         return
 
     # 3. VERIFICAÇÃO DE MANUTENÇÃO
     # Se estiver ativa e o usuário NÃO for admin, bloqueia
-    if config.manutencao_ativa:
+    if config.get("manutencao_ativa"):
         if current_user.is_authenticated and current_user.role != 'admin':
             return render_template('manutencao.html'), 503
 
     # 4. VERIFICAÇÃO DE ALERTA POP-UP
     # Mostra apenas para usuários logados e uma vez por dia
-    if config.exibir_alerta and current_user.is_authenticated:
+    if config.get("exibir_alerta") and current_user.is_authenticated:
         hoje = datetime.now().strftime('%Y-%m-%d')
         # Cria uma chave única na sessão para este usuário e este dia
         chave_visto = f"alerta_visto_{current_user.id}_{hoje}"
         
         if session.get(chave_visto) is not True:
-            flash(config.mensagem_alerta, "info_popup")
+            flash(config.get("mensagem_alerta"), "info_popup")
             session[chave_visto] = True
 
 

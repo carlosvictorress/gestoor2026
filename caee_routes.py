@@ -5,7 +5,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from models import (
     CaeeAluno, CaeeProfissional, Secretaria, CaeePlanoAtendimento, 
     CaeeSessao, CaeeLaudo, CaeeRelatorioPeriodico, CaeeLinhaTempo, CaeeEscola,
-    CaeeEscutaInicial, CaeeDevolutivaEscolar, CaeeAgendamento
+    CaeeEscutaInicial, CaeeDevolutivaEscolar, CaeeAgendamento, Escola
 )
 from extensions import db
 from utils import login_required, role_required, cabecalho_e_rodape, upload_arquivo_para_nuvem
@@ -95,10 +95,8 @@ def dashboard():
     
     alunos_em_espera = len(lista_fila_espera)
 
-    # BUSCA DAS ESCOLAS CADASTRADAS (Agora usando a tabela exclusiva do CAEE)
-    lista_escolas = CaeeEscola.query.filter_by(
-        secretaria_id=secretaria_id_logada
-    ).order_by(CaeeEscola.nome).all()
+    # BUSCA DAS ESCOLAS CADASTRADAS NO SISTEMA
+    lista_escolas = Escola.query.order_by(Escola.nome).all()
 
     # NOVA BUSCA: Profissionais Ativos (Para o Modal de Horários)
     profissionais_lista = CaeeProfissional.query.filter_by(
@@ -221,11 +219,8 @@ def adicionar_aluno():
             db.session.rollback()
             flash(f'Erro ao cadastrar aluno: {e}', 'danger')
             
-    # No GET (carregamento inicial da página), buscamos as escolas do CAEE para o formulário
-    lista_escolas = CaeeEscola.query.filter_by(
-        secretaria_id=secretaria_id_logada,
-        status='Ativa'
-    ).order_by(CaeeEscola.nome).all()
+    # No GET (carregamento inicial da página), buscamos as escolas cadastradas no sistema para o formulário
+    lista_escolas = Escola.query.order_by(Escola.nome).all()
 
     return render_template('caee_aluno_form.html', lista_escolas=lista_escolas)
 
@@ -235,9 +230,6 @@ def adicionar_aluno():
 def editar_aluno(aluno_id):
     aluno = CaeeAluno.query.get_or_404(aluno_id)
     secretaria_id_logada = session.get('secretaria_id')
-    
-    # Importação da nova model para carregar as escolas exclusivas do CAEE
-    from models import CaeeEscola 
 
     if request.method == 'POST':
         try:
@@ -284,11 +276,8 @@ def editar_aluno(aluno_id):
             db.session.rollback()
             flash(f'Erro ao atualizar prontuário: {e}', 'danger')
             
-    # No GET, buscamos as escolas do CAEE para preencher o select no formulário
-    lista_escolas = CaeeEscola.query.filter_by(
-        secretaria_id=secretaria_id_logada,
-        status='Ativa'
-    ).order_by(CaeeEscola.nome).all()
+    # No GET, buscamos as escolas do sistema para preencher o select no formulário
+    lista_escolas = Escola.query.order_by(Escola.nome).all()
 
     return render_template('caee_aluno_form.html', aluno=aluno, lista_escolas=lista_escolas)
 
@@ -948,14 +937,10 @@ def consultar_horario_profissional(profissional_id):
 @login_required
 @role_required('admin', 'RH', 'CAEE')
 def navegar_por_escolas():
-    from models import CaeeEscola, CaeeAluno
     secretaria_id_logada = session.get('secretaria_id')
     
-    # Busca todas as escolas do CAEE
-    escolas = CaeeEscola.query.filter_by(
-        secretaria_id=secretaria_id_logada, 
-        status='Ativa'
-    ).order_by(CaeeEscola.nome).all()
+    # Busca todas as escolas do sistema
+    escolas = Escola.query.order_by(Escola.nome).all()
 
     # Se o usuário clicou em uma escola, buscamos os alunos dela
     escola_id = request.args.get('escola_id')
@@ -963,7 +948,7 @@ def navegar_por_escolas():
     escola_selecionada = None
     
     if escola_id:
-        escola_selecionada = CaeeEscola.query.get(escola_id)
+        escola_selecionada = Escola.query.get(escola_id)
         if escola_selecionada:
             # Filtramos os alunos pelo nome da escola (escola_origem)
             alunos = CaeeAluno.query.filter_by(

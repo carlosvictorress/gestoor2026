@@ -97,7 +97,7 @@
                     <div class="col-md-6">
                         <label for="escola_origem" class="form-label">Escola de Origem (Rede Regular)</label>
                         <select class="form-select" id="escola_origem" name="escola_origem">
-                            <option value="">-- Selecione a Escola do CAEE --</option>
+                            <option value="">-- Selecione a Escola --</option>
                             {% for escola in lista_escolas %}
                                 <option value="{{ escola.nome }}" 
                                     {% if aluno and aluno.escola_origem == escola.nome %}selected{% endif %}>
@@ -105,7 +105,7 @@
                                 </option>
                             {% endfor %}
                         </select>
-                        <div class="form-text small">Selecione entre as escolas exclusivas do CAEE.</div>
+                        <div class="form-text small">Selecione uma das escolas cadastradas no sistema.</div>
                     </div>
 
                     <div class="col-md-3">

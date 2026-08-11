@@ -203,7 +203,7 @@
                                 <div id="quill-editor"></div>
                             </div>
                             <!-- Textarea Oculto para sincronização antes de enviar -->
-                            <textarea name="corpo_texto" id="corpo_texto_hidden" class="d-none" required></textarea>
+                            <textarea name="corpo_texto" id="corpo_texto_hidden" class="d-none"></textarea>
                             <div class="form-text mt-1">Utilize a barra de ferramentas para formatar em <b>negrito</b>, <i>itálico</i>, ajustar <u>alinhamentos</u> (esquerda, centro, direita, <b>justificado</b>) e adicionar listas.</div>
                         </div>
 
@@ -425,14 +425,19 @@
             }
         });
 
-        // Sincroniza o conteúdo do Quill para o textarea oculto antes de enviar o formulário
+        // Sincroniza o conteúdo do Quill para o textarea oculto em tempo real e antes de enviar
         const formDocumento = document.getElementById('formDocumento');
         const hiddenTextarea = document.getElementById('corpo_texto_hidden');
 
+        quill.on('text-change', function() {
+            hiddenTextarea.value = quill.root.innerHTML;
+        });
+
         formDocumento.addEventListener('submit', function (e) {
             const htmlContent = quill.root.innerHTML;
+            const textContent = quill.getText().trim();
             // Se o conteúdo for apenas um parágrafo vazio do quill, valida a inclusão
-            if (quill.getText().trim().length === 0) {
+            if (textContent.length === 0) {
                 e.preventDefault();
                 alert('Por favor, preencha o Corpo do Texto do documento.');
                 return false;

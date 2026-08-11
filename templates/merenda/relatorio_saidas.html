@@ -65,6 +65,7 @@
                             <th>Qtd Lançada</th>
                             <th>Baixa Real (Estoque)</th>
                             <th>Responsável</th>
+                            <th class="text-center">Recibo PDF</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -85,6 +86,11 @@
                                 - {{ "%.2f"|format(r.quantidade) }} {{ r.unidade_consumo or 'UNID' }}
                             </td>
                             <td class="small text-muted">{{ r.usuario_responsavel or 'Sistema' }}</td>
+                            <td class="text-center">
+                                <a href="{{ url_for('merenda.pdf_recibo_saida_movimento', movimento_id=r.id) }}" target="_blank" class="btn btn-sm btn-outline-danger shadow-sm py-0 px-2" title="Imprimir Termo de Entrega">
+                                    <i class="bi bi-file-pdf-fill"></i> Recibo PDF
+                                </a>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>

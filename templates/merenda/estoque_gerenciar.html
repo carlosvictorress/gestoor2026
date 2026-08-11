@@ -370,10 +370,9 @@
                                     <th>Data / Hora</th>
                                     <th>Tipo</th>
                                     <th>Produto</th>
-                                    <th>Lançamento</th>
-                                    <th>Baixa / Adição Real</th>
-                                    <th>Destino / Fornecedor</th>
+                                                              <th>Destino / Fornecedor</th>
                                     <th>Responsável</th>
+                                    <th class="text-center">Recibo PDF</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -416,6 +415,15 @@
                                         {% endif %}
                                     </td>
                                     <td class="small text-muted">{{ mov.usuario_responsavel }}</td>
+                                    <td class="text-center">
+                                        {% if mov.escola_id or mov.tipo == 'Saída Escola' %}
+                                        <a href="{{ url_for('merenda.pdf_recibo_saida_movimento', movimento_id=mov.id) }}" target="_blank" class="btn btn-sm btn-outline-danger shadow-sm py-0 px-2" title="Imprimir Termo de Entrega">
+                                            <i class="bi bi-file-pdf-fill"></i> PDF
+                                        </a>
+                                        {% else %}
+                                        <span class="text-muted small">--</span>
+                                        {% endif %}
+                                    </td>
                                 </tr>
                                 {% else %}
                                 <tr>

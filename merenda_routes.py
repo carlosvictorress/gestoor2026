@@ -403,6 +403,286 @@ def entrada_estoque():
     return redirect(url_for('merenda.gerenciar_estoque'))
 
 
+# --- GERADOR EXECUTIVO DE PDF DE ENTREGA E GUIAS PNAE ---
+def gerar_pdf_termo_entrega_profissional(titulo, subtitulo, escola_nome, escola_obj, data_emissao, responsavel, itens_tabela, observacao_geral=None, num_protocolo=None):
+    from utils import cabecalho_e_rodape_moderno, obter_data_hora_br_str
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from flask import make_response
+    import io
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4, 
+        rightMargin=1.5*cm, 
+        leftMargin=1.5*cm, 
+        topMargin=2.8*cm, 
+        bottomMargin=2.0*cm
+    )
+    styles = getSampleStyleSheet()
+
+    style_titulo = ParagraphStyle(
+        'DocTitulo', 
+        parent=styles['Heading1'], 
+        fontName='Helvetica-Bold', 
+        fontSize=12, 
+        leading=14, 
+        alignment=TA_CENTER, 
+        textColor=colors.HexColor('#004d40')
+    )
+    style_subtitulo = ParagraphStyle(
+        'DocSubTitulo', 
+        parent=styles['Normal'], 
+        fontName='Helvetica-Bold', 
+        fontSize=8.5, 
+        leading=11, 
+        alignment=TA_CENTER, 
+        textColor=colors.HexColor('#475569')
+    )
+    style_card_val = ParagraphStyle(
+        'CardVal', 
+        fontName='Helvetica', 
+        fontSize=8, 
+        leading=10, 
+        textColor=colors.HexColor('#1e293b')
+    )
+    style_th = ParagraphStyle(
+        'TableTH', 
+        fontName='Helvetica-Bold', 
+        fontSize=8, 
+        leading=10, 
+        alignment=TA_CENTER, 
+        textColor=colors.whitesmoke
+    )
+    style_td_center = ParagraphStyle(
+        'TableTDCenter', 
+        fontName='Helvetica', 
+        fontSize=8, 
+        leading=10, 
+        alignment=TA_CENTER, 
+        textColor=colors.HexColor('#1e293b')
+    )
+    style_td_bold = ParagraphStyle(
+        'TableTDBold', 
+        fontName='Helvetica-Bold', 
+        fontSize=8, 
+        leading=10, 
+        textColor=colors.HexColor('#0f172a')
+    )
+    style_declaracao = ParagraphStyle(
+        'DeclaracaoText', 
+        fontName='Helvetica-Oblique', 
+        fontSize=8, 
+        leading=11, 
+        alignment=TA_JUSTIFY, 
+        textColor=colors.HexColor('#334155')
+    )
+    style_ass_titulo = ParagraphStyle(
+        'AssTitulo', 
+        fontName='Helvetica-Bold', 
+        fontSize=8, 
+        leading=10, 
+        alignment=TA_CENTER, 
+        textColor=colors.HexColor('#0f172a')
+    )
+    style_ass_sub = ParagraphStyle(
+        'AssSub', 
+        fontName='Helvetica', 
+        fontSize=7.5, 
+        leading=9, 
+        alignment=TA_CENTER, 
+        textColor=colors.HexColor('#64748b')
+    )
+
+    story = []
+
+    # 1. Título Oficial do Documento
+    story.append(Paragraph(titulo.upper(), style_titulo))
+    story.append(Paragraph(subtitulo, style_subtitulo))
+    story.append(Spacer(1, 0.3*cm))
+
+    # 2. Quadro Informativo de Destino & Auditoria
+    data_str = data_emissao.strftime('%d/%m/%Y %H:%M') if isinstance(data_emissao, datetime) else (data_emissao.strftime('%d/%m/%Y') if hasattr(data_emissao, 'strftime') else str(data_emissao))
+    protocolo_str = num_protocolo or "REC-" + datetime.now().strftime('%Y%m%d%H%M%S')
+    
+    inep_str = getattr(escola_obj, 'codigo_inep', None) or '-'
+    endereco_str = getattr(escola_obj, 'endereco', None) or '-'
+
+    card_data = [
+        [
+            Paragraph(f"<b>Unidade Escolar:</b> {escola_nome}", style_card_val),
+            Paragraph(f"<b>Nº Guia/Protocolo:</b> {protocolo_str}", style_card_val)
+        ],
+        [
+            Paragraph(f"<b>Código INEP:</b> {inep_str}", style_card_val),
+            Paragraph(f"<b>Data/Hora Expedição:</b> {data_str}", style_card_val)
+        ],
+        [
+            Paragraph(f"<b>Endereço:</b> {endereco_str}", style_card_val),
+            Paragraph(f"<b>Expedido por:</b> {responsavel or 'Sistema'}", style_card_val)
+        ]
+    ]
+
+    if observacao_geral:
+        card_data.append([
+            Paragraph(f"<b>Observações/Justificativa:</b> {observacao_geral}", style_card_val),
+            Paragraph(f"<b>Programa:</b> PNAE / Alimentação Escolar", style_card_val)
+        ])
+
+    card_table = Table(card_data, colWidths=[10.5*cm, 7.5*cm])
+    card_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(card_table)
+    story.append(Spacer(1, 0.4*cm))
+
+    # 3. Tabela Principal de Produtos
+    table_rows = [
+        [
+            Paragraph("Item", style_th),
+            Paragraph("Gênero Alimentício / Produto", style_th),
+            Paragraph("Qtd. Lançada (Embalagem)", style_th),
+            Paragraph("Baixa Real (Estoque)", style_th),
+            Paragraph("Status/Lote", style_th)
+        ]
+    ]
+
+    total_itens = len(itens_tabela)
+    for idx, row in enumerate(itens_tabela, 1):
+        p_nome = row.get('produto', '')
+        q_emb = row.get('qtd_emb', '--')
+        q_real = row.get('qtd_real', '--')
+        obs = row.get('obs', 'Conforme pedido')
+
+        table_rows.append([
+            Paragraph(str(idx), style_td_center),
+            Paragraph(p_nome, style_td_bold),
+            Paragraph(q_emb, style_td_center),
+            Paragraph(q_real, style_td_center),
+            Paragraph(obs, style_td_center)
+        ])
+
+    table_rows.append([
+        Paragraph("TOTAL", style_td_bold),
+        Paragraph(f"<b>{total_itens} item(ns) discriminado(s)</b>", style_td_bold),
+        Paragraph("--", style_td_center),
+        Paragraph("--", style_td_center),
+        Paragraph("OK", style_td_center)
+    ])
+
+    prod_table = Table(table_rows, colWidths=[1.2*cm, 7.5*cm, 3.8*cm, 3.5*cm, 2.0*cm])
+    prod_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#004d40')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f1f5f9')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f8fafc')])
+    ]))
+    story.append(prod_table)
+    story.append(Spacer(1, 0.4*cm))
+
+    # 4. Termo de Fiel Recebimento / Declaração Oficial
+    decl_text = (
+        "Atestamos que os gêneros alimentícios acima discriminados foram devidamente entregues "
+        "e recebidos nesta data, encontrando-se em perfeitas condições de higiene, acondicionamento e "
+        "prazo de validade, destinados exclusivamente ao atendimento dos alunos da Unidade Escolar (PNAE/FNDE)."
+    )
+    decl_table = Table([[Paragraph(decl_text, style_declaracao)]], colWidths=[18.0*cm])
+    decl_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f1f5f9')),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    story.append(decl_table)
+    story.append(Spacer(1, 1.2*cm))
+
+    # 5. Quadro de Assinaturas Duplas
+    ass_data = [
+        [
+            Paragraph("____________________________________________", style_ass_titulo),
+            Paragraph("____________________________________________", style_ass_titulo)
+        ],
+        [
+            Paragraph("<b>Responsável pela Expedição</b>", style_ass_titulo),
+            Paragraph("<b>Responsável pelo Recebimento na Escola</b>", style_ass_titulo)
+        ],
+        [
+            Paragraph(f"Almoxarifado Central da Merenda<br/><font size=7 color='#64748b'>{responsavel or 'Sistema'}</font>", style_ass_sub),
+            Paragraph("Nome: ____________________________________<br/><font size=7 color='#64748b'>Cargo / Carimbo / CPF</font>", style_ass_sub)
+        ]
+    ]
+    ass_table = Table(ass_data, colWidths=[9.0*cm, 9.0*cm])
+    ass_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    story.append(ass_table)
+
+    doc.build(
+        story, 
+        onFirstPage=lambda canvas, doc: cabecalho_e_rodape_moderno(canvas, doc, "Guia de Entrega"), 
+        onLaterPages=lambda canvas, doc: cabecalho_e_rodape_moderno(canvas, doc, "Guia de Entrega")
+    )
+
+    buffer.seek(0)
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=Termo_Entrega_{protocolo_str}.pdf'
+    return response
+
+
+@merenda_bp.route('/estoque/movimento/<int:movimento_id>/recibo-pdf')
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def pdf_recibo_saida_movimento(movimento_id):
+    movimento = EstoqueMovimento.query.get_or_404(movimento_id)
+    escola = Escola.query.get(movimento.escola_id) if movimento.escola_id else None
+    escola_nome = escola.nome if escola else "Unidade Escolar"
+    produto = ProdutoMerenda.query.get(movimento.produto_id) if movimento.produto_id else None
+
+    qtd_emb = f"{movimento.quantidade_embalagem:.2f} {movimento.unidade_movimento or 'unid'}" if movimento.quantidade_embalagem else "--"
+    qtd_real = f"{movimento.quantidade:.2f} {produto.unidade_consumo if produto else 'UNID'}"
+
+    itens_tabela = [{
+        'produto': produto.nome if produto else 'Gênero Alimentício',
+        'qtd_emb': qtd_emb,
+        'qtd_real': qtd_real,
+        'obs': movimento.observacao or 'Conforme Solicitação'
+    }]
+
+    return gerar_pdf_termo_entrega_profissional(
+        titulo="TERMO DE EXPEDIÇÃO E GUIA DE ENTREGA",
+        subtitulo="PNAE - Programa Nacional de Alimentação Escolar / FNDE",
+        escola_nome=escola_nome,
+        escola_obj=escola,
+        data_emissao=movimento.data_movimento,
+        responsavel=movimento.usuario_responsavel,
+        itens_tabela=itens_tabela,
+        observacao_geral=movimento.observacao,
+        num_protocolo=f"MOV-{movimento.id:06d}"
+    )
+
+
 @merenda_bp.route('/estoque/saidas', methods=['POST'])
 @login_required
 @role_required('Merenda Escolar', 'admin')
@@ -467,8 +747,13 @@ def saida_estoque():
         db.session.commit()
 
         registrar_log(f'Saída de estoque da Merenda ({tipo_saida}): {msg_detalhe} do produto "{produto.nome}" para {nome_destino}.')
-        flash(f'Sucesso! Saída de {msg_detalhe} registrada para "{produto.nome}". Destino: {nome_destino}.', 'success')
-        return redirect(url_for('merenda.gerenciar_estoque'))
+        
+        if escola_id or tipo_saida == 'Saída Escola':
+            flash(f'Sucesso! Saída de {msg_detalhe} registrada para "{produto.nome}". Gerando Termo de Entrega em PDF...', 'success')
+            return redirect(url_for('merenda.pdf_recibo_saida_movimento', movimento_id=movimento.id))
+        else:
+            flash(f'Sucesso! Saída de {msg_detalhe} registrada para "{produto.nome}". Destino: {nome_destino}.', 'success')
+            return redirect(url_for('merenda.gerenciar_estoque'))
 
     except Exception as e:
         db.session.rollback()
@@ -838,6 +1123,7 @@ def relatorio_saidas():
     resultados = []
     if escola_id:
         query = db.session.query(
+            EstoqueMovimento.id,
             EstoqueMovimento.data_movimento,
             ProdutoMerenda.nome,
             EstoqueMovimento.quantidade,
@@ -871,56 +1157,31 @@ def relatorio_saidas():
                            data_fim=data_fim_str)
 
 def gerar_pdf_saidas(titulo, periodo, dados):
-    from utils import cabecalho_e_rodape_moderno
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT
-    from reportlab.lib import colors
-    from reportlab.lib.units import cm
-    from flask import make_response
-    import io
+    escola_nome = titulo.replace("Relatório de Saídas para ", "").strip()
+    escola_obj = Escola.query.filter_by(nome=escola_nome).first()
 
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=3*cm, bottomMargin=2*cm)
-    styles = getSampleStyleSheet()
-
-    story = []
-    story.append(Paragraph(titulo, styles['h2']))
-    story.append(Paragraph(periodo, styles['Normal']))
-    story.append(Spacer(1, 0.5*cm))
-
-    table_data = [['Data/Hora da Saída', 'Produto', 'Qtd Lançada', 'Baixa Real em Estoque', 'Responsável']]
-    
+    itens_tabela = []
     for item in dados:
-        data_formatada = item.data_movimento.strftime('%d/%m/%Y %H:%M')
         qtd_emb = f"{item.quantidade_embalagem:.1f} {item.unidade_movimento or ''}" if item.quantidade_embalagem else "--"
         qtd_real = f"{item.quantidade:.2f} {item.unidade_consumo or 'UNID'}"
-        table_data.append([data_formatada, item.nome, qtd_emb, qtd_real, item.usuario_responsavel or 'Sistema'])
+        itens_tabela.append({
+            'produto': item.nome,
+            'qtd_emb': qtd_emb,
+            'qtd_real': qtd_real,
+            'obs': f"Resp: {item.usuario_responsavel or 'Sistema'}"
+        })
 
-    t = Table(table_data, colWidths=[4*cm, 5.5*cm, 3*cm, 3.5*cm, 2*cm])
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#004d40')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f5f5')])
-    ]))
-    
-    story.append(t)
-    story.append(Spacer(1, 1.5*cm))
-    story.append(Paragraph("________________________________________", styles['Normal']))
-    story.append(Paragraph("Responsável pela Expedição da Merenda", styles['Normal']))
-    
-    doc.build(story, onFirstPage=lambda canvas, doc: cabecalho_e_rodape_moderno(canvas, doc, "Relatório de Saídas"), 
-                     onLaterPages=lambda canvas, doc: cabecalho_e_rodape_moderno(canvas, doc, "Relatório de Saídas"))
-    
-    buffer.seek(0)
-    response = make_response(buffer.getvalue())
-    response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = 'inline; filename=relatorio_saidas.pdf'
-    return response                       
+    return gerar_pdf_termo_entrega_profissional(
+        titulo="RELATÓRIO DE SAÍDAS E GUIA DE EXPEDIÇÃO",
+        subtitulo=f"PNAE | {periodo}",
+        escola_nome=escola_nome,
+        escola_obj=escola_obj,
+        data_emissao=datetime.now(),
+        responsavel=session.get('username', 'Sistema'),
+        itens_tabela=itens_tabela,
+        observacao_geral=f"Relatório consolidado de saídas por escola. Total de {len(dados)} entregas.",
+        num_protocolo="REL-" + datetime.now().strftime('%Y%m%d%H%M')
+    )                       
     
     
 @merenda_bp.route('/relatorios/validade-lotes', methods=['GET'])
@@ -2756,33 +3017,30 @@ def editar_ficha(id):
 @role_required('Merenda Escolar', 'admin')
 def pdf_recibo_solicitacao(solicitacao_id):
     solicitacao = SolicitacaoMerenda.query.get_or_404(solicitacao_id)
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=3*cm, bottomMargin=2*cm)
-    
-    styles = getSampleStyleSheet()
-    story = [Paragraph("RECIBO DE ENTREGA DE MERENDA", styles['Heading1']), Spacer(1, 0.5*cm)]
-    
-    story.append(Paragraph(f"Escola: {solicitacao.escola.nome}", styles['Normal']))
-    story.append(Paragraph(f"Data da Entrega: {solicitacao.data_entrega.strftime('%d/%m/%Y %H:%M')}", styles['Normal']))
-    story.append(Spacer(1, 1*cm))
+    escola = solicitacao.escola
 
-    # Tabela de itens
-    data = [["Produto", "Quantidade"]]
+    itens_tabela = []
     for item in solicitacao.itens:
-        # A alteração está aqui: formatamos o float para 1 casa decimal e removemos a unidade
-        valor_quantidade = f"{float(item.quantidade_solicitada):.1f}".replace('.', ',')
-        data.append([item.produto.nome, valor_quantidade])
-    
-    t = Table(data, colWidths=[10*cm, 5*cm])
-    t.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black)]))
-    story.append(t)
-    
-    doc.build(story)
-    buffer.seek(0)
-    
-    response = make_response(buffer.getvalue())
-    response.headers['Content-Type'] = 'application/pdf'
-    return response
+        valor_qtd = f"{float(item.quantidade_solicitada):.1f}".replace('.', ',')
+        unid = item.produto.unidade_consumo if (item.produto and item.produto.unidade_consumo) else 'UNID'
+        itens_tabela.append({
+            'produto': item.produto.nome if item.produto else 'Gênero Alimentício',
+            'qtd_emb': f"{valor_qtd} {unid}",
+            'qtd_real': f"{valor_qtd} {unid}",
+            'obs': f"Status: {solicitacao.status}"
+        })
+
+    return gerar_pdf_termo_entrega_profissional(
+        titulo="TERMO DE ENTREGA - SOLICITAÇÃO ESCOLAR",
+        subtitulo="PNAE - Programa Nacional de Alimentação Escolar",
+        escola_nome=escola.nome if escola else "Unidade Escolar",
+        escola_obj=escola,
+        data_emissao=solicitacao.data_entrega or solicitacao.data_solicitacao or datetime.now(),
+        responsavel=session.get('username', 'Sistema'),
+        itens_tabela=itens_tabela,
+        observacao_geral=f"Solicitação ID: #{solicitacao.id} | Status: {solicitacao.status}",
+        num_protocolo=f"SOL-{solicitacao.id:06d}"
+    )
 
 @merenda_bp.route('/contrato-pnae/excluir-entrega/<int:entrega_id>', methods=['POST'])
 @login_required

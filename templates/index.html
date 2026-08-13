@@ -99,6 +99,10 @@
         <i class="bi bi-people-fill text-primary me-2" style="color: #072657 !important;"></i> Gestão de Servidores
     </h3>
     <div class="d-flex gap-2">
+        <a href="{{ url_for('gerar_relatorio_excel', termo=request.args.get('termo', ''), funcao=request.args.get('funcao', ''), lotacao=request.args.get('lotacao', ''), local_trabalho=request.args.get('local_trabalho', '')) }}" 
+           class="btn btn-success btn-gov shadow-sm">
+            <i class="bi bi-file-earmark-excel-fill me-1"></i> Exportar Excel
+        </a>
         <a href="{{ url_for('gerar_relatorio_pdf', termo=request.args.get('termo', ''), funcao=request.args.get('funcao', ''), lotacao=request.args.get('lotacao', ''), local_trabalho=request.args.get('local_trabalho', '')) }}" 
            target="_blank" 
            class="btn btn-danger btn-gov shadow-sm">
@@ -168,6 +172,10 @@
                 <button type="submit" class="btn btn-primary btn-gov" style="background-color: #072657; border-color: #072657;">
                     <i class="bi bi-search me-1"></i> Aplicar Filtros
                 </button>
+                <a href="{{ url_for('gerar_relatorio_excel', termo=request.args.get('termo', ''), funcao=request.args.get('funcao', ''), lotacao=request.args.get('lotacao', ''), local_trabalho=request.args.get('local_trabalho', '')) }}" 
+                   class="btn btn-success btn-gov shadow-sm">
+                    <i class="bi bi-file-earmark-excel-fill me-1"></i> Exportar Excel
+                </a>
                 <a href="{{ url_for('gerar_relatorio_pdf', termo=request.args.get('termo', ''), funcao=request.args.get('funcao', ''), lotacao=request.args.get('lotacao', ''), local_trabalho=request.args.get('local_trabalho', '')) }}" 
                    target="_blank" 
                    class="btn btn-danger btn-gov shadow-sm">

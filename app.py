@@ -1242,6 +1242,156 @@ def gerar_relatorio_pdf():
     return response
 
 
+@app.route("/relatorio/servidores/excel")
+@login_required
+@role_required("RH", "admin")
+def gerar_relatorio_excel():
+    user_role = session.get("role")
+    secretaria_id_logada = session.get("secretaria_id")
+
+    # 1. Permissão base
+    if user_role == 'admin':
+        query = Servidor.query
+    else:
+        query = Servidor.query.filter_by(secretaria_id=secretaria_id_logada if secretaria_id_logada else -1)
+
+    # 2. Captura os filtros da URL
+    termo_busca = request.args.get("termo")
+    funcao_filtro = request.args.get("funcao")
+    lotacao_filtro = request.args.get("lotacao")
+    local_trabalho_filtro = request.args.get("local_trabalho")
+
+    # 3. Aplica os filtros na Query
+    if termo_busca:
+        search_pattern = f"%{termo_busca}%"
+        query = query.filter(
+            or_(
+                Servidor.nome.ilike(search_pattern),
+                Servidor.cpf.ilike(search_pattern),
+                Servidor.num_contrato.ilike(search_pattern),
+            )
+        )
+
+    if funcao_filtro:
+        query = query.filter(Servidor.funcao == funcao_filtro)
+
+    if lotacao_filtro:
+        query = query.filter(Servidor.lotacao == lotacao_filtro)
+
+    if local_trabalho_filtro:
+        query = query.filter(Servidor.local_trabalho == local_trabalho_filtro)
+
+    servidores = query.order_by(Servidor.nome).all()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Servidores"
+
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    header_fill = PatternFill(start_color="072657", end_color="072657", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    data_font = Font(name="Calibri", size=10)
+    title_font = Font(name="Calibri", size=14, bold=True, color="072657")
+    sub_font = Font(name="Calibri", size=9, italic=True, color="4A5568")
+
+    thin_border = Border(
+        left=Side(style='thin', color='CBD5E0'),
+        right=Side(style='thin', color='CBD5E0'),
+        top=Side(style='thin', color='CBD5E0'),
+        bottom=Side(style='thin', color='CBD5E0')
+    )
+
+    # Linha 1: Título
+    ws.merge_cells('A1:G1')
+    ws['A1'] = "RELATÓRIO GERAL DE SERVIDORES PÚBLICOS - GESTOR360"
+    ws['A1'].font = title_font
+    ws['A1'].alignment = Alignment(horizontal="left", vertical="center")
+    ws.row_dimensions[1].height = 25
+
+    # Linha 2: Metadados
+    agora_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    filtros_str_list = []
+    if termo_busca:
+        filtros_str_list.append(f"Busca: {termo_busca}")
+    if funcao_filtro:
+        filtros_str_list.append(f"Função: {funcao_filtro}")
+    if lotacao_filtro:
+        filtros_str_list.append(f"Lotação: {lotacao_filtro}")
+    if local_trabalho_filtro:
+        filtros_str_list.append(f"Local de Trabalho: {local_trabalho_filtro}")
+
+    filtros_str = " | ".join(filtros_str_list) if filtros_str_list else "Sem filtros aplicados"
+
+    ws.merge_cells('A2:G2')
+    ws['A2'] = f"Emitido em: {agora_str} | Total de Registros: {len(servidores)} | Filtros: {filtros_str}"
+    ws['A2'].font = sub_font
+    ws['A2'].alignment = Alignment(horizontal="left", vertical="center")
+    ws.row_dimensions[2].height = 18
+
+    # Linha 3: Espaçamento
+    ws.row_dimensions[3].height = 10
+
+    # Linha 4: Cabeçalhos da Tabela
+    headers = ["#", "Nome do Servidor", "CPF", "Função", "Lotação", "Local de Trabalho Específico", "Vínculo"]
+    ws.append(headers)
+    ws.row_dimensions[4].height = 24
+
+    for col_num in range(1, len(headers) + 1):
+        cell = ws.cell(row=4, column=col_num)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center" if col_num in [1, 3, 7] else "left", vertical="center")
+        cell.border = thin_border
+
+    # Linhas de Dados
+    zebra_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+
+    for idx, s in enumerate(servidores, start=1):
+        row_num = 4 + idx
+        ws.append([
+            idx,
+            (s.nome or '').upper(),
+            s.cpf or 'N/A',
+            (s.funcao or 'N/A').upper(),
+            (s.lotacao or 'N/A').upper(),
+            (s.local_trabalho or 'N/A').upper(),
+            s.tipo_vinculo or 'N/A'
+        ])
+        ws.row_dimensions[row_num].height = 20
+
+        for col_num in range(1, 8):
+            cell = ws.cell(row=row_num, column=col_num)
+            cell.font = data_font
+            cell.border = thin_border
+            cell.alignment = Alignment(horizontal="center" if col_num in [1, 3, 7] else "left", vertical="center")
+            if idx % 2 == 0:
+                cell.fill = zebra_fill
+
+    # Ajuste automático de largura das colunas
+    for col in ws.columns:
+        max_len = 0
+        col_letter = get_column_letter(col[0].column)
+        for cell in col:
+            if cell.row in [1, 2, 3]:
+                continue
+            if cell.value:
+                max_len = max(max_len, len(str(cell.value)))
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    response = make_response(output.getvalue())
+    response.headers["Content-Disposition"] = f"attachment; filename=relatorio_servidores_{datetime.now().strftime('%Y-%m-%d_%H%M')}.xlsx"
+    response.headers["Content-Type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+    registrar_log("Gerou o relatório de servidores em Excel.")
+    return response
+
+
 @app.route("/combustivel/relatorio/mensal/selecionar")
 @login_required
 def pagina_relatorio_mensal():

@@ -955,90 +955,290 @@ def renovar_licenca():
     return render_template("renovar_licenca.html")
 
 
+class NumberedCanvasGov(canvas_lib.Canvas):
+    """
+    Canvas de duas passagens (Two-pass Canvas) para relatório no padrão governamental.
+    Desenha cabeçalhos/rodapés oficiais e calcula dinamicamente 'Página X de Y'.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._saved_page_states = []
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        num_pages = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self.draw_gov_decorations(num_pages)
+            super().showPage()
+        super().save()
+
+    def draw_gov_decorations(self, page_count):
+        self.saveState()
+        page_w, page_h = self._pagesize
+        margin_x = 1.2 * cm
+
+        # Barra azul corporativa governamental no topo
+        self.setFillColor(colors.HexColor("#072657"))
+        self.rect(0, page_h - 0.35 * cm, page_w, 0.35 * cm, fill=1, stroke=0)
+
+        # Rodapé Oficial com linha divisória
+        self.setStrokeColor(colors.HexColor("#CBD5E0"))
+        self.setLineWidth(0.75)
+        self.line(margin_x, 1.3 * cm, page_w - margin_x, 1.3 * cm)
+
+        self.setFont("Helvetica", 8)
+        self.setFillColor(colors.HexColor("#4A5568"))
+
+        agora_str = datetime.now().strftime("%d/%m/%Y às %H:%M:%S")
+        self.drawString(margin_x, 0.8 * cm, f"Gestor360 • Relatório Oficial de Servidores | Emitido em: {agora_str}")
+        self.drawRightString(page_w - margin_x, 0.8 * cm, f"Página {self._pageNumber} de {page_count}")
+
+        self.setFont("Helvetica-Oblique", 7)
+        self.setFillColor(colors.HexColor("#718096"))
+        self.drawRightString(page_w - margin_x, 0.45 * cm, "Documento gerado eletronicamente para fins de fiscalização e controle interno RH")
+
+        self.restoreState()
+
+
 @app.route("/relatorio/servidores/pdf")
 @login_required
+@role_required("RH", "admin")
 def gerar_relatorio_pdf():
-    servidores = Servidor.query.order_by(Servidor.nome).all()
+    user_role = session.get("role")
+    secretaria_id_logada = session.get("secretaria_id")
+
+    # 1. Permissão base
+    if user_role == 'admin':
+        query = Servidor.query
+    else:
+        query = Servidor.query.filter_by(secretaria_id=secretaria_id_logada if secretaria_id_logada else -1)
+
+    # 2. Captura os filtros da URL
+    termo_busca = request.args.get("termo")
+    funcao_filtro = request.args.get("funcao")
+    lotacao_filtro = request.args.get("lotacao")
+    local_trabalho_filtro = request.args.get("local_trabalho")
+
+    # 3. Aplica os filtros na Query
+    if termo_busca:
+        search_pattern = f"%{termo_busca}%"
+        query = query.filter(
+            or_(
+                Servidor.nome.ilike(search_pattern),
+                Servidor.cpf.ilike(search_pattern),
+                Servidor.num_contrato.ilike(search_pattern),
+            )
+        )
+
+    if funcao_filtro:
+        query = query.filter(Servidor.funcao == funcao_filtro)
+
+    if lotacao_filtro:
+        query = query.filter(Servidor.lotacao == lotacao_filtro)
+
+    if local_trabalho_filtro:
+        query = query.filter(Servidor.local_trabalho == local_trabalho_filtro)
+
+    servidores = query.order_by(Servidor.nome).all()
 
     buffer = io.BytesIO()
-    doc = BaseDocTemplate(
+    doc = SimpleDocTemplate(
         buffer,
         pagesize=landscape(A4),
-        leftMargin=1.5 * cm,
-        rightMargin=1.5 * cm,
-        topMargin=3 * cm,
-        bottomMargin=2.5 * cm,
+        leftMargin=1.2 * cm,
+        rightMargin=1.2 * cm,
+        topMargin=1.2 * cm,
+        bottomMargin=1.8 * cm,
     )
-
-    frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id="normal")
-    template = PageTemplate(
-        id="main_template", frames=[frame], onPage=cabecalho_e_rodape
-    )
-    doc.addPageTemplates([template])
 
     styles = getSampleStyleSheet()
-    p_style = ParagraphStyle(
-        name="CustomNormal", parent=styles["Normal"], alignment=TA_CENTER, fontSize=8
-    )
-    header_style = ParagraphStyle(
-        name="CustomHeader",
+
+    title_style = ParagraphStyle(
+        name="GovTitle",
         parent=styles["Normal"],
-        alignment=TA_CENTER,
-        fontSize=9,
         fontName="Helvetica-Bold",
+        fontSize=15,
+        leading=18,
+        textColor=colors.HexColor("#072657"),
+        alignment=TA_LEFT,
     )
 
-    story = [
-        Paragraph("Relatório Geral de Servidores", styles["h1"]),
-        Spacer(1, 1 * cm),
+    subtitle_style = ParagraphStyle(
+        name="GovSubtitle",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=9,
+        leading=12,
+        textColor=colors.HexColor("#4A5568"),
+        alignment=TA_LEFT,
+    )
+
+    meta_label_style = ParagraphStyle(
+        name="GovMetaLabel",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=8,
+        leading=11,
+        textColor=colors.HexColor("#1A202C"),
+    )
+
+    meta_val_style = ParagraphStyle(
+        name="GovMetaVal",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=8,
+        leading=11,
+        textColor=colors.HexColor("#2D3748"),
+    )
+
+    tbl_header_style = ParagraphStyle(
+        name="GovTableHeader",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=8.5,
+        leading=11,
+        textColor=colors.white,
+        alignment=TA_CENTER,
+    )
+
+    tbl_cell_style = ParagraphStyle(
+        name="GovTableCell",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=7.5,
+        leading=10,
+        textColor=colors.HexColor("#1A202C"),
+        alignment=TA_LEFT,
+    )
+
+    tbl_cell_center = ParagraphStyle(
+        name="GovTableCellCenter",
+        parent=tbl_cell_style,
+        alignment=TA_CENTER,
+    )
+
+    story = []
+
+    # Cabeçalho Institucional (Timbre)
+    image_path = os.path.join(basedir, "static", "timbre.jpg")
+    if os.path.exists(image_path):
+        try:
+            img = Image(image_path, width=27.3 * cm, height=2.2 * cm)
+            story.append(img)
+            story.append(Spacer(1, 0.2 * cm))
+        except Exception:
+            pass
+
+    # Título do Documento
+    story.append(Paragraph("RELATÓRIO GERAL DE SERVIDORES PÚBLICOS", title_style))
+    story.append(Paragraph("GESTÃO DE RECURSOS HUMANOS • SISTEMA GESTOR360", subtitle_style))
+    story.append(Spacer(1, 0.3 * cm))
+
+    # Box de Metadados e Filtros Aplicados
+    filtros_str_list = []
+    if termo_busca:
+        filtros_str_list.append(f"<b>Busca:</b> {termo_busca}")
+    if funcao_filtro:
+        filtros_str_list.append(f"<b>Função:</b> {funcao_filtro}")
+    if lotacao_filtro:
+        filtros_str_list.append(f"<b>Lotação:</b> {lotacao_filtro}")
+    if local_trabalho_filtro:
+        filtros_str_list.append(f"<b>Local de Trabalho Específico:</b> {local_trabalho_filtro}")
+
+    filtros_str = " | ".join(filtros_str_list) if filtros_str_list else "Todos os registros (Sem filtros aplicados)"
+
+    meta_data = [
+        [
+            Paragraph("<b>DATA DE EMISSÃO:</b>", meta_label_style),
+            Paragraph(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), meta_val_style),
+            Paragraph("<b>TOTAL DE REGISTROS:</b>", meta_label_style),
+            Paragraph(f"<b>{len(servidores)} servidor(es)</b>", meta_val_style),
+        ],
+        [
+            Paragraph("<b>FILTROS ATIVOS:</b>", meta_label_style),
+            Paragraph(filtros_str, meta_val_style),
+            Paragraph("<b>EMISSOR:</b>", meta_label_style),
+            Paragraph(f"{session.get('username', 'Usuário')} ({user_role.upper() if user_role else 'RH'})", meta_val_style),
+        ]
     ]
 
-    if not servidores:
-        story.append(Paragraph("Nenhum servidor cadastrado.", styles["Normal"]))
-    else:
-        table_data = [
-            [
-                Paragraph(h, header_style)
-                for h in ["Nome", "CPF", "Função", "Lotação", "Vínculo", "Telefone"]
-            ]
+    meta_table = Table(meta_data, colWidths=[3.2 * cm, 13.0 * cm, 3.5 * cm, 7.6 * cm])
+    meta_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#F1F5F9")),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E0")),
+        ('INNERGRID', (0, 0), (-1, -1), 0.3, colors.HexColor("#E2E8F0")),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(meta_table)
+    story.append(Spacer(1, 0.4 * cm))
+
+    # Tabela Principal de Servidores
+    headers = ["#", "Nome do Servidor", "CPF", "Função", "Lotação", "Local de Trabalho Específico", "Vínculo"]
+    table_data = [[Paragraph(h, tbl_header_style) for h in headers]]
+
+    for idx, s in enumerate(servidores, start=1):
+        row = [
+            Paragraph(str(idx), tbl_cell_center),
+            Paragraph(f"<b>{(s.nome or '').upper()}</b>", tbl_cell_style),
+            Paragraph(s.cpf or 'N/A', tbl_cell_center),
+            Paragraph((s.funcao or 'N/A').upper(), tbl_cell_style),
+            Paragraph((s.lotacao or 'N/A').upper(), tbl_cell_style),
+            Paragraph((s.local_trabalho or 'N/A').upper(), tbl_cell_style),
+            Paragraph(s.tipo_vinculo or 'N/A', tbl_cell_center),
         ]
-        for s in servidores:
-            row = [
-                Paragraph(s.nome or "", p_style),
-                Paragraph(s.cpf or "", p_style),
-                Paragraph(s.funcao or "", p_style),
-                Paragraph(s.lotacao or "", p_style),
-                Paragraph(s.tipo_vinculo or "", p_style),
-                Paragraph(s.telefone or "", p_style),
-            ]
-            table_data.append(row)
+        table_data.append(row)
 
-        table = Table(
-            table_data, colWidths=[7 * cm, 3.5 * cm, 4 * cm, 4 * cm, 3.5 * cm, 3 * cm]
-        )
-        style = TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#004d40")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("GRID", (0, 0), (-1, -1), 1, colors.black),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ]
-        )
-        table.setStyle(style)
-        story.append(table)
+    if not servidores:
+        table_data.append([
+            Paragraph("Nenhum servidor encontrado com os critérios selecionados.", tbl_cell_center),
+            Paragraph("", tbl_cell_style),
+            Paragraph("", tbl_cell_style),
+            Paragraph("", tbl_cell_style),
+            Paragraph("", tbl_cell_style),
+            Paragraph("", tbl_cell_style),
+            Paragraph("", tbl_cell_style),
+        ])
 
-    doc.build(story)
+    col_widths = [1.0 * cm, 6.3 * cm, 3.0 * cm, 4.5 * cm, 4.0 * cm, 5.5 * cm, 3.0 * cm]
+
+    table_style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#072657")),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E0")),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+    ])
+
+    for i in range(1, len(table_data)):
+        bg_color = colors.HexColor("#FFFFFF") if i % 2 != 0 else colors.HexColor("#F8FAFC")
+        table_style.add('BACKGROUND', (0, i), (-1, i), bg_color)
+
+    main_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    main_table.setStyle(table_style)
+    story.append(main_table)
+
+    doc.build(story, canvasmaker=NumberedCanvasGov)
     buffer.seek(0)
 
     response = make_response(buffer.getvalue())
     response.headers["Content-Type"] = "application/pdf"
     response.headers["Content-Disposition"] = (
-        f'inline; filename=relatorio_servidores_{datetime.now().strftime("%Y-%m-%d")}.pdf'
+        f'inline; filename=relatorio_servidores_{datetime.now().strftime("%Y-%m-%d_%H%M")}.pdf'
     )
 
-    registrar_log("Gerou o PDF do Relatório Geral de Servidores.")
+    registrar_log("Gerou o PDF Governamental do Relatório Geral de Servidores.")
     return response
 
 
@@ -1913,6 +2113,7 @@ def lista_servidores():
     termo_busca = request.args.get("termo")
     funcao_filtro = request.args.get("funcao")
     lotacao_filtro = request.args.get("lotacao")
+    local_trabalho_filtro = request.args.get("local_trabalho")
 
     # 3. Aplica os filtros na Query
     if termo_busca:
@@ -1931,12 +2132,16 @@ def lista_servidores():
     if lotacao_filtro:
         query = query.filter(Servidor.lotacao == lotacao_filtro)
 
+    if local_trabalho_filtro:
+        query = query.filter(Servidor.local_trabalho == local_trabalho_filtro)
+
     # 4. Executa a busca final
     servidores = query.order_by(Servidor.nome).all()
 
     # 5. Prepara listas para os dropdowns de filtro (Consultas otimizadas)
     funcoes_disponiveis = [r[0] for r in db.session.query(Servidor.funcao).distinct().order_by(Servidor.funcao).all() if r[0]]
     lotacoes_disponiveis = [r[0] for r in db.session.query(Servidor.lotacao).distinct().order_by(Servidor.lotacao).all() if r[0]]
+    locais_trabalho_disponiveis = [r[0] for r in db.session.query(Servidor.local_trabalho).distinct().order_by(Servidor.local_trabalho).all() if r[0]]
 
     # 6. Busca escolas para o modal de cadastro
     escolas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
@@ -1962,6 +2167,7 @@ def lista_servidores():
         servidores=servidores,
         funcoes_disponiveis=funcoes_disponiveis,
         lotacoes_disponiveis=lotacoes_disponiveis,
+        locais_trabalho_disponiveis=locais_trabalho_disponiveis,
         status_servidores=status_servidores,
         escolas=escolas
     )

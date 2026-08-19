@@ -76,11 +76,11 @@
                                     </form>
 
                                     {% if ficha.status == 'Pendente' %}
-                                        {# 3. ENVIAR #}
-                                        <form action="{{ url_for('merenda.enviar_ficha', id=ficha.id) }}" method="POST" style="display:inline;">
-                                            <button type="submit" class="btn btn-sm btn-outline-success" title="Enviar para Escola" 
-                                                    onclick="return confirm('Deseja enviar? Isso bloqueará edições futuras.')">
-                                                <i class="bi bi-send-check"></i>
+                                        {# 3. ENVIAR PARA ESCOLA (Com Baixa no Estoque) #}
+                                        <form action="{{ url_for('merenda.enviar_para_escola', id=ficha.id) }}" method="POST" style="display:inline;">
+                                            <button type="submit" class="btn btn-sm btn-success fw-bold shadow-sm" title="Enviar para Escola e Dar Baixa no Estoque" 
+                                                    onclick="return confirm('Deseja enviar a Ficha #{{ ficha.id }} para a escola {{ ficha.escola.nome }}?\n\nEsta ação dará BAIXA NO ESTOQUE de todos os alimentos desta ficha e bloqueará alterações futuras.')">
+                                                <i class="bi bi-send-check-fill"></i> ENVIAR PARA ESCOLA
                                             </button>
                                         </form>
 

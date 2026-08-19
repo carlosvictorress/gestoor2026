@@ -2780,19 +2780,19 @@ def enviar_para_escola(id):
                 continue
             
             produto = item.produto
-            qtd = float(item.quantidade)
+            qtd_base = float(item.quantidade)
 
-            # 1. Subtrai do estoque atual do produto
-            produto.estoque_atual = (produto.estoque_atual or 0.0) - qtd
+            # 1. Subtrai a quantidade base do estoque atual do produto
+            produto.estoque_atual = (produto.estoque_atual or 0.0) - qtd_base
 
-            # 2. Registra o movimento de saída
+            # 2. Registra o movimento de saída com auditoria de embalagem
             movimento = EstoqueMovimento(
                 produto_id=item.produto_id,
-                quantidade=qtd,
+                quantidade=qtd_base,
                 tipo='Saída Escola',
-                unidade_movimento=produto.unidade_consumo or produto.unidade_medida or 'UNID',
-                quantidade_embalagem=qtd,
-                fator_utilizado=1.0,
+                unidade_movimento=item.unidade_movimento or produto.unidade_consumo or produto.unidade_medida or 'UNID',
+                quantidade_embalagem=item.quantidade_embalagem if (item.quantidade_embalagem is not None and item.quantidade_embalagem > 0) else qtd_base,
+                fator_utilizado=item.fator_utilizado or 1.0,
                 escola_id=ficha.escola_id,
                 origem=f'Ficha de Distribuição #{ficha.id} - {ficha.mes_referencia}/{ficha.ano_referencia}',
                 observacao=f'Baixa automática referente à Ficha de Distribuição #{ficha.id}',
@@ -2930,10 +2930,11 @@ def gerar_pdf_ficha(id):
         if not item.produto:
             continue
         count += 1
-        qtd_fmt = f"{item.quantidade:,.2f}".replace('.', ',') if item.quantidade else '0,00'
+        unid = item.unidade_movimento or item.produto.unidade_medida or item.produto.unidade_consumo or 'UNID'
+        qtd_val = item.quantidade_embalagem if (item.quantidade_embalagem is not None and item.quantidade_embalagem > 0) else item.quantidade
+        qtd_fmt = f"{qtd_val:,.2f}".replace('.', ',') if qtd_val else '0,00'
         if qtd_fmt.endswith(',00'):
             qtd_fmt = qtd_fmt[:-3]
-        unid = item.produto.unidade_medida or item.produto.unidade_consumo or 'UNID'
         table_data.append([
             Paragraph(str(count), style_td_c),
             Paragraph(item.produto.nome or '', style_td_l),
@@ -3023,16 +3024,37 @@ def nova_ficha():
 
             produtos_ids = request.form.getlist('produto_id[]')
             quantidades = request.form.getlist('quantidade[]')
+            tipos_unidade = request.form.getlist('tipo_unidade[]')
             observacoes = request.form.getlist('observacao[]')
             
             for i in range(len(produtos_ids)):
                 qtd_val = float(quantidades[i]) if (i < len(quantidades) and quantidades[i]) else 0.0
                 if qtd_val > 0:
+                    p_id = int(produtos_ids[i])
+                    produto = ProdutoMerenda.query.get(p_id)
+                    if not produto:
+                        continue
+
+                    tipo_un = tipos_unidade[i] if i < len(tipos_unidade) else 'base'
+                    fator = float(produto.fator_conversao) if (produto.fator_conversao and produto.fator_conversao > 0) else 1.0
+
+                    if tipo_un == 'master' and fator > 1.0:
+                        quantidade_base = qtd_val * fator
+                        unidade_mov = produto.unidade_medida or 'CX'
+                    else:
+                        quantidade_base = qtd_val
+                        unidade_mov = produto.unidade_consumo or produto.unidade_medida or 'UNID'
+
                     obs_val = observacoes[i] if i < len(observacoes) else ''
+
                     item = FichaDistribuicaoItem(
                         ficha_id=nova_f.id,
-                        produto_id=int(produtos_ids[i]),
-                        quantidade=qtd_val,
+                        produto_id=p_id,
+                        quantidade=quantidade_base,
+                        tipo_unidade=tipo_un,
+                        unidade_movimento=unidade_mov,
+                        quantidade_embalagem=qtd_val,
+                        fator_utilizado=fator,
                         observacao=obs_val
                     )
                     db.session.add(item)
@@ -3099,16 +3121,37 @@ def editar_ficha(id):
             
             produtos_ids = request.form.getlist('produto_id[]')
             quantidades = request.form.getlist('quantidade[]')
+            tipos_unidade = request.form.getlist('tipo_unidade[]')
             observacoes = request.form.getlist('observacao[]')
 
             for i in range(len(produtos_ids)):
                 qtd_val = float(quantidades[i]) if (i < len(quantidades) and quantidades[i]) else 0.0
                 if qtd_val > 0:
+                    p_id = int(produtos_ids[i])
+                    produto = ProdutoMerenda.query.get(p_id)
+                    if not produto:
+                        continue
+
+                    tipo_un = tipos_unidade[i] if i < len(tipos_unidade) else 'base'
+                    fator = float(produto.fator_conversao) if (produto.fator_conversao and produto.fator_conversao > 0) else 1.0
+
+                    if tipo_un == 'master' and fator > 1.0:
+                        quantidade_base = qtd_val * fator
+                        unidade_mov = produto.unidade_medida or 'CX'
+                    else:
+                        quantidade_base = qtd_val
+                        unidade_mov = produto.unidade_consumo or produto.unidade_medida or 'UNID'
+
                     obs_val = observacoes[i] if i < len(observacoes) else ''
+
                     item = FichaDistribuicaoItem(
                         ficha_id=ficha.id,
-                        produto_id=int(produtos_ids[i]),
-                        quantidade=qtd_val,
+                        produto_id=p_id,
+                        quantidade=quantidade_base,
+                        tipo_unidade=tipo_un,
+                        unidade_movimento=unidade_mov,
+                        quantidade_embalagem=qtd_val,
+                        fator_utilizado=fator,
                         observacao=obs_val
                     )
                     db.session.add(item)
@@ -3128,7 +3171,15 @@ def editar_ficha(id):
     ).order_by(ProdutoMerenda.nome.asc()).all()
 
     # Mapeia quantidades e observações existentes por produto_id
-    itens_map = {item.produto_id: (item.quantidade, item.observacao or '') for item in ficha.itens}
+    itens_map = {
+        item.produto_id: {
+            'quantidade_base': item.quantidade,
+            'observacao': item.observacao or '',
+            'tipo_unidade': item.tipo_unidade or 'base',
+            'quantidade_embalagem': item.quantidade_embalagem if item.quantidade_embalagem is not None else item.quantidade
+        }
+        for item in ficha.itens
+    }
     
     return render_template('merenda/ficha_form.html', 
                            ficha=ficha, 

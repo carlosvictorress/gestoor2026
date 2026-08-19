@@ -86,55 +86,103 @@
             </div>
 
             <div class="card-body p-0">
-                <div class="table-responsive" style="max-height: 520px; overflow-y: auto;">
+                <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
                     <table class="table table-hover align-middle mb-0" id="tableProdutos">
                         <thead class="bg-light sticky-top shadow-sm">
                             <tr>
-                                <th class="ps-4" style="width: 40%;">Produto (Merenda Escolar)</th>
-                                <th class="text-center" style="width: 15%;">Estoque Atual</th>
-                                <th class="text-center" style="width: 10%;">Unidade</th>
-                                <th class="text-center" style="width: 18%;">Quantidade</th>
-                                <th style="width: 17%;">Observação</th>
+                                <th class="ps-4" style="width: 35%;">Produto (Merenda Escolar)</th>
+                                <th class="text-center" style="width: 14%;">Estoque Atual</th>
+                                <th class="text-center" style="width: 18%;">Unidade Envio</th>
+                                <th class="text-center" style="width: 15%;">Quantidade</th>
+                                <th style="width: 18%;">Observação</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for p in produtos %}
-                                {% set qtd_existente = 0.0 %}
+                                {% set qtd_digitada = 0.0 %}
                                 {% set obs_existente = '' %}
+                                {% set tipo_un_existente = 'base' %}
                                 {% if editando and p.id in itens_map %}
-                                    {% set qtd_existente = itens_map[p.id][0] %}
-                                    {% set obs_existente = itens_map[p.id][1] %}
+                                    {% set item_info = itens_map[p.id] %}
+                                    {% set qtd_digitada = item_info.quantidade_embalagem %}
+                                    {% set obs_existente = item_info.observacao %}
+                                    {% set tipo_un_existente = item_info.tipo_unidade %}
                                 {% endif %}
-                                <tr class="produto-row {{ 'table-success bg-opacity-25' if qtd_existente > 0 else '' }}" data-nome="{{ p.nome.lower() }}">
+
+                                {% set unid_base = p.unidade_consumo or p.unidade_medida or 'UNID' %}
+                                {% set unid_master = p.unidade_medida or 'CX' %}
+                                {% set fator = p.fator_conversao or 1.0 %}
+                                {% set tem_master = (p.unidade_medida and fator > 1.0) %}
+
+                                <tr class="produto-row" 
+                                    id="row_{{ p.id }}"
+                                    data-nome="{{ p.nome.lower() }}"
+                                    data-saldo="{{ p.estoque_atual or 0 }}"
+                                    data-fator="{{ fator }}"
+                                    data-unidade-base="{{ unid_base }}"
+                                    data-unidade-master="{{ unid_master }}">
+                                    
                                     <td class="ps-4">
                                         <div class="fw-bold text-dark">{{ p.nome }}</div>
+                                        <small class="text-muted helper-text" id="helper_{{ p.id }}"></small>
                                         <input type="hidden" name="produto_id[]" value="{{ p.id }}">
                                     </td>
+                                    
                                     <td class="text-center">
-                                        <span class="badge {{ 'bg-success' if p.estoque_atual > 0 else 'bg-secondary' }} px-2 py-1">
-                                            {{ "%.2f"|format(p.estoque_atual or 0) }}
+                                        <span class="badge {{ 'bg-success' if p.estoque_atual > 0 else 'bg-secondary' }} px-2 py-1 fs-7">
+                                            {{ "%.2f"|format(p.estoque_atual or 0) }} {{ unid_base }}
                                         </span>
                                     </td>
+                                    
                                     <td class="text-center">
-                                        <span class="badge bg-light text-dark border">
-                                            {{ p.unidade_medida or p.unidade_consumo or 'UNID' }}
-                                        </span>
+                                        <select name="tipo_unidade[]" 
+                                                class="form-select form-select-sm select-tipo-unidade border-primary shadow-sm" 
+                                                onchange="atualizarLinha(this)">
+                                            <option value="base" {{ 'selected' if tipo_un_existente == 'base' }}>
+                                                🔢 {{ unid_base }} (Consumo)
+                                            </option>
+                                            {% if tem_master %}
+                                            <option value="master" {{ 'selected' if tipo_un_existente == 'master' }}>
+                                                📦 {{ unid_master }} (Emb. c/ {{ "%.0f"|format(fator) }})
+                                            </option>
+                                            {% endif %}
+                                        </select>
                                     </td>
+                                    
                                     <td>
                                         <input type="number" 
                                                name="quantidade[]" 
                                                class="form-control form-control-sm text-end fw-bold input-qtd" 
                                                step="0.01" 
                                                min="0" 
-                                               value="{{ qtd_existente if qtd_existente > 0 else 0 }}"
-                                               placeholder="0.00">
+                                               value="{{ qtd_digitada if qtd_digitada > 0 else 0 }}"
+                                               placeholder="0.00"
+                                               oninput="atualizarLinha(this)">
                                     </td>
+                                    
                                     <td class="pe-3">
                                         <input type="text" 
                                                name="observacao[]" 
                                                class="form-control form-control-sm" 
                                                value="{{ obs_existente }}" 
-                                               placeholder="Observação opcional">
+                                               placeholder="Obs. opcional">
+                                    </td>
+                                </tr>
+
+                                <!-- CARD DE ALERTA DE ESTOQUE INSUFICIENTE (Exatamente como a imagem em anexo) -->
+                                <tr class="alert-row" id="alertRow_{{ p.id }}" style="display: none;">
+                                    <td colspan="5" class="p-2 border-0 bg-transparent">
+                                        <div class="alert alert-danger d-flex align-items-center shadow-sm p-3 mb-1 border-danger rounded-3" 
+                                             style="background-color: #fce8e6; border: 1px solid #f5c2c7; color: #842029;">
+                                            <i class="bi bi-info-circle-fill fs-3 me-3 text-danger"></i>
+                                            <div>
+                                                <h6 class="fw-bold mb-1" style="color: #842029;">Confirmação de Baixa no Saldo</h6>
+                                                <div class="mb-0 fs-6">
+                                                    ⚠️ <strong>ESTOQUE INSUFICIENTE!</strong><br>
+                                                    Tentativa de baixa: <strong class="tentativa-txt">0.00 {{ unid_base }}</strong> | Saldo em estoque: <strong>{{ "%.2f"|format(p.estoque_atual or 0) }} {{ unid_base }}</strong>.
+                                                </div>
+                                            </div>
+                                        </div>
                                     </td>
                                 </tr>
                             {% else %}
@@ -156,7 +204,7 @@
                 <a href="{{ url_for('merenda.listar_fichas') }}" class="btn btn-outline-secondary px-4">
                     <i class="bi bi-x-lg me-1"></i> Cancelar
                 </a>
-                <button type="submit" class="btn btn-primary btn-lg px-5 shadow-sm">
+                <button type="submit" class="btn btn-primary btn-lg px-5 shadow-sm" id="btnSalvar">
                     <i class="bi bi-check-circle-fill me-2"></i> {{ 'Salvar Alterações' if editando else 'Salvar Ficha de Distribuição' }}
                 </button>
             </div>
@@ -164,51 +212,115 @@
     </form>
 </div>
 
-<!-- JavaScript para Interatividade e Filtro em Tempo Real -->
+<!-- JavaScript para Cálculo Dinâmico, Alerta de Estoque Insuficiente e Filtro -->
 <script>
+function atualizarLinha(element) {
+    const row = element.closest('tr');
+    const rowId = row.id.replace('row_', '');
+    const alertRow = document.getElementById('alertRow_' + rowId);
+    const helperText = document.getElementById('helper_' + rowId);
+
+    const saldo = parseFloat(row.dataset.saldo) || 0;
+    const fator = parseFloat(row.dataset.fator) || 1;
+    const unidBase = row.dataset.unidadeBase || 'UNID';
+    const unidMaster = row.dataset.unidadeMaster || 'CX';
+
+    const selectUnidade = row.querySelector('.select-tipo-unidade');
+    const inputQtd = row.querySelector('.input-qtd');
+    
+    const tipoUnidade = selectUnidade ? selectUnidade.value : 'base';
+    const qtdDigitada = parseFloat(inputQtd.value) || 0;
+
+    let totalBaixaBase = 0;
+    if (tipoUnidade === 'master' && fator > 1) {
+        totalBaixaBase = qtdDigitada * fator;
+    } else {
+        totalBaixaBase = qtdDigitada;
+    }
+
+    if (qtdDigitada > 0) {
+        if (tipoUnidade === 'master' && fator > 1) {
+            helperText.innerHTML = `<span class="badge bg-light text-primary border me-1">${qtdDigitada.toFixed(2)} ${unidMaster}</span> = <strong class="text-primary">${totalBaixaBase.toFixed(2)} ${unidBase}</strong>`;
+        } else {
+            helperText.innerHTML = `<span class="badge bg-light text-dark border">${totalBaixaBase.toFixed(2)} ${unidBase}</span>`;
+        }
+
+        if (totalBaixaBase > saldo) {
+            // Estiliza linha com alerta de perigo
+            row.classList.remove('table-success', 'bg-opacity-25');
+            row.classList.add('table-danger', 'bg-opacity-25');
+            
+            // Exibe caixa de alerta de estoque insuficiente idêntica à imagem
+            if (alertRow) {
+                const tentativaTxt = alertRow.querySelector('.tentativa-txt');
+                if (tentativaTxt) {
+                    tentativaTxt.textContent = `${totalBaixaBase.toFixed(2)} ${unidBase}`;
+                }
+                alertRow.style.display = '';
+            }
+        } else {
+            // Saldo OK -> linha verde
+            row.classList.remove('table-danger', 'bg-opacity-25');
+            row.classList.add('table-success', 'bg-opacity-25');
+            
+            if (alertRow) {
+                alertRow.style.display = 'none';
+            }
+        }
+    } else {
+        helperText.innerHTML = '';
+        row.classList.remove('table-success', 'table-danger', 'bg-opacity-25');
+        if (alertRow) {
+            alertRow.style.display = 'none';
+        }
+    }
+
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    const inputsQtd = document.querySelectorAll('.input-qtd');
+    const badgeCount = document.getElementById('badgeSelectedCount');
+    let count = 0;
+
+    inputsQtd.forEach(input => {
+        const val = parseFloat(input.value) || 0;
+        if (val > 0) count++;
+    });
+
+    if (badgeCount) {
+        badgeCount.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>${count} produto(s) com quantidade`;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchProduto');
     const tableRows = document.querySelectorAll('#tableProdutos tbody tr.produto-row');
-    const inputsQtd = document.querySelectorAll('.input-qtd');
-    const badgeCount = document.getElementById('badgeSelectedCount');
+    const selectUnidades = document.querySelectorAll('.select-tipo-unidade');
 
-    function updateSelectedCount() {
-        let count = 0;
-        inputsQtd.forEach(input => {
-            const val = parseFloat(input.value) || 0;
-            const row = input.closest('tr');
-            if (val > 0) {
-                count++;
-                row.classList.add('table-success', 'bg-opacity-25');
-            } else {
-                row.classList.remove('table-success', 'bg-opacity-25');
-            }
-        });
-        badgeCount.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>${count} produto(s) com quantidade`;
-    }
-
-    // Evento de digitação nos campos de quantidade
-    inputsQtd.forEach(input => {
-        input.addEventListener('input', updateSelectedCount);
-    });
-
-    // Filtro de pesquisa em tempo real por nome do produto
+    // Filtro de pesquisa rápida em tempo real por nome do produto
     if (searchInput) {
         searchInput.addEventListener('input', function() {
             const term = this.value.toLowerCase().trim();
             tableRows.forEach(row => {
                 const nome = row.getAttribute('data-nome') || '';
+                const rowId = row.id.replace('row_', '');
+                const alertRow = document.getElementById('alertRow_' + rowId);
+
                 if (nome.includes(term)) {
                     row.style.display = '';
                 } else {
                     row.style.display = 'none';
+                    if (alertRow) alertRow.style.display = 'none';
                 }
             });
         });
     }
 
-    // Inicializa contador na carga da página
-    updateSelectedCount();
+    // Inicializa cálculos de todas as linhas carregadas
+    selectUnidades.forEach(select => {
+        atualizarLinha(select);
+    });
 });
 </script>
 {% endblock %}

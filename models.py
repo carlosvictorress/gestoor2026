@@ -1808,7 +1808,11 @@ class FichaDistribuicaoItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     ficha_id = db.Column(db.Integer, db.ForeignKey('ficha_distribuicao.id'))
     produto_id = db.Column(db.Integer, db.ForeignKey('produto_merenda.id'))
-    quantidade = db.Column(db.Float, nullable=False)
+    quantidade = db.Column(db.Float, nullable=False) # Quantidade convertida na unidade base
+    tipo_unidade = db.Column(db.String(20), default='base') # 'master' ou 'base'
+    unidade_movimento = db.Column(db.String(20)) # Ex: 'CX', 'FRD', 'UNID', 'KG'
+    quantidade_embalagem = db.Column(db.Float) # Quantidade digitada na embalagem
+    fator_utilizado = db.Column(db.Float, default=1.0) # Fator de conversão utilizado
     observacao = db.Column(db.String(200))
     
     produto = db.relationship('ProdutoMerenda')  

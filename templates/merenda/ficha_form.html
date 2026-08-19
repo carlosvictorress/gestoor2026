@@ -1,77 +1,214 @@
 {% extends 'base.html' %}
+
 {% block content %}
-<div class="container mt-4">
-    <h2>{{ 'Editar' if editando else 'Nova' }} Ficha de Distribuição</h2>
-    <form method="POST">
-        <div class="mb-3">
-            <label class="form-label">Escola</label>
-            <select name="escola_id" class="form-select" required>
-                <option value="">-- Selecione uma escola --</option>
-                {% for e in escolas %}
-                <option value="{{ e.id }}" {{ 'selected' if editando and e.id == ficha.escola_id }}>
-                    {{ e.nome }}
-                </option>
-                {% endfor %}
-            </select>
+<div class="container-fluid px-4 py-4">
+    <!-- Cabeçalho da Página -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-primary mb-1">
+                <i class="bi bi-file-earmark-plus-fill me-2"></i>{{ 'Editar' if editando else 'Nova' }} Ficha de Distribuição
+            </h2>
+            <p class="text-muted mb-0">Selecione os gêneros alimentícios da <strong>Merenda Escolar</strong> e a escola de destino.</p>
         </div>
-        
-        <div class="mb-3">
-            <label class="form-label">Mês de Referência</label>
-            <input type="text" name="mes_referencia" class="form-control" 
-                   value="{{ ficha.mes_referencia if editando else '' }}" 
-                   placeholder="Ex: Março/2026" required>
-        </div>
-        
-        <div class="mb-3">
-            <label class="form-label">Tipo de Gênero</label>
-            <select name="tipo_genero" class="form-select">
-                <option value="PERECÍVEIS" {{ 'selected' if editando and ficha.tipo_genero == 'PERECÍVEIS' }}>PERECÍVEIS</option>
-                <option value="NÃO PERECÍVEIS" {{ 'selected' if editando and ficha.tipo_genero == 'NÃO PERECÍVEIS' }}>NÃO PERECÍVEIS</option>
-            </select>
+        <a href="{{ url_for('merenda.listar_fichas') }}" class="btn btn-outline-secondary shadow-sm">
+            <i class="bi bi-arrow-left me-1"></i> Voltar para a Lista
+        </a>
+    </div>
+
+    <form method="POST" id="formFicha">
+        <!-- CARD 1: DADOS GERAIS -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-primary text-white py-3">
+                <h5 class="card-title mb-0 fw-bold fs-6">
+                    <i class="bi bi-info-circle-fill me-2"></i>1. Informações Principais da Distribuição
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-3">
+                    <!-- Escola -->
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold text-secondary">
+                            <i class="bi bi-building me-1 text-primary"></i>Escola Destino <span class="text-danger">*</span>
+                        </label>
+                        <select name="escola_id" class="form-select form-select-lg fs-6 shadow-sm" required>
+                            <option value="">-- Selecione a Unidade Escolar --</option>
+                            {% for e in escolas %}
+                            <option value="{{ e.id }}" {{ 'selected' if editando and e.id == ficha.escola_id }}>
+                                {{ e.nome }} {{ '(' ~ e.zona ~ ')' if e.zona else '' }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Mês/Ano Referência -->
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold text-secondary">
+                            <i class="bi bi-calendar3 me-1 text-primary"></i>Mês e Ano de Referência <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" name="mes_referencia" class="form-control form-control-lg fs-6 shadow-sm" 
+                               value="{{ ficha.mes_referencia if editando else '' }}" 
+                               placeholder="Ex: MAIO DE 2026" required>
+                    </div>
+
+                    <!-- Tipo de Gênero -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold text-secondary">
+                            <i class="bi bi-box-seam me-1 text-primary"></i>Tipo de Gênero <span class="text-danger">*</span>
+                        </label>
+                        <select name="tipo_genero" class="form-select form-select-lg fs-6 shadow-sm" required>
+                            <option value="PERECÍVEIS" {{ 'selected' if editando and ficha.tipo_genero == 'PERECÍVEIS' }}>PERECÍVEIS</option>
+                            <option value="NÃO PERECÍVEIS" {{ 'selected' if editando and ficha.tipo_genero == 'NÃO PERECÍVEIS' }}>NÃO PERECÍVEIS</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <h4>Produtos</h4>
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>Produto</th>
-                    <th>Quantidade</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if editando %}
-                    {# MODO EDIÇÃO #}
-                    {% for item in ficha.itens %}
-                    <tr>
-                        <td>
-                            {{ item.produto.nome }}
-                            <input type="hidden" name="item_id[]" value="{{ item.id }}">
-                            <input type="hidden" name="produto_id[]" value="{{ item.produto.id }}">
-                        </td>
-                        <td>
-                            <input type="number" name="quantidade[]" class="form-control" step="0.01" value="{{ item.quantidade }}">
-                        </td>
-                    </tr>
-                    {% endfor %}
-                {% else %}
-                    {# MODO CRIAÇÃO #}
-                    {% for p in produtos %}
-                    <tr>
-                        <td>{{ p.nome }}</td>
-                        <td>
-                            <input type="hidden" name="produto_id[]" value="{{ p.id }}">
-                            <input type="number" name="quantidade[]" class="form-control" step="0.01" value="0">
-                        </td>
-                    </tr>
-                    {% endfor %}
-                {% endif %}
-            </tbody>
-        </table>
-        
-        <button type="submit" class="btn btn-primary btn-lg">
-            <i class="bi bi-save"></i> Salvar Ficha
-        </button>
-        <a href="{{ url_for('merenda.listar_fichas') }}" class="btn btn-secondary btn-lg">Cancelar</a>
+        <!-- CARD 2: PRODUTOS DA MERENDA ESCOLAR -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center py-3 border-bottom-0">
+                <div class="d-flex align-items-center">
+                    <h5 class="card-title mb-0 fw-bold fs-6 text-dark me-3">
+                        <i class="bi bi-basket-fill text-success me-2"></i>2. Produtos da Merenda Escolar
+                    </h5>
+                    <span class="badge bg-success rounded-pill px-3 py-2 fs-7" id="badgeSelectedCount">
+                        <i class="bi bi-check-circle-fill me-1"></i>0 selecionado(s)
+                    </span>
+                </div>
+                
+                <!-- Barra de Pesquisa Rápida -->
+                <div class="col-md-4 col-12">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" id="searchProduto" class="form-control border-start-0" placeholder="Buscar produto por nome...">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-body p-0">
+                <div class="table-responsive" style="max-height: 520px; overflow-y: auto;">
+                    <table class="table table-hover align-middle mb-0" id="tableProdutos">
+                        <thead class="bg-light sticky-top shadow-sm">
+                            <tr>
+                                <th class="ps-4" style="width: 40%;">Produto (Merenda Escolar)</th>
+                                <th class="text-center" style="width: 15%;">Estoque Atual</th>
+                                <th class="text-center" style="width: 10%;">Unidade</th>
+                                <th class="text-center" style="width: 18%;">Quantidade</th>
+                                <th style="width: 17%;">Observação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in produtos %}
+                                {% set qtd_existente = 0.0 %}
+                                {% set obs_existente = '' %}
+                                {% if editando and p.id in itens_map %}
+                                    {% set qtd_existente = itens_map[p.id][0] %}
+                                    {% set obs_existente = itens_map[p.id][1] %}
+                                {% endif %}
+                                <tr class="produto-row {{ 'table-success bg-opacity-25' if qtd_existente > 0 else '' }}" data-nome="{{ p.nome.lower() }}">
+                                    <td class="ps-4">
+                                        <div class="fw-bold text-dark">{{ p.nome }}</div>
+                                        <input type="hidden" name="produto_id[]" value="{{ p.id }}">
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge {{ 'bg-success' if p.estoque_atual > 0 else 'bg-secondary' }} px-2 py-1">
+                                            {{ "%.2f"|format(p.estoque_atual or 0) }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-dark border">
+                                            {{ p.unidade_medida or p.unidade_consumo or 'UNID' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <input type="number" 
+                                               name="quantidade[]" 
+                                               class="form-control form-control-sm text-end fw-bold input-qtd" 
+                                               step="0.01" 
+                                               min="0" 
+                                               value="{{ qtd_existente if qtd_existente > 0 else 0 }}"
+                                               placeholder="0.00">
+                                    </td>
+                                    <td class="pe-3">
+                                        <input type="text" 
+                                               name="observacao[]" 
+                                               class="form-control form-control-sm" 
+                                               value="{{ obs_existente }}" 
+                                               placeholder="Observação opcional">
+                                    </td>
+                                </tr>
+                            {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">
+                                        Nenhum produto cadastrado no módulo da Merenda Escolar.
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- BARRA DE AÇÕES -->
+        <div class="card shadow-sm border-0 bg-light p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('merenda.listar_fichas') }}" class="btn btn-outline-secondary px-4">
+                    <i class="bi bi-x-lg me-1"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary btn-lg px-5 shadow-sm">
+                    <i class="bi bi-check-circle-fill me-2"></i> {{ 'Salvar Alterações' if editando else 'Salvar Ficha de Distribuição' }}
+                </button>
+            </div>
+        </div>
     </form>
 </div>
+
+<!-- JavaScript para Interatividade e Filtro em Tempo Real -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchProduto');
+    const tableRows = document.querySelectorAll('#tableProdutos tbody tr.produto-row');
+    const inputsQtd = document.querySelectorAll('.input-qtd');
+    const badgeCount = document.getElementById('badgeSelectedCount');
+
+    function updateSelectedCount() {
+        let count = 0;
+        inputsQtd.forEach(input => {
+            const val = parseFloat(input.value) || 0;
+            const row = input.closest('tr');
+            if (val > 0) {
+                count++;
+                row.classList.add('table-success', 'bg-opacity-25');
+            } else {
+                row.classList.remove('table-success', 'bg-opacity-25');
+            }
+        });
+        badgeCount.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>${count} produto(s) com quantidade`;
+    }
+
+    // Evento de digitação nos campos de quantidade
+    inputsQtd.forEach(input => {
+        input.addEventListener('input', updateSelectedCount);
+    });
+
+    // Filtro de pesquisa em tempo real por nome do produto
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const term = this.value.toLowerCase().trim();
+            tableRows.forEach(row => {
+                const nome = row.getAttribute('data-nome') || '';
+                if (nome.includes(term)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    }
+
+    // Inicializa contador na carga da página
+    updateSelectedCount();
+});
+</script>
 {% endblock %}

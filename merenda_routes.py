@@ -3011,35 +3011,47 @@ def listar_fichas():
 @login_required
 def nova_ficha():
     if request.method == 'POST':
-        # Lógica para salvar a ficha (conforme passei anteriormente)
-        nova_f = FichaDistribuicao(
-            escola_id=request.form.get('escola_id'),
-            mes_referencia=request.form.get('mes_referencia'),
-            ano_referencia=datetime.now().year,
-            tipo_genero=request.form.get('tipo_genero')
-        )
-        db.session.add(nova_f)
-        db.session.flush()
+        try:
+            nova_f = FichaDistribuicao(
+                escola_id=request.form.get('escola_id'),
+                mes_referencia=request.form.get('mes_referencia'),
+                ano_referencia=datetime.now().year,
+                tipo_genero=request.form.get('tipo_genero', 'PERECÍVEIS')
+            )
+            db.session.add(nova_f)
+            db.session.flush()
 
-        produtos_ids = request.form.getlist('produto_id[]')
-        quantidades = request.form.getlist('quantidade[]')
-        
-        for i in range(len(produtos_ids)):
-            if quantidades[i] and float(quantidades[i]) > 0:
-                item = FichaDistribuicaoItem(
-                    ficha_id=nova_f.id,
-                    produto_id=produtos_ids[i],
-                    quantidade=float(quantidades[i])
-                )
-                db.session.add(item)
-        
-        db.session.commit()
-        flash('Ficha criada com sucesso!', 'success')
-        return redirect(url_for('merenda.listar_fichas'))
+            produtos_ids = request.form.getlist('produto_id[]')
+            quantidades = request.form.getlist('quantidade[]')
+            observacoes = request.form.getlist('observacao[]')
+            
+            for i in range(len(produtos_ids)):
+                qtd_val = float(quantidades[i]) if (i < len(quantidades) and quantidades[i]) else 0.0
+                if qtd_val > 0:
+                    obs_val = observacoes[i] if i < len(observacoes) else ''
+                    item = FichaDistribuicaoItem(
+                        ficha_id=nova_f.id,
+                        produto_id=int(produtos_ids[i]),
+                        quantidade=qtd_val,
+                        observacao=obs_val
+                    )
+                    db.session.add(item)
+            
+            db.session.commit()
+            registrar_log(f"Criou Ficha de Distribuição #{nova_f.id} para escola ID {nova_f.escola_id}")
+            flash('Ficha de Distribuição criada com sucesso!', 'success')
+            return redirect(url_for('merenda.listar_fichas'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao criar ficha de distribuição: {str(e)}', 'danger')
 
-    escolas = Escola.query.all()
-    produtos = ProdutoMerenda.query.all()
-    return render_template('merenda/ficha_form.html', escolas=escolas, produtos=produtos)
+    escolas = Escola.query.order_by(Escola.nome.asc()).all()
+    # Apenas produtos da Merenda Escolar (exclui Agricultura Familiar)
+    produtos = ProdutoMerenda.query.filter(
+        or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None))
+    ).order_by(ProdutoMerenda.nome.asc()).all()
+
+    return render_template('merenda/ficha_form.html', escolas=escolas, produtos=produtos, itens_map={}, editando=False)
 
 @merenda_bp.route('/fichas/excluir/<int:id>', methods=['POST'])
 @login_required
@@ -3060,13 +3072,9 @@ def excluir_ficha(id):
 @merenda_bp.route('/pedido/editar/<int:id>')
 def editar_pedido(id):
     pedido = PedidoEmpresa.query.get_or_404(id)
-    # Se o status for 'Entregue', por exemplo, bloqueia. 
-    # Mas 'Enviado para Escola' deve permitir edição se você desejar.
     if pedido.status == 'Entregue':
         flash('Pedidos entregues não podem ser editados.', 'warning')
         return redirect(url_for('merenda.dashboard'))
-
-
 
 @merenda_bp.route('/fichas/editar/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -3086,14 +3094,24 @@ def editar_ficha(id):
             ficha.mes_referencia = request.form.get('mes_referencia')
             ficha.tipo_genero = request.form.get('tipo_genero')
             
-            # Atualiza os itens da ficha
-            quantidades = request.form.getlist('quantidade[]')
-            itens_ids = request.form.getlist('item_id[]')
+            # Remove itens antigos e reinsere os itens atualizados
+            FichaDistribuicaoItem.query.filter_by(ficha_id=ficha.id).delete()
             
-            for i_id, qtd in zip(itens_ids, quantidades):
-                item = FichaDistribuicaoItem.query.get(i_id)
-                if item:
-                    item.quantidade = float(qtd) if qtd else 0.0
+            produtos_ids = request.form.getlist('produto_id[]')
+            quantidades = request.form.getlist('quantidade[]')
+            observacoes = request.form.getlist('observacao[]')
+
+            for i in range(len(produtos_ids)):
+                qtd_val = float(quantidades[i]) if (i < len(quantidades) and quantidades[i]) else 0.0
+                if qtd_val > 0:
+                    obs_val = observacoes[i] if i < len(observacoes) else ''
+                    item = FichaDistribuicaoItem(
+                        ficha_id=ficha.id,
+                        produto_id=int(produtos_ids[i]),
+                        quantidade=qtd_val,
+                        observacao=obs_val
+                    )
+                    db.session.add(item)
 
             db.session.commit()
             registrar_log(f"Editou a Ficha de Distribuição #{id}")
@@ -3103,12 +3121,20 @@ def editar_ficha(id):
             db.session.rollback()
             flash(f'Erro ao atualizar: {str(e)}', 'danger')
 
-    # Busca escolas para o select e passa para o template
-    escolas = Escola.query.order_by(Escola.nome).all()
+    escolas = Escola.query.order_by(Escola.nome.asc()).all()
+    # Apenas produtos da Merenda Escolar (exclui Agricultura Familiar)
+    produtos = ProdutoMerenda.query.filter(
+        or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None))
+    ).order_by(ProdutoMerenda.nome.asc()).all()
+
+    # Mapeia quantidades e observações existentes por produto_id
+    itens_map = {item.produto_id: (item.quantidade, item.observacao or '') for item in ficha.itens}
     
     return render_template('merenda/ficha_form.html', 
                            ficha=ficha, 
                            escolas=escolas, 
+                           produtos=produtos,
+                           itens_map=itens_map,
                            editando=True)
 
 @merenda_bp.route('/solicitacoes/<int:solicitacao_id>/recibo-pdf')

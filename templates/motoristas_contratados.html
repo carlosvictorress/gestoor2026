@@ -1,0 +1,621 @@
+{% extends 'base.html' %}
+
+{% block title %}Motoristas Contratados - Transporte Escolar{% endblock %}
+
+{% block content %}
+<style>
+    /* Estilos e Animações Elegantes */
+    .animate-fade-in {
+        animation: fadeIn 0.4s ease-in-out;
+    }
+    .animate-slide-up {
+        animation: slideUp 0.4s ease-out;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(15px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .card-kpi {
+        border: none;
+        border-radius: 12px;
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+        background: #ffffff;
+    }
+    .card-kpi:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
+    }
+    .kpi-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.6rem;
+    }
+    .badge-monitor {
+        font-size: 0.8rem;
+        padding: 0.35em 0.65em;
+        border-radius: 20px;
+    }
+    .table-modern thead th {
+        background-color: #f8fafc;
+        color: #475569;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .table-modern tbody tr {
+        transition: background-color 0.2s ease;
+    }
+    .table-modern tbody tr:hover {
+        background-color: #f1f5f9;
+    }
+    .form-section-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #1e293b;
+        border-left: 4px solid #3b82f6;
+        padding-left: 10px;
+        margin-bottom: 15px;
+        margin-top: 10px;
+    }
+    .nav-tabs-custom .nav-link {
+        color: #64748b;
+        font-weight: 600;
+        border: none;
+        border-bottom: 3px solid transparent;
+        padding: 0.75rem 1.25rem;
+        transition: all 0.2s ease;
+    }
+    .nav-tabs-custom .nav-link.active {
+        color: #2563eb;
+        background: transparent;
+        border-bottom-color: #2563eb;
+    }
+    .pdf-icon-badge {
+        color: #dc2626;
+        background-color: #fee2e2;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+</style>
+
+<div class="container-fluid py-3 animate-fade-in">
+    <!-- Cabeçalho Superior -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+            <h2 class="fw-bold mb-1 text-dark d-flex align-items-center gap-2">
+                <i class="bi bi-person-badge text-primary fs-2"></i> Motoristas Contratados
+            </h2>
+            <p class="text-muted mb-0">Gestão de contratados do transporte escolar, dados bancários e emissão de folhas de pagamento.</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('transporte.listar_rotas') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Voltar para Rotas
+            </a>
+            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalGerarFolha">
+                <i class="bi bi-file-earmark-pdf-fill me-1"></i> Gerar Folha de Pagamento
+            </button>
+            <button class="btn btn-primary shadow-sm" onclick="abrirModalCadastro()">
+                <i class="bi bi-plus-circle-fill me-1"></i> Novo Motorista Contratado
+            </button>
+        </div>
+    </div>
+
+    <!-- CARDS INDICADORES (KPIs) -->
+    <div class="row g-3 mb-4 animate-slide-up">
+        <!-- Total Motoristas -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card card-kpi shadow-sm p-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted fw-medium fs-7 d-block mb-1">TOTAL CONTRATADOS</span>
+                        <h3 class="fw-extrabold mb-0 text-dark">{{ total_motoristas }}</h3>
+                    </div>
+                    <div class="kpi-icon bg-primary bg-opacity-10 text-primary">
+                        <i class="bi bi-people-fill"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Com Monitor -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card card-kpi shadow-sm p-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted fw-medium fs-7 d-block mb-1">COM MONITOR</span>
+                        <h3 class="fw-extrabold mb-0 text-dark">{{ total_com_monitor }}</h3>
+                    </div>
+                    <div class="kpi-icon bg-info bg-opacity-10 text-info">
+                        <i class="bi bi-person-heart"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Folha Mensal Total -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card card-kpi shadow-sm p-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted fw-medium fs-7 d-block mb-1">FOLHA MENSAL (ESTIMADA)</span>
+                        <h3 class="fw-extrabold mb-0 text-success">R$ {{ "%.2f"|format(folha_mensal_total)|replace(".", ",") }}</h3>
+                    </div>
+                    <div class="kpi-icon bg-success bg-opacity-10 text-success">
+                        <i class="bi bi-cash-stack"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Folhas Geradas -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card card-kpi shadow-sm p-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted fw-medium fs-7 d-block mb-1">FOLHAS GERADAS</span>
+                        <h3 class="fw-extrabold mb-0 text-purple">{{ total_folhas_geradas }}</h3>
+                    </div>
+                    <div class="kpi-icon bg-warning bg-opacity-10 text-warning">
+                        <i class="bi bi-file-earmark-check-fill"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTEÚDO EM ABAS -->
+    <div class="card shadow-sm border-0 rounded-3">
+        <div class="card-header bg-white border-bottom-0 pt-3 pb-0">
+            <ul class="nav nav-tabs nav-tabs-custom card-header-tabs" id="tabMotoristas" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tab-motoristas-btn" data-bs-toggle="tab" data-bs-target="#tab-motoristas" type="button" role="tab">
+                        <i class="bi bi-list-ul me-1"></i> Motoristas Cadastrados ({{ motoristas|length }})
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-folhas-btn" data-bs-toggle="tab" data-bs-target="#tab-folhas" type="button" role="tab">
+                        <i class="bi bi-folder-check me-1"></i> Folhas de Pagamento Geradas ({{ folhas|length }})
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <div class="card-body p-4">
+            <div class="tab-content" id="tabMotoristasContent">
+                
+                <!-- ABA 1: LISTA DE MOTORISTAS CADASTRO -->
+                <div class="tab-pane fade show active" id="tab-motoristas" role="tabpanel">
+                    <!-- Campo de Busca -->
+                    <div class="row mb-3 align-items-center">
+                        <div class="col-md-6 col-lg-4 ms-auto">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                                <input type="text" id="inputBusca" class="form-control border-start-0" placeholder="Buscar por nome, CPF, rota ou veículo..." onkeyup="filtrarTabela()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-modern table-hover align-middle mb-0" id="tabelaMotoristas">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Motorista (Nome / CPF)</th>
+                                    <th>Rota</th>
+                                    <th>Monitor</th>
+                                    <th>Veículo / Placa</th>
+                                    <th>Dados Bancários</th>
+                                    <th>Valor (R$)</th>
+                                    <th class="text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for m in motoristas %}
+                                <tr>
+                                    <td class="fw-bold text-muted">{{ m.id }}</td>
+                                    <td>
+                                        <div class="fw-bold text-dark">{{ m.nome }}</div>
+                                        <small class="text-muted"><i class="bi bi-card-heading me-1"></i>{{ m.cpf }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border"><i class="bi bi-geo-alt-fill text-danger me-1"></i>{{ m.rota }}</span>
+                                    </td>
+                                    <td>
+                                        {% if m.tem_monitor %}
+                                            <span class="badge bg-success-subtle text-success badge-monitor mb-1">
+                                                <i class="bi bi-check-circle-fill me-1"></i>Sim
+                                            </span>
+                                            <div class="small fw-semibold text-dark">{{ m.monitor_nome or 'Não inf.' }}</div>
+                                            {% if m.monitor_cpf %}<small class="text-muted">CPF: {{ m.monitor_cpf }}</small>{% endif %}
+                                        {% else %}
+                                            <span class="badge bg-secondary-subtle text-secondary badge-monitor">
+                                                <i class="bi bi-x-circle me-1"></i>Não
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark">{{ m.veiculo }}</div>
+                                        <span class="badge bg-dark">{{ m.veiculo_placa }}</span>
+                                    </td>
+                                    <td>
+                                        <small class="d-block"><strong>Banco:</strong> {{ m.banco }}</small>
+                                        <small class="d-block text-muted">Ag: {{ m.agencia }} | C/C: {{ m.conta }}</small>
+                                        <small class="badge bg-info-subtle text-info">{{ m.tipo_conta }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold text-success">R$ {{ "%.2f"|format(m.valor_recebe)|replace(".", ",") }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" title="Gerar Folha Individual" onclick="gerarFolhaIndividual({{ m.id }})">
+                                                <i class="bi bi-file-earmark-pdf"></i>
+                                            </button>
+                                            <button class="btn btn-outline-secondary" title="Editar" onclick='editarMotorista({{ {
+                                                "id": m.id,
+                                                "nome": m.nome,
+                                                "cpf": m.cpf,
+                                                "rota": m.rota,
+                                                "tem_monitor": m.tem_monitor,
+                                                "monitor_nome": m.monitor_nome or "",
+                                                "monitor_cpf": m.monitor_cpf or "",
+                                                "veiculo": m.veiculo,
+                                                "veiculo_placa": m.veiculo_placa,
+                                                "banco": m.banco,
+                                                "agencia": m.agencia,
+                                                "conta": m.conta,
+                                                "tipo_conta": m.tipo_conta,
+                                                "valor_recebe": m.valor_recebe
+                                            }|tojson }})'>
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <a href="{{ url_for('transporte.excluir_motorista_contratado', id=m.id) }}" class="btn btn-outline-danger" title="Excluir" onclick="return confirm('Deseja realmente remover este motorista contratado?');">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="8" class="text-center py-4 text-muted">
+                                        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                        Nenhum motorista contratado cadastrado até o momento.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ABA 2: ARQUIVOS DE FOLHAS DE PAGAMENTO GERADAS -->
+                <div class="tab-pane fade" id="tab-folhas" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table table-modern table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th># Autenticação</th>
+                                    <th>Motorista</th>
+                                    <th>Mês Referência</th>
+                                    <th>Data Emissão</th>
+                                    <th>Valor (R$)</th>
+                                    <th>Arquivo Gerado</th>
+                                    <th class="text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for f in folhas %}
+                                <tr>
+                                    <td>
+                                        <code class="fw-bold text-primary">{{ f.codigo_autenticacao or 'AUT-' ~ f.id }}</code>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-dark">{{ f.motorista.nome if f.motorista else 'Motorista Removido' }}</div>
+                                        {% if f.motorista %}<small class="text-muted">CPF: {{ f.motorista.cpf }}</small>{% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary-subtle text-primary fw-bold">{{ f.mes_referencia }}</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-dark">{{ f.data_emissao.strftime('%d/%m/%Y %H:%M') if f.data_emissao else '-' }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold text-success">R$ {{ "%.2f"|format(f.valor)|replace(".", ",") }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="pdf-icon-badge d-inline-flex align-items-center gap-1">
+                                            <i class="bi bi-file-earmark-pdf-fill"></i> {{ f.arquivo_pdf }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('transporte.download_folha_pagamento', filename=f.arquivo_pdf) }}" target="_blank" class="btn btn-primary" title="Visualizar / Baixar PDF">
+                                                <i class="bi bi-download me-1"></i> Abrir PDF
+                                            </a>
+                                            <a href="{{ url_for('transporte.excluir_folha_pagamento', id=f.id) }}" class="btn btn-outline-danger" title="Excluir Arquivo" onclick="return confirm('Deseja excluir este arquivo de folha de pagamento?');">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-4 text-muted">
+                                        <i class="bi bi-file-earmark-x fs-1 d-block mb-2"></i>
+                                        Nenhuma folha de pagamento gerada ainda. Clique no botão "Gerar Folha de Pagamento" para emitir.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL CADASTRO / EDIÇÃO DE MOTORISTA CONTRATADO -->
+<div class="modal fade" id="modalMotorista" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title fw-bold" id="modalMotoristaTitle"><i class="bi bi-person-plus-fill me-2"></i> Cadastrar Motorista Contratado</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('transporte.salvar_motorista_contratado') }}" method="POST">
+                <input type="hidden" name="id" id="motorista_id">
+                <div class="modal-body p-4">
+                    
+                    <!-- SEÇÃO 1: DADOS PESSOAIS E ROTA -->
+                    <div class="form-section-title"><i class="bi bi-person-vcard me-1"></i> Dados Pessoais & Rota</div>
+                    <div class="row g-3">
+                        <div class="col-md-7">
+                            <label class="form-label fw-semibold">Nome Completo <span class="text-danger">*</span></label>
+                            <input type="text" name="nome" id="input_nome" class="form-control" placeholder="Ex: João da Silva" required>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label fw-semibold">CPF <span class="text-danger">*</span></label>
+                            <input type="text" name="cpf" id="input_cpf" class="form-control" placeholder="000.000.000-00" required>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label fw-semibold">Rota do Transporte Escolar <span class="text-danger">*</span></label>
+                            <input type="text" name="rota" id="input_rota" class="form-control" list="lista_rotas_sugestao" placeholder="Ex: Rota 01 - Sítio Alegre / Escola Central" required>
+                            <datalist id="lista_rotas_sugestao">
+                                {% for r in rotas_existentes %}
+                                <option value="Rota #{{ r.id }} - {{ r.escolas_manha or r.escolas_tarde or 'Rota Escolar' }}">
+                                {% endfor %}
+                            </datalist>
+                        </div>
+                    </div>
+
+                    <!-- SEÇÃO 2: VEÍCULO -->
+                    <div class="form-section-title mt-4"><i class="bi bi-bus-front me-1"></i> Informações do Veículo</div>
+                    <div class="row g-3">
+                        <div class="col-md-7">
+                            <label class="form-label fw-semibold">Modelo do Veículo <span class="text-danger">*</span></label>
+                            <input type="text" name="veiculo" id="input_veiculo" class="form-control" placeholder="Ex: Ônibus Mercedes-Benz LO 916 / Volare V8" required>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label fw-semibold">Placa do Veículo <span class="text-danger">*</span></label>
+                            <input type="text" name="veiculo_placa" id="input_veiculo_placa" class="form-control text-uppercase" placeholder="ABC-1234" required>
+                        </div>
+                    </div>
+
+                    <!-- SEÇÃO 3: MONITOR (CAMPOS CONDICIONAIS) -->
+                    <div class="form-section-title mt-4 d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-person-heart me-1"></i> Acompanhamento de Monitor</span>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="tem_monitor" id="switch_tem_monitor" onchange="toggleMonitorCampos()">
+                            <label class="form-check-label fw-semibold text-primary" for="switch_tem_monitor">Possui Monitor?</label>
+                        </div>
+                    </div>
+
+                    <div id="container_monitor" class="p-3 bg-light rounded-3 border mb-3 d-none animate-fade-in">
+                        <div class="row g-3">
+                            <div class="col-md-7">
+                                <label class="form-label fw-semibold">Nome do Monitor</label>
+                                <input type="text" name="monitor_nome" id="input_monitor_nome" class="form-control" placeholder="Ex: Maria de Souza">
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label fw-semibold">CPF do Monitor</label>
+                                <input type="text" name="monitor_cpf" id="input_monitor_cpf" class="form-control" placeholder="000.000.000-00">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SEÇÃO 4: DADOS BANCÁRIOS E PAGAMENTO -->
+                    <div class="form-section-title mt-4"><i class="bi bi-bank me-1"></i> Dados Bancários & Valor da Remuneração</div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Banco <span class="text-danger">*</span></label>
+                            <input type="text" name="banco" id="input_banco" class="form-control" list="lista_bancos" placeholder="Ex: Banco do Brasil (001)" required>
+                            <datalist id="lista_bancos">
+                                <option value="Banco do Brasil (001)">
+                                <option value="Bradesco (237)">
+                                <option value="Caixa Econômica Federal (104)">
+                                <option value="Itaú Unibanco (341)">
+                                <option value="Banco Santander (033)">
+                                <option value="Banco Nubank (260)">
+                                <option value="Banco Inter (077)">
+                            </datalist>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Agência <span class="text-danger">*</span></label>
+                            <input type="text" name="agencia" id="input_agencia" class="form-control" placeholder="Ex: 1234-5" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Conta <span class="text-danger">*</span></label>
+                            <input type="text" name="conta" id="input_conta" class="form-control" placeholder="Ex: 98765-4" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Tipo de Conta / Chave PIX <span class="text-danger">*</span></label>
+                            <select name="tipo_conta" id="input_tipo_conta" class="form-select" required>
+                                <option value="Conta Corrente">Conta Corrente</option>
+                                <option value="Conta Poupança">Conta Poupança</option>
+                                <option value="Conta Salário">Conta Salário</option>
+                                <option value="Chave PIX (CPF)">Chave PIX (CPF)</option>
+                                <option value="Chave PIX (Telefone)">Chave PIX (Telefone)</option>
+                                <option value="Chave PIX (E-mail)">Chave PIX (E-mail)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Valor que Recebe (R$) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text">R$</span>
+                                <input type="number" step="0.01" min="0" name="valor_recebe" id="input_valor_recebe" class="form-control" placeholder="0.00" required>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary shadow-sm"><i class="bi bi-check-lg me-1"></i> Salvar Registro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL GERAR FOLHA DE PAGAMENTO -->
+<div class="modal fade" id="modalGerarFolha" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-pdf-fill me-2"></i> Gerar Folha de Pagamento</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('transporte.gerar_folha_pagamento') }}" method="POST">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Selecione o Motorista Contratado <span class="text-danger">*</span></label>
+                        <select name="motorista_id" id="select_folha_motorista_id" class="form-select" required>
+                            <option value="todos">-- GERAR PARA TODOS OS MOTORISTAS CONTRATADOS --</option>
+                            {% for m in motoristas %}
+                            <option value="{{ m.id }}">{{ m.nome }} (CPF: {{ m.cpf }}) - R$ {{ "%.2f"|format(m.valor_recebe)|replace(".", ",") }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Mês de Referência <span class="text-danger">*</span></label>
+                        <input type="text" name="mes_referencia" id="input_mes_referencia" class="form-control" placeholder="Ex: Agosto / 2026" required>
+                    </div>
+                    <div class="alert alert-info py-2 px-3 mb-0 small">
+                        <i class="bi bi-info-circle-fill me-1"></i> Conforme requisitos, a folha conterá exclusivamente: Nome, CPF, Rota, Agência, Conta, Tipo de Conta, Valor, Veículo e Placa.
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-printer-fill me-1"></i> Emitir Folha (PDF)</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Preenche o mês de referência atual por padrão
+    document.addEventListener("DOMContentLoaded", function() {
+        const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+        const d = new Date();
+        const mesAtual = meses[d.getMonth()] + " / " + d.getFullYear();
+        document.getElementById("input_mes_referencia").value = mesAtual;
+    });
+
+    function toggleMonitorCampos() {
+        const switchElem = document.getElementById("switch_tem_monitor");
+        const container = document.getElementById("container_monitor");
+        if (switchElem.checked) {
+            container.classList.remove("d-none");
+        } else {
+            container.classList.add("d-none");
+            document.getElementById("input_monitor_nome").value = "";
+            document.getElementById("input_monitor_cpf").value = "";
+        }
+    }
+
+    function abrirModalCadastro() {
+        document.getElementById("motorista_id").value = "";
+        document.getElementById("input_nome").value = "";
+        document.getElementById("input_cpf").value = "";
+        document.getElementById("input_rota").value = "";
+        document.getElementById("switch_tem_monitor").checked = false;
+        toggleMonitorCampos();
+        document.getElementById("input_veiculo").value = "";
+        document.getElementById("input_veiculo_placa").value = "";
+        document.getElementById("input_banco").value = "";
+        document.getElementById("input_agencia").value = "";
+        document.getElementById("input_conta").value = "";
+        document.getElementById("input_tipo_conta").value = "Conta Corrente";
+        document.getElementById("input_valor_recebe").value = "";
+
+        document.getElementById("modalMotoristaTitle").innerHTML = '<i class="bi bi-person-plus-fill me-2"></i> Cadastrar Motorista Contratado';
+        const modal = new bootstrap.Modal(document.getElementById('modalMotorista'));
+        modal.show();
+    }
+
+    function editarMotorista(data) {
+        document.getElementById("motorista_id").value = data.id;
+        document.getElementById("input_nome").value = data.nome || "";
+        document.getElementById("input_cpf").value = data.cpf || "";
+        document.getElementById("input_rota").value = data.rota || "";
+        
+        const switchElem = document.getElementById("switch_tem_monitor");
+        switchElem.checked = !!data.tem_monitor;
+        toggleMonitorCampos();
+        
+        if (data.tem_monitor) {
+            document.getElementById("input_monitor_nome").value = data.monitor_nome || "";
+            document.getElementById("input_monitor_cpf").value = data.monitor_cpf || "";
+        }
+
+        document.getElementById("input_veiculo").value = data.veiculo || "";
+        document.getElementById("input_veiculo_placa").value = data.veiculo_placa || "";
+        document.getElementById("input_banco").value = data.banco || "";
+        document.getElementById("input_agencia").value = data.agencia || "";
+        document.getElementById("input_conta").value = data.conta || "";
+        document.getElementById("input_tipo_conta").value = data.tipo_conta || "Conta Corrente";
+        document.getElementById("input_valor_recebe").value = data.valor_recebe !== undefined ? data.valor_recebe : "";
+
+        document.getElementById("modalMotoristaTitle").innerHTML = '<i class="bi bi-pencil-square me-2"></i> Editar Motorista Contratado';
+        const modal = new bootstrap.Modal(document.getElementById('modalMotorista'));
+        modal.show();
+    }
+
+    function gerarFolhaIndividual(motoristaId) {
+        const select = document.getElementById("select_folha_motorista_id");
+        select.value = motoristaId;
+        const modal = new bootstrap.Modal(document.getElementById('modalGerarFolha'));
+        modal.show();
+    }
+
+    function filtrarTabela() {
+        const input = document.getElementById("inputBusca");
+        const filter = input.value.toLowerCase();
+        const table = document.getElementById("tabelaMotoristas");
+        const trs = table.getElementsByTagName("tr");
+
+        for (let i = 1; i < trs.length; i++) {
+            let rowText = trs[i].textContent || trs[i].innerText;
+            if (rowText.toLowerCase().indexOf(filter) > -1) {
+                trs[i].style.display = "";
+            } else {
+                trs[i].style.display = "none";
+            }
+        }
+    }
+</script>
+{% endblock %}

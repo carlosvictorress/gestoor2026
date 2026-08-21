@@ -5,8 +5,16 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2><i class="bi bi-sign-turn-right-fill"></i> Rotas Cadastradas</h2>
-    <a href="{{ url_for('transporte.nova_rota') }}" class="btn btn-primary"><i class="bi bi-plus-circle-fill"></i> Adicionar Nova Rota</a>
-</div> <div class="card shadow-sm">
+    <div>
+        <a href="{{ url_for('transporte.motoristas_contratados') }}" class="btn btn-outline-primary me-2">
+            <i class="bi bi-person-badge-fill me-1"></i> Motoristas Contratados
+        </a>
+        <a href="{{ url_for('transporte.nova_rota') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle-fill me-1"></i> Adicionar Nova Rota
+        </a>
+    </div>
+</div>
+<div class="card shadow-sm">
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover">

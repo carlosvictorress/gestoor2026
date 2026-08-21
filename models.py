@@ -1865,4 +1865,47 @@ class CaeeEscola(db.Model):
 
     def __repr__(self):
         return f'<CaeeEscola {self.nome}>'    
+
+
+class MotoristaContratado(db.Model):
+    __tablename__ = 'motorista_contratado'
     
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(200), nullable=False)
+    cpf = db.Column(db.String(14), nullable=False)
+    rota = db.Column(db.String(200), nullable=False)
+    tem_monitor = db.Column(db.Boolean, default=False)
+    monitor_nome = db.Column(db.String(200), nullable=True)
+    monitor_cpf = db.Column(db.String(14), nullable=True)
+    veiculo = db.Column(db.String(100), nullable=False)
+    veiculo_placa = db.Column(db.String(10), nullable=False)
+    
+    # Dados Bancários
+    banco = db.Column(db.String(100), nullable=False)
+    agencia = db.Column(db.String(20), nullable=False)
+    conta = db.Column(db.String(30), nullable=False)
+    tipo_conta = db.Column(db.String(50), nullable=False)
+    valor_recebe = db.Column(db.Float, nullable=False, default=0.0)
+    
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    folhas = db.relationship('FolhaPagamentoContratado', backref='motorista', lazy=True, cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f'<MotoristaContratado {self.nome}>'
+
+
+class FolhaPagamentoContratado(db.Model):
+    __tablename__ = 'folha_pagamento_contratado'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    motorista_id = db.Column(db.Integer, db.ForeignKey('motorista_contratado.id'), nullable=False)
+    mes_referencia = db.Column(db.String(50), nullable=False)
+    data_emissao = db.Column(db.DateTime, default=datetime.utcnow)
+    valor = db.Column(db.Float, nullable=False)
+    arquivo_pdf = db.Column(db.String(255), nullable=False)
+    codigo_autenticacao = db.Column(db.String(50), nullable=True)
+
+    def __repr__(self):
+        return f'<FolhaPagamentoContratado {self.id} - {self.mes_referencia}>'
+

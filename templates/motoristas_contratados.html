@@ -384,7 +384,7 @@
                         </div>
                         <div class="col-md-5">
                             <label class="form-label fw-semibold">CPF <span class="text-danger">*</span></label>
-                            <input type="text" name="cpf" id="input_cpf" class="form-control" placeholder="000.000.000-00" required>
+                            <input type="text" name="cpf" id="input_cpf" class="form-control" placeholder="000.000.000-00" maxlength="14" oninput="aplicarMascaraCPF(this)" required>
                         </div>
                         <div class="col-md-12">
                             <label class="form-label fw-semibold">Rota do Transporte Escolar <span class="text-danger">*</span></label>
@@ -427,7 +427,7 @@
                             </div>
                             <div class="col-md-5">
                                 <label class="form-label fw-semibold">CPF do Monitor</label>
-                                <input type="text" name="monitor_cpf" id="input_monitor_cpf" class="form-control" placeholder="000.000.000-00">
+                                <input type="text" name="monitor_cpf" id="input_monitor_cpf" class="form-control" placeholder="000.000.000-00" maxlength="14" oninput="aplicarMascaraCPF(this)">
                             </div>
                         </div>
                     </div>
@@ -521,6 +521,25 @@
         document.getElementById("input_mes_referencia").value = mesAtual;
     });
 
+    // Função de máscara de CPF em tempo real
+    function formatarCPF(v) {
+        if (!v) return "";
+        let nums = v.replace(/\D/g, '');
+        if (nums.length > 11) nums = nums.substring(0, 11);
+        if (nums.length > 9) {
+            return nums.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
+        } else if (nums.length > 6) {
+            return nums.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
+        } else if (nums.length > 3) {
+            return nums.replace(/(\d{3})(\d{1,3})/, '$1.$2');
+        }
+        return nums;
+    }
+
+    function aplicarMascaraCPF(input) {
+        input.value = formatarCPF(input.value);
+    }
+
     function toggleMonitorCampos() {
         const switchElem = document.getElementById("switch_tem_monitor");
         const container = document.getElementById("container_monitor");
@@ -556,7 +575,7 @@
     function editarMotorista(data) {
         document.getElementById("motorista_id").value = data.id;
         document.getElementById("input_nome").value = data.nome || "";
-        document.getElementById("input_cpf").value = data.cpf || "";
+        document.getElementById("input_cpf").value = formatarCPF(data.cpf || "");
         document.getElementById("input_rota").value = data.rota || "";
         
         const switchElem = document.getElementById("switch_tem_monitor");
@@ -565,7 +584,7 @@
         
         if (data.tem_monitor) {
             document.getElementById("input_monitor_nome").value = data.monitor_nome || "";
-            document.getElementById("input_monitor_cpf").value = data.monitor_cpf || "";
+            document.getElementById("input_monitor_cpf").value = formatarCPF(data.monitor_cpf || "");
         }
 
         document.getElementById("input_veiculo").value = data.veiculo || "";

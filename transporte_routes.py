@@ -3,6 +3,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_from_directory, current_app, make_response
 from functools import wraps
 from sqlalchemy.orm import joinedload
+from sqlalchemy import text
 from datetime import datetime, time
 import os
 import uuid
@@ -646,15 +647,35 @@ def gerar_pdf_folha_pagamento_geral(motoristas, folha, filepath):
     doc.build(story)
 
 
+def executar_migracao_transporte_contratados():
+    """Garante a integridade do esquema no PostgreSQL/SQLite ao adicionar novos campos."""
+    try:
+        db.create_all()
+    except Exception:
+        pass
+
+    queries = [
+        "ALTER TABLE folha_pagamento_contratado ADD COLUMN IF NOT EXISTS qtd_motoristas INTEGER DEFAULT 1;",
+        "ALTER TABLE folha_pagamento_contratado ALTER COLUMN motorista_id DROP NOT NULL;",
+        "ALTER TABLE motorista_contratado ADD COLUMN IF NOT EXISTS tem_monitor BOOLEAN DEFAULT FALSE;",
+        "ALTER TABLE motorista_contratado ADD COLUMN IF NOT EXISTS monitor_nome VARCHAR(200);",
+        "ALTER TABLE motorista_contratado ADD COLUMN IF NOT EXISTS monitor_cpf VARCHAR(14);",
+    ]
+
+    for q in queries:
+        try:
+            db.session.execute(text(q))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+
 @transporte_bp.route('/motoristas-contratados')
 @login_required
 @role_required('Combustivel', 'admin')
 def motoristas_contratados():
     """Exibe a dashboard elegante de motoristas contratados e folhas de pagamento."""
-    try:
-        db.create_all()
-    except Exception as e:
-        pass
+    executar_migracao_transporte_contratados()
 
     motoristas = MotoristaContratado.query.order_by(MotoristaContratado.nome.asc()).all()
     folhas = FolhaPagamentoContratado.query.order_by(FolhaPagamentoContratado.data_emissao.desc()).all()

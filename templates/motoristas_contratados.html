@@ -97,14 +97,14 @@
             <h2 class="fw-bold mb-1 text-dark d-flex align-items-center gap-2">
                 <i class="bi bi-person-badge text-primary fs-2"></i> Motoristas Contratados
             </h2>
-            <p class="text-muted mb-0">Gestão de contratados do transporte escolar, dados bancários e emissão de folhas de pagamento.</p>
+            <p class="text-muted mb-0">Gestão de motoristas contratados do transporte escolar, dados bancários e emissão da Folha Geral de Pagamento.</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <a href="{{ url_for('transporte.listar_rotas') }}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i> Voltar para Rotas
             </a>
-            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalGerarFolha">
-                <i class="bi bi-file-earmark-pdf-fill me-1"></i> Gerar Folha de Pagamento
+            <button class="btn btn-success shadow-sm" data-bs-toggle="modal" data-bs-target="#modalGerarFolha">
+                <i class="bi bi-file-earmark-pdf-fill me-1"></i> Gerar Folha de Pagamento Geral
             </button>
             <button class="btn btn-primary shadow-sm" onclick="abrirModalCadastro()">
                 <i class="bi bi-plus-circle-fill me-1"></i> Novo Motorista Contratado
@@ -149,7 +149,7 @@
             <div class="card card-kpi shadow-sm p-3">
                 <div class="d-flex align-items-center justify-content-between">
                     <div>
-                        <span class="text-muted fw-medium fs-7 d-block mb-1">FOLHA MENSAL (ESTIMADA)</span>
+                        <span class="text-muted fw-medium fs-7 d-block mb-1">FOLHA MENSAL (TOTAL)</span>
                         <h3 class="fw-extrabold mb-0 text-success">R$ {{ "%.2f"|format(folha_mensal_total)|replace(".", ",") }}</h3>
                     </div>
                     <div class="kpi-icon bg-success bg-opacity-10 text-success">
@@ -164,7 +164,7 @@
             <div class="card card-kpi shadow-sm p-3">
                 <div class="d-flex align-items-center justify-content-between">
                     <div>
-                        <span class="text-muted fw-medium fs-7 d-block mb-1">FOLHAS GERADAS</span>
+                        <span class="text-muted fw-medium fs-7 d-block mb-1">FOLHAS GERAIS EMITIDAS</span>
                         <h3 class="fw-extrabold mb-0 text-purple">{{ total_folhas_geradas }}</h3>
                     </div>
                     <div class="kpi-icon bg-warning bg-opacity-10 text-warning">
@@ -259,9 +259,6 @@
                                     </td>
                                     <td class="text-center">
                                         <div class="btn-group btn-group-sm">
-                                            <button class="btn btn-outline-primary" title="Gerar Folha Individual" onclick="gerarFolhaIndividual({{ m.id }})">
-                                                <i class="bi bi-file-earmark-pdf"></i>
-                                            </button>
                                             <button class="btn btn-outline-secondary" title="Editar" onclick='editarMotorista({{ {
                                                 "id": m.id,
                                                 "nome": m.nome,
@@ -278,7 +275,7 @@
                                                 "tipo_conta": m.tipo_conta,
                                                 "valor_recebe": m.valor_recebe
                                             }|tojson }})'>
-                                                <i class="bi bi-pencil"></i>
+                                                <i class="bi bi-pencil"></i> Editar
                                             </button>
                                             <a href="{{ url_for('transporte.excluir_motorista_contratado', id=m.id) }}" class="btn btn-outline-danger" title="Excluir" onclick="return confirm('Deseja realmente remover este motorista contratado?');">
                                                 <i class="bi bi-trash"></i>
@@ -306,10 +303,10 @@
                             <thead>
                                 <tr>
                                     <th># Autenticação</th>
-                                    <th>Motorista</th>
+                                    <th>Tipo de Folha</th>
                                     <th>Mês Referência</th>
                                     <th>Data Emissão</th>
-                                    <th>Valor (R$)</th>
+                                    <th>Valor Total (R$)</th>
                                     <th>Arquivo Gerado</th>
                                     <th class="text-center">Ações</th>
                                 </tr>
@@ -321,8 +318,7 @@
                                         <code class="fw-bold text-primary">{{ f.codigo_autenticacao or 'AUT-' ~ f.id }}</code>
                                     </td>
                                     <td>
-                                        <div class="fw-bold text-dark">{{ f.motorista.nome if f.motorista else 'Motorista Removido' }}</div>
-                                        {% if f.motorista %}<small class="text-muted">CPF: {{ f.motorista.cpf }}</small>{% endif %}
+                                        <span class="badge bg-dark"><i class="bi bi-journals me-1"></i>Folha Geral ({{ f.qtd_motoristas or motoristas|length }} motoristas)</span>
                                     </td>
                                     <td>
                                         <span class="badge bg-primary-subtle text-primary fw-bold">{{ f.mes_referencia }}</span>
@@ -353,7 +349,7 @@
                                 <tr>
                                     <td colspan="7" class="text-center py-4 text-muted">
                                         <i class="bi bi-file-earmark-x fs-1 d-block mb-2"></i>
-                                        Nenhuma folha de pagamento gerada ainda. Clique no botão "Gerar Folha de Pagamento" para emitir.
+                                        Nenhuma folha de pagamento geral emitida ainda. Clique no botão "Gerar Folha de Pagamento Geral" para emitir.
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -490,36 +486,27 @@
     </div>
 </div>
 
-<!-- MODAL GERAR FOLHA DE PAGAMENTO -->
+<!-- MODAL GERAR FOLHA DE PAGAMENTO GERAL -->
 <div class="modal fade" id="modalGerarFolha" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-pdf-fill me-2"></i> Gerar Folha de Pagamento</h5>
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-pdf-fill me-2"></i> Emitir Folha de Pagamento Geral (Tercerizado)</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="{{ url_for('transporte.gerar_folha_pagamento') }}" method="POST">
                 <div class="modal-body p-4">
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Selecione o Motorista Contratado <span class="text-danger">*</span></label>
-                        <select name="motorista_id" id="select_folha_motorista_id" class="form-select" required>
-                            <option value="todos">-- GERAR PARA TODOS OS MOTORISTAS CONTRATADOS --</option>
-                            {% for m in motoristas %}
-                            <option value="{{ m.id }}">{{ m.nome }} (CPF: {{ m.cpf }}) - R$ {{ "%.2f"|format(m.valor_recebe)|replace(".", ",") }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
                         <label class="form-label fw-semibold">Mês de Referência <span class="text-danger">*</span></label>
-                        <input type="text" name="mes_referencia" id="input_mes_referencia" class="form-control" placeholder="Ex: Agosto / 2026" required>
+                        <input type="text" name="mes_referencia" id="input_mes_referencia" class="form-control form-control-lg" placeholder="Ex: Agosto / 2026" required>
                     </div>
-                    <div class="alert alert-info py-2 px-3 mb-0 small">
-                        <i class="bi bi-info-circle-fill me-1"></i> Conforme requisitos, a folha conterá exclusivamente: Nome, CPF, Rota, Agência, Conta, Tipo de Conta, Valor, Veículo e Placa.
+                    <div class="alert alert-success py-2 px-3 mb-0 small border-0 bg-success bg-opacity-10 text-success">
+                        <i class="bi bi-check-circle-fill me-1"></i> O sistema gerará a <strong>Folha Geral Tercerizado</strong> contendo todos os motoristas contratados em uma única folha/tabela em formato PDF sem timbre da prefeitura.
                     </div>
                 </div>
                 <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-printer-fill me-1"></i> Emitir Folha (PDF)</button>
+                    <button type="submit" class="btn btn-success fw-bold"><i class="bi bi-printer-fill me-1"></i> Emitir Folha Geral em PDF</button>
                 </div>
             </form>
         </div>
@@ -527,7 +514,6 @@
 </div>
 
 <script>
-    // Preenche o mês de referência atual por padrão
     document.addEventListener("DOMContentLoaded", function() {
         const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
         const d = new Date();
@@ -592,13 +578,6 @@
 
         document.getElementById("modalMotoristaTitle").innerHTML = '<i class="bi bi-pencil-square me-2"></i> Editar Motorista Contratado';
         const modal = new bootstrap.Modal(document.getElementById('modalMotorista'));
-        modal.show();
-    }
-
-    function gerarFolhaIndividual(motoristaId) {
-        const select = document.getElementById("select_folha_motorista_id");
-        select.value = motoristaId;
-        const modal = new bootstrap.Modal(document.getElementById('modalGerarFolha'));
         modal.show();
     }
 

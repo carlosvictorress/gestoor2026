@@ -12,7 +12,7 @@ from extensions import db, bcrypt
 from models import RotaTransporte, AlunoTransporte, Servidor, Veiculo, TrechoRota, MotoristaContratado, FolhaPagamentoContratado
 from utils import login_required, fleet_required, role_required, cabecalho_e_rodape
 
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
@@ -474,19 +474,19 @@ def excluir_rota(rota_id):
 
 
 # ==============================================================================
-# MÓDULO: MOTORISTAS CONTRATADOS DO TRANSPORTE ESCOLAR E FOLHA DE PAGAMENTO
+# MÓDULO: MOTORISTAS CONTRATADOS DO TRANSPORTE ESCOLAR E FOLHA DE PAGAMENTO GERAL
 # ==============================================================================
 
-def gerar_pdf_folha_pagamento_contratado(motorista, folha, filepath):
-    """Gera o arquivo PDF de folha de pagamento contendo restritamente os dados especificados."""
+def gerar_pdf_folha_pagamento_geral(motoristas, folha, filepath):
+    """Gera o arquivo PDF de folha de pagamento geral (terceirizado) contendo todos os motoristas cadastrados."""
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     doc = SimpleDocTemplate(
         filepath,
-        pagesize=A4,
-        rightMargin=1.5*cm,
-        leftMargin=1.5*cm,
-        topMargin=2.0*cm,
-        bottomMargin=2.0*cm
+        pagesize=landscape(A4),
+        rightMargin=1.0*cm,
+        leftMargin=1.0*cm,
+        topMargin=1.2*cm,
+        bottomMargin=1.2*cm
     )
     story = []
     styles = getSampleStyleSheet()
@@ -495,8 +495,8 @@ def gerar_pdf_folha_pagamento_contratado(motorista, folha, filepath):
         'TitleStyle',
         parent=styles['Heading1'],
         fontName='Helvetica-Bold',
-        fontSize=13,
-        leading=16,
+        fontSize=14,
+        leading=18,
         alignment=TA_CENTER,
         textColor=colors.HexColor('#07132B')
     )
@@ -505,31 +505,42 @@ def gerar_pdf_folha_pagamento_contratado(motorista, folha, filepath):
         'SubtitleStyle',
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
-        fontSize=10,
+        fontSize=10.5,
         leading=14,
         alignment=TA_CENTER,
         textColor=colors.HexColor('#2563EB')
     )
     
-    label_style = ParagraphStyle(
-        'LabelStyle',
+    header_col_style = ParagraphStyle(
+        'HeaderColStyle',
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
-        fontSize=9,
-        leading=12,
-        textColor=colors.HexColor('#334155')
+        fontSize=8,
+        leading=10,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#1E293B')
     )
     
-    value_style = ParagraphStyle(
-        'ValueStyle',
+    cell_style = ParagraphStyle(
+        'CellStyle',
         parent=styles['Normal'],
         fontName='Helvetica',
-        fontSize=9.5,
-        leading=13,
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor('#0F172A')
+    )
+    
+    cell_bold_style = ParagraphStyle(
+        'CellBoldStyle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=8,
+        leading=10,
         textColor=colors.HexColor('#0F172A')
     )
 
-    story.append(Paragraph("FOLHA DE PAGAMENTO - TRANSPORTE ESCOLAR CONTRATADO", title_style))
+    # TÍTULO EXATO SOLICITADO PELO USUÁRIO (SEM TIMBRE DA PREFEITURA)
+    story.append(Paragraph("FOLHA DE PAGAMENTO TRANSPORTE ESCOLAR - TERCERIZADO", title_style))
     story.append(Spacer(1, 0.2*cm))
     story.append(Paragraph(f"MÊS DE REFERÊNCIA: {folha.mes_referencia.upper()}", subtitle_style))
     story.append(Spacer(1, 0.4*cm))
@@ -540,67 +551,99 @@ def gerar_pdf_folha_pagamento_contratado(motorista, folha, filepath):
     
     meta_data = [
         [
-            Paragraph(f"<b>CÓDIGO DE AUTENTICAÇÃO:</b> {cod_auth}", label_style),
-            Paragraph(f"<b>DATA DE EMISSÃO:</b> {dt_emissao}", label_style)
+            Paragraph(f"<b>AUTENTICAÇÃO:</b> {cod_auth}", cell_style),
+            Paragraph(f"<b>DATA DE EMISSÃO:</b> {dt_emissao}", cell_style),
+            Paragraph(f"<b>TOTAL DE MOTORISTAS:</b> {len(motoristas)}", cell_style)
         ]
     ]
-    t_meta = Table(meta_data, colWidths=[9.5*cm, 8.5*cm])
+    t_meta = Table(meta_data, colWidths=[9.5*cm, 9.5*cm, 8.7*cm])
     t_meta.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F1F5F9')),
-        ('PADDING', (0,0), (-1,-1), 6),
+        ('PADDING', (0,0), (-1,-1), 5),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('LINEBELOW', (0,0), (-1,-1), 1, colors.HexColor('#CBD5E1')),
     ]))
     story.append(t_meta)
-    story.append(Spacer(1, 0.6*cm))
+    story.append(Spacer(1, 0.5*cm))
 
-    valor_fmt = f"R$ {folha.valor:,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
-
-    # Tabela com as 9 informações solicitadas exatamente
-    table_data = [
-        [Paragraph("<b>CAMPO</b>", label_style), Paragraph("<b>DADO REGISTRADO</b>", label_style)],
-        [Paragraph("NOME DO MOTORISTA", label_style), Paragraph(motorista.nome, value_style)],
-        [Paragraph("CPF DO MOTORISTA", label_style), Paragraph(motorista.cpf, value_style)],
-        [Paragraph("ROTA", label_style), Paragraph(motorista.rota, value_style)],
-        [Paragraph("AGÊNCIA BANCÁRIA", label_style), Paragraph(motorista.agencia, value_style)],
-        [Paragraph("CONTA BANCÁRIA", label_style), Paragraph(motorista.conta, value_style)],
-        [Paragraph("TIPO DE CONTA", label_style), Paragraph(motorista.tipo_conta, value_style)],
-        [Paragraph("VALOR", label_style), Paragraph(f"<b>{valor_fmt}</b>", value_style)],
-        [Paragraph("VEÍCULO", label_style), Paragraph(motorista.veiculo, value_style)],
-        [Paragraph("PLACA DO VEÍCULO", label_style), Paragraph(motorista.veiculo_placa, value_style)],
+    # Tabela principal contendo APENAS as 9 informações solicitadas:
+    # (nome, cpf, rota, agencia, conta, tipo de conta, valor, veiculo e placa do veiculo)
+    headers = [
+        Paragraph("NOME", header_col_style),
+        Paragraph("CPF", header_col_style),
+        Paragraph("ROTA", header_col_style),
+        Paragraph("AGÊNCIA", header_col_style),
+        Paragraph("CONTA", header_col_style),
+        Paragraph("TIPO CONTA", header_col_style),
+        Paragraph("VALOR (R$)", header_col_style),
+        Paragraph("VEÍCULO", header_col_style),
+        Paragraph("PLACA", header_col_style),
     ]
 
-    tbl = Table(table_data, colWidths=[6.5*cm, 11.5*cm])
+    table_data = [headers]
+    valor_total = 0.0
+
+    for m in motoristas:
+        v = m.valor_recebe or 0.0
+        valor_total += v
+        valor_fmt = f"R$ {v:,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
+        table_data.append([
+            Paragraph(m.nome, cell_bold_style),
+            Paragraph(m.cpf, cell_style),
+            Paragraph(m.rota, cell_style),
+            Paragraph(m.agencia, cell_style),
+            Paragraph(m.conta, cell_style),
+            Paragraph(m.tipo_conta, cell_style),
+            Paragraph(valor_fmt, cell_bold_style),
+            Paragraph(m.veiculo, cell_style),
+            Paragraph(m.veiculo_placa, cell_style),
+        ])
+
+    # Linha do Total Geral
+    valor_total_fmt = f"R$ {valor_total:,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
+    table_data.append([
+        Paragraph("<b>TOTAL GERAL DA FOLHA</b>", cell_bold_style),
+        Paragraph("", cell_style),
+        Paragraph("", cell_style),
+        Paragraph("", cell_style),
+        Paragraph("", cell_style),
+        Paragraph("", cell_style),
+        Paragraph(f"<b>{valor_total_fmt}</b>", cell_bold_style),
+        Paragraph("", cell_style),
+        Paragraph("", cell_style),
+    ])
+
+    col_widths = [4.5*cm, 2.8*cm, 3.8*cm, 2.0*cm, 2.4*cm, 2.4*cm, 2.6*cm, 5.0*cm, 2.2*cm]
+    tbl = Table(table_data, colWidths=col_widths)
     tbl.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#E2E8F0')),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-        ('PADDING', (0,0), (-1,-1), 7),
+        ('PADDING', (0,0), (-1,-1), 5),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')]),
+        ('ROWBACKGROUNDS', (0,1), (-1,-2), [colors.white, colors.HexColor('#F8FAFC')]),
+        ('SPAN', (0, -1), (5, -1)),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#E2E8F0')),
     ]))
     story.append(tbl)
-    story.append(Spacer(1, 1.8*cm))
+    story.append(Spacer(1, 1.2*cm))
 
-    # Assinaturas
+    # Assinaturas no rodapé
     linha = "______________________________________________________"
     sig_data = [
-        [Paragraph(linha, label_style)],
-        [Paragraph(f"<b>{motorista.nome.upper()}</b>", label_style)],
-        [Paragraph("Assinatura do Motorista Contratado", label_style)],
-        [Spacer(1, 1.0*cm)],
-        [Paragraph(linha, label_style)],
-        [Paragraph("Gestão de Transporte Escolar / Controle Interno", label_style)]
+        [Paragraph(linha, cell_style), Paragraph(linha, cell_style)],
+        [
+            Paragraph("<b>Responsável pelo Setor de Transporte Escolar</b>", cell_style),
+            Paragraph("<b>Diretoria Financeira / Controle Interno</b>", cell_style)
+        ]
     ]
-    t_sig = Table(sig_data, colWidths=[18*cm])
+    t_sig = Table(sig_data, colWidths=[13.5*cm, 14.2*cm])
     t_sig.setStyle(TableStyle([
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
     ]))
     story.append(t_sig)
 
-    try:
-        doc.build(story, onFirstPage=cabecalho_e_rodape, onLaterPages=cabecalho_e_rodape)
-    except Exception:
-        doc.build(story)
+    # SEM TIMBRE DA PREFEITURA
+    doc.build(story)
 
 
 @transporte_bp.route('/motoristas-contratados')
@@ -716,51 +759,42 @@ def excluir_motorista_contratado(id):
 @login_required
 @role_required('Combustivel', 'admin')
 def gerar_folha_pagamento():
-    """Gera a folha de pagamento em PDF para um ou todos os motoristas contratados."""
+    """Gera a folha de pagamento geral em PDF para todos os motoristas contratados."""
     try:
-        motorista_id_raw = request.form.get('motorista_id')
-        mes_referencia = request.form.get('mes_referencia', '').strip() or datetime.now().strftime('%B/%Y').capitalize()
+        mes_referencia = request.form.get('mes_referencia', '').strip() or datetime.now().strftime('%B / %Y').capitalize()
 
-        if not motorista_id_raw:
-            flash('Selecione um motorista para gerar a folha de pagamento.', 'warning')
-            return redirect(url_for('transporte.motoristas_contratados'))
-
-        if motorista_id_raw == 'todos':
-            motoristas = MotoristaContratado.query.all()
-        else:
-            motoristas = [MotoristaContratado.query.get_or_404(int(motorista_id_raw))]
+        motoristas = MotoristaContratado.query.order_by(MotoristaContratado.nome.asc()).all()
 
         if not motoristas:
-            flash('Nenhum motorista contratado encontrado.', 'warning')
+            flash('Nenhum motorista contratado cadastrado para gerar a folha.', 'warning')
             return redirect(url_for('transporte.motoristas_contratados'))
 
         upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'folhas_pagamento')
         os.makedirs(upload_dir, exist_ok=True)
 
-        count_geradas = 0
-        for m in motoristas:
-            cod_auth = uuid.uuid4().hex[:12].upper()
-            safe_nome = "".join(c for c in m.nome if c.isalnum() or c in (' ', '_', '-')).rstrip()
-            safe_nome = safe_nome.replace(" ", "_")
-            filename = f"Folha_{safe_nome}_{cod_auth}.pdf"
-            filepath = os.path.join(upload_dir, filename)
+        cod_auth = uuid.uuid4().hex[:12].upper()
+        safe_mes = "".join(c for c in mes_referencia if c.isalnum() or c in ('_', '-')).replace(" ", "_")
+        filename = f"Folha_Geral_Tercerizado_{safe_mes}_{cod_auth}.pdf"
+        filepath = os.path.join(upload_dir, filename)
 
-            nova_folha = FolhaPagamentoContratado(
-                motorista_id=m.id,
-                mes_referencia=mes_referencia,
-                data_emissao=datetime.utcnow(),
-                valor=m.valor_recebe,
-                arquivo_pdf=filename,
-                codigo_autenticacao=cod_auth
-            )
-            db.session.add(nova_folha)
-            db.session.flush()
+        valor_total = sum(m.valor_recebe or 0.0 for m in motoristas)
 
-            gerar_pdf_folha_pagamento_contratado(m, nova_folha, filepath)
-            count_geradas += 1
+        nova_folha = FolhaPagamentoContratado(
+            motorista_id=None,
+            mes_referencia=mes_referencia,
+            data_emissao=datetime.utcnow(),
+            valor=valor_total,
+            arquivo_pdf=filename,
+            codigo_autenticacao=cod_auth,
+            qtd_motoristas=len(motoristas)
+        )
+        db.session.add(nova_folha)
+        db.session.flush()
+
+        gerar_pdf_folha_pagamento_geral(motoristas, nova_folha, filepath)
 
         db.session.commit()
-        flash(f'Folha de pagamento gerada com sucesso para {count_geradas} motorista(s)!', 'success')
+        flash(f'Folha de Pagamento Geral (Tercerizado) de {mes_referencia} gerada com sucesso!', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Erro ao gerar folha de pagamento: {e}', 'danger')

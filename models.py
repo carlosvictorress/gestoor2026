@@ -1899,12 +1899,13 @@ class FolhaPagamentoContratado(db.Model):
     __tablename__ = 'folha_pagamento_contratado'
     
     id = db.Column(db.Integer, primary_key=True)
-    motorista_id = db.Column(db.Integer, db.ForeignKey('motorista_contratado.id'), nullable=False)
+    motorista_id = db.Column(db.Integer, db.ForeignKey('motorista_contratado.id'), nullable=True)
     mes_referencia = db.Column(db.String(50), nullable=False)
     data_emissao = db.Column(db.DateTime, default=datetime.utcnow)
     valor = db.Column(db.Float, nullable=False)
     arquivo_pdf = db.Column(db.String(255), nullable=False)
     codigo_autenticacao = db.Column(db.String(50), nullable=True)
+    qtd_motoristas = db.Column(db.Integer, default=1)
 
     def __repr__(self):
         return f'<FolhaPagamentoContratado {self.id} - {self.mes_referencia}>'

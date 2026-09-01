@@ -2385,8 +2385,8 @@ def pdf_termo_recebimento_pnae(entrega_id):
                     item_pv = ItemProjetoVenda.query.get(item.get('item_id'))
                     if item_pv:
                         unid = item_pv.unidade_medida
-                if not unid:
-                    unid = "kg"
+                if not unid or str(unid).upper() in ['UN', 'UNID', 'UNID.', 'UNIDADES']:
+                    unid = "KG"
 
                 linha = [nome_prod, str(unid), qtd_str]
                 if exibir_valor:

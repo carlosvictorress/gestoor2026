@@ -193,7 +193,8 @@ def garantir_schema_estoque_movimento():
                 ("quantidade_embalagem", "FLOAT"),
                 ("fator_utilizado", "FLOAT DEFAULT 1.0"),
                 ("escola_id", "INTEGER"),
-                ("observacao", "TEXT")
+                ("observacao", "TEXT"),
+                ("codigo_grupo", "VARCHAR(50)")
             ]
             for col_nome, col_tipo in colunas:
                 try:

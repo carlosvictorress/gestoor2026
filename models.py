@@ -608,6 +608,7 @@ class EstoqueMovimento(db.Model):
 
     # Rastreabilidade
     usuario_responsavel = db.Column(db.String(80), nullable=False)
+    codigo_grupo = db.Column(db.String(50), nullable=True, index=True)
 
     produto = db.relationship("ProdutoMerenda", backref="movimentos")
     escola = db.relationship("Escola")

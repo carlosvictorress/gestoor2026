@@ -656,19 +656,29 @@ def gerar_pdf_termo_entrega_profissional(titulo, subtitulo, escola_nome, escola_
 @role_required('Merenda Escolar', 'admin')
 def pdf_recibo_saida_movimento(movimento_id):
     movimento = EstoqueMovimento.query.get_or_404(movimento_id)
+    
+    # Se pertencer a um grupo, busca todos os movimentos do mesmo grupo
+    if movimento.codigo_grupo:
+        movimentos_grupo = EstoqueMovimento.query.filter_by(codigo_grupo=movimento.codigo_grupo).order_by(EstoqueMovimento.id.asc()).all()
+    else:
+        movimentos_grupo = [movimento]
+
     escola = Escola.query.get(movimento.escola_id) if movimento.escola_id else None
     escola_nome = escola.nome if escola else "Unidade Escolar"
-    produto = ProdutoMerenda.query.get(movimento.produto_id) if movimento.produto_id else None
 
-    qtd_emb = f"{movimento.quantidade_embalagem:.2f} {movimento.unidade_movimento or 'unid'}" if movimento.quantidade_embalagem else "--"
-    qtd_real = f"{movimento.quantidade:.2f} {produto.unidade_consumo if produto else 'UNID'}"
+    itens_tabela = []
+    for mov in movimentos_grupo:
+        produto = ProdutoMerenda.query.get(mov.produto_id) if mov.produto_id else None
+        qtd_emb = f"{mov.quantidade_embalagem:.2f} {mov.unidade_movimento or 'unid'}" if mov.quantidade_embalagem else "--"
+        qtd_real = f"{mov.quantidade:.2f} {produto.unidade_consumo if produto else 'UNID'}"
+        itens_tabela.append({
+            'produto': produto.nome if produto else 'Gênero Alimentício',
+            'qtd_emb': qtd_emb,
+            'qtd_real': qtd_real,
+            'obs': mov.observacao or 'Conforme Solicitação'
+        })
 
-    itens_tabela = [{
-        'produto': produto.nome if produto else 'Gênero Alimentício',
-        'qtd_emb': qtd_emb,
-        'qtd_real': qtd_real,
-        'obs': movimento.observacao or 'Conforme Solicitação'
-    }]
+    protocolo = f"GRP-{movimento.codigo_grupo}" if movimento.codigo_grupo else f"MOV-{movimento.id:06d}"
 
     return gerar_pdf_termo_entrega_profissional(
         titulo="TERMO DE EXPEDIÇÃO E GUIA DE ENTREGA",
@@ -679,7 +689,7 @@ def pdf_recibo_saida_movimento(movimento_id):
         responsavel=movimento.usuario_responsavel,
         itens_tabela=itens_tabela,
         observacao_geral=movimento.observacao,
-        num_protocolo=f"MOV-{movimento.id:06d}"
+        num_protocolo=protocolo
     )
 
 
@@ -688,71 +698,127 @@ def pdf_recibo_saida_movimento(movimento_id):
 @role_required('Merenda Escolar', 'admin')
 def saida_estoque():
     try:
-        produto_id = request.form.get('produto_id', type=int)
         tipo_saida = request.form.get('tipo_saida', 'Saída Escola')  # 'Saída Escola', 'Perda/Avaria', 'Ajuste Saldo'
         escola_id = request.form.get('escola_id', type=int) if tipo_saida == 'Saída Escola' else None
-        tipo_unidade = request.form.get('tipo_unidade', 'base')  # 'master' ou 'base'
-        
-        quantidade_str = request.form.get('quantidade', '0').replace(',', '.')
-        quantidade_digitada = float(quantidade_str)
+        observacao_geral = request.form.get('observacao')
 
-        if not produto_id or quantidade_digitada <= 0:
-            flash('Selecione o produto e informe uma quantidade válida maior que zero.', 'danger')
+        # Suporte a múltiplos produtos (arrays no formulário) e compatibilidade com envio único
+        produto_ids = request.form.getlist('produto_id[]')
+        quantidades = request.form.getlist('quantidade[]')
+        tipos_unidade = request.form.getlist('tipo_unidade[]')
+
+        # Se não vier em formato array, verifica o formato legado de item único
+        if not produto_ids:
+            p_id = request.form.get('produto_id', type=int)
+            q_val = request.form.get('quantidade', '0')
+            t_unid = request.form.get('tipo_unidade', 'base')
+            if p_id:
+                produto_ids = [p_id]
+                quantidades = [q_val]
+                tipos_unidade = [t_unid]
+
+        if not produto_ids or len(produto_ids) == 0:
+            flash('Nenhum produto foi selecionado para a saída.', 'danger')
             return redirect(url_for('merenda.gerenciar_estoque'))
 
-        produto = ProdutoMerenda.query.get(produto_id)
-        if not produto:
-            flash('Produto não encontrado.', 'danger')
+        # Estrutura para validar e armazenar os itens processados antes de efetivar no banco
+        itens_processar = []
+        erros_estoque = []
+
+        for i in range(len(produto_ids)):
+            raw_p_id = produto_ids[i]
+            raw_qtd = quantidades[i] if i < len(quantidades) else '0'
+            raw_tipo = tipos_unidade[i] if i < len(tipos_unidade) else 'base'
+
+            if not raw_p_id:
+                continue
+
+            try:
+                p_id = int(raw_p_id)
+                qtd_digitada = float(str(raw_qtd).replace(',', '.'))
+            except (ValueError, TypeError):
+                continue
+
+            if qtd_digitada <= 0:
+                continue
+
+            produto = ProdutoMerenda.query.get(p_id)
+            if not produto:
+                erros_estoque.append(f'Produto ID {p_id} não foi encontrado.')
+                continue
+
+            fator = float(produto.fator_conversao) if (produto.fator_conversao and produto.fator_conversao > 0) else 1.0
+
+            if raw_tipo == 'master' and fator > 1.0:
+                quantidade_subtrair = qtd_digitada * fator
+                unidade_movimento = produto.unidade_medida or 'CX'
+                msg_detalhe = f"{qtd_digitada:.2f} {unidade_movimento} ({quantidade_subtrair:.2f} {produto.unidade_consumo or 'UNID'})"
+            else:
+                quantidade_subtrair = qtd_digitada
+                unidade_movimento = produto.unidade_consumo or 'UNID'
+                msg_detalhe = f"{qtd_digitada:.2f} {unidade_movimento}"
+
+            # Validação estrita do saldo disponível
+            saldo_atual = produto.estoque_atual or 0.0
+            if saldo_atual < quantidade_subtrair:
+                erros_estoque.append(
+                    f'Estoque insuficiente para "{produto.nome}". Saldo atual: {saldo_atual:.2f} {produto.unidade_consumo or "UNID"}. Solicitado: {quantidade_subtrair:.2f}.'
+                )
+
+            itens_processar.append({
+                'produto': produto,
+                'qtd_digitada': qtd_digitada,
+                'qtd_subtrair': quantidade_subtrair,
+                'unidade_movimento': unidade_movimento,
+                'fator': fator,
+                'msg_detalhe': msg_detalhe
+            })
+
+        if erros_estoque:
+            for err in erros_estoque:
+                flash(err, 'danger')
             return redirect(url_for('merenda.gerenciar_estoque'))
 
-        fator = float(produto.fator_conversao) if (produto.fator_conversao and produto.fator_conversao > 0) else 1.0
-
-        if tipo_unidade == 'master' and fator > 1.0:
-            quantidade_subtrair = quantidade_digitada * fator
-            unidade_movimento = produto.unidade_medida or 'CX'
-            msg_detalhe = f"{quantidade_digitada:.2f} {unidade_movimento} ({quantidade_subtrair:.2f} {produto.unidade_consumo or 'UNID'})"
-        else:
-            quantidade_subtrair = quantidade_digitada
-            unidade_movimento = produto.unidade_consumo or 'UNID'
-            msg_detalhe = f"{quantidade_digitada:.2f} {unidade_movimento}"
-
-        # Validação estrita de saldo disponível
-        saldo_atual = produto.estoque_atual or 0.0
-        if saldo_atual < quantidade_subtrair:
-            flash(
-                f'Estoque insuficiente para "{produto.nome}". Saldo atual: {saldo_atual:.2f} {produto.unidade_consumo or "UNID"}. Tentativa de saída: {quantidade_subtrair:.2f}.',
-                'danger'
-            )
+        if not itens_processar:
+            flash('Informe pelo menos um produto com quantidade válida maior que zero.', 'danger')
             return redirect(url_for('merenda.gerenciar_estoque'))
 
-        # Subtrai do estoque atual
-        produto.estoque_atual = saldo_atual - quantidade_subtrair
-
+        import uuid
+        codigo_grupo = f"SAIDA-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6].upper()}"
         escola_obj = Escola.query.get(escola_id) if escola_id else None
         nome_destino = escola_obj.nome if escola_obj else ('Descarte/Perda' if tipo_saida == 'Perda/Avaria' else 'Ajuste de Estoque')
+        usuario_resp = session.get('username', 'Sistema')
 
-        movimento = EstoqueMovimento(
-            produto_id=produto_id,
-            tipo=tipo_saida or 'Saída Escola',
-            quantidade=quantidade_subtrair,
-            unidade_movimento=unidade_movimento,
-            quantidade_embalagem=quantidade_digitada,
-            fator_utilizado=fator,
-            escola_id=escola_id,
-            observacao=request.form.get('observacao'),
-            usuario_responsavel=session.get('username', 'Sistema')
-        )
+        movimentos_criados = []
 
-        db.session.add(movimento)
+        for item in itens_processar:
+            prod = item['produto']
+            prod.estoque_atual = (prod.estoque_atual or 0.0) - item['qtd_subtrair']
+
+            mov = EstoqueMovimento(
+                produto_id=prod.id,
+                tipo=tipo_saida or 'Saída Escola',
+                quantidade=item['qtd_subtrair'],
+                unidade_movimento=item['unidade_movimento'],
+                quantidade_embalagem=item['qtd_digitada'],
+                fator_utilizado=item['fator'],
+                escola_id=escola_id,
+                observacao=observacao_geral,
+                usuario_responsavel=usuario_resp,
+                codigo_grupo=codigo_grupo
+            )
+            db.session.add(mov)
+            movimentos_criados.append(mov)
+
+            registrar_log(f'Saída de estoque ({tipo_saida}): {item["msg_detalhe"]} do produto "{prod.nome}" para {nome_destino}. [Grupo: {codigo_grupo}]')
+
         db.session.commit()
 
-        registrar_log(f'Saída de estoque da Merenda ({tipo_saida}): {msg_detalhe} do produto "{produto.nome}" para {nome_destino}.')
-        
         if escola_id or tipo_saida == 'Saída Escola':
-            flash(f'Sucesso! Saída de {msg_detalhe} registrada para "{produto.nome}". Gerando Termo de Entrega em PDF...', 'success')
-            return redirect(url_for('merenda.pdf_recibo_saida_movimento', movimento_id=movimento.id))
+            flash(f'Sucesso! Saída de {len(movimentos_criados)} produto(s) registrada para {nome_destino}. Gerando Termo de Entrega em PDF...', 'success')
+            return redirect(url_for('merenda.pdf_recibo_saida_movimento', movimento_id=movimentos_criados[0].id))
         else:
-            flash(f'Sucesso! Saída de {msg_detalhe} registrada para "{produto.nome}". Destino: {nome_destino}.', 'success')
+            flash(f'Sucesso! Saída de {len(movimentos_criados)} produto(s) registrada. Destino: {nome_destino}.', 'success')
             return redirect(url_for('merenda.gerenciar_estoque'))
 
     except Exception as e:

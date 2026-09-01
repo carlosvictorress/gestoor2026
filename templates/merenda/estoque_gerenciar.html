@@ -277,25 +277,11 @@
 
                 <!-- ABA 3: NOVA SAÍDA / DISTRIBUIÇÃO -->
                 <div class="tab-pane fade" id="saida" role="tabpanel">
-                    <form action="{{ url_for('merenda.saida_estoque') }}" method="POST">
-                        <div class="row g-3">
+                    <form action="{{ url_for('merenda.saida_estoque') }}" method="POST" id="form_saida_estoque">
+                        
+                        <!-- Cabeçalho da Saída (Destino e Motivo) -->
+                        <div class="row g-3 mb-3">
                             <div class="col-md-4">
-                                <label for="saida_produto_id" class="form-label fw-bold">Produto a enviar <span class="text-danger">*</span></label>
-                                <select class="form-select form-select-lg" name="produto_id" id="saida_produto_id" required onchange="atualizarCalcSaida()">
-                                    <option value="" disabled selected>-- Selecione o alimento --</option>
-                                    {% for p in produtos %}
-                                    <option value="{{ p.id }}" 
-                                            data-saldo="{{ p.estoque_atual or 0.0 }}"
-                                            data-fator="{{ p.fator_conversao or 1.0 }}"
-                                            data-unidade-consumo="{{ p.unidade_consumo or 'UNID' }}"
-                                            data-unidade-master="{{ p.unidade_medida or 'CX' }}">
-                                        {{ p.nome }} (Disponível: {{ "%.1f"|format(p.estoque_atual or 0) }} {{ p.unidade_consumo or 'UNID' }})
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-
-                            <div class="col-md-3">
                                 <label for="tipo_saida" class="form-label fw-bold">Tipo de Saída</label>
                                 <select class="form-select form-select-lg border-primary" name="tipo_saida" id="tipo_saida" onchange="toggleEscolaDestino()">
                                     <option value="Saída Escola">🏫 Envio para Escola Municipal</option>
@@ -306,50 +292,95 @@
 
                             <div class="col-md-5" id="container_escola">
                                 <label for="escola_id" class="form-label fw-bold">Escola Destino <span class="text-danger">*</span></label>
-                                <select class="form-select form-select-lg" name="escola_id" id="escola_id">
+                                <select class="form-select form-select-lg" name="escola_id" id="escola_id" required>
                                     <option value="" disabled selected>-- Selecione a Escola --</option>
                                     {% for esc in escolas %}
                                     <option value="{{ esc.id }}">{{ esc.nome }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
-                        </div>
 
-                        <div class="row g-3 mt-2">
-                            <div class="col-md-4">
-                                <label for="saida_tipo_unidade" class="form-label fw-bold">Como está medindo a saída?</label>
-                                <select class="form-select border-primary" name="tipo_unidade" id="saida_tipo_unidade" onchange="atualizarCalcSaida()">
-                                    <option value="base">🔢 Unidades Soltas / Quilos (Mais Comum)</option>
-                                    <option value="master">📦 Embalagens Fechadas (Caixa/Fardo Inteiro)</option>
-                                </select>
-                            </div>
-
-                            <div class="col-md-4">
-                                <label for="saida_quantidade" class="form-label fw-bold">Quantidade de Saída <span class="text-danger">*</span></label>
-                                <input type="number" step="0.01" min="0.01" class="form-control" name="quantidade" id="saida_quantidade" required placeholder="Ex: 5" oninput="atualizarCalcSaida()">
-                            </div>
-
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label for="observacao_saida" class="form-label fw-bold">Observação / Justificativa</label>
-                                <input type="text" class="form-control" name="observacao" id="observacao_saida" placeholder="Ex: Ficha de entrega nº 45">
+                                <input type="text" class="form-control form-control-lg" name="observacao" id="observacao_saida" placeholder="Ex: Guia/Ficha de entrega nº 45">
                             </div>
                         </div>
 
-                        <!-- Card de Feedback da Saída -->
-                        <div class="row mt-3">
+                        <!-- Card com Lista de Produtos a Enviar -->
+                        <div class="card border border-primary-subtle shadow-sm mb-3">
+                            <div class="card-header bg-primary-subtle py-2 d-flex justify-content-between align-items-center">
+                                <h6 class="fw-bold text-primary m-0">
+                                    <i class="bi bi-box-seam me-2"></i>Itens para Envio / Baixa no Estoque
+                                </h6>
+                                <button type="button" class="btn btn-primary btn-sm fw-bold shadow-sm" id="btn_add_linha_saida">
+                                    <i class="bi bi-plus-circle me-1"></i> Adicionar Outro Alimento / Produto
+                                </button>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0" id="tabela_saida_itens">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 42%;">Produto / Alimento *</th>
+                                                <th style="width: 25%;">Embalagem Medida</th>
+                                                <th style="width: 20%;">Quantidade *</th>
+                                                <th style="width: 13%;" class="text-center">Ação</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="container_linhas_saida">
+                                            <!-- Linha 1 Inicial -->
+                                            <tr class="linha-saida">
+                                                <td>
+                                                    <select class="form-select select-produto-saida" name="produto_id[]" required onchange="atualizarCalcSaidaLinha(this)">
+                                                        <option value="" disabled selected>-- Selecione o alimento --</option>
+                                                        {% for p in produtos %}
+                                                        <option value="{{ p.id }}" 
+                                                                data-saldo="{{ p.estoque_atual or 0.0 }}"
+                                                                data-fator="{{ p.fator_conversao or 1.0 }}"
+                                                                data-unidade-consumo="{{ p.unidade_consumo or 'UNID' }}"
+                                                                data-unidade-master="{{ p.unidade_medida or 'CX' }}">
+                                                            {{ p.nome }} (Disponível: {{ "%.1f"|format(p.estoque_atual or 0) }} {{ p.unidade_consumo or 'UNID' }})
+                                                        </option>
+                                                        {% endfor %}
+                                                    </select>
+                                                    <div class="feedback-linha-texto small mt-1"></div>
+                                                </td>
+                                                <td>
+                                                    <select class="form-select select-unidade-saida" name="tipo_unidade[]" onchange="atualizarCalcSaidaLinha(this)">
+                                                        <option value="base">🔢 Unidades / KG (Consumo)</option>
+                                                        <option value="master">📦 Caixa / Fardo Inteiro</option>
+                                                    </select>
+                                                </td>
+                                                <td>
+                                                    <input type="number" step="0.01" min="0.01" class="form-control input-qtd-saida" name="quantidade[]" required placeholder="Ex: 5" oninput="atualizarCalcSaidaLinha(this)">
+                                                </td>
+                                                <td class="text-center">
+                                                    <button type="button" class="btn btn-outline-danger btn-sm btn-remove-linha" onclick="removerLinhaSaida(this)" title="Remover item" style="display: none;">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card de Resumo de Baixa Geral -->
+                        <div class="row mt-2">
                             <div class="col-12">
-                                <div id="feedback_saida" class="alert alert-primary d-flex align-items-center shadow-sm" style="display: none;">
+                                <div id="feedback_saida_geral" class="alert alert-info d-flex align-items-center shadow-sm" style="display: none;">
                                     <i class="bi bi-info-circle-fill fs-3 me-3"></i>
                                     <div>
-                                        <h6 class="fw-bold mb-1">Confirmação de Baixa no Saldo</h6>
-                                        <div id="feedback_saida_texto" class="mb-0 fs-6"></div>
+                                        <h6 class="fw-bold mb-1">Resumo da Expedição Multi-Produtos</h6>
+                                        <div id="feedback_saida_geral_texto" class="mb-0 fs-6"></div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         <div class="mt-4 text-end">
-                            <button type="submit" class="btn btn-primary btn-lg px-5 fw-bold">
+                            <button type="submit" class="btn btn-primary btn-lg px-5 fw-bold" id="btn_submit_saida">
                                 <i class="bi bi-box-arrow-up-right me-1"></i> Registrar Saída
                             </button>
                         </div>
@@ -473,20 +504,25 @@ function atualizarCalcEntrada() {
     }
 }
 
-// --- CÁLCULO DINÂMICO PARA SAÍDAS ---
-function atualizarCalcSaida() {
-    const sel = document.getElementById('saida_produto_id');
-    const opt = sel.options[sel.selectedIndex];
-    const tipo = document.getElementById('saida_tipo_unidade').value;
-    const qtd = parseFloat(document.getElementById('saida_quantidade').value) || 0;
-    const feedback = document.getElementById('feedback_saida');
-    const texto = document.getElementById('feedback_saida_texto');
+// --- CÁLCULO DINÂMICO PARA SAÍDAS (MULTI-PRODUTOS) ---
+function atualizarCalcSaidaLinha(el) {
+    const tr = el.closest('tr');
+    if (!tr) return;
 
-    if (sel.value && qtd > 0 && opt) {
+    const selProd = tr.querySelector('.select-produto-saida');
+    const selTipo = tr.querySelector('.select-unidade-saida');
+    const inputQtd = tr.querySelector('.input-qtd-saida');
+    const feedbackDiv = tr.querySelector('.feedback-linha-texto');
+
+    const opt = selProd.options[selProd.selectedIndex];
+    const qtd = parseFloat(inputQtd.value) || 0;
+
+    if (selProd.value && opt && opt.value) {
         const saldoAtual = parseFloat(opt.dataset.saldo) || 0;
         const fator = parseFloat(opt.dataset.fator) || 1;
         const unidConsumo = opt.dataset.unidadeConsumo || 'UNID';
         const unidMaster = opt.dataset.unidadeMaster || 'CX';
+        const tipo = selTipo.value;
 
         let totalBaixa = 0;
         if (tipo === 'master' && fator > 1) {
@@ -497,16 +533,102 @@ function atualizarCalcSaida() {
 
         const saldoRestante = saldoAtual - totalBaixa;
 
-        if (totalBaixa > saldoAtual) {
-            feedback.className = "alert alert-danger d-flex align-items-center shadow-sm";
-            texto.innerHTML = `⚠️ <strong>ESTOQUE INSUFICIENTE!</strong><br>Tentativa de baixa: <strong>${totalBaixa.toFixed(2)} ${unidConsumo}</strong> | Saldo em estoque: <strong>${saldoAtual.toFixed(2)} ${unidConsumo}</strong>.`;
+        if (qtd > 0) {
+            if (totalBaixa > saldoAtual) {
+                tr.classList.add('table-danger');
+                feedbackDiv.className = "feedback-linha-texto small mt-1 text-danger fw-bold";
+                feedbackDiv.innerHTML = `⚠️ Insuficiente! Baixa: ${totalBaixa.toFixed(2)} ${unidConsumo} | Saldo: ${saldoAtual.toFixed(2)} ${unidConsumo}`;
+            } else {
+                tr.classList.remove('table-danger');
+                feedbackDiv.className = "feedback-linha-texto small mt-1 text-success fw-bold";
+                feedbackDiv.innerHTML = `✓ Baixa: ${totalBaixa.toFixed(2)} ${unidConsumo} | Sobram: ${saldoRestante.toFixed(2)} ${unidConsumo}`;
+            }
         } else {
-            feedback.className = "alert alert-primary d-flex align-items-center shadow-sm";
-            texto.innerHTML = `Baixa de <strong>${totalBaixa.toFixed(2)} ${unidConsumo}</strong>.<br>Saldo atual: <strong>${saldoAtual.toFixed(2)} ${unidConsumo}</strong> ➔ Saldo após saída: <strong class="text-success">${saldoRestante.toFixed(2)} ${unidConsumo}</strong>.`;
+            tr.classList.remove('table-danger');
+            feedbackDiv.className = "feedback-linha-texto small mt-1 text-muted";
+            feedbackDiv.innerHTML = `Saldo disponível: ${saldoAtual.toFixed(2)} ${unidConsumo}`;
         }
-        feedback.style.display = 'flex';
     } else {
-        feedback.style.display = 'none';
+        tr.classList.remove('table-danger');
+        feedbackDiv.innerHTML = '';
+    }
+
+    atualizarResumoGeralSaida();
+}
+
+function atualizarResumoGeralSaida() {
+    const linhas = document.querySelectorAll('#container_linhas_saida .linha-saida');
+    const feedbackGeral = document.getElementById('feedback_saida_geral');
+    const textoGeral = document.getElementById('feedback_saida_geral_texto');
+    const btnSubmit = document.getElementById('btn_submit_saida');
+
+    let totalItens = 0;
+    let haErroEstoque = false;
+
+    linhas.forEach(tr => {
+        const selProd = tr.querySelector('.select-produto-saida');
+        const inputQtd = tr.querySelector('.input-qtd-saida');
+        const opt = selProd.options[selProd.selectedIndex];
+        const qtd = parseFloat(inputQtd.value) || 0;
+
+        if (selProd.value && qtd > 0 && opt && opt.value) {
+            totalItens++;
+            const saldoAtual = parseFloat(opt.dataset.saldo) || 0;
+            const fator = parseFloat(opt.dataset.fator) || 1;
+            const tipo = tr.querySelector('.select-unidade-saida').value;
+            let totalBaixa = (tipo === 'master' && fator > 1) ? (qtd * fator) : qtd;
+            if (totalBaixa > saldoAtual) {
+                haErroEstoque = true;
+            }
+        }
+    });
+
+    if (totalItens > 0) {
+        feedbackGeral.style.display = 'flex';
+        if (haErroEstoque) {
+            feedbackGeral.className = "alert alert-danger d-flex align-items-center shadow-sm";
+            textoGeral.innerHTML = `⚠️ <strong>ATENÇÃO:</strong> Existem itens com quantidade superior ao saldo disponível no estoque! Ajuste as quantidades antes de confirmar.`;
+            btnSubmit.disabled = true;
+        } else {
+            feedbackGeral.className = "alert alert-success d-flex align-items-center shadow-sm";
+            textoGeral.innerHTML = `Tudo pronto! Serão baixados <strong>${totalItens} produto(s)</strong> do estoque nesta mesma expedição.`;
+            btnSubmit.disabled = false;
+        }
+    } else {
+        feedbackGeral.style.display = 'none';
+        btnSubmit.disabled = false;
+    }
+
+    // Gerencia a exibição dos botões de remoção de linha
+    const btnRemoverList = document.querySelectorAll('.btn-remove-linha');
+    btnRemoverList.forEach(btn => {
+        btn.style.display = (linhas.length > 1) ? 'inline-block' : 'none';
+    });
+}
+
+document.getElementById('btn_add_linha_saida')?.addEventListener('click', function() {
+    const container = document.getElementById('container_linhas_saida');
+    const primeiraLinha = container.querySelector('.linha-saida');
+    const novaLinha = primeiraLinha.cloneNode(true);
+
+    // Resetar campos da nova linha
+    novaLinha.classList.remove('table-danger');
+    novaLinha.querySelector('.select-produto-saida').selectedIndex = 0;
+    novaLinha.querySelector('.select-unidade-saida').selectedIndex = 0;
+    const inputQtd = novaLinha.querySelector('.input-qtd-saida');
+    inputQtd.value = '';
+    novaLinha.querySelector('.feedback-linha-texto').innerHTML = '';
+
+    container.appendChild(novaLinha);
+    atualizarResumoGeralSaida();
+});
+
+function removerLinhaSaida(btn) {
+    const container = document.getElementById('container_linhas_saida');
+    const linhas = container.querySelectorAll('.linha-saida');
+    if (linhas.length > 1) {
+        btn.closest('tr').remove();
+        atualizarResumoGeralSaida();
     }
 }
 

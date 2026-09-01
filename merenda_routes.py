@@ -2360,10 +2360,10 @@ def pdf_termo_recebimento_pnae(entrega_id):
         via.append(Spacer(1, 0.2*cm))
         
         # Tabela de Produtos
-        cabecalho = ['Produto', 'Unid.', 'Qtd.']
+        cabecalho = ['Produto', 'kg', 'Qtd.']
         col_widths = [10.0*cm, 2.5*cm, 3.5*cm]
         if exibir_valor:
-            cabecalho = ['Produto', 'Unid.', 'Qtd.', 'Valor Total']
+            cabecalho = ['Produto', 'kg', 'Qtd.', 'Valor Total']
             col_widths = [8.0*cm, 2.0*cm, 3.0*cm, 3.0*cm]
             
         dados_tabela = [cabecalho]
@@ -2386,7 +2386,7 @@ def pdf_termo_recebimento_pnae(entrega_id):
                     if item_pv:
                         unid = item_pv.unidade_medida
                 if not unid:
-                    unid = "Unid."
+                    unid = "kg"
 
                 linha = [nome_prod, str(unid), qtd_str]
                 if exibir_valor:

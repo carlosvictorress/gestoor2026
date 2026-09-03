@@ -2009,6 +2009,188 @@ def listar_agricultores():
     return render_template('merenda/agricultura/agricultores_lista.html', agricultores=agricultores)
 
 
+@merenda_bp.route('/agricultura/fornecedores/pdf')
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def pdf_relatorio_agricultores():
+    agricultores = AgricultorFamiliar.query.order_by(AgricultorFamiliar.razao_social.asc()).all()
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        rightMargin=1.5*cm,
+        leftMargin=1.5*cm,
+        topMargin=2.5*cm,
+        bottomMargin=2.0*cm
+    )
+
+    styles = getSampleStyleSheet()
+
+    style_title = ParagraphStyle(
+        'DocTitle',
+        fontName='Helvetica-Bold',
+        fontSize=15,
+        leading=18,
+        textColor=colors.HexColor('#004d40'),
+        alignment=TA_LEFT
+    )
+    style_sub = ParagraphStyle(
+        'DocSub',
+        fontName='Helvetica',
+        fontSize=9,
+        leading=12,
+        textColor=colors.HexColor('#475569'),
+        alignment=TA_LEFT
+    )
+    style_th = ParagraphStyle(
+        'TH',
+        fontName='Helvetica-Bold',
+        fontSize=8.5,
+        leading=10,
+        textColor=colors.whitesmoke,
+        alignment=TA_CENTER
+    )
+    style_td = ParagraphStyle(
+        'TD',
+        fontName='Helvetica',
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor('#1e293b')
+    )
+    style_td_bold = ParagraphStyle(
+        'TDBold',
+        fontName='Helvetica-Bold',
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor('#0f172a')
+    )
+    style_td_center = ParagraphStyle(
+        'TDCenter',
+        fontName='Helvetica',
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor('#1e293b'),
+        alignment=TA_CENTER
+    )
+
+    story = []
+
+    # 1. Cabeçalho do Relatório
+    story.append(Paragraph("RELATÓRIO GERAL DE AGRICULTORES FAMILIARES CADASTRADOS", style_title))
+    story.append(Paragraph("PNAE - Programa Nacional de Alimentação Escolar / Mapeamento de Fornecedores", style_sub))
+    story.append(Spacer(1, 0.3*cm))
+
+    # 2. Resumo Informativo
+    data_emissao_str = obter_data_hora_br_str()
+    total_cadastrados = len(agricultores)
+    total_ativos = sum(1 for a in agricultores if getattr(a, 'status', 'Ativo') == 'Ativo')
+
+    summary_html = (
+        f"<b>Data de Emissão:</b> {data_emissao_str} &nbsp;&nbsp;|&nbsp;&nbsp; "
+        f"<b>Total de Agricultores Cadastrados:</b> {total_cadastrados} &nbsp;&nbsp;|&nbsp;&nbsp; "
+        f"<b>Status Ativo:</b> {total_ativos}"
+    )
+    summary_style = ParagraphStyle('Summary', fontName='Helvetica', fontSize=8.5, leading=11, textColor=colors.HexColor('#334155'))
+    summary_table = Table([[Paragraph(summary_html, summary_style)]], colWidths=[26.7*cm])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f1f5f9')),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 0.4*cm))
+
+    # 3. Tabela Principal de Fornecedores
+    table_headers = [
+        Paragraph("#", style_th),
+        Paragraph("Nome / Razão Social", style_th),
+        Paragraph("CPF / CNPJ", style_th),
+        Paragraph("Telefone / Contato", style_th),
+        Paragraph("Tipo de Fornecedor", style_th),
+        Paragraph("Local de Produção", style_th),
+        Paragraph("DAP/CAF / Status", style_th)
+    ]
+
+    table_data = [table_headers]
+
+    for idx, a in enumerate(agricultores, 1):
+        nome_txt = a.razao_social or 'Não Informado'
+        if getattr(a, 'nome_fantasia', None):
+            nome_txt += f"<br/><font size=7 color='#64748b'>({a.nome_fantasia})</font>"
+
+        cpf_cnpj_txt = a.cpf_cnpj or '--'
+        telefone_txt = getattr(a, 'telefone', None) or '--'
+        tipo_txt = a.tipo_fornecedor or 'Individual'
+
+        locais = []
+        if getattr(a, 'comunidade', None):
+            locais.append(f"Comunidade: {a.comunidade}")
+        if getattr(a, 'endereco_completo', None):
+            locais.append(a.endereco_completo)
+        if getattr(a, 'zona', None):
+            locais.append(f"Zona: {a.zona}")
+
+        local_txt = "<br/>".join(locais) if locais else "Não especificado"
+
+        dap_num = getattr(a, 'dap_caf_numero', None)
+        dap_txt = f"DAP/CAF: {dap_num}" if dap_num else "DAP/CAF: --"
+        st = getattr(a, 'status', 'Ativo') or 'Ativo'
+        status_txt = f"<br/><font color='#166534'><b>Status: {st}</b></font>"
+        dap_status_html = f"{dap_txt}{status_txt}"
+
+        table_data.append([
+            Paragraph(str(idx), style_td_center),
+            Paragraph(nome_txt, style_td_bold),
+            Paragraph(cpf_cnpj_txt, style_td_center),
+            Paragraph(telefone_txt, style_td_center),
+            Paragraph(tipo_txt, style_td_center),
+            Paragraph(local_txt, style_td),
+            Paragraph(dap_status_html, style_td_center)
+        ])
+
+    if not agricultores:
+        table_data.append([
+            Paragraph("--", style_td_center),
+            Paragraph("Nenhum agricultor familiar cadastrado.", style_td),
+            Paragraph("--", style_td_center),
+            Paragraph("--", style_td_center),
+            Paragraph("--", style_td_center),
+            Paragraph("--", style_td_center),
+            Paragraph("--", style_td_center)
+        ])
+
+    grid_table = Table(table_data, colWidths=[1.0*cm, 6.0*cm, 3.2*cm, 3.0*cm, 3.5*cm, 6.0*cm, 4.0*cm])
+    grid_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#004d40')),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')])
+    ]))
+
+    story.append(grid_table)
+
+    doc.build(
+        story,
+        onFirstPage=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Relatório de Agricultores Familiares"),
+        onLaterPages=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Relatório de Agricultores Familiares")
+    )
+
+    buffer.seek(0)
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = 'inline; filename=relatorio_agricultores_familiares.pdf'
+    return response
+
+
 @merenda_bp.route('/agricultura/fornecedores/novo', methods=['GET', 'POST'])
 @login_required
 def novo_agricultor():

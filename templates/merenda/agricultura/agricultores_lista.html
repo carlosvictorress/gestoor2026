@@ -5,13 +5,20 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-people-fill"></i> Agricultores Familiares</h2>
-    <a href="{{ url_for('merenda.novo_agricultor') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Novo Fornecedor</a>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('merenda.pdf_relatorio_agricultores') }}" target="_blank" class="btn btn-outline-danger shadow-sm fw-bold">
+            <i class="bi bi-file-earmark-pdf-fill me-1"></i> Relatório PDF
+        </a>
+        <a href="{{ url_for('merenda.novo_agricultor') }}" class="btn btn-primary shadow-sm fw-bold">
+            <i class="bi bi-plus-lg me-1"></i> Novo Fornecedor
+        </a>
+    </div>
 </div>
 
-<div class="card shadow-sm">
-    <div class="card-body">
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
                         <th>Nome / Razão Social</th>
@@ -72,6 +79,14 @@
                 </tbody>
             </table>
         </div>
+    </div>
+    <div class="card-footer bg-light d-flex justify-content-between align-items-center py-3 border-top">
+        <div class="text-muted small">
+            <i class="bi bi-people me-1"></i> Total de <strong>{{ agricultores|length }}</strong> agricultor(es) familiar(es) cadastrado(s).
+        </div>
+        <a href="{{ url_for('merenda.pdf_relatorio_agricultores') }}" target="_blank" class="btn btn-danger shadow-sm fw-bold">
+            <i class="bi bi-file-earmark-pdf-fill me-1"></i> Gerar Relatório de Agricultores (PDF)
+        </a>
     </div>
 </div>
 {% endblock %}

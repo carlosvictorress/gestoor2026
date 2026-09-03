@@ -32,7 +32,7 @@ from models import (
 from utils import (
     login_required, registrar_log, limpar_cpf, cabecalho_e_rodape, 
     currency_filter_br, cabecalho_e_rodape_moderno, 
-    upload_arquivo_para_nuvem, role_required
+    upload_arquivo_para_nuvem, role_required, obter_data_hora_br_str
 )
 merenda_bp = Blueprint('merenda', __name__, url_prefix='/merenda')
 

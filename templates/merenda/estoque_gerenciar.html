@@ -278,10 +278,11 @@
                 <!-- ABA 3: NOVA SAÍDA / DISTRIBUIÇÃO -->
                 <div class="tab-pane fade" id="saida" role="tabpanel">
                     <form action="{{ url_for('merenda.saida_estoque') }}" method="POST" id="form_saida_estoque">
+                        <input type="hidden" name="justificativa_retroativa" id="justificativa_retroativa">
                         
-                        <!-- Cabeçalho da Saída (Destino e Motivo) -->
+                        <!-- Cabeçalho da Saída (Destino, Data e Motivo) -->
                         <div class="row g-3 mb-3">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label for="tipo_saida" class="form-label fw-bold">Tipo de Saída</label>
                                 <select class="form-select form-select-lg border-primary" name="tipo_saida" id="tipo_saida" onchange="toggleEscolaDestino()">
                                     <option value="Saída Escola">🏫 Envio para Escola Municipal</option>
@@ -290,7 +291,7 @@
                                 </select>
                             </div>
 
-                            <div class="col-md-5" id="container_escola">
+                            <div class="col-md-4" id="container_escola">
                                 <label for="escola_id" class="form-label fw-bold">Escola Destino <span class="text-danger">*</span></label>
                                 <select class="form-select form-select-lg" name="escola_id" id="escola_id" required>
                                     <option value="" disabled selected>-- Selecione a Escola --</option>
@@ -298,6 +299,11 @@
                                     <option value="{{ esc.id }}">{{ esc.nome }}</option>
                                     {% endfor %}
                                 </select>
+                            </div>
+
+                            <div class="col-md-2">
+                                <label for="data_saida" class="form-label fw-bold">Data da Saída <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control form-control-lg border-primary fw-bold" name="data_saida" id="data_saida" required>
                             </div>
 
                             <div class="col-md-3">
@@ -645,6 +651,141 @@ function toggleEscolaDestino() {
         selectEscola.required = false;
     }
 }
+
+<!-- MODAL 1: ALERTA DE DATA FUTURA (PROIBIDO) -->
+<div class="modal fade" id="modalDataFutura" tabindex="-1" aria-labelledby="modalDataFuturaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title fw-bold" id="modalDataFuturaLabel">
+                    <i class="bi bi-exclamation-octagon-fill me-2"></i>Data Futura Não Permitida
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body py-4 text-center">
+                <i class="bi bi-calendar-x text-danger display-3 mb-3 d-block"></i>
+                <h5 class="fw-bold text-dark mb-2">Lançamento Bloqueado</h5>
+                <p class="text-muted mb-0 fs-6">
+                    Você selecionou a data <strong id="txt_data_futura_exibida" class="text-danger"></strong>.<br>
+                    O sistema de controle de estoque <strong>não permite</strong> registrar saídas com data futura.
+                </p>
+            </div>
+            <div class="modal-footer bg-light justify-content-center border-0 py-3">
+                <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i> Corrigir Data
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 2: JUSTIFICATIVA DE DATA RETROATIVA (OBRIGATÓRIA) -->
+<div class="modal fade" id="modalJustificativaRetroativa" tabindex="-1" aria-labelledby="modalJustificativaLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title fw-bold" id="modalJustificativaLabel">
+                    <i class="bi bi-clock-history me-2"></i>Justificativa de Saída Retroativa
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body py-3">
+                <div class="alert alert-warning d-flex align-items-center small mb-3">
+                    <i class="bi bi-exclamation-triangle-fill fs-4 me-2"></i>
+                    <div>
+                        Você está registrando uma saída com data retroativa (<strong id="txt_data_retroativa_exibida"></strong>). Por favor, informe a justificativa abaixo.
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label for="txt_justificativa_modal" class="form-label fw-bold">Motivo / Justificativa da Data Retroativa <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="txt_justificativa_modal" rows="3" placeholder="Ex: Ficha de entrega nº 45 entregue com atraso pelo motorista no dia anterior." required></textarea>
+                    <div id="erro_justificativa_modal" class="text-danger small mt-1" style="display: none;">
+                        ⚠️ A justificativa é obrigatória para lançamentos com data retroativa.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-0">
+                <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning fw-bold text-dark px-4" id="btn_confirmar_retroativa">
+                    <i class="bi bi-check-circle-fill me-1"></i> Confirmar e Enviar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- PREENCHIMENTO E VALIDAÇÃO DA DATA DA SAÍDA ---
+document.addEventListener('DOMContentLoaded', function() {
+    const fieldDataSaida = document.getElementById('data_saida');
+    if (fieldDataSaida && !fieldDataSaida.value) {
+        const hoje = new Date();
+        const ano = hoje.getFullYear();
+        const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+        const dia = String(hoje.getDate()).padStart(2, '0');
+        fieldDataSaida.value = `${ano}-${mes}-${dia}`;
+    }
+});
+
+document.getElementById('form_saida_estoque')?.addEventListener('submit', function(e) {
+    const fieldDataSaida = document.getElementById('data_saida');
+    const inputJustificativaHidden = document.getElementById('justificativa_retroativa');
+    
+    if (!fieldDataSaida || !fieldDataSaida.value) return;
+
+    const dataSaidaVal = fieldDataSaida.value; // YYYY-MM-DD
+    const hoje = new Date();
+    const ano = hoje.getFullYear();
+    const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+    const dia = String(hoje.getDate()).padStart(2, '0');
+    const hojeStr = `${ano}-${mes}-${dia}`;
+
+    // 1. Data Futura: Bloquear e mostrar Modal de Alerta
+    if (dataSaidaVal > hojeStr) {
+        e.preventDefault();
+        const partesData = dataSaidaVal.split('-');
+        const dataFormatada = `${partesData[2]}/${partesData[1]}/${partesData[0]}`;
+        document.getElementById('txt_data_futura_exibida').innerText = dataFormatada;
+        
+        const modalDataFutura = new bootstrap.Modal(document.getElementById('modalDataFutura'));
+        modalDataFutura.show();
+        return false;
+    }
+
+    // 2. Data Retroativa: Exigir Justificativa
+    if (dataSaidaVal < hojeStr && !inputJustificativaHidden.value.trim()) {
+        e.preventDefault();
+        const partesData = dataSaidaVal.split('-');
+        const dataFormatada = `${partesData[2]}/${partesData[1]}/${partesData[0]}`;
+        document.getElementById('txt_data_retroativa_exibida').innerText = dataFormatada;
+        document.getElementById('txt_justificativa_modal').value = '';
+        document.getElementById('erro_justificativa_modal').style.display = 'none';
+
+        const modalRetroativa = new bootstrap.Modal(document.getElementById('modalJustificativaRetroativa'));
+        modalRetroativa.show();
+        return false;
+    }
+});
+
+// Ação do Botão Confirmar no Modal de Justificativa Retroativa
+document.getElementById('btn_confirmar_retroativa')?.addEventListener('click', function() {
+    const txtJustificativa = document.getElementById('txt_justificativa_modal').value.trim();
+    const erroDiv = document.getElementById('erro_justificativa_modal');
+    
+    if (!txtJustificativa) {
+        erroDiv.style.display = 'block';
+        return;
+    }
+
+    erroDiv.style.display = 'none';
+    document.getElementById('justificativa_retroativa').value = txtJustificativa;
+    
+    const modalEl = document.getElementById('modalJustificativaRetroativa');
+    const modalInstance = bootstrap.Modal.getInstance(modalEl);
+    if (modalInstance) modalInstance.hide();
+
+    document.getElementById('form_saida_estoque').submit();
+});
 
 // FILTROS DE PESQUISA RÁPIDA
 document.getElementById('filterSaldos').addEventListener('keyup', function() {

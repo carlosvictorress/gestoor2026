@@ -701,6 +701,28 @@ def saida_estoque():
         tipo_saida = request.form.get('tipo_saida', 'Saída Escola')  # 'Saída Escola', 'Perda/Avaria', 'Ajuste Saldo'
         escola_id = request.form.get('escola_id', type=int) if tipo_saida == 'Saída Escola' else None
         observacao_geral = request.form.get('observacao')
+        data_saida_str = request.form.get('data_saida')
+        justificativa_retroativa = request.form.get('justificativa_retroativa')
+
+        # Validação de data do movimento e retroatividade
+        from datetime import datetime, date
+        hoje_date = datetime.utcnow().date()
+        data_movimento = datetime.utcnow()
+
+        if data_saida_str:
+            try:
+                data_saida_dt = datetime.strptime(data_saida_str, '%Y-%m-%d').date()
+                if data_saida_dt > hoje_date:
+                    flash('Lançamento não permitido: A data de saída não pode ser futura.', 'danger')
+                    return redirect(url_for('merenda.gerenciar_estoque'))
+                elif data_saida_dt < hoje_date:
+                    if justificativa_retroativa and justificativa_retroativa.strip():
+                        observacao_geral = f"{observacao_geral or ''} [Justificativa Data Retroativa: {justificativa_retroativa.strip()}]".strip()
+                    data_movimento = datetime.combine(data_saida_dt, datetime.utcnow().time())
+                else:
+                    data_movimento = datetime.utcnow()
+            except ValueError:
+                pass
 
         # Suporte a múltiplos produtos (arrays no formulário) e compatibilidade com envio único
         produto_ids = request.form.getlist('produto_id[]')
@@ -805,7 +827,8 @@ def saida_estoque():
                 escola_id=escola_id,
                 observacao=observacao_geral,
                 usuario_responsavel=usuario_resp,
-                codigo_grupo=codigo_grupo
+                codigo_grupo=codigo_grupo,
+                data_movimento=data_movimento
             )
             db.session.add(mov)
             movimentos_criados.append(mov)

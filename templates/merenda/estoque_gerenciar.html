@@ -303,7 +303,7 @@
 
                             <div class="col-md-2">
                                 <label for="data_saida" class="form-label fw-bold">Data da Saída <span class="text-danger">*</span></label>
-                                <input type="date" class="form-control form-control-lg border-primary fw-bold" name="data_saida" id="data_saida" required>
+                                <input type="date" class="form-control form-control-lg border-primary fw-bold" name="data_saida" id="data_saida" value="{{ data_hoje or '' }}" required>
                             </div>
 
                             <div class="col-md-3">
@@ -716,7 +716,7 @@ function toggleEscolaDestino() {
 
 <script>
 // --- PREENCHIMENTO E VALIDAÇÃO DA DATA DA SAÍDA ---
-document.addEventListener('DOMContentLoaded', function() {
+function preencherDataHojeSaida() {
     const fieldDataSaida = document.getElementById('data_saida');
     if (fieldDataSaida && !fieldDataSaida.value) {
         const hoje = new Date();
@@ -725,7 +725,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const dia = String(hoje.getDate()).padStart(2, '0');
         fieldDataSaida.value = `${ano}-${mes}-${dia}`;
     }
-});
+}
+document.addEventListener('DOMContentLoaded', preencherDataHojeSaida);
+document.getElementById('saida-tab')?.addEventListener('shown.bs.tab', preencherDataHojeSaida);
 
 document.getElementById('form_saida_estoque')?.addEventListener('submit', function(e) {
     const fieldDataSaida = document.getElementById('data_saida');

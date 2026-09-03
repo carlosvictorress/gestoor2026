@@ -327,13 +327,17 @@ def gerenciar_estoque():
         or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None))
     ).order_by(EstoqueMovimento.data_movimento.desc()).limit(40).all()
 
+    from datetime import datetime
+    data_hoje = datetime.now().strftime('%Y-%m-%d')
+
     return render_template(
         'merenda/estoque_gerenciar.html',
         produtos=produtos,
         escolas=escolas,
         total_produtos=total_produtos,
         produtos_criticos=produtos_criticos,
-        historico=historico_recentes
+        historico=historico_recentes,
+        data_hoje=data_hoje
     )
 
 

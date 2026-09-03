@@ -736,23 +736,67 @@ document.getElementById('saida-tab')?.addEventListener('shown.bs.tab', preencher
 
 document.getElementById('form_saida_estoque')?.addEventListener('submit', function(e) {
     const form = this;
-
-    // 1. Remove automaticamente linhas extras em branco criadas pelo botão adicionar produto
-    const linhas = form.querySelectorAll('#container_linhas_saida .linha-saida');
-    if (linhas.length > 1) {
-        linhas.forEach(tr => {
-            const selProd = tr.querySelector('.select-produto-saida');
-            const inputQtd = tr.querySelector('.input-qtd-saida');
-            if (selProd && inputQtd && !selProd.value && (!inputQtd.value || parseFloat(inputQtd.value) <= 0)) {
-                tr.remove();
-            }
-        });
-    }
-
+    const tipoSaida = document.getElementById('tipo_saida')?.value;
+    const selectEscola = document.getElementById('escola_id');
     const fieldDataSaida = document.getElementById('data_saida');
     const inputJustificativaHidden = document.getElementById('justificativa_retroativa');
-    
-    if (!fieldDataSaida || !fieldDataSaida.value) return;
+
+    // 1. Validação de Escola Destino se for Saída Escola
+    if (tipoSaida === 'Saída Escola' && selectEscola && !selectEscola.value) {
+        e.preventDefault();
+        selectEscola.classList.add('is-invalid');
+        selectEscola.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        selectEscola.focus();
+        alert('⚠️ Por favor, selecione a Escola Destino no topo do formulário.');
+        return false;
+    } else if (selectEscola) {
+        selectEscola.classList.remove('is-invalid');
+    }
+
+    // 2. Limpeza e Validação das linhas de produtos
+    const linhas = form.querySelectorAll('#container_linhas_saida .linha-saida');
+    let itensValidos = 0;
+    let haEstoqueInsuficiente = false;
+
+    linhas.forEach(tr => {
+        const selProd = tr.querySelector('.select-produto-saida');
+        const inputQtd = tr.querySelector('.input-qtd-saida');
+        const selTipo = tr.querySelector('.select-unidade-saida');
+
+        if (selProd && selProd.value && inputQtd && parseFloat(inputQtd.value) > 0) {
+            itensValidos++;
+            const opt = selProd.options[selProd.selectedIndex];
+            const saldoAtual = parseFloat(opt.dataset.saldo) || 0;
+            const fator = parseFloat(opt.dataset.fator) || 1;
+            const tipo = selTipo ? selTipo.value : 'base';
+            let totalBaixa = (tipo === 'master' && fator > 1) ? (parseFloat(inputQtd.value) * fator) : parseFloat(inputQtd.value);
+            if (totalBaixa > saldoAtual) {
+                haEstoqueInsuficiente = true;
+            }
+        } else if (linhas.length > 1 && (!selProd || !selProd.value || !inputQtd || !inputQtd.value || parseFloat(inputQtd.value) <= 0)) {
+            // Remove linha duplicada em branco que o usuário não preencheu
+            tr.remove();
+        }
+    });
+
+    if (itensValidos === 0) {
+        e.preventDefault();
+        alert('⚠️ Por favor, selecione pelo menos 1 alimento e informe uma quantidade maior que zero.');
+        return false;
+    }
+
+    if (haEstoqueInsuficiente) {
+        e.preventDefault();
+        alert('⚠️ Lançamento bloqueado: Existem produtos com quantidade superior ao saldo disponível em estoque.');
+        return false;
+    }
+
+    // 3. Validação de Data Futura / Retroativa
+    if (!fieldDataSaida || !fieldDataSaida.value) {
+        e.preventDefault();
+        alert('⚠️ Por favor, informe a Data da Saída.');
+        return false;
+    }
 
     const dataSaidaVal = fieldDataSaida.value; // YYYY-MM-DD
     const hoje = new Date();
@@ -761,7 +805,7 @@ document.getElementById('form_saida_estoque')?.addEventListener('submit', functi
     const dia = String(hoje.getDate()).padStart(2, '0');
     const hojeStr = `${ano}-${mes}-${dia}`;
 
-    // 2. Data Futura: Bloquear e mostrar Modal de Alerta
+    // Data Futura: Bloquear e mostrar Modal de Alerta
     if (dataSaidaVal > hojeStr) {
         e.preventDefault();
         const partesData = dataSaidaVal.split('-');
@@ -773,7 +817,7 @@ document.getElementById('form_saida_estoque')?.addEventListener('submit', functi
         return false;
     }
 
-    // 3. Data Retroativa: Exigir Justificativa
+    // Data Retroativa: Exigir Justificativa
     if (dataSaidaVal < hojeStr && !inputJustificativaHidden.value.trim()) {
         e.preventDefault();
         const partesData = dataSaidaVal.split('-');
@@ -785,6 +829,14 @@ document.getElementById('form_saida_estoque')?.addEventListener('submit', functi
         const modalRetroativa = new bootstrap.Modal(document.getElementById('modalJustificativaRetroativa'));
         modalRetroativa.show();
         return false;
+    }
+
+    // 4. Feedback visual no botão de envio
+    const btnSubmit = document.getElementById('btn_submit_saida');
+    if (btnSubmit) {
+        btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Processando Saída...';
+        btnSubmit.style.pointerEvents = 'none';
+        btnSubmit.classList.add('disabled');
     }
 });
 
@@ -807,6 +859,11 @@ document.getElementById('btn_confirmar_retroativa')?.addEventListener('click', f
 
     const form = document.getElementById('form_saida_estoque');
     if (form) {
+        const btnSubmit = document.getElementById('btn_submit_saida');
+        if (btnSubmit) {
+            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Processando Saída...';
+            btnSubmit.style.pointerEvents = 'none';
+        }
         form.submit();
     }
 });

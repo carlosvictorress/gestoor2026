@@ -842,8 +842,16 @@ def saida_estoque():
         db.session.commit()
 
         if escola_id or tipo_saida == 'Saída Escola':
-            session['pdf_abrir_id'] = movimentos_criados[0].id
-            flash(f'Sucesso! Saída de {len(movimentos_criados)} produto(s) registrada para {nome_destino}. O Termo de Entrega em PDF foi aberto.', 'success')
+            mov_id = movimentos_criados[0].id
+            pdf_url = url_for('merenda.pdf_recibo_saida_movimento', movimento_id=mov_id)
+            session['pdf_abrir_id'] = mov_id
+            from markupsafe import Markup
+            msg_html = Markup(
+                f'✓ <strong>Sucesso!</strong> Saída de {len(movimentos_criados)} produto(s) registrada com sucesso para <strong>{nome_destino}</strong>. '
+                f'<a href="{pdf_url}" target="_blank" class="btn btn-sm btn-danger text-white fw-bold ms-2 shadow-sm">'
+                f'<i class="bi bi-file-earmark-pdf-fill me-1"></i> Imprimir Guia / Termo em PDF</a>'
+            )
+            flash(msg_html, 'success')
         else:
             flash(f'Sucesso! Saída de {len(movimentos_criados)} produto(s) registrada. Destino: {nome_destino}.', 'success')
 

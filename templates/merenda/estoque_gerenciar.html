@@ -735,6 +735,20 @@ document.addEventListener('DOMContentLoaded', preencherDataHojeSaida);
 document.getElementById('saida-tab')?.addEventListener('shown.bs.tab', preencherDataHojeSaida);
 
 document.getElementById('form_saida_estoque')?.addEventListener('submit', function(e) {
+    const form = this;
+
+    // 1. Remove automaticamente linhas extras em branco criadas pelo botão adicionar produto
+    const linhas = form.querySelectorAll('#container_linhas_saida .linha-saida');
+    if (linhas.length > 1) {
+        linhas.forEach(tr => {
+            const selProd = tr.querySelector('.select-produto-saida');
+            const inputQtd = tr.querySelector('.input-qtd-saida');
+            if (selProd && inputQtd && !selProd.value && (!inputQtd.value || parseFloat(inputQtd.value) <= 0)) {
+                tr.remove();
+            }
+        });
+    }
+
     const fieldDataSaida = document.getElementById('data_saida');
     const inputJustificativaHidden = document.getElementById('justificativa_retroativa');
     
@@ -747,7 +761,7 @@ document.getElementById('form_saida_estoque')?.addEventListener('submit', functi
     const dia = String(hoje.getDate()).padStart(2, '0');
     const hojeStr = `${ano}-${mes}-${dia}`;
 
-    // 1. Data Futura: Bloquear e mostrar Modal de Alerta
+    // 2. Data Futura: Bloquear e mostrar Modal de Alerta
     if (dataSaidaVal > hojeStr) {
         e.preventDefault();
         const partesData = dataSaidaVal.split('-');
@@ -759,7 +773,7 @@ document.getElementById('form_saida_estoque')?.addEventListener('submit', functi
         return false;
     }
 
-    // 2. Data Retroativa: Exigir Justificativa
+    // 3. Data Retroativa: Exigir Justificativa
     if (dataSaidaVal < hojeStr && !inputJustificativaHidden.value.trim()) {
         e.preventDefault();
         const partesData = dataSaidaVal.split('-');
@@ -791,7 +805,10 @@ document.getElementById('btn_confirmar_retroativa')?.addEventListener('click', f
     const modalInstance = bootstrap.Modal.getInstance(modalEl);
     if (modalInstance) modalInstance.hide();
 
-    document.getElementById('form_saida_estoque').submit();
+    const form = document.getElementById('form_saida_estoque');
+    if (form) {
+        form.submit();
+    }
 });
 
 // FILTROS DE PESQUISA RÁPIDA

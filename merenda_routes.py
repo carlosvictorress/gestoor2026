@@ -8,7 +8,7 @@ from datetime import datetime, date, timedelta
 from functools import wraps
 
 # 2. Bibliotecas de Terceiros (Flask/SQLAlchemy/ReportLab)
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, make_response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, make_response, jsonify
 from sqlalchemy import or_, func, extract
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -841,9 +841,17 @@ def saida_estoque():
 
         db.session.commit()
 
+        mov_id = movimentos_criados[0].id if movimentos_criados else None
+        pdf_url = url_for('merenda.pdf_recibo_saida_movimento', movimento_id=mov_id) if mov_id else None
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({
+                'success': True,
+                'pdf_url': pdf_url,
+                'message': f'Saída de {len(movimentos_criados)} produto(s) registrada com sucesso para {nome_destino}.'
+            })
+
         if escola_id or tipo_saida == 'Saída Escola':
-            mov_id = movimentos_criados[0].id
-            pdf_url = url_for('merenda.pdf_recibo_saida_movimento', movimento_id=mov_id)
             session['pdf_abrir_id'] = mov_id
             from markupsafe import Markup
             msg_html = Markup(
@@ -859,6 +867,9 @@ def saida_estoque():
 
     except Exception as e:
         db.session.rollback()
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'error': str(e)}), 400
+
         flash(f'Erro ao registrar saída de estoque: {e}', 'danger')
         return redirect(url_for('merenda.gerenciar_estoque'))
 

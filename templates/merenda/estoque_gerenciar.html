@@ -735,6 +735,7 @@ document.addEventListener('DOMContentLoaded', preencherDataHojeSaida);
 document.getElementById('saida-tab')?.addEventListener('shown.bs.tab', preencherDataHojeSaida);
 
 document.getElementById('form_saida_estoque')?.addEventListener('submit', function(e) {
+    e.preventDefault();
     const form = this;
     const tipoSaida = document.getElementById('tipo_saida')?.value;
     const selectEscola = document.getElementById('escola_id');
@@ -743,7 +744,6 @@ document.getElementById('form_saida_estoque')?.addEventListener('submit', functi
 
     // 1. Validação de Escola Destino se for Saída Escola
     if (tipoSaida === 'Saída Escola' && selectEscola && !selectEscola.value) {
-        e.preventDefault();
         selectEscola.classList.add('is-invalid');
         selectEscola.scrollIntoView({ behavior: 'smooth', block: 'center' });
         selectEscola.focus();
@@ -774,26 +774,22 @@ document.getElementById('form_saida_estoque')?.addEventListener('submit', functi
                 haEstoqueInsuficiente = true;
             }
         } else if (linhas.length > 1 && (!selProd || !selProd.value || !inputQtd || !inputQtd.value || parseFloat(inputQtd.value) <= 0)) {
-            // Remove linha duplicada em branco que o usuário não preencheu
             tr.remove();
         }
     });
 
     if (itensValidos === 0) {
-        e.preventDefault();
         alert('⚠️ Por favor, selecione pelo menos 1 alimento e informe uma quantidade maior que zero.');
         return false;
     }
 
     if (haEstoqueInsuficiente) {
-        e.preventDefault();
         alert('⚠️ Lançamento bloqueado: Existem produtos com quantidade superior ao saldo disponível em estoque.');
         return false;
     }
 
     // 3. Validação de Data Futura / Retroativa
     if (!fieldDataSaida || !fieldDataSaida.value) {
-        e.preventDefault();
         alert('⚠️ Por favor, informe a Data da Saída.');
         return false;
     }
@@ -807,7 +803,6 @@ document.getElementById('form_saida_estoque')?.addEventListener('submit', functi
 
     // Data Futura: Bloquear e mostrar Modal de Alerta
     if (dataSaidaVal > hojeStr) {
-        e.preventDefault();
         const partesData = dataSaidaVal.split('-');
         const dataFormatada = `${partesData[2]}/${partesData[1]}/${partesData[0]}`;
         document.getElementById('txt_data_futura_exibida').innerText = dataFormatada;
@@ -819,7 +814,6 @@ document.getElementById('form_saida_estoque')?.addEventListener('submit', functi
 
     // Data Retroativa: Exigir Justificativa
     if (dataSaidaVal < hojeStr && !inputJustificativaHidden.value.trim()) {
-        e.preventDefault();
         const partesData = dataSaidaVal.split('-');
         const dataFormatada = `${partesData[2]}/${partesData[1]}/${partesData[0]}`;
         document.getElementById('txt_data_retroativa_exibida').innerText = dataFormatada;
@@ -831,14 +825,55 @@ document.getElementById('form_saida_estoque')?.addEventListener('submit', functi
         return false;
     }
 
-    // 4. Feedback visual no botão de envio
+    // 4. Executar Envio via AJAX (Fetch API)
+    submeterSaidaEstoqueAjax(form);
+});
+
+function submeterSaidaEstoqueAjax(form) {
     const btnSubmit = document.getElementById('btn_submit_saida');
     if (btnSubmit) {
         btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Processando Saída...';
-        btnSubmit.style.pointerEvents = 'none';
-        btnSubmit.classList.add('disabled');
+        btnSubmit.disabled = true;
     }
-});
+
+    const formData = new FormData(form);
+
+    fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => { throw new Error(err.error || 'Erro ao processar requisição.'); });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            if (data.pdf_url) {
+                window.open(data.pdf_url, '_blank');
+            }
+            alert('✓ ' + data.message + '\n\nO Termo de Entrega em PDF foi gerado.');
+            window.location.reload();
+        } else {
+            alert('⚠️ ' + (data.error || 'Ocorreu um erro ao registrar a saída.'));
+            if (btnSubmit) {
+                btnSubmit.innerHTML = '<i class="bi bi-box-arrow-up-right me-1"></i> Registrar Saída';
+                btnSubmit.disabled = false;
+            }
+        }
+    })
+    .catch(error => {
+        alert('⚠️ ' + error.message);
+        if (btnSubmit) {
+            btnSubmit.innerHTML = '<i class="bi bi-box-arrow-up-right me-1"></i> Registrar Saída';
+            btnSubmit.disabled = false;
+        }
+    });
+}
 
 // Ação do Botão Confirmar no Modal de Justificativa Retroativa
 document.getElementById('btn_confirmar_retroativa')?.addEventListener('click', function() {
@@ -859,12 +894,7 @@ document.getElementById('btn_confirmar_retroativa')?.addEventListener('click', f
 
     const form = document.getElementById('form_saida_estoque');
     if (form) {
-        const btnSubmit = document.getElementById('btn_submit_saida');
-        if (btnSubmit) {
-            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Processando Saída...';
-            btnSubmit.style.pointerEvents = 'none';
-        }
-        form.submit();
+        submeterSaidaEstoqueAjax(form);
     }
 });
 

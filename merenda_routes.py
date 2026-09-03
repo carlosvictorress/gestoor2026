@@ -322,10 +322,10 @@ def gerenciar_estoque():
     total_produtos = len(produtos)
     produtos_criticos = [p for p in produtos if (p.estoque_atual or 0) <= (p.estoque_minimo or 10)]
     
-    # Movimentações recentes da Merenda Escolar
-    historico_recentes = EstoqueMovimento.query.join(ProdutoMerenda).filter(
+    # Movimentações recentes da Merenda Escolar (ordenadas por ID para exibir lançamentos recentes no topo)
+    historico_recentes = EstoqueMovimento.query.outerjoin(ProdutoMerenda).filter(
         or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None))
-    ).order_by(EstoqueMovimento.data_movimento.desc()).limit(40).all()
+    ).order_by(EstoqueMovimento.id.desc()).limit(100).all()
 
     from datetime import datetime
     data_hoje = datetime.now().strftime('%Y-%m-%d')
@@ -616,7 +616,42 @@ def gerar_pdf_termo_entrega_profissional(titulo, subtitulo, escola_nome, escola_
         ('RIGHTPADDING', (0, 0), (-1, -1), 8),
     ]))
     story.append(decl_table)
-    story.append(Spacer(1, 1.2*cm))
+    story.append(Spacer(1, 0.4*cm))
+
+    # 4.5 Bloco de Observações e Justificativas da Expedição (no final do PDF)
+    if observacao_geral:
+        obs_title_style = ParagraphStyle(
+            'ObsTitle',
+            fontName='Helvetica-Bold',
+            fontSize=8.5,
+            leading=11,
+            textColor=colors.HexColor('#92400e')
+        )
+        obs_text_style = ParagraphStyle(
+            'ObsText',
+            fontName='Helvetica',
+            fontSize=8,
+            leading=10.5,
+            textColor=colors.HexColor('#1e293b')
+        )
+        obs_content = [
+            Paragraph("<b>OBSERVAÇÕES E JUSTIFICATIVA DA EXPEDIÇÃO:</b>", obs_title_style),
+            Spacer(1, 0.1*cm),
+            Paragraph(observacao_geral, obs_text_style)
+        ]
+        obs_table = Table([[obs_content]], colWidths=[18.0*cm])
+        obs_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fef3c7')),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#fde68a')),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        story.append(obs_table)
+        story.append(Spacer(1, 0.5*cm))
+    else:
+        story.append(Spacer(1, 0.8*cm))
 
     # 5. Quadro de Assinaturas Duplas
     ass_data = [
@@ -675,11 +710,17 @@ def pdf_recibo_saida_movimento(movimento_id):
         produto = ProdutoMerenda.query.get(mov.produto_id) if mov.produto_id else None
         qtd_emb = f"{mov.quantidade_embalagem:.2f} {mov.unidade_movimento or 'unid'}" if mov.quantidade_embalagem else "--"
         qtd_real = f"{mov.quantidade:.2f} {produto.unidade_consumo if produto else 'UNID'}"
+        
+        # Limpar observações longas/retroativas das linhas individuais do produto para a tabela ficar limpa
+        obs_item = "Conforme Solicitação"
+        if mov.observacao and "[Justificativa Data Retroativa:" not in mov.observacao:
+            obs_item = mov.observacao
+
         itens_tabela.append({
             'produto': produto.nome if produto else 'Gênero Alimentício',
             'qtd_emb': qtd_emb,
             'qtd_real': qtd_real,
-            'obs': mov.observacao or 'Conforme Solicitação'
+            'obs': obs_item
         })
 
     protocolo = f"GRP-{movimento.codigo_grupo}" if movimento.codigo_grupo else f"MOV-{movimento.id:06d}"

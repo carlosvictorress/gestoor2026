@@ -842,11 +842,12 @@ def saida_estoque():
         db.session.commit()
 
         if escola_id or tipo_saida == 'Saída Escola':
-            flash(f'Sucesso! Saída de {len(movimentos_criados)} produto(s) registrada para {nome_destino}. Gerando Termo de Entrega em PDF...', 'success')
-            return redirect(url_for('merenda.pdf_recibo_saida_movimento', movimento_id=movimentos_criados[0].id))
+            session['pdf_abrir_id'] = movimentos_criados[0].id
+            flash(f'Sucesso! Saída de {len(movimentos_criados)} produto(s) registrada para {nome_destino}. O Termo de Entrega em PDF foi aberto.', 'success')
         else:
             flash(f'Sucesso! Saída de {len(movimentos_criados)} produto(s) registrada. Destino: {nome_destino}.', 'success')
-            return redirect(url_for('merenda.gerenciar_estoque'))
+
+        return redirect(url_for('merenda.gerenciar_estoque'))
 
     except Exception as e:
         db.session.rollback()

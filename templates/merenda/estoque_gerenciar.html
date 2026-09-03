@@ -314,13 +314,10 @@
 
                         <!-- Card com Lista de Produtos a Enviar -->
                         <div class="card border border-primary-subtle shadow-sm mb-3">
-                            <div class="card-header bg-primary-subtle py-2 d-flex justify-content-between align-items-center">
+                            <div class="card-header bg-primary-subtle py-2">
                                 <h6 class="fw-bold text-primary m-0">
                                     <i class="bi bi-box-seam me-2"></i>Itens para Envio / Baixa no Estoque
                                 </h6>
-                                <button type="button" class="btn btn-primary btn-sm fw-bold shadow-sm" id="btn_add_linha_saida">
-                                    <i class="bi bi-plus-circle me-1"></i> Adicionar Outro Alimento / Produto
-                                </button>
                             </div>
                             <div class="card-body p-0">
                                 <div class="table-responsive">
@@ -369,6 +366,11 @@
                                         </tbody>
                                     </table>
                                 </div>
+                            </div>
+                            <div class="card-footer bg-light py-2 text-start">
+                                <button type="button" class="btn btn-outline-primary fw-bold shadow-sm" id="btn_add_linha_saida">
+                                    <i class="bi bi-plus-circle-fill me-1"></i> + Adicionar Outro Alimento / Produto
+                                </button>
                             </div>
                         </div>
 
@@ -710,6 +712,13 @@ function toggleEscolaDestino() {
         selectEscola.required = false;
     }
 }
+
+{% set pdf_abrir_id = session.pop('pdf_abrir_id', None) %}
+{% if pdf_abrir_id %}
+document.addEventListener('DOMContentLoaded', function() {
+    window.open("{{ url_for('merenda.pdf_recibo_saida_movimento', movimento_id=pdf_abrir_id) }}", "_blank");
+});
+{% endif %}
 
 // --- PREENCHIMENTO E VALIDAÇÃO DA DATA DA SAÍDA ---
 function preencherDataHojeSaida() {

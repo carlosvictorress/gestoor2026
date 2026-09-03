@@ -708,10 +708,10 @@ def saida_estoque():
         data_saida_str = request.form.get('data_saida')
         justificativa_retroativa = request.form.get('justificativa_retroativa')
 
-        # Validação de data do movimento e retroatividade
-        from datetime import datetime, date
-        hoje_date = datetime.utcnow().date()
-        data_movimento = datetime.utcnow()
+        # Validação de data do movimento e retroatividade (fuso horário local BR)
+        agora_local = datetime.now()
+        hoje_date = agora_local.date()
+        data_movimento = agora_local
 
         if data_saida_str:
             try:
@@ -722,11 +722,11 @@ def saida_estoque():
                 elif data_saida_dt < hoje_date:
                     if justificativa_retroativa and justificativa_retroativa.strip():
                         observacao_geral = f"{observacao_geral or ''} [Justificativa Data Retroativa: {justificativa_retroativa.strip()}]".strip()
-                    data_movimento = datetime.combine(data_saida_dt, datetime.utcnow().time())
+                    data_movimento = datetime.combine(data_saida_dt, agora_local.time())
                 else:
-                    data_movimento = datetime.utcnow()
+                    data_movimento = agora_local
             except ValueError:
-                pass
+                data_movimento = agora_local
 
         # Suporte a múltiplos produtos (arrays no formulário) e compatibilidade com envio único
         produto_ids = request.form.getlist('produto_id[]')
@@ -810,7 +810,7 @@ def saida_estoque():
             return redirect(url_for('merenda.gerenciar_estoque'))
 
         import uuid
-        codigo_grupo = f"SAIDA-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6].upper()}"
+        codigo_grupo = f"SAIDA-{agora_local.strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6].upper()}"
         escola_obj = Escola.query.get(escola_id) if escola_id else None
         nome_destino = escola_obj.nome if escola_obj else ('Descarte/Perda' if tipo_saida == 'Perda/Avaria' else 'Ajuste de Estoque')
         usuario_resp = session.get('username', 'Sistema')

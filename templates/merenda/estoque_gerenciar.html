@@ -469,9 +469,63 @@
                                 {% endfor %}
                             </tbody>
                         </table>
+  <!-- MODAL 1: ALERTA DE DATA FUTURA (PROIBIDO) -->
+<div class="modal fade" id="modalDataFutura" tabindex="-1" aria-labelledby="modalDataFuturaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title fw-bold" id="modalDataFuturaLabel">
+                    <i class="bi bi-exclamation-octagon-fill me-2"></i>Data Futura Não Permitida
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body py-4 text-center">
+                <i class="bi bi-calendar-x text-danger display-3 mb-3 d-block"></i>
+                <h5 class="fw-bold text-dark mb-2">Lançamento Bloqueado</h5>
+                <p class="text-muted mb-0 fs-6">
+                    Você selecionou a data <strong id="txt_data_futura_exibida" class="text-danger"></strong>.<br>
+                    O sistema de controle de estoque <strong>não permite</strong> registrar saídas com data futura.
+                </p>
+            </div>
+            <div class="modal-footer bg-light justify-content-center border-0 py-3">
+                <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i> Corrigir Data
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 2: JUSTIFICATIVA DE DATA RETROATIVA (OBRIGATÓRIA) -->
+<div class="modal fade" id="modalJustificativaRetroativa" tabindex="-1" aria-labelledby="modalJustificativaLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title fw-bold" id="modalJustificativaLabel">
+                    <i class="bi bi-clock-history me-2"></i>Justificativa de Saída Retroativa
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body py-3">
+                <div class="alert alert-warning d-flex align-items-center small mb-3">
+                    <i class="bi bi-exclamation-triangle-fill fs-4 me-2"></i>
+                    <div>
+                        Você está registrando uma saída com data retroativa (<strong id="txt_data_retroativa_exibida"></strong>). Por favor, informe a justificativa abaixo.
                     </div>
                 </div>
-
+                <div class="mb-2">
+                    <label for="txt_justificativa_modal" class="form-label fw-bold">Motivo / Justificativa da Data Retroativa <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="txt_justificativa_modal" rows="3" placeholder="Ex: Ficha de entrega nº 45 entregue com atraso pelo motorista no dia anterior." required></textarea>
+                    <div id="erro_justificativa_modal" class="text-danger small mt-1" style="display: none;">
+                        ⚠️ A justificativa é obrigatória para lançamentos com data retroativa.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-0">
+                <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning fw-bold text-dark px-4" id="btn_confirmar_retroativa">
+                    <i class="bi bi-check-circle-fill me-1"></i> Confirmar e Enviar
+                </button>
             </div>
         </div>
     </div>
@@ -615,15 +669,20 @@ function atualizarResumoGeralSaida() {
 document.getElementById('btn_add_linha_saida')?.addEventListener('click', function() {
     const container = document.getElementById('container_linhas_saida');
     const primeiraLinha = container.querySelector('.linha-saida');
+    if (!container || !primeiraLinha) return;
+
     const novaLinha = primeiraLinha.cloneNode(true);
 
     // Resetar campos da nova linha
     novaLinha.classList.remove('table-danger');
-    novaLinha.querySelector('.select-produto-saida').selectedIndex = 0;
-    novaLinha.querySelector('.select-unidade-saida').selectedIndex = 0;
+    const selProd = novaLinha.querySelector('.select-produto-saida');
+    if (selProd) selProd.selectedIndex = 0;
+    const selTipo = novaLinha.querySelector('.select-unidade-saida');
+    if (selTipo) selTipo.selectedIndex = 0;
     const inputQtd = novaLinha.querySelector('.input-qtd-saida');
-    inputQtd.value = '';
-    novaLinha.querySelector('.feedback-linha-texto').innerHTML = '';
+    if (inputQtd) inputQtd.value = '';
+    const txtFeedback = novaLinha.querySelector('.feedback-linha-texto');
+    if (txtFeedback) txtFeedback.innerHTML = '';
 
     container.appendChild(novaLinha);
     atualizarResumoGeralSaida();
@@ -652,69 +711,6 @@ function toggleEscolaDestino() {
     }
 }
 
-<!-- MODAL 1: ALERTA DE DATA FUTURA (PROIBIDO) -->
-<div class="modal fade" id="modalDataFutura" tabindex="-1" aria-labelledby="modalDataFuturaLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title fw-bold" id="modalDataFuturaLabel">
-                    <i class="bi bi-exclamation-octagon-fill me-2"></i>Data Futura Não Permitida
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body py-4 text-center">
-                <i class="bi bi-calendar-x text-danger display-3 mb-3 d-block"></i>
-                <h5 class="fw-bold text-dark mb-2">Lançamento Bloqueado</h5>
-                <p class="text-muted mb-0 fs-6">
-                    Você selecionou a data <strong id="txt_data_futura_exibida" class="text-danger"></strong>.<br>
-                    O sistema de controle de estoque <strong>não permite</strong> registrar saídas com data futura.
-                </p>
-            </div>
-            <div class="modal-footer bg-light justify-content-center border-0 py-3">
-                <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">
-                    <i class="bi bi-arrow-counterclockwise me-1"></i> Corrigir Data
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL 2: JUSTIFICATIVA DE DATA RETROATIVA (OBRIGATÓRIA) -->
-<div class="modal fade" id="modalJustificativaRetroativa" tabindex="-1" aria-labelledby="modalJustificativaLabel" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-warning text-dark">
-                <h5 class="modal-title fw-bold" id="modalJustificativaLabel">
-                    <i class="bi bi-clock-history me-2"></i>Justificativa de Saída Retroativa
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body py-3">
-                <div class="alert alert-warning d-flex align-items-center small mb-3">
-                    <i class="bi bi-exclamation-triangle-fill fs-4 me-2"></i>
-                    <div>
-                        Você está registrando uma saída com data retroativa (<strong id="txt_data_retroativa_exibida"></strong>). Por favor, informe a justificativa abaixo.
-                    </div>
-                </div>
-                <div class="mb-2">
-                    <label for="txt_justificativa_modal" class="form-label fw-bold">Motivo / Justificativa da Data Retroativa <span class="text-danger">*</span></label>
-                    <textarea class="form-control" id="txt_justificativa_modal" rows="3" placeholder="Ex: Ficha de entrega nº 45 entregue com atraso pelo motorista no dia anterior." required></textarea>
-                    <div id="erro_justificativa_modal" class="text-danger small mt-1" style="display: none;">
-                        ⚠️ A justificativa é obrigatória para lançamentos com data retroativa.
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer bg-light border-0">
-                <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-warning fw-bold text-dark px-4" id="btn_confirmar_retroativa">
-                    <i class="bi bi-check-circle-fill me-1"></i> Confirmar e Enviar
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
 // --- PREENCHIMENTO E VALIDAÇÃO DA DATA DA SAÍDA ---
 function preencherDataHojeSaida() {
     const fieldDataSaida = document.getElementById('data_saida');
@@ -790,7 +786,7 @@ document.getElementById('btn_confirmar_retroativa')?.addEventListener('click', f
 });
 
 // FILTROS DE PESQUISA RÁPIDA
-document.getElementById('filterSaldos').addEventListener('keyup', function() {
+document.getElementById('filterSaldos')?.addEventListener('keyup', function() {
     const term = this.value.toLowerCase();
     const rows = document.querySelectorAll('#tableSaldos tbody tr');
     rows.forEach(r => {
@@ -798,7 +794,7 @@ document.getElementById('filterSaldos').addEventListener('keyup', function() {
     });
 });
 
-document.getElementById('filterExtrato').addEventListener('keyup', function() {
+document.getElementById('filterExtrato')?.addEventListener('keyup', function() {
     const term = this.value.toLowerCase();
     const rows = document.querySelectorAll('#tableExtrato tbody tr');
     rows.forEach(r => {

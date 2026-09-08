@@ -303,9 +303,69 @@ def editar_produto(produto_id):
 # GET /produtos/novo -> Formulário de novo produto
 # POST /produtos/novo -> Salvar novo produto
 
-# ==========================================================
-# GESTÃO INTEGRADA E AUDITÁVEL DE ESTOQUE (MERENDA ESCOLAR)
-# ==========================================================
+# Helper para construir a query do Extrato Auditável
+def obter_extrato_movimentos_query(escola_id=None, produto_id=None, tipo=None, data_inicio=None, data_fim=None, q=None):
+    query = EstoqueMovimento.query.outerjoin(ProdutoMerenda).outerjoin(Escola, EstoqueMovimento.escola_id == Escola.id).filter(
+        or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None))
+    )
+
+    if escola_id and str(escola_id).strip():
+        val_escola = str(escola_id).strip().lower()
+        if val_escola in ['sem_escola', 'central', 'almoxarifado']:
+            query = query.filter(EstoqueMovimento.escola_id.is_(None))
+        elif val_escola != 'todas' and val_escola != '0':
+            try:
+                e_id = int(val_escola)
+                if e_id > 0:
+                    query = query.filter(EstoqueMovimento.escola_id == e_id)
+            except (ValueError, TypeError):
+                pass
+
+    if produto_id and str(produto_id).strip() and str(produto_id).strip() != '0':
+        try:
+            p_id = int(produto_id)
+            if p_id > 0:
+                query = query.filter(EstoqueMovimento.produto_id == p_id)
+        except (ValueError, TypeError):
+            pass
+
+    if tipo and str(tipo).strip() and str(tipo).strip() != 'Todos':
+        tipo_clean = str(tipo).strip()
+        if tipo_clean in ['Perda/Avaria', 'Perda', 'Avaria']:
+            query = query.filter(or_(EstoqueMovimento.tipo.like('%Perda%'), EstoqueMovimento.tipo.like('%Avaria%'), EstoqueMovimento.tipo.like('%Descarte%')))
+        else:
+            query = query.filter(EstoqueMovimento.tipo == tipo_clean)
+
+    if data_inicio and str(data_inicio).strip():
+        try:
+            dt_ini = datetime.strptime(str(data_inicio).strip(), '%Y-%m-%d')
+            query = query.filter(EstoqueMovimento.data_movimento >= dt_ini)
+        except (ValueError, TypeError):
+            pass
+
+    if data_fim and str(data_fim).strip():
+        try:
+            dt_fim = datetime.strptime(str(data_fim).strip(), '%Y-%m-%d') + timedelta(days=1, seconds=-1)
+            query = query.filter(EstoqueMovimento.data_movimento <= dt_fim)
+        except (ValueError, TypeError):
+            pass
+
+    if q and str(q).strip():
+        search = f"%{str(q).strip()}%"
+        query = query.filter(
+            or_(
+                ProdutoMerenda.nome.ilike(search),
+                EstoqueMovimento.fornecedor.ilike(search),
+                EstoqueMovimento.lote.ilike(search),
+                EstoqueMovimento.usuario_responsavel.ilike(search),
+                EstoqueMovimento.observacao.ilike(search),
+                Escola.nome.ilike(search),
+                EstoqueMovimento.codigo_grupo.ilike(search)
+            )
+        )
+
+    return query.order_by(EstoqueMovimento.id.desc())
+
 
 @merenda_bp.route('/estoque', methods=['GET'])
 @login_required
@@ -322,10 +382,29 @@ def gerenciar_estoque():
     total_produtos = len(produtos)
     produtos_criticos = [p for p in produtos if (p.estoque_atual or 0) <= (p.estoque_minimo or 10)]
     
-    # Movimentações recentes da Merenda Escolar (ordenadas por ID para exibir lançamentos recentes no topo)
-    historico_recentes = EstoqueMovimento.query.outerjoin(ProdutoMerenda).filter(
-        or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None))
-    ).order_by(EstoqueMovimento.id.desc()).limit(100).all()
+    # Parâmetros de Filtro e Paginação para o Extrato Auditável
+    escola_id = request.args.get('escola_id')
+    produto_id = request.args.get('produto_id')
+    tipo = request.args.get('tipo')
+    data_inicio = request.args.get('data_inicio')
+    data_fim = request.args.get('data_fim')
+    q = request.args.get('q')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+
+    if per_page not in [10, 25, 50, 100, 200]:
+        per_page = 50
+
+    query_historico = obter_extrato_movimentos_query(
+        escola_id=escola_id,
+        produto_id=produto_id,
+        tipo=tipo,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        q=q
+    )
+
+    pagination = query_historico.paginate(page=page, per_page=per_page, error_out=False)
 
     from datetime import datetime
     data_hoje = datetime.now().strftime('%Y-%m-%d')
@@ -336,9 +415,102 @@ def gerenciar_estoque():
         escolas=escolas,
         total_produtos=total_produtos,
         produtos_criticos=produtos_criticos,
-        historico=historico_recentes,
-        data_hoje=data_hoje
+        historico=pagination.items,
+        pagination=pagination,
+        data_hoje=data_hoje,
+        escola_id_filtro=escola_id,
+        produto_id_filtro=produto_id,
+        tipo_filtro=tipo,
+        data_inicio_filtro=data_inicio,
+        data_fim_filtro=data_fim,
+        q_filtro=q
     )
+
+
+@merenda_bp.route('/estoque/extrato/api', methods=['GET'])
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def api_extrato_estoque():
+    escola_id = request.args.get('escola_id')
+    produto_id = request.args.get('produto_id')
+    tipo = request.args.get('tipo')
+    data_inicio = request.args.get('data_inicio')
+    data_fim = request.args.get('data_fim')
+    q = request.args.get('q')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+
+    if per_page not in [10, 25, 50, 100, 200]:
+        per_page = 50
+
+    query = obter_extrato_movimentos_query(
+        escola_id=escola_id,
+        produto_id=produto_id,
+        tipo=tipo,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        q=q
+    )
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    
+    movimentos_json = []
+    for mov in pagination.items:
+        prod_nome = mov.produto.nome if mov.produto else 'Item Removido'
+        unid_consumo = mov.produto.unidade_consumo if mov.produto else 'UNID'
+        escola_nome = mov.escola.nome if mov.escola else None
+
+        pdf_url = None
+        if mov.escola_id or mov.tipo == 'Saída Escola':
+            pdf_url = url_for('merenda.pdf_recibo_saida_movimento', movimento_id=mov.id)
+
+        movimentos_json.append({
+            'id': mov.id,
+            'data_movimento_str': mov.data_movimento.strftime('%d/%m/%Y %H:%M') if mov.data_movimento else '--',
+            'tipo': mov.tipo,
+            'produto_id': mov.produto_id,
+            'produto_nome': prod_nome,
+            'unidade_consumo': unid_consumo,
+            'quantidade': mov.quantidade,
+            'quantidade_fmt': f"{mov.quantidade:.2f}",
+            'quantidade_embalagem': mov.quantidade_embalagem,
+            'quantidade_embalagem_fmt': f"{mov.quantidade_embalagem:.2f}" if mov.quantidade_embalagem is not None else None,
+            'unidade_movimento': mov.unidade_movimento or 'unid',
+            'escola_id': mov.escola_id,
+            'escola_nome': escola_nome,
+            'fornecedor': mov.fornecedor,
+            'lote': mov.lote,
+            'data_validade_str': mov.data_validade.strftime('%d/%m/%Y') if mov.data_validade else None,
+            'observacao': mov.observacao,
+            'usuario_responsavel': mov.usuario_responsavel,
+            'codigo_grupo': mov.codigo_grupo,
+            'pdf_url': pdf_url
+        })
+
+    # Resumo numérico do filtro
+    total_entradas = query.filter(EstoqueMovimento.tipo == 'Entrada').count()
+    total_saidas = query.filter(or_(EstoqueMovimento.tipo == 'Saída Escola', EstoqueMovimento.tipo == 'Saída')).count()
+
+    return jsonify({
+        'success': True,
+        'items': movimentos_json,
+        'pagination': {
+            'total': pagination.total,
+            'page': pagination.page,
+            'per_page': pagination.per_page,
+            'pages': pagination.pages,
+            'has_prev': pagination.has_prev,
+            'has_next': pagination.has_next,
+            'prev_num': pagination.prev_num,
+            'next_num': pagination.next_num
+        },
+        'summary': {
+            'total_registros': pagination.total,
+            'total_entradas': total_entradas,
+            'total_saidas': total_saidas
+        }
+    })
+
 
 
 @merenda_bp.route('/estoque/entradas', methods=['GET', 'POST'])

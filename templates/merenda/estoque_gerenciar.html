@@ -390,34 +390,133 @@
                         <div class="mt-4 text-end">
                             <button type="submit" class="btn btn-primary btn-lg px-5 fw-bold" id="btn_submit_saida">
                                 <i class="bi bi-box-arrow-up-right me-1"></i> Registrar Saída
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- ABA 4: EXTRATO AUDITÁVEL -->
+                            </but                <!-- ABA 4: EXTRATO AUDITÁVEL -->
                 <div class="tab-pane fade" id="extrato" role="tabpanel">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="fw-bold text-dark m-0"><i class="bi bi-journal-check me-2 text-secondary"></i>Histórico Completo de Movimentações</h5>
-                        <input type="text" id="filterExtrato" class="form-control form-control-sm w-25" placeholder="🔍 Filtrar histórico...">
+                    <!-- Cabeçalho e Métricas do Extrato -->
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-3 pb-2 border-bottom">
+                        <div>
+                            <h5 class="fw-bold text-dark m-0">
+                                <i class="bi bi-journal-check me-2 text-primary"></i>Extrato Auditável de Movimentações
+                            </h5>
+                            <p class="text-muted small mb-0">Rastreabilidade completa de entradas, saídas por escola, avarias e ajustes com filtros dinâmicos.</p>
+                        </div>
+                        <!-- Mini Badges de Resumo -->
+                        <div class="d-flex gap-2">
+                            <span class="badge bg-light text-dark border px-3 py-2 fs-6 shadow-sm">
+                                📊 Total: <strong id="summary_total_reg" class="text-primary">{{ pagination.total if pagination else historico|length }}</strong>
+                            </span>
+                            <span class="badge bg-success-subtle text-success border border-success px-3 py-2 fs-6 shadow-sm">
+                                📥 Entradas: <strong id="summary_total_entradas">--</strong>
+                            </span>
+                            <span class="badge bg-primary-subtle text-primary border border-primary px-3 py-2 fs-6 shadow-sm">
+                                📤 Saídas: <strong id="summary_total_saidas">--</strong>
+                            </span>
+                        </div>
                     </div>
 
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle border mb-0" id="tableExtrato">
-                            <thead class="table-light">
+                    <!-- PAINEL DE FILTROS AVANÇADOS (SEPARADO POR ESCOLA) -->
+                    <div class="card bg-light border shadow-sm mb-3">
+                        <div class="card-body p-3">
+                            <form id="form_filtros_extrato" onsubmit="event.preventDefault(); aplicarFiltrosExtrato(1);">
+                                <div class="row g-2 align-items-center">
+                                    <!-- Filtro 1: Escola Destino (Destacado) -->
+                                    <div class="col-md-3">
+                                        <label for="extrato_escola_id" class="form-label small fw-bold text-primary mb-1">
+                                            <i class="bi bi-building me-1"></i>Escola / Unidade
+                                        </label>
+                                        <select class="form-select form-select-sm border-primary fw-bold" id="extrato_escola_id" onchange="aplicarFiltrosExtrato(1)">
+                                            <option value="todas">🏫 Todas as Escolas e Unidades</option>
+                                            <option value="sem_escola">🏬 Almoxarifado Central (Entradas/Descartes)</option>
+                                            {% for esc in escolas %}
+                                            <option value="{{ esc.id }}" {% if escola_id_filtro|string == esc.id|string %}selected{% endif %}>{{ esc.nome }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+
+                                    <!-- Filtro 2: Tipo de Movimentação -->
+                                    <div class="col-md-2">
+                                        <label for="extrato_tipo" class="form-label small fw-bold text-secondary mb-1">
+                                            <i class="bi bi-funnel me-1"></i>Tipo de Movimento
+                                        </label>
+                                        <select class="form-select form-select-sm" id="extrato_tipo" onchange="aplicarFiltrosExtrato(1)">
+                                            <option value="Todos">Todos os Tipos</option>
+                                            <option value="Entrada">📥 Entrada (+ Compra)</option>
+                                            <option value="Saída Escola">🏫 Saída p/ Escola</option>
+                                            <option value="Perda/Avaria">🗑️ Perda / Avaria</option>
+                                            <option value="Ajuste Saldo">⚙️ Ajuste Saldo</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Filtro 3: Produto / Alimento -->
+                                    <div class="col-md-3">
+                                        <label for="extrato_produto_id" class="form-label small fw-bold text-secondary mb-1">
+                                            <i class="bi bi-box-seam me-1"></i>Alimento / Produto
+                                        </label>
+                                        <select class="form-select form-select-sm" id="extrato_produto_id" onchange="aplicarFiltrosExtrato(1)">
+                                            <option value="0">Todos os Alimentos</option>
+                                            {% for p in produtos %}
+                                            <option value="{{ p.id }}">{{ p.nome }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+
+                                    <!-- Filtro 4: Quantidade por Página -->
+                                    <div class="col-md-2">
+                                        <label for="extrato_per_page" class="form-label small fw-bold text-secondary mb-1">
+                                            <i class="bi bi-list-ol me-1"></i>Exibir por Pág.
+                                        </label>
+                                        <select class="form-select form-select-sm" id="extrato_per_page" onchange="aplicarFiltrosExtrato(1)">
+                                            <option value="50" selected>50 itens / pág.</option>
+                                            <option value="25">25 itens / pág.</option>
+                                            <option value="100">100 itens / pág.</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Botão Limpar -->
+                                    <div class="col-md-2 d-flex align-items-end">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm w-100 fw-bold" onclick="limparFiltrosExtrato()">
+                                            <i class="bi bi-x-circle me-1"></i> Limpar Filtros
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 mt-1 align-items-center">
+                                    <!-- Filtro 5: Busca por Texto -->
+                                    <div class="col-md-6">
+                                        <input type="text" id="extrato_q" class="form-control form-control-sm" placeholder="🔍 Buscar por fornecedor, lote, responsável, observação ou grupo..." onkeyup="debounceBuscaExtrato()">
+                                    </div>
+                                    <!-- Filtro 6: Data Inicial -->
+                                    <div class="col-md-3">
+                                        <input type="date" id="extrato_data_inicio" class="form-control form-control-sm" title="Data Inicial" onchange="aplicarFiltrosExtrato(1)">
+                                    </div>
+                                    <!-- Filtro 7: Data Final -->
+                                    <div class="col-md-3">
+                                        <input type="date" id="extrato_data_fim" class="form-control form-control-sm" title="Data Final" onchange="aplicarFiltrosExtrato(1)">
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- TABELA DE MOVIMENTAÇÕES AUDITÁVEL -->
+                    <div class="table-responsive shadow-sm rounded border">
+                        <table class="table table-hover align-middle mb-0" id="tableExtrato">
+                            <thead class="table-light text-uppercase small text-muted">
                                 <tr>
-                                    <th>Data / Hora</th>
-                                    <th>Tipo</th>
-                                    <th>Produto</th>
-                                                              <th>Destino / Fornecedor</th>
-                                    <th>Responsável</th>
-                                    <th class="text-center">Recibo PDF</th>
+                                    <th style="width: 14%;">Data / Hora</th>
+                                    <th style="width: 12%;">Tipo</th>
+                                    <th style="width: 22%;">Produto / Alimento</th>
+                                    <th style="width: 13%;">Qtd Embalagem</th>
+                                    <th style="width: 13%;">Qtd Liquidada</th>
+                                    <th style="width: 16%;">Escola / Fornecedor</th>
+                                    <th style="width: 10%;">Responsável</th>
+                                    <th style="width: 8%;" class="text-center">Recibo</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="tbodyExtrato">
                                 {% for mov in historico %}
                                 <tr>
-                                    <td class="small">{{ mov.data_movimento.strftime('%d/%m/%Y %H:%M') }}</td>
+                                    <td class="small fw-semibold text-dark">{{ mov.data_movimento.strftime('%d/%m/%Y %H:%M') }}</td>
                                     <td>
                                         {% if mov.tipo == 'Entrada' %}
                                             <span class="badge bg-success-subtle text-success border border-success"><i class="bi bi-arrow-down-left"></i> Entrada</span>
@@ -436,7 +535,7 @@
                                                 {{ "%.2f"|format(mov.quantidade_embalagem) }} {{ mov.unidade_movimento or 'unid' }}
                                             </span>
                                         {% else %}
-                                            <span class="text-muted">--</span>
+                                            <span class="text-muted small">--</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -446,9 +545,9 @@
                                     </td>
                                     <td class="small">
                                         {% if mov.escola %}
-                                            <strong class="text-primary"><i class="bi bi-house-door"></i> {{ mov.escola.nome }}</strong>
+                                            <strong class="text-primary"><i class="bi bi-building"></i> {{ mov.escola.nome }}</strong>
                                         {% elif mov.fornecedor %}
-                                            <span class="text-muted"><i class="bi bi-truck"></i> {{ mov.fornecedor }}</span>
+                                            <span class="text-secondary"><i class="bi bi-truck"></i> {{ mov.fornecedor }}</span>
                                         {% else %}
                                             <span class="text-muted">{{ mov.observacao or '--' }}</span>
                                         {% endif %}
@@ -466,10 +565,34 @@
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted py-4">Nenhuma movimentação registrada no histórico.</td>
+                                    <td colspan="8" class="text-center text-muted py-4">Nenhuma movimentação registrada no histórico.</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
+                        </table>
+                    </div>
+
+                    <!-- FOOTER DE PAGINAÇÃO E MOSTRAR MAIS -->
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 mt-3 px-1">
+                        <div id="extrato_info_paginacao" class="text-muted small">
+                            {% if pagination %}
+                                Exibindo página <strong>{{ pagination.page }}</strong> de <strong>{{ pagination.pages }}</strong> (Total: <strong>{{ pagination.total }}</strong> movimentações)
+                            {% endif %}
+                        </div>
+
+                        <!-- Controles de Navegação por Página -->
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary fw-bold" id="btn_mostrar_mais_extrato" onclick="mostrarMaisExtrato()" style="display: none;">
+                                <i class="bi bi-arrow-down-circle me-1"></i> Mostrar Mais Movimentações
+                            </button>
+                            <nav aria-label="Navegação do extrato">
+                                <ul class="pagination pagination-sm m-0" id="extrato_paginacao_nav">
+                                    <!-- Gerado dinamicamente via JS -->
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>           </tbody>
                         </table>
                     </div>
                 </div>
@@ -915,12 +1038,272 @@ document.getElementById('filterSaldos')?.addEventListener('keyup', function() {
     });
 });
 
-document.getElementById('filterExtrato')?.addEventListener('keyup', function() {
-    const term = this.value.toLowerCase();
-    const rows = document.querySelectorAll('#tableExtrato tbody tr');
-    rows.forEach(r => {
-        r.style.display = r.innerText.toLowerCase().includes(term) ? '' : 'none';
+// --- LÓGICA COMPLETA DE FILTROS E PAGINAÇÃO AJAX DO EXTRATO AUDITÁVEL ---
+let paginaAtualExtrato = 1;
+let totalPaginasExtrato = 1;
+let timerBuscaExtrato = null;
+
+function debounceBuscaExtrato() {
+    clearTimeout(timerBuscaExtrato);
+    timerBuscaExtrato = setTimeout(() => {
+        aplicarFiltrosExtrato(1);
+    }, 350);
+}
+
+function aplicarFiltrosExtrato(pagina = 1) {
+    paginaAtualExtrato = pagina;
+
+    const escolaId = document.getElementById('extrato_escola_id')?.value || 'todas';
+    const tipo = document.getElementById('extrato_tipo')?.value || 'Todos';
+    const produtoId = document.getElementById('extrato_produto_id')?.value || '0';
+    const perPage = document.getElementById('extrato_per_page')?.value || '50';
+    const q = document.getElementById('extrato_q')?.value || '';
+    const dataInicio = document.getElementById('extrato_data_inicio')?.value || '';
+    const dataFim = document.getElementById('extrato_data_fim')?.value || '';
+
+    const tbody = document.getElementById('tbodyExtrato');
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2 text-primary" role="status"></span>Carregando extrato de movimentações...</td></tr>`;
+    }
+
+    const params = new URLSearchParams({
+        escola_id: escolaId,
+        tipo: tipo,
+        produto_id: produtoId,
+        per_page: perPage,
+        page: pagina,
+        q: q,
+        data_inicio: dataInicio,
+        data_fim: dataFim
     });
+
+    fetch(`/merenda/estoque/extrato/api?${params.toString()}`)
+        .then(response => {
+            if (!response.ok) throw new Error('Erro ao buscar extrato do servidor.');
+            return response.json();
+        })
+        .then(data => {
+            if (!data.success) {
+                if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">Erro ao carregar os registros.</td></tr>`;
+                return;
+            }
+
+            renderizarTabelaExtrato(data.items);
+            renderizarResumoExtrato(data.summary);
+            renderizarPaginacaoExtrato(data.pagination);
+        })
+        .catch(err => {
+            if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">⚠️ Falha de comunicação: ${err.message}</td></tr>`;
+        });
+}
+
+function renderizarTabelaExtrato(items) {
+    const tbody = document.getElementById('tbodyExtrato');
+    if (!tbody) return;
+
+    if (!items || items.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-muted py-5">
+                    <i class="bi bi-inbox fs-2 text-secondary d-block mb-2"></i>
+                    Nenhuma movimentação de estoque encontrada para os filtros aplicados.
+                </td>
+            </tr>`;
+        return;
+    }
+
+    let html = '';
+    items.forEach(mov => {
+        let badgeTipo = '';
+        let qtdColor = 'text-danger';
+        let sinal = '-';
+
+        if (mov.tipo === 'Entrada') {
+            badgeTipo = `<span class="badge bg-success-subtle text-success border border-success"><i class="bi bi-arrow-down-left me-1"></i> Entrada</span>`;
+            qtdColor = 'text-success';
+            sinal = '+';
+        } else if (mov.tipo === 'Saída Escola') {
+            badgeTipo = `<span class="badge bg-primary-subtle text-primary border border-primary"><i class="bi bi-building me-1"></i> Escola</span>`;
+            qtdColor = 'text-primary';
+            sinal = '-';
+        } else if (mov.tipo && (mov.tipo.includes('Perda') || mov.tipo.includes('Avaria') || mov.tipo.includes('Descarte'))) {
+            badgeTipo = `<span class="badge bg-danger-subtle text-danger border border-danger"><i class="bi bi-trash me-1"></i> Perda/Descarte</span>`;
+            qtdColor = 'text-danger';
+            sinal = '-';
+        } else {
+            badgeTipo = `<span class="badge bg-secondary-subtle text-secondary border border-secondary"><i class="bi bi-sliders me-1"></i> ${mov.tipo || 'Ajuste'}</span>`;
+            qtdColor = 'text-secondary';
+            sinal = '-';
+        }
+
+        let qtdEmb = mov.quantidade_embalagem_fmt 
+            ? `<span class="badge bg-light text-dark border">${mov.quantidade_embalagem_fmt} ${mov.unidade_movimento}</span>` 
+            : `<span class="text-muted small">--</span>`;
+
+        let destinoFornecedor = '';
+        if (mov.escola_nome) {
+            destinoFornecedor = `<strong class="text-primary"><i class="bi bi-building me-1"></i>${mov.escola_nome}</strong>`;
+        } else if (mov.fornecedor) {
+            destinoFornecedor = `<span class="text-secondary"><i class="bi bi-truck me-1"></i>${mov.fornecedor}</span>`;
+        } else {
+            destinoFornecedor = `<span class="text-muted small">${mov.observacao || '--'}</span>`;
+        }
+
+        let pdfBtn = mov.pdf_url 
+            ? `<a href="${mov.pdf_url}" target="_blank" class="btn btn-sm btn-outline-danger shadow-sm py-0 px-2" title="Imprimir Termo de Entrega"><i class="bi bi-file-pdf-fill"></i> PDF</a>`
+            : `<span class="text-muted small">--</span>`;
+
+        html += `
+            <tr>
+                <td class="small fw-semibold text-dark">${mov.data_movimento_str}</td>
+                <td>${badgeTipo}</td>
+                <td class="fw-bold text-dark">${mov.produto_nome}</td>
+                <td>${qtdEmb}</td>
+                <td>
+                    <span class="fw-bold ${qtdColor}">
+                        ${sinal} ${mov.quantidade_fmt} ${mov.unidade_consumo}
+                    </span>
+                </td>
+                <td class="small">${destinoFornecedor}</td>
+                <td class="small text-muted">${mov.usuario_responsavel || 'Sistema'}</td>
+                <td class="text-center">${pdfBtn}</td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function renderizarResumoExtrato(summary) {
+    if (!summary) return;
+    const elTotal = document.getElementById('summary_total_reg');
+    const elEntradas = document.getElementById('summary_total_entradas');
+    const elSaidas = document.getElementById('summary_total_saidas');
+
+    if (elTotal) elTotal.innerText = summary.total_registros || 0;
+    if (elEntradas) elEntradas.innerText = summary.total_entradas || 0;
+    if (elSaidas) elSaidas.innerText = summary.total_saidas || 0;
+}
+
+function renderizarPaginacaoExtrato(pag) {
+    if (!pag) return;
+    paginaAtualExtrato = pag.page;
+    totalPaginasExtrato = pag.pages;
+
+    const infoDiv = document.getElementById('extrato_info_paginacao');
+    const navUl = document.getElementById('extrato_paginacao_nav');
+    const btnMostrarMais = document.getElementById('btn_mostrar_mais_extrato');
+
+    const inicio = pag.total === 0 ? 0 : ((pag.page - 1) * pag.per_page) + 1;
+    const fim = Math.min(pag.page * pag.per_page, pag.total);
+
+    if (infoDiv) {
+        infoDiv.innerHTML = `Exibindo <strong>${inicio}</strong> a <strong>${fim}</strong> de <strong>${pag.total}</strong> movimentações (Página ${pag.page} de ${pag.pages || 1})`;
+    }
+
+    if (btnMostrarMais) {
+        btnMostrarMais.style.display = (pag.has_next && pag.page === 1) ? 'inline-block' : 'none';
+        btnMostrarMais.innerHTML = `<i class="bi bi-arrow-down-circle me-1"></i> Mostrar Mais (${pag.total - fim} restantes)`;
+    }
+
+    if (!navUl) return;
+
+    if (pag.pages <= 1) {
+        navUl.innerHTML = '';
+        return;
+    }
+
+    let navHtml = '';
+
+    // Botão Primeira Página
+    navHtml += `
+        <li class="page-item ${pag.page <= 1 ? 'disabled' : ''}">
+            <button type="button" class="page-link" onclick="aplicarFiltrosExtrato(1)" title="Primeira Página">
+                <i class="bi bi-chevron-double-left"></i>
+            </button>
+        </li>
+    `;
+
+    // Botão Anterior
+    navHtml += `
+        <li class="page-item ${!pag.has_prev ? 'disabled' : ''}">
+            <button type="button" class="page-link" onclick="aplicarFiltrosExtrato(${pag.prev_num || 1})" title="Página Anterior">
+                <i class="bi bi-chevron-left"></i>
+            </button>
+        </li>
+    `;
+
+    let startPage = Math.max(1, pag.page - 2);
+    let endPage = Math.min(pag.pages, pag.page + 2);
+
+    if (startPage > 1) {
+        navHtml += `<li class="page-item"><button type="button" class="page-link" onclick="aplicarFiltrosExtrato(1)">1</button></li>`;
+        if (startPage > 2) {
+            navHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+    }
+
+    for (let p = startPage; p <= endPage; p++) {
+        const active = p === pag.page ? 'active fw-bold' : '';
+        navHtml += `<li class="page-item ${active}"><button type="button" class="page-link" onclick="aplicarFiltrosExtrato(${p})">${p}</button></li>`;
+    }
+
+    if (endPage < pag.pages) {
+        if (endPage < pag.pages - 1) {
+            navHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+        navHtml += `<li class="page-item"><button type="button" class="page-link" onclick="aplicarFiltrosExtrato(${pag.pages})">${pag.pages}</button></li>`;
+    }
+
+    // Botão Próxima
+    navHtml += `
+        <li class="page-item ${!pag.has_next ? 'disabled' : ''}">
+            <button type="button" class="page-link" onclick="aplicarFiltrosExtrato(${pag.next_num || pag.pages})" title="Próxima Página">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+        </li>
+    `;
+
+    // Botão Última Página
+    navHtml += `
+        <li class="page-item ${pag.page >= pag.pages ? 'disabled' : ''}">
+            <button type="button" class="page-link" onclick="aplicarFiltrosExtrato(${pag.pages})" title="Última Página">
+                <i class="bi bi-chevron-double-right"></i>
+            </button>
+        </li>
+    `;
+
+    navUl.innerHTML = navHtml;
+}
+
+function mostrarMaisExtrato() {
+    if (paginaAtualExtrato < totalPaginasExtrato) {
+        aplicarFiltrosExtrato(paginaAtualExtrato + 1);
+    }
+}
+
+function limparFiltrosExtrato() {
+    document.getElementById('extrato_escola_id').value = 'todas';
+    document.getElementById('extrato_tipo').value = 'Todos';
+    document.getElementById('extrato_produto_id').value = '0';
+    document.getElementById('extrato_per_page').value = '50';
+    document.getElementById('extrato_q').value = '';
+    document.getElementById('extrato_data_inicio').value = '';
+    document.getElementById('extrato_data_fim').value = '';
+    aplicarFiltrosExtrato(1);
+}
+
+// Atualiza o extrato automaticamente ao mudar para a aba "Extrato Auditável"
+document.getElementById('extrato-tab')?.addEventListener('shown.bs.tab', function() {
+    aplicarFiltrosExtrato(1);
+});
+
+// Carregar resumo inicial se a aba estiver pré-selecionada
+document.addEventListener('DOMContentLoaded', function() {
+    const tabExtratoEl = document.getElementById('extrato');
+    if (tabExtratoEl && tabExtratoEl.classList.contains('active')) {
+        aplicarFiltrosExtrato(1);
+    }
 });
 </script>
 {% endblock %}

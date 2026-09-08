@@ -539,9 +539,11 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <span class="fw-bold {% if mov.tipo == 'Entrada' %}text-success{% else %}text-danger{% endif %}">
-                                            {% if mov.tipo == 'Entrada' %}+{% else %}-{% endif %} {{ "%.2f"|format(mov.quantidade) }} {{ mov.produto.unidade_consumo if mov.produto else '' }}
-                                        </span>
+                                        {% if mov.tipo == 'Entrada' %}
+                                            <span class="fw-bold text-success fs-6"><i class="bi bi-plus-circle-fill me-1"></i>+{{ "%.2f"|format(mov.quantidade) }} {{ mov.produto.unidade_consumo if mov.produto else '' }}</span>
+                                        {% else %}
+                                            <span class="fw-bold text-danger fs-6"><i class="bi bi-dash-circle-fill me-1"></i>-{{ "%.2f"|format(mov.quantidade) }} {{ mov.produto.unidade_consumo if mov.produto else '' }}</span>
+                                        {% endif %}
                                     </td>
                                     <td class="small">
                                         {% if mov.escola %}
@@ -1118,22 +1120,27 @@ function renderizarTabelaExtrato(items) {
         let qtdColor = 'text-danger';
         let sinal = '-';
 
+        let iconQtd = '';
         if (mov.tipo === 'Entrada') {
             badgeTipo = `<span class="badge bg-success-subtle text-success border border-success"><i class="bi bi-arrow-down-left me-1"></i> Entrada</span>`;
             qtdColor = 'text-success';
             sinal = '+';
+            iconQtd = '<i class="bi bi-plus-circle-fill me-1"></i>';
         } else if (mov.tipo === 'Saída Escola') {
             badgeTipo = `<span class="badge bg-primary-subtle text-primary border border-primary"><i class="bi bi-building me-1"></i> Escola</span>`;
-            qtdColor = 'text-primary';
+            qtdColor = 'text-danger';
             sinal = '-';
+            iconQtd = '<i class="bi bi-dash-circle-fill me-1"></i>';
         } else if (mov.tipo && (mov.tipo.includes('Perda') || mov.tipo.includes('Avaria') || mov.tipo.includes('Descarte'))) {
             badgeTipo = `<span class="badge bg-danger-subtle text-danger border border-danger"><i class="bi bi-trash me-1"></i> Perda/Descarte</span>`;
             qtdColor = 'text-danger';
             sinal = '-';
+            iconQtd = '<i class="bi bi-dash-circle-fill me-1"></i>';
         } else {
             badgeTipo = `<span class="badge bg-secondary-subtle text-secondary border border-secondary"><i class="bi bi-sliders me-1"></i> ${mov.tipo || 'Ajuste'}</span>`;
-            qtdColor = 'text-secondary';
+            qtdColor = 'text-danger';
             sinal = '-';
+            iconQtd = '<i class="bi bi-dash-circle-fill me-1"></i>';
         }
 
         let qtdEmb = mov.quantidade_embalagem_fmt 
@@ -1160,8 +1167,8 @@ function renderizarTabelaExtrato(items) {
                 <td class="fw-bold text-dark">${mov.produto_nome}</td>
                 <td>${qtdEmb}</td>
                 <td>
-                    <span class="fw-bold ${qtdColor}">
-                        ${sinal} ${mov.quantidade_fmt} ${mov.unidade_consumo}
+                    <span class="fw-bold ${qtdColor} fs-6">
+                        ${iconQtd}${sinal}${mov.quantidade_fmt} ${mov.unidade_consumo}
                     </span>
                 </td>
                 <td class="small">${destinoFornecedor}</td>

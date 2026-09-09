@@ -3,21 +3,17 @@
 {% block title %}Produtos da Merenda Escolar{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-box-seam"></i> Produtos da Merenda Escolar</h2>
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 border-bottom pb-3">
-    <div class="d-flex align-items-center">
-        <!-- <h3 class="me-4 mb-0"><i class="bi bi-egg-fried"> -->
-        <a href="{{ url_for('merenda.painel_solicitacoes') }}" class="btn btn-outline-secondary me-2"><i class="bi bi-clipboard-check"></i> Solicitações</a>
-        <a href="{{ url_for('merenda.listar_escolas') }}" class="btn btn-outline-secondary me-2"><i class="bi bi-building"></i> Escolas</a>
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 border-bottom pb-3">
+    <div class="d-flex align-items-center me-3 mb-2 mb-md-0">
+        <h2 class="mb-0 me-3"><i class="bi bi-box-seam"></i> Produtos da Merenda Escolar</h2>
     </div>
-    <div>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <a href="{{ url_for('merenda.painel_solicitacoes') }}" class="btn btn-outline-secondary"><i class="bi bi-clipboard-check"></i> Solicitações</a>
+        <a href="{{ url_for('merenda.listar_escolas') }}" class="btn btn-outline-secondary"><i class="bi bi-building"></i> Escolas</a>
         <a href="{{ url_for('merenda.gerenciar_estoque') }}" class="btn btn-success"><i class="bi bi-box-seam me-1"></i> Gestão de Estoque</a>
-        <a href="{{ url_for('merenda.novo_produto') }}" class="btn btn-primary ms-2"><i class="bi bi-plus-circle-fill"></i> Adicionar Produto</a>
+        <a href="{{ url_for('merenda.pdf_produtos_cadastrados') }}" target="_blank" class="btn btn-danger"><i class="bi bi-file-earmark-pdf-fill me-1"></i> Emitir PDF Estoque</a>
+        <a href="{{ url_for('merenda.novo_produto') }}" class="btn btn-primary"><i class="bi bi-plus-circle-fill"></i> Adicionar Produto</a>
     </div>
-</div>
-
-
 </div>
 
 <div class="card shadow-sm">

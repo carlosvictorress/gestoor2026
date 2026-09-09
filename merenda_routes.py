@@ -211,6 +211,195 @@ def listar_produtos():
     
     return render_template('merenda/produtos_lista.html', produtos=produtos)
 
+@merenda_bp.route('/produtos/pdf')
+@login_required
+@role_required('Merenda Escolar', 'admin')
+def pdf_produtos_cadastrados():
+    produtos = ProdutoMerenda.query.filter(
+        or_(ProdutoMerenda.categoria != 'Agricultura Familiar', ProdutoMerenda.categoria.is_(None))
+    ).order_by(ProdutoMerenda.nome.asc()).all()
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=1.5*cm,
+        leftMargin=1.5*cm,
+        topMargin=3.0*cm,
+        bottomMargin=2.0*cm
+    )
+
+    styles = getSampleStyleSheet()
+
+    style_title = ParagraphStyle(
+        'DocTitle',
+        fontName='Helvetica-Bold',
+        fontSize=15,
+        leading=18,
+        textColor=colors.HexColor('#004d40'),
+        alignment=TA_LEFT
+    )
+    style_sub = ParagraphStyle(
+        'DocSub',
+        fontName='Helvetica',
+        fontSize=9,
+        leading=12,
+        textColor=colors.HexColor('#475569'),
+        alignment=TA_LEFT
+    )
+    style_th = ParagraphStyle(
+        'TH',
+        fontName='Helvetica-Bold',
+        fontSize=8.5,
+        leading=10,
+        textColor=colors.whitesmoke,
+        alignment=TA_CENTER
+    )
+    style_td = ParagraphStyle(
+        'TD',
+        fontName='Helvetica',
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor('#1e293b')
+    )
+    style_td_bold = ParagraphStyle(
+        'TDBold',
+        fontName='Helvetica-Bold',
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor('#0f172a')
+    )
+    style_td_center = ParagraphStyle(
+        'TDCenter',
+        fontName='Helvetica',
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor('#1e293b'),
+        alignment=TA_CENTER
+    )
+    style_td_right = ParagraphStyle(
+        'TDRight',
+        fontName='Helvetica',
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor('#1e293b'),
+        alignment=TA_RIGHT
+    )
+
+    story = []
+
+    # 1. Cabeçalho do Relatório
+    story.append(Paragraph("RELATÓRIO DE PRODUTOS CADASTRADOS E ESTOQUE ATUAL", style_title))
+    story.append(Paragraph("Merenda Escolar / Almoxarifado Central - Posição Geral de Produtos", style_sub))
+    story.append(Spacer(1, 0.3*cm))
+
+    # 2. Resumo Informativo
+    data_emissao_str = obter_data_hora_br_str()
+    total_produtos = len(produtos)
+    total_baixo = sum(1 for p in produtos if (p.estoque_atual or 0) > 0 and (p.estoque_atual or 0) <= (p.estoque_minimo or 10.0))
+    total_zerado = sum(1 for p in produtos if (p.estoque_atual or 0) <= 0)
+    total_normal = total_produtos - total_baixo - total_zerado
+
+    summary_html = (
+        f"<b>Data de Emissão:</b> {data_emissao_str} &nbsp;&nbsp;|&nbsp;&nbsp; "
+        f"<b>Total de Produtos:</b> {total_produtos} &nbsp;&nbsp;|&nbsp;&nbsp; "
+        f"<b>Normal:</b> <font color='#15803d'>{total_normal}</font> &nbsp;&nbsp;|&nbsp;&nbsp; "
+        f"<b>Estoque Baixo:</b> <font color='#c2410c'>{total_baixo}</font> &nbsp;&nbsp;|&nbsp;&nbsp; "
+        f"<b>Zerado:</b> <font color='#b91c1c'>{total_zerado}</font>"
+    )
+    summary_style = ParagraphStyle('Summary', fontName='Helvetica', fontSize=8.5, leading=11, textColor=colors.HexColor('#334155'))
+    summary_table = Table([[Paragraph(summary_html, summary_style)]], colWidths=[18.0*cm])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f1f5f9')),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 0.4*cm))
+
+    # 3. Tabela de Produtos
+    table_headers = [
+        Paragraph("#", style_th),
+        Paragraph("Nome do Produto", style_th),
+        Paragraph("Categoria", style_th),
+        Paragraph("Un. Compra", style_th),
+        Paragraph("Un. Consumo", style_th),
+        Paragraph("Estoque Mín.", style_th),
+        Paragraph("Estoque Atual", style_th),
+        Paragraph("Situação", style_th)
+    ]
+
+    table_data = [table_headers]
+
+    for idx, p in enumerate(produtos, 1):
+        saldo = p.estoque_atual or 0.0
+        est_min = p.estoque_minimo if p.estoque_minimo is not None else 10.0
+
+        if saldo <= 0:
+            sit_html = "<font color='#b91c1c'><b>Zerado</b></font>"
+        elif saldo <= est_min:
+            sit_html = "<font color='#c2410c'><b>Estoque Baixo</b></font>"
+        else:
+            sit_html = "<font color='#15803d'><b>Normal</b></font>"
+
+        table_data.append([
+            Paragraph(str(idx), style_td_center),
+            Paragraph(p.nome, style_td_bold),
+            Paragraph(p.categoria or 'Geral', style_td),
+            Paragraph(p.unidade_medida or '-', style_td_center),
+            Paragraph(p.unidade_consumo or 'UNID', style_td_center),
+            Paragraph(f"{est_min:.2f}", style_td_right),
+            Paragraph(f"<b>{saldo:.2f}</b>", style_td_right),
+            Paragraph(sit_html, style_td_center)
+        ])
+
+    col_widths = [0.8*cm, 5.0*cm, 2.7*cm, 1.8*cm, 1.8*cm, 1.9*cm, 2.2*cm, 1.8*cm]
+    grid_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    grid_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#004d40')),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')])
+    ]))
+
+    story.append(grid_table)
+    story.append(Spacer(1, 1.2*cm))
+
+    # 4. Assinaturas
+    signature_data = [
+        [
+            Paragraph("________________________________________<br/><b>Responsável pela Merenda Escolar</b>", style_td_center),
+            Paragraph("________________________________________<br/><b>Visto da Coordenação / Nutrição</b>", style_td_center)
+        ]
+    ]
+    signature_table = Table(signature_data, colWidths=[9.0*cm, 9.0*cm])
+    signature_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    story.append(signature_table)
+
+    doc.build(
+        story,
+        onFirstPage=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Produtos Cadastrados - Estoque"),
+        onLaterPages=lambda c, d: cabecalho_e_rodape_moderno(c, d, "Produtos Cadastrados - Estoque")
+    )
+
+    buffer.seek(0)
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = 'inline; filename=relatorio_produtos_estoque.pdf'
+    return response
+
+
 @merenda_bp.route('/produtos/novo', methods=['GET', 'POST'])
 @login_required
 @role_required('Merenda Escolar', 'admin')

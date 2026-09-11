@@ -17,7 +17,8 @@ def listar_escolas():
 @role_required('admin', 'RH')
 def nova_escola():
     nome = request.form.get('nome')
-    codigo_inep = request.form.get('codigo_inep') # <-- CAMPO NOVO
+    codigo_inep = request.form.get('codigo_inep')
+    codigo_inep = codigo_inep.strip() if codigo_inep and codigo_inep.strip() else None
     latitude = request.form.get('latitude')
     longitude = request.form.get('longitude')
 
@@ -32,7 +33,7 @@ def nova_escola():
 
     nova = Escola(
         nome=nome,
-        codigo_inep=codigo_inep, # <-- CAMPO NOVO
+        codigo_inep=codigo_inep,
         latitude=latitude if latitude else None,
         longitude=longitude if longitude else None
     )
@@ -47,7 +48,8 @@ def editar_escola(id):
     escola = Escola.query.get_or_404(id)
     
     nome = request.form.get('nome')
-    codigo_inep = request.form.get('codigo_inep') # <-- CAMPO NOVO
+    codigo_inep = request.form.get('codigo_inep')
+    codigo_inep = codigo_inep.strip() if codigo_inep and codigo_inep.strip() else None
     latitude = request.form.get('latitude')
     longitude = request.form.get('longitude')
 
@@ -63,7 +65,7 @@ def editar_escola(id):
             return redirect(url_for('escola.listar_escolas'))
 
     escola.nome = nome
-    escola.codigo_inep = codigo_inep # <-- CAMPO NOVO
+    escola.codigo_inep = codigo_inep
     escola.latitude = latitude if latitude else None
     escola.longitude = longitude if longitude else None
     

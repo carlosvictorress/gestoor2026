@@ -4266,55 +4266,108 @@ def gerar_cardapio_pdf(cardapio_id):
     story.append(info_table)
     story.append(Spacer(1, 0.4 * cm))
 
-    # Montagem da Grade Semanal (Segunda a Sexta)
-    dias_semana_ordem = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira']
-    
-    # Estrutura da Tabela do Cardápio
+    # Estilos adicionais para células
+    style_cell_center = ParagraphStyle(name='CellCenter', fontName='Helvetica', fontSize=7.5, leading=9.5, alignment=TA_CENTER)
+    style_cell_bold_center = ParagraphStyle(name='CellBoldCenter', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=TA_CENTER)
+    style_disclaimer = ParagraphStyle(name='Disclaimer', fontName='Helvetica-Bold', fontSize=7.5, leading=9.5, alignment=TA_CENTER, textColor=colors.HexColor('#880e4f'))
+
+    # Helper para normalizar o nome dos dias
+    def normalizar_dia(dia_str):
+        if not dia_str:
+            return ""
+        d = str(dia_str).lower().strip()
+        if 'segunda' in d: return 'Segunda-feira'
+        if 'terça' in d or 'terca' in d: return 'Terça-feira'
+        if 'quarta' in d: return 'Quarta-feira'
+        if 'quinta' in d: return 'Quinta-feira'
+        if 'sexta' in d: return 'Sexta-feira'
+        if 'sábado' in d or 'sabado' in d: return 'Sábado'
+        if 'domingo' in d: return 'Domingo'
+        return dia_str
+
+    # Cabeçalho das 8 Colunas (Semana + 7 dias)
+    semana_ref_str = (cardapio.semanas_referencia or "1ª e 3ª").strip()
     grid_header = [
-        Paragraph("Dia da Semana", style_cell_header),
-        Paragraph("Refeição / Horário", style_cell_header),
-        Paragraph("Preparação / Cardápio do Dia", style_cell_header),
-        Paragraph("Acompanhamento / Bebida", style_cell_header),
-        Paragraph("Info. Nutricional Resumida", style_cell_header)
+        Paragraph(f"<b>SEMANA</b><br/><font size=7 color='#ffeb3b'><b>{semana_ref_str}</b></font>", style_cell_header),
+        Paragraph("SEGUNDA FEIRA", style_cell_header),
+        Paragraph("TERÇA FEIRA", style_cell_header),
+        Paragraph("QUARTA FEIRA", style_cell_header),
+        Paragraph("QUINTA FEIRA", style_cell_header),
+        Paragraph("SEXTA FEIRA", style_cell_header),
+        Paragraph("SÁBADO", style_cell_header),
+        Paragraph("DOMINGO", style_cell_header)
     ]
     grid_data = [grid_header]
 
-    for dia in dias_semana_ordem:
-        itens_dia = [item for item in cardapio.itens_pnae if item.dia_semana and item.dia_semana.lower() == dia.lower()]
-        if itens_dia:
-            for idx, item in enumerate(itens_dia):
-                # Tratamento de fallback item a item
-                tipo_ref = formatar_campo(item.tipo_refeicao, "Refeição")
-                horario = formatar_campo(item.horario_servido, "N/A")
-                desc_prep = formatar_campo(item.descricao_preparacao, "Sem descrição do prato").replace('\n', '<br/>')
-                bebida = formatar_campo(item.bebida_acompanhamento, "-")
-                info_nutri = formatar_campo(item.informacao_nutricional_resumo, "-")
+    # Coletar refeições únicas em ordem de cadastro
+    refeicoes_unicas = []
+    vistos = set()
+    for item in cardapio.itens_pnae:
+        tipo = (item.tipo_refeicao or "").strip()
+        horario = (item.horario_servido or "").strip()
+        chave = (tipo, horario)
+        if tipo and chave not in vistos:
+            vistos.add(chave)
+            refeicoes_unicas.append(chave)
 
-                grid_data.append([
-                    Paragraph(f"<b>{dia}</b>" if idx == 0 else "", style_cell_bold),
-                    Paragraph(f"{tipo_ref}<br/><font color='#555555'>({horario})</font>", style_cell_body),
-                    Paragraph(desc_prep, style_cell_body),
-                    Paragraph(bebida, style_cell_body),
-                    Paragraph(info_nutri, style_cell_body)
-                ])
-        else:
-            grid_data.append([
-                Paragraph(f"<b>{dia}</b>", style_cell_bold),
-                Paragraph("-", style_cell_body),
-                Paragraph("<i>Sem refeição cadastrada para este dia</i>", style_cell_body),
-                Paragraph("-", style_cell_body),
-                Paragraph("-", style_cell_body)
-            ])
+    # Fallback caso não haja itens cadastrados
+    if not refeicoes_unicas:
+        refeicoes_unicas = [
+            ("Lanche da Manhã", "09:00"),
+            ("Almoço", "12:00"),
+            ("Lanche da Tarde", "15:00")
+        ]
 
-    grid_table = Table(grid_data, colWidths=[4.2 * cm, 4.5 * cm, 11.5 * cm, 4.3 * cm, 2.8 * cm])
+    dias_semana_lista = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo']
+
+    for tipo_ref, horario in refeicoes_unicas:
+        horario_str = f"<br/><font size=7 color='#555555'>{horario}</font>" if horario else ""
+        label_refeicao = Paragraph(f"<b>{tipo_ref.upper()}</b>{horario_str}", style_cell_bold_center)
+        linha = [label_refeicao]
+
+        for dia in dias_semana_lista:
+            item_match = None
+            for item in cardapio.itens_pnae:
+                if normalizar_dia(item.dia_semana) == dia:
+                    if (item.tipo_refeicao or "").strip() == tipo_ref and (item.horario_servido or "").strip() == horario:
+                        item_match = item
+                        break
+                    elif (item.tipo_refeicao or "").strip() == tipo_ref and not item_match:
+                        item_match = item
+
+            if item_match and item_match.descricao_preparacao and item_match.descricao_preparacao.strip():
+                desc = item_match.descricao_preparacao.strip().replace('\n', '<br/>')
+                cell_text = desc
+                if item_match.bebida_acompanhamento and item_match.bebida_acompanhamento.strip() and item_match.bebida_acompanhamento.strip() != "-":
+                    cell_text += f"<br/><br/><b>SOBREMESA / BEBIDA:</b><br/>{item_match.bebida_acompanhamento.strip()}"
+                if item_match.informacao_nutricional_resumo and item_match.informacao_nutricional_resumo.strip() and item_match.informacao_nutricional_resumo.strip() != "-":
+                    cell_text += f"<br/><font size=6.5 color='#555555'>({item_match.informacao_nutricional_resumo.strip()})</font>"
+                linha.append(Paragraph(cell_text, style_cell_body))
+            else:
+                linha.append(Paragraph("-", style_cell_center))
+
+        grid_data.append(linha)
+
+    grid_table = Table(grid_data, colWidths=[3.5 * cm] + [3.4 * cm] * 7)
     grid_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#004d40')),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#004d40')),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+        ('BACKGROUND', (0, 1), (0, -1), colors.HexColor('#f2f4f4')),
     ]))
     story.append(grid_table)
+    story.append(Spacer(1, 0.2 * cm))
+
+    # Aviso / Nota explicativa ao rodapé da grade
+    disclaimer_p = Paragraph(
+        "Cardápio sujeito a alteração. Toda a análise do cardápio se encontra disponível para consulta dentro da cozinha escolar.",
+        style_disclaimer
+    )
+    story.append(disclaimer_p)
     story.append(Spacer(1, 0.3 * cm))
 
     # Observações e Restrições Alérgicas (Exigência PNAE)

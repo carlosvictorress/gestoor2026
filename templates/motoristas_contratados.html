@@ -114,13 +114,13 @@
 
     <!-- CARDS INDICADORES (KPIs) -->
     <div class="row g-3 mb-4 animate-slide-up">
-        <!-- Total Motoristas -->
+        <!-- Total de Motoristas -->
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="card card-kpi shadow-sm p-3">
                 <div class="d-flex align-items-center justify-content-between">
                     <div>
-                        <span class="text-muted fw-medium fs-7 d-block mb-1">TOTAL CONTRATADOS</span>
-                        <h3 class="fw-extrabold mb-0 text-dark">{{ total_motoristas }}</h3>
+                        <span class="text-muted fw-medium fs-7 d-block mb-1">MOTORISTAS ATIVOS</span>
+                        <h3 class="fw-extrabold mb-0 text-dark">{{ total_ativos }} <span class="fs-6 text-muted fw-normal">/ {{ total_motoristas }} total</span></h3>
                     </div>
                     <div class="kpi-icon bg-primary bg-opacity-10 text-primary">
                         <i class="bi bi-people-fill"></i>
@@ -149,7 +149,7 @@
             <div class="card card-kpi shadow-sm p-3">
                 <div class="d-flex align-items-center justify-content-between">
                     <div>
-                        <span class="text-muted fw-medium fs-7 d-block mb-1">FOLHA MENSAL (TOTAL)</span>
+                        <span class="text-muted fw-medium fs-7 d-block mb-1">FOLHA MENSAL (ATIVOS)</span>
                         <h3 class="fw-extrabold mb-0 text-success">R$ {{ "%.2f"|format(folha_mensal_total)|replace(".", ",") }}</h3>
                     </div>
                     <div class="kpi-icon bg-success bg-opacity-10 text-success">
@@ -212,6 +212,7 @@
                             <thead>
                                 <tr>
                                     <th>#</th>
+                                    <th>Status</th>
                                     <th>Motorista (Nome / CPF)</th>
                                     <th>Rota</th>
                                     <th>Monitor</th>
@@ -223,8 +224,19 @@
                             </thead>
                             <tbody>
                                 {% for m in motoristas %}
-                                <tr>
+                                <tr class="{% if not m.ativo %}table-light opacity-75{% endif %}">
                                     <td class="fw-bold text-muted">{{ m.id }}</td>
+                                    <td>
+                                        {% if m.ativo %}
+                                            <a href="{{ url_for('transporte.toggle_status_motorista', id=m.id) }}" class="badge bg-success-subtle text-success border border-success-subtle text-decoration-none" title="Clique para desativar este motorista">
+                                                <i class="bi bi-check-circle-fill me-1"></i>Ativo
+                                            </a>
+                                        {% else %}
+                                            <a href="{{ url_for('transporte.toggle_status_motorista', id=m.id) }}" class="badge bg-danger-subtle text-danger border border-danger-subtle text-decoration-none" title="Clique para ativar este motorista">
+                                                <i class="bi bi-pause-circle-fill me-1"></i>Inativo
+                                            </a>
+                                        {% endif %}
+                                    </td>
                                     <td>
                                         <div class="fw-bold text-dark">{{ m.nome }}</div>
                                         <small class="text-muted"><i class="bi bi-card-heading me-1"></i>{{ m.cpf }}</small>
@@ -259,11 +271,12 @@
                                     </td>
                                     <td class="text-center">
                                         <div class="btn-group btn-group-sm">
-                                            <button class="btn btn-outline-secondary" title="Editar" onclick='editarMotorista({{ {
+                                            <button class="btn btn-outline-secondary" title="Editar dados completos do motorista" onclick='editarMotorista({{ {
                                                 "id": m.id,
                                                 "nome": m.nome,
                                                 "cpf": m.cpf,
                                                 "rota": m.rota,
+                                                "ativo": m.ativo,
                                                 "tem_monitor": m.tem_monitor,
                                                 "monitor_nome": m.monitor_nome or "",
                                                 "monitor_cpf": m.monitor_cpf or "",
@@ -277,7 +290,7 @@
                                             }|tojson }})'>
                                                 <i class="bi bi-pencil"></i> Editar
                                             </button>
-                                            <a href="{{ url_for('transporte.excluir_motorista_contratado', id=m.id) }}" class="btn btn-outline-danger" title="Excluir" onclick="return confirm('Deseja realmente remover este motorista contratado?');">
+                                            <a href="{{ url_for('transporte.excluir_motorista_contratado', id=m.id) }}" class="btn btn-outline-danger" title="Excluir cadastro" onclick="return confirm('Deseja realmente remover este motorista contratado?');">
                                                 <i class="bi bi-trash"></i>
                                             </a>
                                         </div>
@@ -285,7 +298,7 @@
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="8" class="text-center py-4 text-muted">
+                                    <td colspan="9" class="text-center py-4 text-muted">
                                         <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                         Nenhum motorista contratado cadastrado até o momento.
                                     </td>
@@ -376,7 +389,21 @@
                 <div class="modal-body p-4">
                     
                     <!-- SEÇÃO 1: DADOS PESSOAIS E ROTA -->
-                    <div class="form-section-title"><i class="bi bi-person-vcard me-1"></i> Dados Pessoais & Rota</div>
+                    <div class="form-section-title"><i class="bi bi-person-vcard me-1"></i> Dados Pessoais, Status & Rota</div>
+                    <div class="row g-3 mb-2">
+                        <div class="col-md-12">
+                            <div class="d-flex justify-content-between align-items-center bg-light p-3 rounded-3 border">
+                                <div>
+                                    <label class="form-label fw-bold mb-0 text-dark">Status do Cadastro</label>
+                                    <small class="text-muted d-block">Motoristas inativos não são selecionados por padrão nas folhas de pagamento.</small>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="ativo" id="switch_ativo" checked>
+                                    <label class="form-check-label fw-bold text-success" for="switch_ativo" id="label_ativo">Motorista Ativo</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="row g-3">
                         <div class="col-md-7">
                             <label class="form-label fw-semibold">Nome Completo <span class="text-danger">*</span></label>
@@ -665,6 +692,8 @@
         document.getElementById("input_nome").value = "";
         document.getElementById("input_cpf").value = "";
         document.getElementById("input_rota").value = "";
+        const switchAtivo = document.getElementById("switch_ativo");
+        if (switchAtivo) switchAtivo.checked = true;
         const switchElem = document.getElementById("switch_tem_monitor");
         if (switchElem) switchElem.checked = false;
         toggleMonitorCampos();
@@ -687,6 +716,9 @@
         document.getElementById("input_cpf").value = formatarCPF(data.cpf || "");
         document.getElementById("input_rota").value = data.rota || "";
         
+        const switchAtivo = document.getElementById("switch_ativo");
+        if (switchAtivo) switchAtivo.checked = data.ativo !== false;
+
         const switchElem = document.getElementById("switch_tem_monitor");
         if (switchElem) {
             switchElem.checked = !!data.tem_monitor;

@@ -681,6 +681,7 @@ def executar_migracao_transporte_contratados():
         "ALTER TABLE motorista_contratado ADD COLUMN IF NOT EXISTS tem_monitor BOOLEAN DEFAULT FALSE;",
         "ALTER TABLE motorista_contratado ADD COLUMN IF NOT EXISTS monitor_nome VARCHAR(200);",
         "ALTER TABLE motorista_contratado ADD COLUMN IF NOT EXISTS monitor_cpf VARCHAR(14);",
+        "ALTER TABLE motorista_contratado ADD COLUMN IF NOT EXISTS ativo BOOLEAN DEFAULT TRUE;",
     ]
 
     for q in queries:
@@ -703,8 +704,9 @@ def motoristas_contratados():
     rotas_existentes = RotaTransporte.query.all()
 
     total_motoristas = len(motoristas)
+    total_ativos = sum(1 for m in motoristas if getattr(m, 'ativo', True))
     total_com_monitor = sum(1 for m in motoristas if m.tem_monitor)
-    folha_mensal_total = sum(m.valor_recebe for m in motoristas)
+    folha_mensal_total = sum(m.valor_recebe for m in motoristas if getattr(m, 'ativo', True))
     total_folhas_geradas = len(folhas)
 
     return render_template(
@@ -713,6 +715,7 @@ def motoristas_contratados():
         folhas=folhas,
         rotas_existentes=rotas_existentes,
         total_motoristas=total_motoristas,
+        total_ativos=total_ativos,
         total_com_monitor=total_com_monitor,
         folha_mensal_total=folha_mensal_total,
         total_folhas_geradas=total_folhas_geradas
@@ -729,6 +732,7 @@ def salvar_motorista_contratado():
         nome = request.form.get('nome', '').strip()
         cpf = request.form.get('cpf', '').strip()
         rota = request.form.get('rota', '').strip()
+        ativo = request.form.get('ativo') in ['on', 'true', '1', True]
         tem_monitor = request.form.get('tem_monitor') in ['on', 'true', '1', True]
         
         monitor_nome = request.form.get('monitor_nome', '').strip() if tem_monitor else None
@@ -759,6 +763,7 @@ def salvar_motorista_contratado():
         motorista.nome = nome
         motorista.cpf = cpf
         motorista.rota = rota
+        motorista.ativo = ativo
         motorista.tem_monitor = tem_monitor
         motorista.monitor_nome = monitor_nome
         motorista.monitor_cpf = monitor_cpf
@@ -775,6 +780,24 @@ def salvar_motorista_contratado():
     except Exception as e:
         db.session.rollback()
         flash(f'Erro ao salvar motorista contratado: {e}', 'danger')
+
+    return redirect(url_for('transporte.motoristas_contratados'))
+
+
+@transporte_bp.route('/motoristas-contratados/toggle-status/<int:id>', methods=['POST', 'GET'])
+@login_required
+@role_required('Combustivel', 'admin')
+def toggle_status_motorista(id):
+    """Alterna o status do motorista entre Ativo e Inativo."""
+    try:
+        motorista = MotoristaContratado.query.get_or_404(id)
+        motorista.ativo = not getattr(motorista, 'ativo', True)
+        db.session.commit()
+        status_str = "ativado" if motorista.ativo else "desativado"
+        flash(f'Motorista "{motorista.nome}" foi {status_str} com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao alterar status do motorista: {e}', 'danger')
 
     return redirect(url_for('transporte.motoristas_contratados'))
 

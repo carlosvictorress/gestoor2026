@@ -1880,6 +1880,7 @@ class MotoristaContratado(db.Model):
     monitor_cpf = db.Column(db.String(14), nullable=True)
     veiculo = db.Column(db.String(100), nullable=False)
     veiculo_placa = db.Column(db.String(10), nullable=False)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
     
     # Dados Bancários
     banco = db.Column(db.String(100), nullable=False)

@@ -585,19 +585,39 @@ def gerar_pdf_folha_pagamento_geral(motoristas, folha, filepath):
     valor_total = 0.0
 
     for m in motoristas:
-        v = m.valor_recebe or 0.0
+        if hasattr(m, 'nome'):
+            m_nome = m.nome or ''
+            m_cpf = m.cpf or ''
+            m_rota = m.rota or ''
+            m_agencia = m.agencia or ''
+            m_conta = m.conta or ''
+            m_tipo_conta = m.tipo_conta or ''
+            v = float(m.valor_recebe or 0.0)
+            m_veiculo = m.veiculo or ''
+            m_placa = m.veiculo_placa or ''
+        else:
+            m_nome = m.get('nome', '')
+            m_cpf = m.get('cpf', '')
+            m_rota = m.get('rota', '')
+            m_agencia = m.get('agencia', '')
+            m_conta = m.get('conta', '')
+            m_tipo_conta = m.get('tipo_conta', '')
+            v = float(m.get('valor', 0.0))
+            m_veiculo = m.get('veiculo', '')
+            m_placa = m.get('veiculo_placa', '')
+
         valor_total += v
         valor_fmt = f"R$ {v:,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
         table_data.append([
-            Paragraph(m.nome, cell_bold_style),
-            Paragraph(m.cpf, cell_style),
-            Paragraph(m.rota, cell_style),
-            Paragraph(m.agencia, cell_style),
-            Paragraph(m.conta, cell_style),
-            Paragraph(m.tipo_conta, cell_style),
+            Paragraph(m_nome, cell_bold_style),
+            Paragraph(m_cpf, cell_style),
+            Paragraph(m_rota, cell_style),
+            Paragraph(m_agencia, cell_style),
+            Paragraph(m_conta, cell_style),
+            Paragraph(m_tipo_conta, cell_style),
             Paragraph(valor_fmt, cell_bold_style),
-            Paragraph(m.veiculo, cell_style),
-            Paragraph(m.veiculo_placa, cell_style),
+            Paragraph(m_veiculo, cell_style),
+            Paragraph(m_placa, cell_style),
         ])
 
     # Linha do Total Geral
@@ -657,6 +677,7 @@ def executar_migracao_transporte_contratados():
     queries = [
         "ALTER TABLE folha_pagamento_contratado ADD COLUMN IF NOT EXISTS qtd_motoristas INTEGER DEFAULT 1;",
         "ALTER TABLE folha_pagamento_contratado ALTER COLUMN motorista_id DROP NOT NULL;",
+        "ALTER TABLE folha_pagamento_contratado ADD COLUMN IF NOT EXISTS dados_json TEXT;",
         "ALTER TABLE motorista_contratado ADD COLUMN IF NOT EXISTS tem_monitor BOOLEAN DEFAULT FALSE;",
         "ALTER TABLE motorista_contratado ADD COLUMN IF NOT EXISTS monitor_nome VARCHAR(200);",
         "ALTER TABLE motorista_contratado ADD COLUMN IF NOT EXISTS monitor_cpf VARCHAR(14);",
@@ -780,15 +801,46 @@ def excluir_motorista_contratado(id):
 @login_required
 @role_required('Combustivel', 'admin')
 def gerar_folha_pagamento():
-    """Gera a folha de pagamento geral em PDF para todos os motoristas contratados."""
+    """Gera a folha de pagamento geral em PDF para todos ou motoristas selecionados com valores ajustados."""
     try:
         mes_referencia = request.form.get('mes_referencia', '').strip() or datetime.now().strftime('%B / %Y').capitalize()
+        ids_selecionados_raw = request.form.getlist('motoristas_selecionados')
 
-        motoristas = MotoristaContratado.query.order_by(MotoristaContratado.nome.asc()).all()
-
-        if not motoristas:
-            flash('Nenhum motorista contratado cadastrado para gerar a folha.', 'warning')
+        if not ids_selecionados_raw:
+            flash('Selecione pelo menos um motorista para gerar a folha de pagamento.', 'warning')
             return redirect(url_for('transporte.motoristas_contratados'))
+
+        ids_selecionados = [int(i) for i in ids_selecionados_raw if str(i).isdigit()]
+        motoristas_banco = MotoristaContratado.query.filter(MotoristaContratado.id.in_(ids_selecionados)).order_by(MotoristaContratado.nome.asc()).all()
+
+        if not motoristas_banco:
+            flash('Nenhum motorista contratado cadastrado foi selecionado.', 'warning')
+            return redirect(url_for('transporte.motoristas_contratados'))
+
+        itens_dados = []
+        valor_total = 0.0
+
+        for m in motoristas_banco:
+            val_raw = request.form.get(f'valor_motorista_{m.id}', '').replace('.', '').replace(',', '.')
+            try:
+                v = float(val_raw)
+            except ValueError:
+                v = float(m.valor_recebe or 0.0)
+
+            valor_total += v
+            itens_dados.append({
+                'id': m.id,
+                'nome': m.nome or '',
+                'cpf': m.cpf or '',
+                'rota': m.rota or '',
+                'banco': m.banco or '',
+                'agencia': m.agencia or '',
+                'conta': m.conta or '',
+                'tipo_conta': m.tipo_conta or '',
+                'valor': v,
+                'veiculo': m.veiculo or '',
+                'veiculo_placa': m.veiculo_placa or ''
+            })
 
         upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'folhas_pagamento')
         os.makedirs(upload_dir, exist_ok=True)
@@ -798,7 +850,7 @@ def gerar_folha_pagamento():
         filename = f"Folha_Geral_Tercerizado_{safe_mes}_{cod_auth}.pdf"
         filepath = os.path.join(upload_dir, filename)
 
-        valor_total = sum(m.valor_recebe or 0.0 for m in motoristas)
+        dados_json_str = json.dumps(itens_dados, ensure_ascii=False)
 
         nova_folha = FolhaPagamentoContratado(
             motorista_id=None,
@@ -807,15 +859,16 @@ def gerar_folha_pagamento():
             valor=valor_total,
             arquivo_pdf=filename,
             codigo_autenticacao=cod_auth,
-            qtd_motoristas=len(motoristas)
+            qtd_motoristas=len(itens_dados),
+            dados_json=dados_json_str
         )
         db.session.add(nova_folha)
         db.session.flush()
 
-        gerar_pdf_folha_pagamento_geral(motoristas, nova_folha, filepath)
+        gerar_pdf_folha_pagamento_geral(itens_dados, nova_folha, filepath)
 
         db.session.commit()
-        flash(f'Folha de Pagamento Geral (Tercerizado) de {mes_referencia} gerada com sucesso!', 'success')
+        flash(f'Folha de Pagamento Geral (Tercerizado) de {mes_referencia} gerada com sucesso ({len(itens_dados)} motoristas)!', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Erro ao gerar folha de pagamento: {e}', 'danger')
@@ -827,9 +880,31 @@ def gerar_folha_pagamento():
 @login_required
 @role_required('Combustivel', 'admin')
 def download_folha_pagamento(filename):
-    """Download/visualização do PDF da folha de pagamento gerada."""
+    """Download/visualização do PDF da folha de pagamento gerada. Regenera em tempo de execução se o arquivo não existir em disco."""
     upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'folhas_pagamento')
-    return send_from_directory(upload_dir, filename, as_attachment=False)
+    filepath = os.path.join(upload_dir, filename)
+
+    if not os.path.exists(filepath):
+        folha = FolhaPagamentoContratado.query.filter_by(arquivo_pdf=filename).first()
+        if folha:
+            if folha.dados_json:
+                try:
+                    motoristas_dados = json.loads(folha.dados_json)
+                except Exception:
+                    motoristas_dados = []
+            else:
+                motoristas_dados = MotoristaContratado.query.order_by(MotoristaContratado.nome.asc()).all()
+
+            try:
+                gerar_pdf_folha_pagamento_geral(motoristas_dados, folha, filepath)
+            except Exception as e:
+                current_app.logger.error(f"Erro ao recriar PDF da folha: {e}")
+
+    if os.path.exists(filepath):
+        return send_from_directory(upload_dir, filename, as_attachment=False)
+    else:
+        flash('Arquivo de folha de pagamento não encontrado e não pôde ser reconstruído.', 'danger')
+        return redirect(url_for('transporte.motoristas_contratados'))
 
 
 @transporte_bp.route('/motoristas-contratados/folha/<int:id>/excluir', methods=['POST', 'GET'])

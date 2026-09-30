@@ -1907,6 +1907,7 @@ class FolhaPagamentoContratado(db.Model):
     arquivo_pdf = db.Column(db.String(255), nullable=False)
     codigo_autenticacao = db.Column(db.String(50), nullable=True)
     qtd_motoristas = db.Column(db.Integer, default=1)
+    dados_json = db.Column(db.Text, nullable=True)
 
     def __repr__(self):
         return f'<FolhaPagamentoContratado {self.id} - {self.mes_referencia}>'

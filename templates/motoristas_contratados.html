@@ -488,20 +488,73 @@
 
 <!-- MODAL GERAR FOLHA DE PAGAMENTO GERAL -->
 <div class="modal fade" id="modalGerarFolha" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-pdf-fill me-2"></i> Emitir Folha de Pagamento Geral (Tercerizado)</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="{{ url_for('transporte.gerar_folha_pagamento') }}" method="POST">
+            <form action="{{ url_for('transporte.gerar_folha_pagamento') }}" method="POST" id="formGerarFolha">
                 <div class="modal-body p-4">
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Mês de Referência <span class="text-danger">*</span></label>
                         <input type="text" name="mes_referencia" id="input_mes_referencia" class="form-control form-control-lg" placeholder="Ex: Agosto / 2026" required>
                     </div>
-                    <div class="alert alert-success py-2 px-3 mb-0 small border-0 bg-success bg-opacity-10 text-success">
-                        <i class="bi bi-check-circle-fill me-1"></i> O sistema gerará a <strong>Folha Geral Tercerizado</strong> contendo todos os motoristas contratados em uma única folha/tabela em formato PDF sem timbre da prefeitura.
+
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-bold mb-0 text-dark">
+                                <i class="bi bi-people-fill me-1 text-success"></i> Seleção de Motoristas e Valores para esta Folha
+                            </label>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-outline-success py-0 me-1" id="btnMarcarTodos">
+                                    <i class="bi bi-check-all"></i> Marcar Todos
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary py-0" id="btnDesmarcarTodos">
+                                    <i class="bi bi-x-lg"></i> Desmarcar Todos
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive border rounded" style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm table-hover align-middle mb-0" id="tabelaFolhaMotoristas">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th style="width: 45px;" class="text-center">Incluir</th>
+                                        <th>Motorista / Rota</th>
+                                        <th style="width: 170px;" class="text-end">Valor nesta Folha (R$)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for m in motoristas %}
+                                    <tr>
+                                        <td class="text-center">
+                                            <input type="checkbox" name="motoristas_selecionados" value="{{ m.id }}" class="form-check-input chk-motorista-folha" id="chk_mot_{{ m.id }}" checked>
+                                        </td>
+                                        <td>
+                                            <label for="chk_mot_{{ m.id }}" class="mb-0 fw-bold d-block text-dark cursor-pointer">{{ m.nome }}</label>
+                                            <small class="text-muted d-block">{{ m.rota }} | Placa: {{ m.veiculo_placa }}</small>
+                                        </td>
+                                        <td>
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text bg-light">R$</span>
+                                                <input type="text" name="valor_motorista_{{ m.id }}" class="form-control form-control-sm text-end input-valor-folha" value="{{ '%.2f'|format(m.valor_recebe or 0.0)|replace('.', ',') }}" data-id="{{ m.id }}">
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted py-3">Nenhum motorista contratado cadastrado.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-success py-2 px-3 mb-0 small d-flex justify-content-between align-items-center bg-success bg-opacity-10 border-0 text-success">
+                        <span><i class="bi bi-check-circle-fill me-1"></i> <strong id="lblTotalSelecionados">{{ motoristas|length }}</strong> motorista(s) selecionado(s)</span>
+                        <span class="fs-6 fw-bold text-success">Total: R$ <span id="lblValorTotalFolha">{{ "%.2f"|format(folha_mensal_total)|replace(".", ",") }}</span></span>
                     </div>
                 </div>
                 <div class="modal-footer bg-light">
@@ -514,11 +567,64 @@
 </div>
 
 <script>
+    function recalcularTotalFolhaModal() {
+        let total = 0.0;
+        let count = 0;
+        document.querySelectorAll('.chk-motorista-folha').forEach(function(chk) {
+            const row = chk.closest('tr');
+            const valInput = row.querySelector('.input-valor-folha');
+            if (chk.checked) {
+                count++;
+                if (valInput) {
+                    valInput.disabled = false;
+                    let valStr = valInput.value.replace(/\./g, '').replace(',', '.');
+                    let val = parseFloat(valStr) || 0;
+                    total += val;
+                }
+            } else {
+                if (valInput) {
+                    valInput.disabled = true;
+                }
+            }
+        });
+
+        const lblCount = document.getElementById('lblTotalSelecionados');
+        if (lblCount) lblCount.innerText = count;
+
+        const lblTotal = document.getElementById('lblValorTotalFolha');
+        if (lblTotal) lblTotal.innerText = total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     document.addEventListener("DOMContentLoaded", function() {
         const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
         const d = new Date();
         const mesAtual = meses[d.getMonth()] + " / " + d.getFullYear();
-        document.getElementById("input_mes_referencia").value = mesAtual;
+        const inputMes = document.getElementById("input_mes_referencia");
+        if (inputMes) inputMes.value = mesAtual;
+
+        document.querySelectorAll('.chk-motorista-folha').forEach(function(chk) {
+            chk.addEventListener('change', recalcularTotalFolhaModal);
+        });
+
+        document.querySelectorAll('.input-valor-folha').forEach(function(inp) {
+            inp.addEventListener('input', recalcularTotalFolhaModal);
+        });
+
+        const btnMarcar = document.getElementById('btnMarcarTodos');
+        if (btnMarcar) {
+            btnMarcar.addEventListener('click', function() {
+                document.querySelectorAll('.chk-motorista-folha').forEach(function(chk) { chk.checked = true; });
+                recalcularTotalFolhaModal();
+            });
+        }
+
+        const btnDesmarcar = document.getElementById('btnDesmarcarTodos');
+        if (btnDesmarcar) {
+            btnDesmarcar.addEventListener('click', function() {
+                document.querySelectorAll('.chk-motorista-folha').forEach(function(chk) { chk.checked = false; });
+                recalcularTotalFolhaModal();
+            });
+        }
     });
 
     // Função de máscara de CPF em tempo real
@@ -543,12 +649,14 @@
     function toggleMonitorCampos() {
         const switchElem = document.getElementById("switch_tem_monitor");
         const container = document.getElementById("container_monitor");
-        if (switchElem.checked) {
-            container.classList.remove("d-none");
-        } else {
-            container.classList.add("d-none");
-            document.getElementById("input_monitor_nome").value = "";
-            document.getElementById("input_monitor_cpf").value = "";
+        if (switchElem && container) {
+            if (switchElem.checked) {
+                container.classList.remove("d-none");
+            } else {
+                container.classList.add("d-none");
+                document.getElementById("input_monitor_nome").value = "";
+                document.getElementById("input_monitor_cpf").value = "";
+            }
         }
     }
 
@@ -557,7 +665,8 @@
         document.getElementById("input_nome").value = "";
         document.getElementById("input_cpf").value = "";
         document.getElementById("input_rota").value = "";
-        document.getElementById("switch_tem_monitor").checked = false;
+        const switchElem = document.getElementById("switch_tem_monitor");
+        if (switchElem) switchElem.checked = false;
         toggleMonitorCampos();
         document.getElementById("input_veiculo").value = "";
         document.getElementById("input_veiculo_placa").value = "";
@@ -579,12 +688,14 @@
         document.getElementById("input_rota").value = data.rota || "";
         
         const switchElem = document.getElementById("switch_tem_monitor");
-        switchElem.checked = !!data.tem_monitor;
-        toggleMonitorCampos();
-        
-        if (data.tem_monitor) {
-            document.getElementById("input_monitor_nome").value = data.monitor_nome || "";
-            document.getElementById("input_monitor_cpf").value = formatarCPF(data.monitor_cpf || "");
+        if (switchElem) {
+            switchElem.checked = !!data.tem_monitor;
+            toggleMonitorCampos();
+            
+            if (data.tem_monitor) {
+                document.getElementById("input_monitor_nome").value = data.monitor_nome || "";
+                document.getElementById("input_monitor_cpf").value = formatarCPF(data.monitor_cpf || "");
+            }
         }
 
         document.getElementById("input_veiculo").value = data.veiculo || "";

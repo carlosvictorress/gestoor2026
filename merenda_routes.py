@@ -890,14 +890,12 @@ def gerar_pdf_termo_entrega_profissional(titulo, subtitulo, escola_nome, escola_
         [
             Paragraph(f"<b>Endereço:</b> {endereco_str}", style_card_val),
             Paragraph(f"<b>Expedido por:</b> {responsavel or 'Sistema'}", style_card_val)
+        ],
+        [
+            Paragraph(f"<b>Observações/Justificativa:</b> {observacao_geral or '-'}", style_card_val),
+            Paragraph(f"<b>Programa:</b> PNAE / Alimentação Escolar", style_card_val)
         ]
     ]
-
-    if observacao_geral:
-        card_data.append([
-            Paragraph(f"<b>Observações/Justificativa:</b> {observacao_geral}", style_card_val),
-            Paragraph(f"<b>Programa:</b> PNAE / Alimentação Escolar", style_card_val)
-        ])
 
     card_table = Table(card_data, colWidths=[10.5*cm, 7.5*cm])
     card_table.setStyle(TableStyle([
@@ -918,8 +916,7 @@ def gerar_pdf_termo_entrega_profissional(titulo, subtitulo, escola_nome, escola_
             Paragraph("Item", style_th),
             Paragraph("Gênero Alimentício / Produto", style_th),
             Paragraph("Qtd. Lançada (Embalagem)", style_th),
-            Paragraph("Baixa Real (Estoque)", style_th),
-            Paragraph("Status/Lote", style_th)
+            Paragraph("Baixa Real (Estoque)", style_th)
         ]
     ]
 
@@ -928,25 +925,22 @@ def gerar_pdf_termo_entrega_profissional(titulo, subtitulo, escola_nome, escola_
         p_nome = row.get('produto', '')
         q_emb = row.get('qtd_emb', '--')
         q_real = row.get('qtd_real', '--')
-        obs = row.get('obs', 'Conforme pedido')
 
         table_rows.append([
             Paragraph(str(idx), style_td_center),
             Paragraph(p_nome, style_td_bold),
             Paragraph(q_emb, style_td_center),
-            Paragraph(q_real, style_td_center),
-            Paragraph(obs, style_td_center)
+            Paragraph(q_real, style_td_center)
         ])
 
     table_rows.append([
         Paragraph("TOTAL", style_td_bold),
         Paragraph(f"<b>{total_itens} item(ns) discriminado(s)</b>", style_td_bold),
         Paragraph("--", style_td_center),
-        Paragraph("--", style_td_center),
-        Paragraph("OK", style_td_center)
+        Paragraph("--", style_td_center)
     ])
 
-    prod_table = Table(table_rows, colWidths=[1.2*cm, 7.5*cm, 3.8*cm, 3.5*cm, 2.0*cm])
+    prod_table = Table(table_rows, colWidths=[1.5*cm, 8.5*cm, 4.0*cm, 4.0*cm])
     prod_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#004d40')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -977,42 +971,7 @@ def gerar_pdf_termo_entrega_profissional(titulo, subtitulo, escola_nome, escola_
         ('RIGHTPADDING', (0, 0), (-1, -1), 8),
     ]))
     story.append(decl_table)
-    story.append(Spacer(1, 0.4*cm))
-
-    # 4.5 Bloco de Observações e Justificativas da Expedição (no final do PDF)
-    if observacao_geral:
-        obs_title_style = ParagraphStyle(
-            'ObsTitle',
-            fontName='Helvetica-Bold',
-            fontSize=8.5,
-            leading=11,
-            textColor=colors.HexColor('#92400e')
-        )
-        obs_text_style = ParagraphStyle(
-            'ObsText',
-            fontName='Helvetica',
-            fontSize=8,
-            leading=10.5,
-            textColor=colors.HexColor('#1e293b')
-        )
-        obs_content = [
-            Paragraph("<b>OBSERVAÇÕES E JUSTIFICATIVA DA EXPEDIÇÃO:</b>", obs_title_style),
-            Spacer(1, 0.1*cm),
-            Paragraph(observacao_geral, obs_text_style)
-        ]
-        obs_table = Table([[obs_content]], colWidths=[18.0*cm])
-        obs_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fef3c7')),
-            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#fde68a')),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ('LEFTPADDING', (0, 0), (-1, -1), 8),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ]))
-        story.append(obs_table)
-        story.append(Spacer(1, 0.5*cm))
-    else:
-        story.append(Spacer(1, 0.8*cm))
+    story.append(Spacer(1, 0.8*cm))
 
     # 5. Quadro de Assinaturas Duplas
     ass_data = [

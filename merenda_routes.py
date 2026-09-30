@@ -878,6 +878,17 @@ def gerar_pdf_termo_entrega_profissional(titulo, subtitulo, escola_nome, escola_
     inep_str = getattr(escola_obj, 'codigo_inep', None) or '-'
     endereco_str = getattr(escola_obj, 'endereco', None) or '-'
 
+    # Se observacao_geral não foi informada explicitamente, consolida observações relevantes dos itens
+    if not observacao_geral:
+        obs_unicas = []
+        for r in itens_tabela:
+            o = r.get('obs')
+            if o and o.strip() and o.strip() not in ("Conforme Solicitação", "Conforme pedido", "OK", "--") and not o.startswith("Status:") and not o.startswith("Resp:"):
+                if o.strip() not in obs_unicas:
+                    obs_unicas.append(o.strip())
+        if obs_unicas:
+            observacao_geral = " | ".join(obs_unicas)
+
     card_data = [
         [
             Paragraph(f"<b>Unidade Escolar:</b> {escola_nome}", style_card_val),
@@ -925,10 +936,15 @@ def gerar_pdf_termo_entrega_profissional(titulo, subtitulo, escola_nome, escola_
         p_nome = row.get('produto', '')
         q_emb = row.get('qtd_emb', '--')
         q_real = row.get('qtd_real', '--')
+        obs = row.get('obs', '')
+
+        p_cell_content = f"<b>{p_nome}</b>"
+        if obs and obs.strip() and obs.strip() not in ("Conforme Solicitação", "Conforme pedido", "OK", "--") and obs.strip() != (observacao_geral or '').strip():
+            p_cell_content += f"<br/><font size=7 color='#475569'><i>Obs: {obs.strip()}</i></font>"
 
         table_rows.append([
             Paragraph(str(idx), style_td_center),
-            Paragraph(p_nome, style_td_bold),
+            Paragraph(p_cell_content, style_td_bold),
             Paragraph(q_emb, style_td_center),
             Paragraph(q_real, style_td_center)
         ])
@@ -1025,22 +1041,27 @@ def pdf_recibo_saida_movimento(movimento_id):
     escola = Escola.query.get(movimento.escola_id) if movimento.escola_id else None
     escola_nome = escola.nome if escola else "Unidade Escolar"
 
+    # Coleta todas as observações dos movimentos do grupo sem duplicar
+    obs_grupo = []
+    for mov in movimentos_grupo:
+        if mov.observacao and mov.observacao.strip():
+            txt = mov.observacao.strip()
+            if txt not in obs_grupo:
+                obs_grupo.append(txt)
+    
+    obs_geral_consolidada = " | ".join(obs_grupo) if obs_grupo else (movimento.observacao or None)
+
     itens_tabela = []
     for mov in movimentos_grupo:
         produto = ProdutoMerenda.query.get(mov.produto_id) if mov.produto_id else None
         qtd_emb = f"{mov.quantidade_embalagem:.2f} {mov.unidade_movimento or 'unid'}" if mov.quantidade_embalagem else "--"
         qtd_real = f"{mov.quantidade:.2f} {produto.unidade_consumo if produto else 'UNID'}"
         
-        # Limpar observações longas/retroativas das linhas individuais do produto para a tabela ficar limpa
-        obs_item = "Conforme Solicitação"
-        if mov.observacao and "[Justificativa Data Retroativa:" not in mov.observacao:
-            obs_item = mov.observacao
-
         itens_tabela.append({
             'produto': produto.nome if produto else 'Gênero Alimentício',
             'qtd_emb': qtd_emb,
             'qtd_real': qtd_real,
-            'obs': obs_item
+            'obs': mov.observacao or ""
         })
 
     protocolo = f"GRP-{movimento.codigo_grupo}" if movimento.codigo_grupo else f"MOV-{movimento.id:06d}"
@@ -1053,7 +1074,7 @@ def pdf_recibo_saida_movimento(movimento_id):
         data_emissao=movimento.data_movimento,
         responsavel=movimento.usuario_responsavel,
         itens_tabela=itens_tabela,
-        observacao_geral=movimento.observacao,
+        observacao_geral=obs_geral_consolidada,
         num_protocolo=protocolo
     )
 

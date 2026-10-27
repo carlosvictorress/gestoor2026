@@ -1,60 +1,52 @@
 {% extends 'base.html' %}
 
-{% block title %}Inventário de Patrimônio{% endblock %}
+{% block title %}Inventário e Controle Patrimonial{% endblock %}
 
 {% block head_extra %}
 <style>
-    /* Animações e Efeitos Modernos */
     @keyframes slideUp {
-        from { opacity: 0; transform: translateY(20px); }
+        from { opacity: 0; transform: translateY(15px); }
         to { opacity: 1; transform: translateY(0); }
     }
 
     .animate-in {
-        animation: slideUp 0.5s ease forwards;
+        animation: slideUp 0.35s ease forwards;
     }
 
     .dashboard-card {
-        border: none;
+        border: 1px solid #e2e8f0;
         border-radius: 16px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: all 0.25s ease;
         background: #ffffff;
     }
 
     .dashboard-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 24px rgba(0,0,0,0.08) !important;
+        transform: translateY(-3px);
+        box-shadow: 0 10px 22px rgba(15, 41, 66, 0.08) !important;
     }
 
     .status-badge {
-        padding: 0.5em 1.2em;
+        padding: 0.4em 1em;
         border-radius: 50px;
         font-weight: 600;
-        font-size: 0.75rem;
+        font-size: 0.73rem;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .search-container {
-        background: #fff;
-        border-radius: 50px;
-        padding: 5px 20px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-        border: 1px solid #eef0f2;
+        letter-spacing: 0.4px;
     }
 
     .btn-rounded {
         border-radius: 50px;
-        padding-left: 1.5rem;
-        padding-right: 1.5rem;
+        padding-left: 1.35rem;
+        padding-right: 1.35rem;
     }
 
     .item-img-container {
-        width: 80px;
-        height: 80px;
+        width: 76px;
+        height: 76px;
         overflow: hidden;
         border-radius: 12px;
-        background: #f8f9fa;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -66,137 +58,241 @@
         object-fit: cover;
     }
 
-    /* Linha decorativa lateral baseada no estado */
-    .border-bom { border-left: 5px solid #198754 !important; }
+    .border-novo, .border-bom { border-left: 5px solid #198754 !important; }
     .border-regular { border-left: 5px solid #ffc107 !important; }
-    .border-inservivel { border-left: 5px solid #dc3545 !important; }
+    .border-ruim, .border-inservivel { border-left: 5px solid #dc3545 !important; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-end mb-4">
+<div class="container mt-4 mb-5">
+    <!-- Cabeçalho Principal -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-4 gap-3">
         <div>
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb mb-1">
                     <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Home</a></li>
-                    <li class="breadcrumb-item active">Patrimônio</li>
+                    <li class="breadcrumb-item active">Controle Patrimonial</li>
                 </ol>
             </nav>
-            <h2 class="fw-bold text-dark mb-0">Gestão de Bens</h2>
+            <div class="d-flex align-items-center gap-2">
+                <h2 class="fw-bold text-dark mb-0">Acervo e Controle Patrimonial</h2>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">Controle Interno</span>
+            </div>
+            <p class="text-muted small mb-0">Gestão de bens permanentes, tombamento, notas fiscais e termos de guarda municipal.</p>
         </div>
-        <div class="d-flex gap-2">
-            <a href="{{ url_for('patrimonio.listar_itens_baixados') }}" class="btn btn-outline-warning btn-rounded shadow-sm">
-                <i class="bi bi-archive me-2"></i>Ver Baixados
+        <div class="d-flex flex-wrap gap-2">
+            {% if notas_recentes %}
+            <button type="button" class="btn btn-outline-primary btn-rounded shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNotasIncorporadas">
+                <i class="bi bi-receipt-cutoff me-1"></i> Notas Fiscais ({{ notas_recentes|length }})
+            </button>
+            {% endif %}
+            <a href="{{ url_for('patrimonio.listar_itens_baixados') }}" class="btn btn-outline-warning btn-rounded shadow-sm text-dark">
+                <i class="bi bi-archive me-1"></i> Bens Baixados
             </a>
-            <a href="{{ url_for('patrimonio.novo_item') }}" class="btn btn-primary btn-rounded shadow-sm">
-                <i class="bi bi-plus-lg me-2"></i>Novo Patrimônio
+            <a href="{{ url_for('patrimonio.novo_item') }}" class="btn btn-primary btn-rounded shadow-sm fw-bold">
+                <i class="bi bi-plus-lg me-1"></i> Incorporar / Novo Patrimônio
             </a>
         </div>
     </div>
 
+    <!-- Cards de Indicadores (KPIs) -->
     <div class="row g-3 mb-4">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card dashboard-card shadow-sm p-3">
                 <div class="d-flex align-items-center">
                     <div class="bg-primary bg-opacity-10 p-3 rounded-circle me-3">
-                        <i class="bi bi-box-seam text-primary fs-3"></i>
+                        <i class="bi bi-box-seam text-primary fs-4"></i>
                     </div>
                     <div>
-                        <small class="text-muted d-block">Total de Itens</small>
+                        <small class="text-muted d-block">Bens Listados</small>
                         <h3 class="fw-bold mb-0">{{ itens|length }}</h3>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card dashboard-card shadow-sm p-3">
                 <div class="d-flex align-items-center">
                     <div class="bg-success bg-opacity-10 p-3 rounded-circle me-3">
-                        <i class="bi bi-cash-stack text-success fs-3"></i>
+                        <i class="bi bi-cash-stack text-success fs-4"></i>
                     </div>
                     <div>
-                        <small class="text-muted d-block">Valor em Acervo</small>
-                        <h3 class="fw-bold mb-0">R$ {{ "%.2f"|format(itens|sum(attribute='valor_aquisicao') or 0)|replace('.', ',') }}</h3>
+                        <small class="text-muted d-block">Valor Contábil em Acervo</small>
+                        <h4 class="fw-bold mb-0 text-success">R$ {{ "%.2f"|format(itens|sum(attribute='valor_aquisicao') or 0)|replace('.', ',') }}</h4>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card dashboard-card shadow-sm p-3">
                 <div class="d-flex align-items-center">
                     <div class="bg-info bg-opacity-10 p-3 rounded-circle me-3">
-                        <i class="bi bi-geo-alt text-info fs-3"></i>
+                        <i class="bi bi-geo-alt text-info fs-4"></i>
                     </div>
                     <div>
-                        <small class="text-muted d-block">Localizações</small>
+                        <small class="text-muted d-block">Locais / Setores Ativos</small>
                         <h3 class="fw-bold mb-0">{{ itens|map(attribute='localizacao')|unique|list|length }}</h3>
                     </div>
                 </div>
             </div>
         </div>
+        <div class="col-md-3">
+            <div class="card dashboard-card shadow-sm p-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-secondary bg-opacity-10 p-3 rounded-circle me-3">
+                        <i class="bi bi-receipt text-secondary fs-4"></i>
+                    </div>
+                    <div>
+                        <small class="text-muted d-block">Com Nota Fiscal Vinculada</small>
+                        <h3 class="fw-bold mb-0">{{ itens|selectattr('numero_nota_fiscal')|list|length }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="search-container mb-4 d-flex align-items-center">
-        <i class="bi bi-search text-muted me-3"></i>
-        <form method="GET" action="{{ url_for('patrimonio.listar_itens') }}" class="flex-grow-1 d-flex">
-            <input type="text" name="q" class="form-control border-0 shadow-none" 
-                   placeholder="Filtrar por número de tombamento ou descrição do bem..." 
-                   value="{{ termo_busca or '' }}">
-            <button type="submit" class="btn btn-dark btn-rounded ms-2">Pesquisar</button>
-        </form>
+    <!-- Painel de Filtros Avançados de Controle Interno -->
+    <div class="card dashboard-card shadow-sm mb-4">
+        <div class="card-body p-3">
+            <form method="GET" action="{{ url_for('patrimonio.listar_itens') }}" class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold text-muted mb-1">Busca Geral (Tombamento, Bem, NF, Responsável, Local)</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                        <input type="text" name="termo" class="form-control"
+                               placeholder="Digite tombamento, descrição, NF, empenho, responsável..."
+                               value="{{ termo_busca or '' }}">
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-muted mb-1">Secretaria</label>
+                    <select name="secretaria_id" class="form-select form-select-sm">
+                        <option value="">Todas as Secretarias</option>
+                        {% for sec in secretarias %}
+                            <option value="{{ sec.id }}" {{ 'selected' if filtros and filtros.secretaria_id == (sec.id|string) else '' }}>
+                                {{ sec.nome }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted mb-1">Nº Nota Fiscal</label>
+                    <input type="text" name="nota_fiscal" class="form-control form-control-sm"
+                           placeholder="Ex: 124890" value="{{ filtros.nota_fiscal if filtros else '' }}">
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted mb-1">Conservação</label>
+                    <select name="estado" class="form-select form-select-sm">
+                        <option value="">Todos</option>
+                        <option value="Novo" {{ 'selected' if filtros and filtros.estado == 'Novo' else '' }}>Novo</option>
+                        <option value="Bom" {{ 'selected' if filtros and filtros.estado == 'Bom' else '' }}>Bom</option>
+                        <option value="Regular" {{ 'selected' if filtros and filtros.estado == 'Regular' else '' }}>Regular</option>
+                        <option value="Ruim" {{ 'selected' if filtros and filtros.estado == 'Ruim' else '' }}>Ruim</option>
+                        <option value="Inservível" {{ 'selected' if filtros and filtros.estado == 'Inservível' else '' }}>Inservível</option>
+                    </select>
+                </div>
+
+                <div class="col-md-1 d-grid">
+                    <button type="submit" class="btn btn-dark btn-sm rounded-3">Filtrar</button>
+                </div>
+            </form>
+        </div>
     </div>
 
+    <!-- Listagem de Bens Patrimoniais -->
     <div class="row">
         {% for bem in itens %}
-        <div class="col-12 mb-3 animate-in" style="animation-delay: {{ loop.index0 * 0.1 }}s;">
-            <div class="card dashboard-card shadow-sm 
-                {% if bem.estado_conservacao == 'Bom' %} border-bom 
-                {% elif bem.estado_conservacao == 'Regular' %} border-regular 
+        <div class="col-12 mb-3 animate-in">
+            <div class="card dashboard-card shadow-sm
+                {% if bem.estado_conservacao in ['Novo', 'Bom'] %} border-bom
+                {% elif bem.estado_conservacao == 'Regular' %} border-regular
                 {% else %} border-inservivel {% endif %}">
                 <div class="card-body p-3">
-                    <div class="row align-items-center">
+                    <div class="row align-items-center g-3">
                         <div class="col-auto">
                             <div class="item-img-container">
                                 {% if bem.foto_url %}
                                     <img src="{{ bem.foto_url }}" alt="Foto do bem">
                                 {% else %}
-                                    <i class="bi bi-camera text-muted fs-4"></i>
+                                    <i class="bi bi-box-seam text-secondary fs-3"></i>
                                 {% endif %}
                             </div>
                         </div>
 
                         <div class="col">
-                            <div class="d-flex align-items-center mb-1">
-                                <h5 class="fw-bold mb-0 me-2">{{ bem.descricao }}</h5>
-                                <span class="badge bg-light text-dark border">{{ bem.numero_patrimonio }}</span>
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                <span class="badge bg-dark font-monospace">
+                                    <i class="bi bi-upc-scan me-1"></i>{{ bem.numero_patrimonio or 'SEM TOMBAMENTO' }}
+                                </span>
+                                <h5 class="fw-bold mb-0 text-dark">{{ bem.descricao }}</h5>
+                                {% if bem.categoria %}
+                                    <span class="badge bg-light text-secondary border">{{ bem.categoria }}</span>
+                                {% endif %}
+                                {% if bem.numero_nota_fiscal %}
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle" title="Fornecedor: {{ bem.fornecedor_nome or 'Não informado' }}">
+                                        <i class="bi bi-receipt me-1"></i>NF: {{ bem.numero_nota_fiscal }}
+                                    </span>
+                                {% endif %}
+                                {% if bem.numero_empenho %}
+                                    <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle">
+                                        NE: {{ bem.numero_empenho }}
+                                    </span>
+                                {% endif %}
                             </div>
-                            <p class="text-muted small mb-0">
-                                <i class="bi bi-geo-alt me-1"></i>{{ bem.localizacao }} 
-                                <span class="mx-2">•</span>
-                                <i class="bi bi-tag me-1"></i>{{ bem.marca or 'S/ Marca' }}
-                            </p>
+
+                            <div class="text-muted small d-flex flex-wrap gap-3 mt-1">
+                                <span>
+                                    <i class="bi bi-geo-alt-fill text-primary me-1"></i>
+                                    <strong>Local:</strong> {{ bem.localizacao }}
+                                </span>
+                                <span>
+                                    <i class="bi bi-person-badge-fill text-secondary me-1"></i>
+                                    <strong>Responsável:</strong> {{ bem.nome_responsavel_atual or 'Não informado' }}
+                                </span>
+                                {% if bem.secretaria %}
+                                <span>
+                                    <i class="bi bi-building me-1"></i>{{ bem.secretaria.nome }}
+                                </span>
+                                {% endif %}
+                                {% if bem.marca or bem.modelo %}
+                                <span>
+                                    <i class="bi bi-tag me-1"></i>{{ bem.marca or '' }} {{ bem.modelo or '' }}
+                                </span>
+                                {% endif %}
+                            </div>
                         </div>
 
-                        <div class="col-md-3 text-md-center">
-                            <span class="status-badge 
-                                {% if bem.estado_conservacao == 'Bom' %} bg-success-subtle text-success
+                        <div class="col-md-2 text-md-center">
+                            <span class="status-badge
+                                {% if bem.estado_conservacao in ['Novo', 'Bom'] %} bg-success-subtle text-success
                                 {% elif bem.estado_conservacao == 'Regular' %} bg-warning-subtle text-warning-emphasis
                                 {% else %} bg-danger-subtle text-danger {% endif %} d-inline-block mb-1">
                                 {{ bem.estado_conservacao }}
                             </span>
                             <div class="fw-bold text-dark">R$ {{ "%.2f"|format(bem.valor_aquisicao or 0)|replace('.', ',') }}</div>
+                            {% if bem.data_aquisicao %}
+                                <small class="text-muted" style="font-size: 0.72rem;">Aq: {{ bem.data_aquisicao.strftime('%d/%m/%Y') }}</small>
+                            {% endif %}
                         </div>
 
                         <div class="col-auto">
                             <div class="d-flex gap-2">
-                                <a href="{{ url_for('patrimonio.gerar_etiqueta_qr', id=bem.id) }}" 
-                                   class="btn btn-outline-secondary btn-sm rounded-circle" title="Etiqueta QR">
+                                <a href="{{ url_for('patrimonio.gerar_etiqueta_qr', id=bem.id) }}"
+                                   target="_blank"
+                                   class="btn btn-outline-secondary btn-sm rounded-circle" title="Imprimir Etiqueta QR Code">
                                     <i class="bi bi-qr-code"></i>
                                 </a>
-                                <a href="{{ url_for('patrimonio.detalhes_item', item_id=bem.id) }}" 
-                                   class="btn btn-primary btn-sm btn-rounded">
-                                    Detalhes
+                                <a href="{{ url_for('patrimonio.editar_item', item_id=bem.id) }}"
+                                   class="btn btn-outline-primary btn-sm rounded-circle" title="Editar Bem">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{{ url_for('patrimonio.detalhes_item', item_id=bem.id) }}"
+                                   class="btn btn-primary btn-sm btn-rounded fw-semibold">
+                                    Ficha Completa
                                 </a>
                             </div>
                         </div>
@@ -206,12 +302,78 @@
         </div>
         {% else %}
         <div class="col-12">
-            <div class="text-center py-5">
-                <i class="bi bi-inbox text-muted display-1"></i>
-                <p class="mt-3 text-muted">Nenhum item encontrado no inventário.</p>
+            <div class="card dashboard-card text-center py-5">
+                <div class="card-body">
+                    <i class="bi bi-inbox text-muted display-3"></i>
+                    <h5 class="fw-bold mt-3">Nenhum bem patrimonial encontrado</h5>
+                    <p class="text-muted small mb-3">Utilize o botão "Incorporar / Novo Patrimônio" para registrar bens por Nota Fiscal ou inventário.</p>
+                    <a href="{{ url_for('patrimonio.novo_item') }}" class="btn btn-primary btn-rounded">
+                        <i class="bi bi-plus-lg me-1"></i> Cadastrar Patrimônio
+                    </a>
+                </div>
             </div>
         </div>
         {% endfor %}
     </div>
 </div>
+
+<!-- Modal de Notas Fiscais Incorporadas Recentemente -->
+{% if notas_recentes %}
+<div class="modal fade" id="modalNotasIncorporadas" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow" style="border-radius: 18px;">
+            <div class="modal-header border-0 pt-4 px-4">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-receipt-cutoff text-primary me-2"></i> Notas Fiscais Incorporadas ao Patrimônio
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-4 pb-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle small">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nº da NF</th>
+                                <th>Data</th>
+                                <th>Fornecedor / CNPJ</th>
+                                <th>Empenho / Processo</th>
+                                <th class="text-center">Bens Gerados</th>
+                                <th class="text-end">Valor Total</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for nf in notas_recentes %}
+                            <tr>
+                                <td class="fw-bold">{{ nf.numero_nf }}</td>
+                                <td>{{ nf.data_emissao.strftime('%d/%m/%Y') if nf.data_emissao else (nf.data_cadastro.strftime('%d/%m/%Y')) }}</td>
+                                <td>
+                                    <div class="fw-semibold">{{ nf.fornecedor_nome or 'Não informado' }}</div>
+                                    <small class="text-muted">{{ nf.fornecedor_cnpj or '' }}</small>
+                                </td>
+                                <td>
+                                    <div>NE: {{ nf.numero_empenho or '-' }}</div>
+                                    <small class="text-muted">Proc: {{ nf.numero_processo or '-' }}</small>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-primary rounded-pill">{{ nf.bens|length }} item(ns)</span>
+                                </td>
+                                <td class="text-end fw-bold text-success">
+                                    R$ {{ "%.2f"|format(nf.valor_total_nf or 0)|replace('.', ',') }}
+                                </td>
+                                <td class="text-end">
+                                    <a href="{{ url_for('patrimonio.listar_itens', nota_fiscal=nf.numero_nf) }}" class="btn btn-sm btn-outline-primary rounded-pill">
+                                        Filtrar Bens
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

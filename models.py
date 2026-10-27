@@ -446,6 +446,52 @@ class Contrato(db.Model):
     servidor = db.relationship("Servidor", backref="contratos")
 
 
+class LocalPatrimonio(db.Model):
+    __tablename__ = "patrimonio_local"
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(200), nullable=False)  # Ex: "SEMED - Sala da Coordenação"
+    predio_unidade = db.Column(db.String(200), nullable=True)  # Ex: "Sede SEMED", "Escola Municipal X"
+    sala_setor = db.Column(db.String(150), nullable=True)  # Ex: "Sala 02 / TI"
+    endereco = db.Column(db.String(300), nullable=True)
+    responsavel_setor = db.Column(db.String(200), nullable=True)
+    secretaria_id = db.Column(db.Integer, db.ForeignKey("secretaria.id"), nullable=True)
+    secretaria = db.relationship("Secretaria", backref="locais_patrimonio")
+    ativo = db.Column(db.Boolean, default=True)
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<LocalPatrimonio {self.nome}>'
+
+
+class NotaFiscalPatrimonio(db.Model):
+    __tablename__ = "patrimonio_nota_fiscal"
+    id = db.Column(db.Integer, primary_key=True)
+    numero_nf = db.Column(db.String(50), nullable=False)
+    serie_nf = db.Column(db.String(20), nullable=True)
+    chave_acesso = db.Column(db.String(60), nullable=True)
+    data_emissao = db.Column(db.Date, nullable=True)
+    data_recebimento = db.Column(db.Date, nullable=True)
+    fornecedor_nome = db.Column(db.String(200), nullable=True)
+    fornecedor_cnpj = db.Column(db.String(25), nullable=True)
+    forma_aquisicao = db.Column(db.String(80), default="Compra / Licitação")
+    numero_processo = db.Column(db.String(100), nullable=True)
+    modalidade_licitacao = db.Column(db.String(100), nullable=True)
+    numero_contrato = db.Column(db.String(80), nullable=True)
+    numero_empenho = db.Column(db.String(80), nullable=True)
+    fonte_recursos = db.Column(db.String(150), nullable=True)
+    conta_contabil = db.Column(db.String(120), nullable=True)
+    valor_total_nf = db.Column(db.Float, default=0.0)
+    arquivo_nf_url = db.Column(db.String(500), nullable=True)
+    observacoes = db.Column(db.Text, nullable=True)
+    usuario_registro = db.Column(db.String(100), nullable=True)
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
+
+    bens = db.relationship("Patrimonio", backref="nota_fiscal_rel", lazy=True)
+
+    def __repr__(self):
+        return f'<NotaFiscalPatrimonio NF {self.numero_nf} - {self.fornecedor_nome}>'
+
+
 class Patrimonio(db.Model):
     __tablename__ = "patrimonio"
 
@@ -457,22 +503,50 @@ class Patrimonio(db.Model):
     
     # Controle de Estado e Uso (Essencial para o novo Design)
     status = db.Column(db.String(50), nullable=False, default="Ativo") # Ativo, Manutenção, Baixado
-    estado_conservacao = db.Column(db.String(50), default="Bom") # Bom, Regular, Inservível
-    situacao_uso = db.Column(db.String(50), default="Em uso") # Em uso, Almoxarifado, Manutenção
+    estado_conservacao = db.Column(db.String(50), default="Bom") # Novo, Bom, Regular, Ruim, Inservível
+    situacao_uso = db.Column(db.String(50), default="Em uso") # Em uso, Almoxarifado, Manutenção, Cedido
     
     # Detalhes Técnicos
     marca = db.Column(db.String(100))
     modelo = db.Column(db.String(100))
+    numero_serie = db.Column(db.String(120), nullable=True)
+    especificacao_tecnica = db.Column(db.Text, nullable=True)
     localizacao = db.Column(db.String(200), nullable=False) # Ex: "SEMED - Sala 01"
+    local_id = db.Column(db.Integer, db.ForeignKey("patrimonio_local.id"), nullable=True)
+    local_rel = db.relationship("LocalPatrimonio", backref="patrimonios_alocados")
     
-    # Dados Financeiros e de Registro
+    # Dados Financeiros, Contábeis e de Nota Fiscal (Controle Interno / MCASP)
+    nota_fiscal_id = db.Column(db.Integer, db.ForeignKey("patrimonio_nota_fiscal.id"), nullable=True)
+    forma_aquisicao = db.Column(db.String(80), default="Compra / Licitação")
+    numero_nota_fiscal = db.Column(db.String(50), nullable=True)
+    serie_nota_fiscal = db.Column(db.String(20), nullable=True)
+    chave_nfe = db.Column(db.String(60), nullable=True)
+    data_nota_fiscal = db.Column(db.Date, nullable=True)
+    fornecedor_nome = db.Column(db.String(200), nullable=True)
+    fornecedor_cnpj = db.Column(db.String(25), nullable=True)
+    numero_empenho = db.Column(db.String(80), nullable=True)
+    numero_processo = db.Column(db.String(100), nullable=True)
+    modalidade_licitacao = db.Column(db.String(100), nullable=True)
+    numero_contrato = db.Column(db.String(80), nullable=True)
+    fonte_recursos = db.Column(db.String(150), nullable=True)
+    conta_contabil = db.Column(db.String(120), nullable=True)
+    vida_util_anos = db.Column(db.Integer, nullable=True, default=5)
+    valor_residual = db.Column(db.Float, nullable=True, default=0.0)
+    garantia_ate = db.Column(db.Date, nullable=True)
+    data_atesto = db.Column(db.Date, nullable=True)
+
     data_aquisicao = db.Column(db.Date, nullable=True)
     valor_aquisicao = db.Column(db.Float, nullable=True)
     observacoes = db.Column(db.Text, nullable=True)
     foto_url = db.Column(db.String(500)) # Link para a imagem no Supabase Storage
+    arquivo_nf_url = db.Column(db.String(500), nullable=True)
     data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Relacionamento com o Servidor (Responsável atual)
+    # Responsável pelo Bem (Campo de texto livre + retrocompatibilidade com Servidor)
+    responsavel_nome = db.Column(db.String(200), nullable=True)
+    responsavel_cargo = db.Column(db.String(120), nullable=True)
+    responsavel_matricula = db.Column(db.String(60), nullable=True)
+
     servidor_responsavel_cpf = db.Column(
         db.String(14), db.ForeignKey("servidor.cpf"), nullable=True
     )
@@ -480,7 +554,7 @@ class Patrimonio(db.Model):
         "Servidor", backref=db.backref("patrimonios_responsaveis", lazy=True)
     )
 
-    # ---> CAMPO ADICIONADO AQUI: Vínculo com a Secretaria <---
+    # ---> Vínculo com a Secretaria <---
     secretaria_id = db.Column(db.Integer, db.ForeignKey("secretaria.id"), nullable=True)
     secretaria = db.relationship("Secretaria", backref="patrimonios")
 
@@ -491,6 +565,14 @@ class Patrimonio(db.Model):
         lazy=True,
         cascade="all, delete-orphan",
     )
+
+    @property
+    def nome_responsavel_atual(self):
+        if self.responsavel_nome and self.responsavel_nome.strip():
+            return self.responsavel_nome.strip()
+        if self.responsavel:
+            return self.responsavel.nome
+        return None
 
     def __repr__(self):
         return f'<Patrimonio {self.numero_patrimonio} - {self.descricao}>'
@@ -506,15 +588,19 @@ class MovimentacaoPatrimonio(db.Model):
 
     # De onde veio
     local_origem = db.Column(db.String(200), nullable=False)
+    responsavel_anterior_nome = db.Column(db.String(200), nullable=True)
     responsavel_anterior_cpf = db.Column(
         db.String(14), db.ForeignKey("servidor.cpf"), nullable=True
     )
 
     # Para onde foi
     local_destino = db.Column(db.String(200), nullable=False)
+    responsavel_novo_nome = db.Column(db.String(200), nullable=True)
     responsavel_novo_cpf = db.Column(
         db.String(14), db.ForeignKey("servidor.cpf"), nullable=True
     )
+
+    motivo_transferencia = db.Column(db.Text, nullable=True)
 
     # Quem registrou a movimentação
     usuario_registro = db.Column(db.String(80), nullable=False)
@@ -523,6 +609,22 @@ class MovimentacaoPatrimonio(db.Model):
         "Servidor", foreign_keys=[responsavel_anterior_cpf]
     )
     responsavel_novo = db.relationship("Servidor", foreign_keys=[responsavel_novo_cpf])
+
+    @property
+    def nome_origem_exibicao(self):
+        if self.responsavel_anterior_nome and self.responsavel_anterior_nome.strip():
+            return self.responsavel_anterior_nome.strip()
+        if self.responsavel_anterior:
+            return self.responsavel_anterior.nome
+        return "N/A"
+
+    @property
+    def nome_destino_exibicao(self):
+        if self.responsavel_novo_nome and self.responsavel_novo_nome.strip():
+            return self.responsavel_novo_nome.strip()
+        if self.responsavel_novo:
+            return self.responsavel_novo.nome
+        return "N/A"
 
 
 class Escola(db.Model):

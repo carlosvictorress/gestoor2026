@@ -1,90 +1,377 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ 'Editar Bem' if patrimonio else 'Novo Patrimônio' }}{% endblock %}
+{% block title %}{{ 'Editar Registro Patrimonial' if patrimonio else 'Incorporação e Cadastro de Patrimônio' }}{% endblock %}
 
 {% block head_extra %}
 <style>
-    .card-form {
-        border-radius: 20px;
-        border: none;
+    :root {
+        --pat-primary: #0f4c81;
+        --pat-primary-light: #eef5fc;
+        --pat-accent: #0d6efd;
+        --pat-success: #198754;
+        --pat-border: #dce4ec;
     }
-    .form-label {
-        font-weight: 600;
-        color: #495057;
+
+    .pat-header-banner {
+        background: linear-gradient(135deg, #0f2942 0%, #164e87 100%);
+        border-radius: 18px;
+        padding: 1.75rem 2rem;
+        color: #fff;
+        box-shadow: 0 10px 25px rgba(15, 41, 66, 0.14);
     }
-    .section-title {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #0d6efd;
+
+    .section-card {
+        border-radius: 16px;
+        border: 1px solid var(--pat-border);
+        background: #ffffff;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+        overflow: hidden;
+    }
+
+    .section-card-header {
+        background: #f8fafd;
+        border-bottom: 1px solid var(--pat-border);
+        padding: 1rem 1.5rem;
         display: flex;
         align-items: center;
-        gap: 10px;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.75rem;
     }
+
+    .section-step-badge {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: var(--pat-accent);
+        color: #fff;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.95rem;
+    }
+
+    .section-title-text {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 0;
+    }
+
+    .section-subtitle-text {
+        font-size: 0.8rem;
+        color: #64748b;
+        margin: 0;
+    }
+
+    .form-label {
+        font-weight: 600;
+        font-size: 0.84rem;
+        color: #334155;
+        margin-bottom: 0.35rem;
+    }
+
+    .form-control, .form-select {
+        border-color: #cbd5e1;
+        border-radius: 10px;
+        font-size: 0.92rem;
+        padding: 0.52rem 0.85rem;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: var(--pat-accent);
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.12);
+    }
+
     .btn-rounded {
         border-radius: 50px;
-        padding-left: 1.5rem;
-        padding-right: 1.5rem;
+        padding-left: 1.35rem;
+        padding-right: 1.35rem;
     }
-    .input-group-text {
-        background-color: #f8f9fa;
-        border-right: none;
+
+    /* Card de Produto da Nota Fiscal */
+    .produto-nf-card {
+        border: 1px solid #cbd5e1;
+        border-left: 5px solid var(--pat-accent);
+        border-radius: 14px;
+        background: #ffffff;
+        transition: all 0.2s ease;
+        position: relative;
     }
-    .form-control:focus, .form-select:focus {
-        border-color: #0d6efd;
-        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.1);
+
+    .produto-nf-card:hover {
+        box-shadow: 0 8px 20px rgba(15, 41, 66, 0.07);
+    }
+
+    .produto-nf-header {
+        background: #f1f5f9;
+        padding: 0.75rem 1.25rem;
+        border-bottom: 1px solid #e2e8f0;
+        border-top-right-radius: 13px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .summary-bar {
+        background: linear-gradient(135deg, #f0f7ff 0%, #e6f2ff 100%);
+        border: 1px solid #b6d4fe;
+        border-radius: 14px;
+        padding: 1rem 1.5rem;
+    }
+
+    .tombamento-preview-badge {
+        font-size: 0.76rem;
+        background: #eef2ff;
+        color: #3730a3;
+        border: 1px solid #c7d2fe;
+        border-radius: 6px;
+        padding: 3px 8px;
+        display: inline-block;
+        margin-top: 4px;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <!-- Banner Superior Institucional -->
+    <div class="pat-header-banner mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
         <div>
-            <h2 class="fw-bold text-dark mb-0">
-                <i class="bi bi-box-seam-fill text-primary"></i> 
-                {{ 'Editar Bem Patrimonial' if patrimonio else 'Cadastro de Novo Patrimônio' }}
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-warning text-dark fw-bold px-3 py-1 rounded-pill">
+                    <i class="bi bi-shield-check me-1"></i> Controle Interno &amp; Gestão Pública (MCASP)
+                </span>
+                {% if patrimonio and patrimonio.numero_patrimonio %}
+                <span class="badge bg-light text-dark fw-bold px-3 py-1 rounded-pill">
+                    Tombamento: {{ patrimonio.numero_patrimonio }}
+                </span>
+                {% endif %}
+            </div>
+            <h2 class="fw-bold mb-1 text-white">
+                <i class="bi bi-building-check me-2"></i>
+                {{ 'Editar Registro Patrimonial' if patrimonio else 'Incorporação e Tombamento de Patrimônio' }}
             </h2>
-            <p class="text-muted">Preencha os dados abaixo para gerenciar o acervo municipal.</p>
+            <p class="mb-0 text-white-50 small">
+                {{ 'Atualize os dados contábeis, nota fiscal, localização e termo de guarda do bem.' if patrimonio else 'Registre a Nota Fiscal/Processo e cadastre um ou múltiplos bens patrimoniais de uma só vez com rastreabilidade completa.' }}
+            </p>
         </div>
-        <a href="{{ url_for('patrimonio.listar_itens') }}" class="btn btn-outline-secondary btn-rounded">
-            <i class="bi bi-arrow-left"></i> Voltar para Lista
-        </a>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-light btn-rounded fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNovoLocal">
+                <i class="bi bi-geo-alt-fill text-primary me-1"></i> Cadastrar Local
+            </button>
+            <a href="{{ url_for('patrimonio.listar_itens') }}" class="btn btn-outline-light btn-rounded">
+                <i class="bi bi-arrow-left me-1"></i> Voltar ao Inventário
+            </a>
+        </div>
     </div>
 
-    <div class="card shadow-sm card-form">
-        <div class="card-body p-4 p-md-5">
-            <form method="POST" 
-                  action="{{ url_for('patrimonio.editar_item', id=patrimonio.id) if patrimonio else url_for('patrimonio.novo_item') }}" 
-                  enctype="multipart/form-data">
-                
-                <div class="section-title mb-4">
-                    <i class="bi bi-info-circle-fill"></i> 1. Identificação e Localização Inicial
-                </div>
-                
-                <div class="row g-3 mb-4">
-                    <div class="col-md-5">
-                        <label for="nome_bem" class="form-label">Nome do Bem*</label>
-                        <input type="text" class="form-control" name="nome_bem" required 
-                               value="{{ patrimonio.nome_bem if patrimonio else '' }}" placeholder="Ex: Notebook, Ar Condicionado, Cadeira">
+    <form method="POST"
+          id="formPatrimonio"
+          action="{{ url_for('patrimonio.editar_item', item_id=patrimonio.id) if patrimonio else url_for('patrimonio.novo_item') }}"
+          enctype="multipart/form-data">
+
+        <!-- ========================================================================= -->
+        <!-- SEÇÃO 1: DADOS DA NOTA FISCAL, EMPENHO E PROCESSO ADMINISTRATIVO          -->
+        <!-- ========================================================================= -->
+        <div class="section-card mb-4">
+            <div class="section-card-header">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="section-step-badge">1</span>
+                    <div>
+                        <h5 class="section-title-text">Origem, Nota Fiscal e Processo Licitatório / Empenho</h5>
+                        <p class="section-subtitle-text">Dados exigidos pelo Controle Interno e Tribunal de Contas para liquidação e incorporação patrimonial</p>
                     </div>
-                    
+                </div>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill">
+                    <i class="bi bi-receipt-cutoff me-1"></i> Dados compartilhados para todos os itens da Nota
+                </span>
+            </div>
+
+            <div class="card-body p-4">
+                <div class="row g-3">
                     <div class="col-md-3">
-                        <label for="tombamento" class="form-label">Nº de Tombamento</label>
-                        <input type="text" class="form-control" name="tombamento" 
-                               value="{{ patrimonio.tombamento if patrimonio else '' }}" placeholder="Deixe vazio se for novo">
-                        <small class="text-muted">Opcional para mercadorias em depósito.</small>
+                        <label class="form-label">Forma de Incorporação / Aquisição*</label>
+                        {% set forma_atual = patrimonio.forma_aquisicao if patrimonio and patrimonio.forma_aquisicao else 'Compra / Licitação' %}
+                        <select class="form-select" name="forma_aquisicao" id="forma_aquisicao">
+                            <option value="Compra / Licitação" {{ 'selected' if forma_atual == 'Compra / Licitação' else '' }}>Compra / Licitação</option>
+                            <option value="Dispensa / Inexigibilidade" {{ 'selected' if forma_atual == 'Dispensa / Inexigibilidade' else '' }}>Dispensa / Inexigibilidade</option>
+                            <option value="Adesão à Ata SRP (Carona)" {{ 'selected' if forma_atual == 'Adesão à Ata SRP (Carona)' else '' }}>Adesão à Ata SRP (Carona)</option>
+                            <option value="Doação / Cessão" {{ 'selected' if forma_atual == 'Doação / Cessão' else '' }}>Doação / Cessão</option>
+                            <option value="Transferência / Convênio" {{ 'selected' if forma_atual == 'Transferência / Convênio' else '' }}>Transferência / Convênio</option>
+                            <option value="Incorporação / Inventário" {{ 'selected' if forma_atual == 'Incorporação / Inventário' else '' }}>Incorporação / Inventário</option>
+                            <option value="Produção Própria / Permuta" {{ 'selected' if forma_atual == 'Produção Própria / Permuta' else '' }}>Produção Própria / Permuta</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Nº da Nota Fiscal</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-receipt"></i></span>
+                            <input type="text" class="form-control" name="numero_nota_fiscal"
+                                   value="{{ patrimonio.numero_nota_fiscal or '' if patrimonio else '' }}"
+                                   placeholder="Ex: 000.124.890">
+                        </div>
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Série NF</label>
+                        <input type="text" class="form-control" name="serie_nota_fiscal"
+                               value="{{ patrimonio.serie_nota_fiscal or '' if patrimonio else '' }}"
+                               placeholder="Ex: 1">
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Emissão da NF</label>
+                        <input type="date" class="form-control" name="data_nota_fiscal"
+                               value="{{ patrimonio.data_nota_fiscal.strftime('%Y-%m-%d') if patrimonio and patrimonio.data_nota_fiscal else (patrimonio.data_aquisicao.strftime('%Y-%m-%d') if patrimonio and patrimonio.data_aquisicao else '') }}">
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Data do Atesto / Entrada</label>
+                        <input type="date" class="form-control" name="data_atesto"
+                               value="{{ patrimonio.data_atesto.strftime('%Y-%m-%d') if patrimonio and patrimonio.data_atesto else '' }}">
+                    </div>
+
+                    <div class="col-md-5">
+                        <label class="form-label">Fornecedor / Razão Social (ou Órgão Doador)</label>
+                        <input type="text" class="form-control" name="fornecedor_nome" id="fornecedor_nome"
+                               list="listaFornecedores"
+                               value="{{ patrimonio.fornecedor_nome or '' if patrimonio else '' }}"
+                               placeholder="Digite a Razão Social ou selecione da lista...">
+                        <datalist id="listaFornecedores">
+                            {% for f in fornecedores %}
+                                <option value="{{ f.nome }}" data-cnpj="{{ f.cnpj or '' }}">{{ f.cnpj or 'Sem CNPJ' }}</option>
+                            {% endfor %}
+                        </datalist>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">CNPJ / CPF do Fornecedor</label>
+                        <input type="text" class="form-control" name="fornecedor_cnpj" id="fornecedor_cnpj"
+                               value="{{ patrimonio.fornecedor_cnpj or '' if patrimonio else '' }}"
+                               placeholder="00.000.000/0001-00" maxlength="18" oninput="mascaraCnpjCpf(this)">
                     </div>
 
                     <div class="col-md-4">
-                        <label for="localizacao" class="form-label">Localização Inicial*</label>
-                        <input type="text" class="form-control" name="localizacao" required
-                               value="{{ patrimonio.localizacao if patrimonio else '' }}" 
-                               placeholder="Ex: Depósito Central, Secretaria, Almoxarifado">
+                        <label class="form-label d-flex justify-content-between">
+                            <span>Chave de Acesso NF-e (Opcional)</span>
+                            <small class="text-muted" id="contadorChaveNfe">0/44</small>
+                        </label>
+                        <input type="text" class="form-control font-monospace small" name="chave_nfe" id="chave_nfe"
+                               value="{{ patrimonio.chave_nfe or '' if patrimonio else '' }}"
+                               placeholder="44 dígitos da Nota Fiscal Eletrônica" maxlength="54"
+                               oninput="atualizarContadorChave(this)">
                     </div>
 
-                    <div class="col-md-6">
-                        <label for="secretaria_id" class="form-label">Secretaria Responsável*</label>
-                        <select class="form-select" name="secretaria_id" required>
+                    <!-- Linha Orçamentária / Controle Interno -->
+                    <div class="col-md-3">
+                        <label class="form-label">Nº da Nota de Empenho (NE)</label>
+                        <input type="text" class="form-control" name="numero_empenho"
+                               value="{{ patrimonio.numero_empenho or '' if patrimonio else '' }}"
+                               placeholder="Ex: 2026NE000412">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Nº do Processo Administrativo</label>
+                        <input type="text" class="form-control" name="numero_processo"
+                               value="{{ patrimonio.numero_processo or '' if patrimonio else '' }}"
+                               placeholder="Ex: PA 045/2026">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Modalidade Licitatória</label>
+                        {% set mod_atual = patrimonio.modalidade_licitacao if patrimonio and patrimonio.modalidade_licitacao else '' %}
+                        <select class="form-select" name="modalidade_licitacao">
+                            <option value="">-- Selecione (se aplicável) --</option>
+                            <option value="Pregão Eletrônico" {{ 'selected' if mod_atual == 'Pregão Eletrônico' else '' }}>Pregão Eletrônico</option>
+                            <option value="Pregão Presencial" {{ 'selected' if mod_atual == 'Pregão Presencial' else '' }}>Pregão Presencial</option>
+                            <option value="Dispensa de Licitação (Lei 14.133)" {{ 'selected' if mod_atual == 'Dispensa de Licitação (Lei 14.133)' else '' }}>Dispensa de Licitação (Lei 14.133)</option>
+                            <option value="Inexigibilidade" {{ 'selected' if mod_atual == 'Inexigibilidade' else '' }}>Inexigibilidade</option>
+                            <option value="Concorrência" {{ 'selected' if mod_atual == 'Concorrência' else '' }}>Concorrência</option>
+                            <option value="Adesão à Ata de Registro de Preços" {{ 'selected' if mod_atual == 'Adesão à Ata de Registro de Preços' else '' }}>Adesão à Ata de Registro de Preços</option>
+                            <option value="Termo de Doação / Cessão" {{ 'selected' if mod_atual == 'Termo de Doação / Cessão' else '' }}>Termo de Doação / Cessão</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Nº do Contrato / Ata SRP</label>
+                        <input type="text" class="form-control" name="numero_contrato"
+                               value="{{ patrimonio.numero_contrato or '' if patrimonio else '' }}"
+                               placeholder="Ex: Contrato 022/2026">
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Fonte de Recursos / Dotação</label>
+                        {% set fonte_atual = patrimonio.fonte_recursos if patrimonio and patrimonio.fonte_recursos else '' %}
+                        <input type="text" class="form-control" name="fonte_recursos" list="listaFontesRecurso"
+                               value="{{ fonte_atual }}"
+                               placeholder="Ex: FUNDEB 30%, Recursos Próprios, QSE...">
+                        <datalist id="listaFontesRecurso">
+                            <option value="500 - Recursos Não Vinculados de Impostos (Próprios)">
+                            <option value="540 - FUNDEB Impostos e Transferências (30%)">
+                            <option value="541 - FUNDEB Complementação da União - VAAF">
+                            <option value="542 - FUNDEB Complementação da União - VAAT">
+                            <option value="550 - Salário-Educação (QSE)">
+                            <option value="569 - Outras Transferências do FNDE (PAR / PDDE)">
+                            <option value="600 - Transferências Fundo a Fundo do SUS (FMS)">
+                            <option value="660 - Transferências do FNAS (Assistência Social)">
+                            <option value="700 - Outras Transferências de Convênios da União">
+                        </datalist>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Conta Contábil PCASP / Natureza da Despesa</label>
+                        {% set conta_atual = patrimonio.conta_contabil if patrimonio and patrimonio.conta_contabil else '4.4.90.52 - Equipamentos e Material Permanente' %}
+                        <select class="form-select" name="conta_contabil">
+                            <option value="4.4.90.52 - Equipamentos e Material Permanente" {{ 'selected' if conta_atual == '4.4.90.52 - Equipamentos e Material Permanente' else '' }}>4.4.90.52 - Equipamentos e Material Permanente</option>
+                            <option value="1.2.3.1.1.01.00 - Aparelhos, Equipamentos e Utensílios" {{ 'selected' if conta_atual == '1.2.3.1.1.01.00 - Aparelhos, Equipamentos e Utensílios' else '' }}>1.2.3.1.1.01.00 - Aparelhos, Equipamentos e Utensílios</option>
+                            <option value="1.2.3.1.1.02.00 - Equipamentos de Processamento de Dados (TI)" {{ 'selected' if conta_atual == '1.2.3.1.1.02.00 - Equipamentos de Processamento de Dados (TI)' else '' }}>1.2.3.1.1.02.00 - Equipamentos de Processamento de Dados (TI)</option>
+                            <option value="1.2.3.1.1.03.00 - Mobiliário em Geral" {{ 'selected' if conta_atual == '1.2.3.1.1.03.00 - Mobiliário em Geral' else '' }}>1.2.3.1.1.03.00 - Mobiliário em Geral</option>
+                            <option value="1.2.3.1.1.05.00 - Veículos de Tração Mecânica" {{ 'selected' if conta_atual == '1.2.3.1.1.05.00 - Veículos de Tração Mecânica' else '' }}>1.2.3.1.1.05.00 - Veículos de Tração Mecânica</option>
+                            <option value="1.2.3.2.1.00.00 - Bens Imóveis" {{ 'selected' if conta_atual == '1.2.3.2.1.00.00 - Bens Imóveis' else '' }}>1.2.3.2.1.00.00 - Bens Imóveis</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Anexo da Nota Fiscal / Termo (PDF ou Imagem)</label>
+                        <input type="file" class="form-control" name="arquivo_nf" accept=".pdf,image/*">
+                        {% if patrimonio and patrimonio.arquivo_nf_url %}
+                            <div class="mt-1">
+                                <a href="{{ patrimonio.arquivo_nf_url }}" target="_blank" class="small text-success fw-bold text-decoration-none">
+                                    <i class="bi bi-file-earmark-check-fill me-1"></i> Visualizar Nota Fiscal já anexada
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- SEÇÃO 2: LOCAL ONDE SE ENCONTRA O BEM E RESPONSÁVEL PELA GUARDA           -->
+        <!-- ========================================================================= -->
+        <div class="section-card mb-4">
+            <div class="section-card-header">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="section-step-badge">2</span>
+                    <div>
+                        <h5 class="section-title-text">Localização Física e Responsável pelo Bem</h5>
+                        <p class="section-subtitle-text">Defina o local onde o bem se encontra (ou cadastre um novo local na hora) e digite o nome do responsável</p>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-primary btn-rounded fw-semibold" data-bs-toggle="modal" data-bs-target="#modalNovoLocal">
+                    <i class="bi bi-plus-circle-fill me-1"></i> Cadastrar Novo Local Agora
+                </button>
+            </div>
+
+            <div class="card-body p-4">
+                <div class="row g-3">
+                    <!-- Secretaria -->
+                    <div class="col-md-4">
+                        <label for="secretaria_id" class="form-label">Secretaria / Órgão Responsável*</label>
+                        <select class="form-select" name="secretaria_id" id="secretaria_id" required>
                             <option value="">-- Selecione a Secretaria --</option>
                             {% for sec in secretarias %}
                                 <option value="{{ sec.id }}" {{ 'selected' if patrimonio and patrimonio.secretaria_id == sec.id else '' }}>
@@ -93,90 +380,962 @@
                             {% endfor %}
                         </select>
                     </div>
-                    
-                    <div class="col-md-6">
-                        <label for="servidor_responsavel_cpf" class="form-label">Servidor Responsável (Opcional)</label>
-                        <select class="form-select" name="servidor_responsavel_cpf">
-                            <option value="">-- Sem responsável específico --</option>
+
+                    <!-- Local onde se encontra o bem + botão de cadastrar novo local -->
+                    <div class="col-md-8">
+                        <label for="localizacao" class="form-label d-flex justify-content-between align-items-center">
+                            <span>Local onde se encontra o Bem (Unidade / Prédio / Sala)*</span>
+                            <a href="javascript:void(0)" class="text-primary small fw-bold text-decoration-none" data-bs-toggle="modal" data-bs-target="#modalNovoLocal">
+                                <i class="bi bi-plus-lg"></i> Novo Local
+                            </a>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-geo-alt-fill text-primary"></i></span>
+                            <select class="form-select" id="selectLocalCadastrado" onchange="aoSelecionarLocalDropdown(this)" style="max-width: 48%;">
+                                <option value="">-- Escolher local cadastrado --</option>
+                                {% if locais_db %}
+                                <optgroup label="Locais / Setores Cadastrados" id="optgroupLocaisCadastrados">
+                                    {% for loc in locais_db %}
+                                        <option value="{{ loc.nome }}"
+                                                data-id="{{ loc.id }}"
+                                                data-secretaria="{{ loc.secretaria_id or '' }}"
+                                                data-responsavel="{{ loc.responsavel_setor or '' }}"
+                                                {{ 'selected' if patrimonio and patrimonio.localizacao == loc.nome else '' }}>
+                                            {{ loc.nome }}
+                                        </option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% else %}
+                                <optgroup label="Locais / Setores Cadastrados" id="optgroupLocaisCadastrados"></optgroup>
+                                {% endif %}
+
+                                {% if escolas %}
+                                <optgroup label="Unidades Escolares">
+                                    {% for esc in escolas %}
+                                        <option value="{{ esc.nome }}" {{ 'selected' if patrimonio and patrimonio.localizacao == esc.nome else '' }}>
+                                            {{ esc.nome }}
+                                        </option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endif %}
+
+                                {% if locais_legados %}
+                                <optgroup label="Outros Locais Utilizados">
+                                    {% for loc_nome in locais_legados %}
+                                        <option value="{{ loc_nome }}" {{ 'selected' if patrimonio and patrimonio.localizacao == loc_nome else '' }}>
+                                            {{ loc_nome }}
+                                        </option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endif %}
+                            </select>
+                            <input type="text" class="form-control" name="localizacao" id="localizacao" required
+                                   value="{{ patrimonio.localizacao if patrimonio else '' }}"
+                                   placeholder="Ou digite / complemente (Ex: SEMED - Sala 02, Almoxarifado Central)">
+                            <input type="hidden" name="local_id" id="local_id" value="{{ patrimonio.local_id or '' if patrimonio else '' }}">
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNovoLocal" title="Cadastrar Novo Local">
+                                <i class="bi bi-plus-lg"></i> Novo Local
+                            </button>
+                        </div>
+                        <small class="text-muted">Selecione um local da lista, digite diretamente ou clique em <strong>"+ Novo Local"</strong> para salvar um novo setor no sistema.</small>
+                    </div>
+
+                    <!-- Responsável pelo Bem: Campo de Digitar o Nome! -->
+                    <div class="col-md-5">
+                        <label for="responsavel_nome" class="form-label">
+                            Responsável pelo Bem (Digite o Nome)
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-person-Vcard text-primary"></i></span>
+                            <input type="text" class="form-control" name="responsavel_nome" id="responsavel_nome"
+                                   list="sugestoesServidores"
+                                   value="{{ patrimonio.nome_responsavel_atual or '' if patrimonio else '' }}"
+                                   placeholder="Digite o nome completo do responsável pela guarda...">
+                        </div>
+                        <datalist id="sugestoesServidores">
                             {% for s in servidores %}
-                                <option value="{{ s.cpf }}" {{ 'selected' if patrimonio and patrimonio.servidor_responsavel_cpf == s.cpf else '' }}>
-                                    {{ s.nome }}
-                                </option>
+                                <option value="{{ s.nome }}" data-cargo="{{ s.funcao or '' }}" data-matricula="{{ s.num_contrato or '' }}">
                             {% endfor %}
+                        </datalist>
+                        <small class="text-muted">Campo livre para digitar o nome do responsável pelo bem/setor.</small>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label for="responsavel_cargo" class="form-label">Cargo / Função do Responsável (Opcional)</label>
+                        <input type="text" class="form-control" name="responsavel_cargo" id="responsavel_cargo"
+                               value="{{ patrimonio.responsavel_cargo or '' if patrimonio else '' }}"
+                               placeholder="Ex: Diretor(a), Coordenador(a), Chefe de Setor">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label for="responsavel_matricula" class="form-label">Matrícula / CPF (Opcional)</label>
+                        <input type="text" class="form-control" name="responsavel_matricula" id="responsavel_matricula"
+                               value="{{ patrimonio.responsavel_matricula or '' if patrimonio else '' }}"
+                               placeholder="Ex: Matrícula ou CPF">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if patrimonio %}
+        <!-- ========================================================================= -->
+        <!-- MODO EDIÇÃO DE UM BEM ESPECÍFICO                                          -->
+        <!-- ========================================================================= -->
+        <div class="section-card mb-4">
+            <div class="section-card-header">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="section-step-badge">3</span>
+                    <div>
+                        <h5 class="section-title-text">Identificação Técnica, Valores e Conservação do Bem</h5>
+                        <p class="section-subtitle-text">Dados individuais do patrimônio selecionado</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-3">
+                    <div class="col-md-5">
+                        <label class="form-label">Nome / Descrição do Bem*</label>
+                        <input type="text" class="form-control" name="nome_bem" required
+                               value="{{ patrimonio.descricao }}">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Nº de Tombamento (Patrimônio)</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control fw-bold" name="tombamento" id="edit_tombamento"
+                                   value="{{ patrimonio.numero_patrimonio or '' }}" placeholder="Ex: 20260001">
+                            <button type="button" class="btn btn-outline-secondary" onclick="gerarTombamentoUnico('edit_tombamento')" title="Sugerir próximo número">
+                                <i class="bi bi-magic"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Grupo / Categoria Patrimonial*</label>
+                        {% set cat_atual = patrimonio.categoria or '' %}
+                        <select class="form-select" name="categoria">
+                            <option value="Equipamentos de Informática / TI" {{ 'selected' if cat_atual == 'Equipamentos de Informática / TI' else '' }}>Equipamentos de Informática / TI</option>
+                            <option value="Mobiliário em Geral" {{ 'selected' if cat_atual == 'Mobiliário em Geral' else '' }}>Mobiliário em Geral</option>
+                            <option value="Eletrodomésticos e Refrigeração" {{ 'selected' if cat_atual == 'Eletrodomésticos e Refrigeração' else '' }}>Eletrodomésticos e Refrigeração</option>
+                            <option value="Máquinas, Motores e Aparelhos" {{ 'selected' if cat_atual == 'Máquinas, Motores e Aparelhos' else '' }}>Máquinas, Motores e Aparelhos</option>
+                            <option value="Veículos e Frota" {{ 'selected' if cat_atual == 'Veículos e Frota' else '' }}>Veículos e Frota</option>
+                            <option value="Equipamentos Educacionais / Pedagógicos" {{ 'selected' if cat_atual == 'Equipamentos Educacionais / Pedagógicos' else '' }}>Equipamentos Educacionais / Pedagógicos</option>
+                            <option value="Equipamentos de Saúde / Laboratório" {{ 'selected' if cat_atual == 'Equipamentos de Saúde / Laboratório' else '' }}>Equipamentos de Saúde / Laboratório</option>
+                            <option value="Aparelhos de Som, Imagem e Comunicação" {{ 'selected' if cat_atual == 'Aparelhos de Som, Imagem e Comunicação' else '' }}>Aparelhos de Som, Imagem e Comunicação</option>
+                            <option value="Outros Bens Permanentes" {{ 'selected' if cat_atual not in ['Equipamentos de Informática / TI','Mobiliário em Geral','Eletrodomésticos e Refrigeração','Máquinas, Motores e Aparelhos','Veículos e Frota','Equipamentos Educacionais / Pedagógicos','Equipamentos de Saúde / Laboratório','Aparelhos de Som, Imagem e Comunicação'] else '' }}>Outros Bens Permanentes</option>
                         </select>
                     </div>
-                </div>
 
-                <div class="section-title mb-4">
-                    <i class="bi bi-tags-fill"></i> 2. Detalhes e Especificações
-                </div>
-                
-                <div class="row g-3 mb-4">
-                    <div class="col-md-4">
-                        <label for="marca" class="form-label">Marca</label>
-                        <input type="text" class="form-control" name="marca" value="{{ patrimonio.marca if patrimonio else '' }}" placeholder="Ex: Samsung, Dell">
+                    <div class="col-md-3">
+                        <label class="form-label">Marca</label>
+                        <input type="text" class="form-control" name="marca" value="{{ patrimonio.marca or '' }}" placeholder="Ex: Dell, Samsung">
                     </div>
-                    <div class="col-md-4">
-                        <label for="modelo" class="form-label">Modelo</label>
-                        <input type="text" class="form-control" name="modelo" value="{{ patrimonio.modelo if patrimonio else '' }}" placeholder="Ex: Latitude 3410">
+
+                    <div class="col-md-3">
+                        <label class="form-label">Modelo</label>
+                        <input type="text" class="form-control" name="modelo" value="{{ patrimonio.modelo or '' }}" placeholder="Ex: Latitude 3420">
                     </div>
-                    <div class="col-md-4">
-                        <label for="valor_compra" class="form-label">Valor de Compra (R$)</label>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Nº de Série / Chassi / Placa</label>
+                        <input type="text" class="form-control" name="numero_serie" value="{{ patrimonio.numero_serie or '' }}" placeholder="Service Tag / Série">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Valor de Aquisição Unitário (R$)*</label>
                         <div class="input-group">
                             <span class="input-group-text">R$</span>
-                            <input type="number" step="0.01" class="form-control" name="valor_compra" 
-                                   value="{{ patrimonio.valor_compra if patrimonio else '' }}" placeholder="0,00">
+                            <input type="number" step="0.01" class="form-control fw-bold" name="valor_compra"
+                                   value="{{ '%.2f'|format(patrimonio.valor_aquisicao or 0) }}">
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Estado de Conservação</label>
+                        <select class="form-select" name="estado_conservacao">
+                            <option value="Novo" {{ 'selected' if patrimonio.estado_conservacao == 'Novo' else '' }}>Novo (Excelente)</option>
+                            <option value="Bom" {{ 'selected' if patrimonio.estado_conservacao == 'Bom' else '' }}>Bom</option>
+                            <option value="Regular" {{ 'selected' if patrimonio.estado_conservacao == 'Regular' else '' }}>Regular</option>
+                            <option value="Ruim" {{ 'selected' if patrimonio.estado_conservacao == 'Ruim' else '' }}>Ruim (Precisa Reparo)</option>
+                            <option value="Inservível" {{ 'selected' if patrimonio.estado_conservacao == 'Inservível' else '' }}>Inservível / Antieconômico</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Situação de Uso</label>
+                        <select class="form-select" name="situacao_uso">
+                            <option value="Em uso" {{ 'selected' if patrimonio.situacao_uso == 'Em uso' else '' }}>Em uso</option>
+                            <option value="Almoxarifado" {{ 'selected' if patrimonio.situacao_uso == 'Almoxarifado' else '' }}>Em Depósito / Almoxarifado</option>
+                            <option value="Manutenção" {{ 'selected' if patrimonio.situacao_uso == 'Manutenção' else '' }}>Em Manutenção</option>
+                            <option value="Cedido" {{ 'selected' if patrimonio.situacao_uso == 'Cedido' else '' }}>Cedido / Emprestado</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Vida Útil (Anos)</label>
+                        <input type="number" min="1" max="50" class="form-control" name="vida_util_anos"
+                               value="{{ patrimonio.vida_util_anos or 5 }}">
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Garantia Até</label>
+                        <input type="date" class="form-control" name="garantia_ate"
+                               value="{{ patrimonio.garantia_ate.strftime('%Y-%m-%d') if patrimonio.garantia_ate else '' }}">
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Foto do Bem</label>
+                        <input type="file" class="form-control" name="foto_bem" accept="image/*">
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label">Especificações Técnicas Detalhadas / Observações</label>
+                        <textarea class="form-control" name="especificacao_tecnica" rows="3"
+                                  placeholder="Características técnicas completas para auditoria, número de patrimônio anterior, histórico...">{{ patrimonio.especificacao_tecnica or patrimonio.observacoes or '' }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <!-- ========================================================================= -->
+        <!-- SEÇÃO 3 (MODO NOVO): MÚLTIPLOS PRODUTOS / BENS DE UMA SÓ NOTA FISCAL       -->
+        <!-- ========================================================================= -->
+        <div class="section-card mb-4">
+            <div class="section-card-header">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="section-step-badge">3</span>
+                    <div>
+                        <h5 class="section-title-text">Relação de Produtos / Bens da Nota Fiscal</h5>
+                        <p class="section-subtitle-text">Adicione quantos produtos diferentes existirem na Nota Fiscal. Se um produto tiver mais de 1 unidade, o sistema criará os tombamentos individuais automaticamente.</p>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary btn-rounded fw-bold shadow-sm" onclick="adicionarCardProduto()">
+                    <i class="bi bi-plus-circle-fill me-1"></i> Adicionar Outro Produto da Nota
+                </button>
+            </div>
+
+            <div class="card-body p-4">
+                <!-- Barra de Resumo Financeiro e Quantitativo da Nota Fiscal -->
+                <div class="summary-bar mb-4">
+                    <div class="row align-items-center text-center text-md-start g-3">
+                        <div class="col-md-4 border-end-md">
+                            <small class="text-uppercase fw-bold text-secondary d-block" style="font-size: 0.72rem;">Tipos de Produto na Nota</small>
+                            <div class="fs-4 fw-bold text-dark"><span id="resumoQtdProdutos">1</span> produto(s)</div>
+                        </div>
+                        <div class="col-md-4 border-end-md">
+                            <small class="text-uppercase fw-bold text-secondary d-block" style="font-size: 0.72rem;">Total de Unidades / Patrimônios a Gerar</small>
+                            <div class="fs-4 fw-bold text-primary"><span id="resumoTotalUnidades">1</span> bem(ns) tombado(s)</div>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-uppercase fw-bold text-secondary d-block" style="font-size: 0.72rem;">Valor Total Incorporado na Nota</small>
+                            <div class="fs-4 fw-bold text-success" id="resumoValorTotalNota">R$ 0,00</div>
+                            <input type="hidden" name="valor_total_nf" id="inputValorTotalNf" value="0">
                         </div>
                     </div>
                 </div>
 
-                <div class="section-title mb-4">
-                    <i class="bi bi-camera-fill"></i> 3. Estado e Evidência Visual
-                </div>
-                
-                <div class="row g-3 mb-4">
-                    <div class="col-md-4">
-                        <label for="estado_conservacao" class="form-label font-weight-bold">Estado de Conservação</label>
-                        <select class="form-select" name="estado_conservacao">
-                            <option value="Bom" {{ 'selected' if patrimonio and patrimonio.estado_conservacao == 'Bom' else '' }}>Bom</option>
-                            <option value="Regular" {{ 'selected' if patrimonio and patrimonio.estado_conservacao == 'Regular' else '' }}>Regular</option>
-                            <option value="Inservível" {{ 'selected' if patrimonio and patrimonio.estado_conservacao == 'Inservível' else '' }}>Inservível</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="situacao_uso" class="form-label font-weight-bold">Situação de Uso</label>
-                        <select class="form-select" name="situacao_uso">
-                            <option value="Em uso" {{ 'selected' if patrimonio and patrimonio.situacao_uso == 'Em uso' else '' }}>Em uso</option>
-                            <option value="Almoxarifado" {{ 'selected' if patrimonio and patrimonio.situacao_uso == 'Almoxarifado' else '' }}>Almoxarifado</option>
-                            <option value="Manutenção" {{ 'selected' if patrimonio and patrimonio.situacao_uso == 'Manutenção' else '' }}>Em Manutenção</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="foto_bem" class="form-label font-weight-bold">Foto do Bem (Opcional)</label>
-                        <input type="file" class="form-control" name="foto_bem" accept="image/*">
-                        {% if patrimonio and patrimonio.foto_url %}
-                            <div class="mt-2 p-2 bg-light rounded d-flex align-items-center">
-                                <i class="bi bi-image text-primary me-2"></i>
-                                <small class="text-success fw-bold">Já possui foto salva no sistema</small>
+                <!-- Container Dinâmico dos Produtos da Nota -->
+                <div id="containerProdutosNota">
+                    <!-- Card do Produto #1 -->
+                    <div class="produto-nf-card mb-4" data-index="0">
+                        <div class="produto-nf-header">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-primary rounded-pill px-3 py-1 num-item-badge">Item #1 da Nota</span>
+                                <span class="fw-bold text-dark small titulo-preview-produto">Novo Produto / Bem Patrimonial</span>
                             </div>
-                        {% endif %}
-                    </div>
-                    <div class="col-12">
-                        <label for="descricao" class="form-label">Descrição Detalhada / Observações</label>
-                        <textarea class="form-control" name="descricao" rows="3" placeholder="Detalhes técnicos, histórico de reparos ou observações relevantes...">{{ patrimonio.descricao if patrimonio else '' }}</textarea>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="duplicarCardProduto(this)" title="Duplicar dados deste produto para outro item parecido">
+                                    <i class="bi bi-copy me-1"></i> Duplicar Item
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 btn-remover-produto" onclick="removerCardProduto(this)" style="display: none;">
+                                    <i class="bi bi-trash me-1"></i> Remover
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-3 p-md-4">
+                            <div class="row g-3">
+                                <div class="col-md-5">
+                                    <label class="form-label">Descrição / Nome do Produto (Bem)*</label>
+                                    <input type="text" class="form-control input-descricao-item" name="item_descricao[]" required
+                                           oninput="atualizarTituloProduto(this)"
+                                           placeholder="Ex: Notebook 15.6 Core i5 16GB, Ar Condicionado Split 18.000 BTUs...">
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label">Grupo / Categoria Patrimonial*</label>
+                                    <select class="form-select input-categoria-item" name="item_categoria[]">
+                                        <option value="Equipamentos de Informática / TI">Equipamentos de Informática / TI</option>
+                                        <option value="Mobiliário em Geral">Mobiliário em Geral</option>
+                                        <option value="Eletrodomésticos e Refrigeração">Eletrodomésticos e Refrigeração</option>
+                                        <option value="Máquinas, Motores e Aparelhos">Máquinas, Motores e Aparelhos</option>
+                                        <option value="Veículos e Frota">Veículos e Frota</option>
+                                        <option value="Equipamentos Educacionais / Pedagógicos">Equipamentos Educacionais / Pedagógicos</option>
+                                        <option value="Equipamentos de Saúde / Laboratório">Equipamentos de Saúde / Laboratório</option>
+                                        <option value="Aparelhos de Som, Imagem e Comunicação">Aparelhos de Som, Imagem e Comunicação</option>
+                                        <option value="Outros Bens Permanentes">Outros Bens Permanentes</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label class="form-label">Qtd. de Unidades na Nota*</label>
+                                    <div class="input-group">
+                                        <input type="number" min="1" max="500" class="form-control fw-bold text-center input-qtd-item"
+                                               name="item_quantidade[]" value="1" required
+                                               oninput="recalcularTotaisNota(); atualizarPreviewTombamentoCard(this)">
+                                        <span class="input-group-text bg-light small">unid.</span>
+                                    </div>
+                                </div>
+
+                                <!-- Tombamento, Valor Unitário, Subtotal -->
+                                <div class="col-md-4">
+                                    <label class="form-label label-tombamento-item">Nº de Tombamento (ou Inicial se Qtd &gt; 1)</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control fw-semibold input-tombamento-item" name="item_tombamento[]"
+                                               oninput="atualizarPreviewTombamentoCard(this)"
+                                               placeholder="Ex: 20260001 ou vazio se depósito">
+                                        <button type="button" class="btn btn-outline-primary" onclick="sugerirTombamentoParaCard(this)" title="Gerar número de tombamento automático">
+                                            <i class="bi bi-magic"></i> Gerar Nº
+                                        </button>
+                                    </div>
+                                    <div class="preview-faixa-tombamento"></div>
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label class="form-label">Valor Unitário de Compra (R$)*</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">R$</span>
+                                        <input type="number" step="0.01" min="0" class="form-control fw-bold input-valor-item"
+                                               name="item_valor_unitario[]" placeholder="0,00"
+                                               oninput="recalcularTotaisNota()">
+                                    </div>
+                                </div>
+
+                                <div class="col-md-2">
+                                    <label class="form-label">Subtotal do Item</label>
+                                    <input type="text" class="form-control bg-light fw-bold text-success input-subtotal-item" readonly value="R$ 0,00">
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label class="form-label">Marca / Fabricante</label>
+                                    <input type="text" class="form-control input-marca-item" name="item_marca[]" placeholder="Ex: Dell, Consul, Itatiaia">
+                                </div>
+
+                                <!-- Segunda linha de detalhes técnicos -->
+                                <div class="col-md-3">
+                                    <label class="form-label">Modelo / Referência</label>
+                                    <input type="text" class="form-control input-modelo-item" name="item_modelo[]" placeholder="Ex: Latitude 3420">
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label class="form-label">Nº de Série / Service Tag</label>
+                                    <input type="text" class="form-control input-serie-item" name="item_numero_serie[]"
+                                           placeholder="Se Qtd > 1, separe por vírgula">
+                                </div>
+
+                                <div class="col-md-2">
+                                    <label class="form-label">Conservação</label>
+                                    <select class="form-select input-estado-item" name="item_estado_conservacao[]">
+                                        <option value="Novo" selected>Novo</option>
+                                        <option value="Bom">Bom</option>
+                                        <option value="Regular">Regular</option>
+                                        <option value="Ruim">Ruim</option>
+                                        <option value="Inservível">Inservível</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-2">
+                                    <label class="form-label">Situação de Uso</label>
+                                    <select class="form-select input-situacao-item" name="item_situacao_uso[]">
+                                        <option value="Em uso" selected>Em uso</option>
+                                        <option value="Almoxarifado">Almoxarifado / Depósito</option>
+                                        <option value="Manutenção">Em Manutenção</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-2">
+                                    <label class="form-label">Vida Útil (Anos)</label>
+                                    <input type="number" min="1" max="50" class="form-control input-vidautil-item" name="item_vida_util[]" value="5">
+                                </div>
+
+                                <!-- Terceira linha: Garantia, Foto, Especificação e Destino Específico Opcional -->
+                                <div class="col-md-3">
+                                    <label class="form-label">Garantia Até (Opcional)</label>
+                                    <input type="date" class="form-control input-garantia-item" name="item_garantia_ate[]">
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label">Foto do Produto (Opcional)</label>
+                                    <input type="file" class="form-control input-foto-item" name="foto_bem_0" accept="image/*">
+                                </div>
+
+                                <div class="col-md-5">
+                                    <label class="form-label">Especificações Técnicas / Observações do Item</label>
+                                    <input type="text" class="form-control input-espec-item" name="item_especificacao[]"
+                                           placeholder="Ex: Cor preta, Bivolt, Processador i5, 16GB RAM, patrimônio antigo...">
+                                </div>
+
+                                <!-- Opção para alocar este item específico em outro local/responsável diferente do padrão da nota -->
+                                <div class="col-12 mt-2">
+                                    <a class="small text-decoration-none fw-semibold text-secondary" data-bs-toggle="collapse" href="#collapseDestinoEspecifico_0" role="button">
+                                        <i class="bi bi-sliders me-1"></i> Destinar este produto a um Local ou Responsável diferente do informado no Passo 2? (Opcional)
+                                    </a>
+                                    <div class="collapse mt-2" id="collapseDestinoEspecifico_0">
+                                        <div class="p-3 bg-light rounded-3 border row g-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label small mb-1">Local Específico para este Produto</label>
+                                                <input type="text" class="form-control form-control-sm input-local-esp" name="item_localizacao_especifica[]"
+                                                       list="datalistLocaisTodos"
+                                                       placeholder="Deixe em branco para usar o Local padrão do Passo 2">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label small mb-1">Nome do Responsável Específico para este Produto</label>
+                                                <input type="text" class="form-control form-control-sm input-resp-esp" name="item_responsavel_especifico[]"
+                                                       list="sugestoesServidores"
+                                                       placeholder="Deixe em branco para usar o Responsável padrão do Passo 2">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <hr class="my-4">
-
-                <div class="d-flex justify-content-end gap-3">
-                    <button type="reset" class="btn btn-light btn-rounded px-4">Limpar Campos</button>
-                    <button type="submit" class="btn btn-primary btn-rounded px-5 shadow-sm">
-                        <i class="bi bi-floppy me-2"></i> {{ 'Salvar Alterações' if patrimonio else 'Finalizar Cadastro' }}
+                <!-- Botão Inferior para Adicionar Mais Produtos da Mesma Nota -->
+                <div class="text-center p-3 border border-2 border-dashed rounded-4 bg-light">
+                    <p class="text-muted small mb-2">A Nota Fiscal possui mais produtos ou equipamentos diferentes?</p>
+                    <button type="button" class="btn btn-outline-primary btn-rounded fw-bold" onclick="adicionarCardProduto()">
+                        <i class="bi bi-plus-lg me-1"></i> Adicionar Mais um Produto desta Nota Fiscal
                     </button>
                 </div>
-            </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Datalist global de locais para campos específicos -->
+        <datalist id="datalistLocaisTodos">
+            {% for loc in locais_db %}
+                <option value="{{ loc.nome }}">
+            {% endfor %}
+            {% for esc in escolas %}
+                <option value="{{ esc.nome }}">
+            {% endfor %}
+            {% for loc_nome in locais_legados %}
+                <option value="{{ loc_nome }}">
+            {% endfor %}
+        </datalist>
+
+        <!-- Barra Final de Ação -->
+        <div class="d-flex justify-content-between align-items-center bg-white p-4 rounded-4 shadow-sm border">
+            <div class="text-muted small">
+                <i class="bi bi-shield-lock-fill text-primary me-1"></i>
+                Todos os registros ficam vinculados ao log de auditoria do Controle Interno Municipal.
+            </div>
+            <div class="d-flex gap-3">
+                <a href="{{ url_for('patrimonio.listar_itens') }}" class="btn btn-light btn-rounded px-4">Cancelar</a>
+                <button type="submit" class="btn btn-primary btn-lg btn-rounded px-5 fw-bold shadow-sm">
+                    <i class="bi bi-check2-circle me-2"></i>
+                    {{ 'Salvar Alterações' if patrimonio else 'Finalizar Incorporação Patrimonial' }}
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: CADASTRAR NOVO LOCAL ONDE SE ENCONTRA O BEM (NO ATO DO CADASTRO)    -->
+<!-- ========================================================================= -->
+<div class="modal fade" id="modalNovoLocal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 18px;">
+            <div class="modal-header bg-primary text-white border-0" style="border-top-left-radius: 18px; border-top-right-radius: 18px;">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-geo-alt-fill me-2"></i> Cadastrar Novo Local / Setor
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted small mb-3">
+                    Cadastre a unidade, prédio, escola ou sala onde o bem se encontra. Ele será selecionado automaticamente no formulário.
+                </p>
+                <div id="alertaModalLocal" class="alert d-none py-2 small"></div>
+
+                <div class="mb-3">
+                    <label class="form-label">Secretaria Vinculada</label>
+                    <select class="form-select" id="novoLocalSecretariaId">
+                        <option value="">-- Selecione (Opcional) --</option>
+                        {% for sec in secretarias %}
+                            <option value="{{ sec.id }}">{{ sec.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Prédio / Unidade / Escola*</label>
+                    <input type="text" class="form-control" id="novoLocalPredio"
+                           placeholder="Ex: Sede da SEMED, Prefeitura, Escola Municipal X, Hospital...">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Sala / Setor / Ambiente Específico*</label>
+                    <input type="text" class="form-control" id="novoLocalSala"
+                           placeholder="Ex: Sala da Diretoria, Coordenação Pedagógica, Almoxarifado, Sala 04...">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Nome de Exibição do Local (Gerado ou Personalizado)</label>
+                    <input type="text" class="form-control bg-light fw-semibold" id="novoLocalNomeCompleto"
+                           placeholder="Ex: Sede da SEMED - Sala da Diretoria">
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label">Responsável pelo Local (Opcional)</label>
+                        <input type="text" class="form-control" id="novoLocalResponsavel"
+                               placeholder="Digite o nome do responsável...">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Endereço / Referência (Opcional)</label>
+                        <input type="text" class="form-control" id="novoLocalEndereco"
+                               placeholder="Rua, Bairro...">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0 px-4 pb-4">
+                <button type="button" class="btn btn-light btn-rounded px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary btn-rounded px-4 fw-bold" id="btnSalvarNovoLocal" onclick="salvarNovoLocalAjax()">
+                    <i class="bi bi-check-lg me-1"></i> Salvar e Selecionar Local
+                </button>
+            </div>
         </div>
     </div>
 </div>
+
+<script>
+    // Atualiza automaticamente o nome composto no Modal de Novo Local
+    const inputPredio = document.getElementById('novoLocalPredio');
+    const inputSala = document.getElementById('novoLocalSala');
+    const inputNomeCompleto = document.getElementById('novoLocalNomeCompleto');
+
+    function comporNomeLocalModal() {
+        const p = (inputPredio.value || '').trim();
+        const s = (inputSala.value || '').trim();
+        if (p && s) {
+            inputNomeCompleto.value = `${p} - ${s}`;
+        } else if (p) {
+            inputNomeCompleto.value = p;
+        } else if (s) {
+            inputNomeCompleto.value = s;
+        }
+    }
+
+    if (inputPredio && inputSala) {
+        inputPredio.addEventListener('input', comporNomeLocalModal);
+        inputSala.addEventListener('input', comporNomeLocalModal);
+    }
+
+    // Quando seleciona um local no dropdown do Passo 2
+    function aoSelecionarLocalDropdown(selectEl) {
+        const opt = selectEl.options[selectEl.selectedIndex];
+        const inputLocalizacao = document.getElementById('localizacao');
+        const inputLocalId = document.getElementById('local_id');
+        if (!opt || !opt.value) {
+            inputLocalId.value = '';
+            return;
+        }
+        inputLocalizacao.value = opt.value;
+        inputLocalId.value = opt.getAttribute('data-id') || '';
+
+        const secId = opt.getAttribute('data-secretaria');
+        const selectSec = document.getElementById('secretaria_id');
+        if (secId && selectSec && !selectSec.value) {
+            selectSec.value = secId;
+        }
+
+        const respSetor = opt.getAttribute('data-responsavel');
+        const inputResp = document.getElementById('responsavel_nome');
+        if (respSetor && inputResp && !inputResp.value.trim()) {
+            inputResp.value = respSetor;
+        }
+    }
+
+    // Salva novo local via AJAX e seleciona imediatamente no formulário
+    async function salvarNovoLocalAjax() {
+        const alerta = document.getElementById('alertaModalLocal');
+        const btn = document.getElementById('btnSalvarNovoLocal');
+        const nome = (document.getElementById('novoLocalNomeCompleto').value || '').trim();
+        const predio = (document.getElementById('novoLocalPredio').value || '').trim();
+        const sala = (document.getElementById('novoLocalSala').value || '').trim();
+        const secretaria_id = document.getElementById('novoLocalSecretariaId').value;
+        const responsavel_setor = (document.getElementById('novoLocalResponsavel').value || '').trim();
+        const endereco = (document.getElementById('novoLocalEndereco').value || '').trim();
+
+        if (!nome && !predio && !sala) {
+            alerta.className = 'alert alert-warning py-2 small';
+            alerta.textContent = 'Preencha o Prédio/Unidade ou o nome da Sala/Setor.';
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Salvando...';
+
+        try {
+            const resp = await fetch("{{ url_for('patrimonio.api_novo_local') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nome: nome,
+                    predio_unidade: predio,
+                    sala_setor: sala,
+                    secretaria_id: secretaria_id,
+                    responsavel_setor: responsavel_setor,
+                    endereco: endereco
+                })
+            });
+            const data = await resp.json();
+            if (!data.success) {
+                alerta.className = 'alert alert-danger py-2 small';
+                alerta.textContent = data.message || 'Erro ao cadastrar local.';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Salvar e Selecionar Local';
+                return;
+            }
+
+            const loc = data.local;
+            // Adiciona ao select principal e seleciona
+            const optgroup = document.getElementById('optgroupLocaisCadastrados');
+            const selectLocal = document.getElementById('selectLocalCadastrado');
+            let optExistente = Array.from(selectLocal.options).find(o => o.value === loc.nome);
+            if (!optExistente) {
+                const novaOpt = document.createElement('option');
+                novaOpt.value = loc.nome;
+                novaOpt.textContent = loc.nome;
+                novaOpt.setAttribute('data-id', loc.id);
+                novaOpt.setAttribute('data-secretaria', loc.secretaria_id || '');
+                novaOpt.setAttribute('data-responsavel', loc.responsavel_setor || '');
+                if (optgroup) {
+                    optgroup.appendChild(novaOpt);
+                } else {
+                    selectLocal.appendChild(novaOpt);
+                }
+                optExistente = novaOpt;
+            }
+            selectLocal.value = loc.nome;
+            document.getElementById('localizacao').value = loc.nome;
+            document.getElementById('local_id').value = loc.id;
+
+            // Atualiza datalist global
+            const datalistLocais = document.getElementById('datalistLocaisTodos');
+            if (datalistLocais) {
+                const optDl = document.createElement('option');
+                optDl.value = loc.nome;
+                datalistLocais.appendChild(optDl);
+            }
+
+            if (loc.secretaria_id) {
+                const selSec = document.getElementById('secretaria_id');
+                if (selSec && !selSec.value) selSec.value = loc.secretaria_id;
+            }
+            if (loc.responsavel_setor) {
+                const inpResp = document.getElementById('responsavel_nome');
+                if (inpResp && !inpResp.value.trim()) inpResp.value = loc.responsavel_setor;
+            }
+
+            // Limpa campos do modal e fecha
+            document.getElementById('novoLocalPredio').value = '';
+            document.getElementById('novoLocalSala').value = '';
+            document.getElementById('novoLocalNomeCompleto').value = '';
+            document.getElementById('novoLocalResponsavel').value = '';
+            document.getElementById('novoLocalEndereco').value = '';
+            alerta.className = 'alert d-none py-2 small';
+
+            const modalEl = document.getElementById('modalNovoLocal');
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) modalInstance.hide();
+        } catch (err) {
+            alerta.className = 'alert alert-danger py-2 small';
+            alerta.textContent = 'Erro de comunicação ao salvar o local.';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Salvar e Selecionar Local';
+        }
+    }
+
+    // Autocompleta CNPJ ao selecionar fornecedor existente
+    const inputFornecedorNome = document.getElementById('fornecedor_nome');
+    if (inputFornecedorNome) {
+        inputFornecedorNome.addEventListener('change', function () {
+            const val = this.value;
+            const opts = document.querySelectorAll('#listaFornecedores option');
+            opts.forEach(o => {
+                if (o.value === val) {
+                    const cnpj = o.getAttribute('data-cnpj');
+                    const inputCnpj = document.getElementById('fornecedor_cnpj');
+                    if (cnpj && inputCnpj && !inputCnpj.value) {
+                        inputCnpj.value = cnpj;
+                    }
+                }
+            });
+        });
+    }
+
+    // Autocompleta Cargo/Matrícula se o nome digitado no Responsável coincidir com sugestão
+    const inputRespNome = document.getElementById('responsavel_nome');
+    if (inputRespNome) {
+        inputRespNome.addEventListener('change', function () {
+            const val = this.value;
+            const opts = document.querySelectorAll('#sugestoesServidores option');
+            opts.forEach(o => {
+                if (o.value === val) {
+                    const cargo = o.getAttribute('data-cargo');
+                    const mat = o.getAttribute('data-matricula');
+                    const inpCargo = document.getElementById('responsavel_cargo');
+                    const inpMat = document.getElementById('responsavel_matricula');
+                    if (cargo && inpCargo && !inpCargo.value) inpCargo.value = cargo;
+                    if (mat && inpMat && !inpMat.value) inpMat.value = mat;
+                }
+            });
+        });
+    }
+
+    function mascaraCnpjCpf(el) {
+        let v = el.value.replace(/\D/g, '');
+        if (v.length <= 11) {
+            v = v.replace(/(\d{3})(\d)/, '$1.$2');
+            v = v.replace(/(\d{3})(\d)/, '$1.$2');
+            v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+        } else {
+            v = v.substring(0, 14);
+            v = v.replace(/^(\d{2})(\d)/, '$1.$2');
+            v = v.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+            v = v.replace(/\.(\d{3})(\d)/, '.$1/$2');
+            v = v.replace(/(\d{4})(\d)/, '$1-$2');
+        }
+        el.value = v;
+    }
+
+    function atualizarContadorChave(el) {
+        const digitos = el.value.replace(/\D/g, '');
+        const cont = document.getElementById('contadorChaveNfe');
+        if (cont) {
+            cont.textContent = `${digitos.length}/44`;
+            cont.className = digitos.length === 44 ? 'text-success fw-bold' : 'text-muted';
+        }
+    }
+
+    // =========================================================================
+    // LÓGICA DE MÚLTIPLOS PRODUTOS DE UMA SÓ NOTA FISCAL
+    // =========================================================================
+    let contadorIndiceProduto = 1;
+
+    function atualizarTituloProduto(inputEl) {
+        const card = inputEl.closest('.produto-nf-card');
+        if (!card) return;
+        const spanTitulo = card.querySelector('.titulo-preview-produto');
+        if (spanTitulo) {
+            spanTitulo.textContent = inputEl.value.trim() || 'Novo Produto / Bem Patrimonial';
+        }
+    }
+
+    function incrementarCodigoTombamentoJS(base, offset) {
+        if (!base || !base.trim()) return '';
+        const b = base.trim();
+        if (offset === 0) return b;
+        const match = b.match(/(\d+)$/);
+        if (match) {
+            const numStr = match[1];
+            const prefix = b.slice(0, match.index);
+            const novoNum = parseInt(numStr, 10) + offset;
+            return prefix + String(novoNum).padStart(numStr.length, '0');
+        }
+        return `${b}-${offset + 1}`;
+    }
+
+    function atualizarPreviewTombamentoCard(el) {
+        const card = el.closest('.produto-nf-card');
+        if (!card) return;
+        const qtd = Math.max(1, parseInt(card.querySelector('.input-qtd-item').value || '1', 10));
+        const tombBase = (card.querySelector('.input-tombamento-item').value || '').trim();
+        const previewDiv = card.querySelector('.preview-faixa-tombamento');
+        if (!previewDiv) return;
+
+        if (qtd > 1 && tombBase) {
+            const ultimo = incrementarCodigoTombamentoJS(tombBase, qtd - 1);
+            previewDiv.innerHTML = `<span class="tombamento-preview-badge"><i class="bi bi-layers-fill me-1"></i>Serão gerados <strong>${qtd}</strong> tombamentos: <strong>${tombBase}</strong> até <strong>${ultimo}</strong></span>`;
+        } else if (qtd > 1 && !tombBase) {
+            previewDiv.innerHTML = `<span class="tombamento-preview-badge"><i class="bi bi-info-circle me-1"></i>Serão criados <strong>${qtd}</strong> registros individuais para este produto.</span>`;
+        } else {
+            previewDiv.innerHTML = '';
+        }
+    }
+
+    function recalcularTotaisNota() {
+        const cards = document.querySelectorAll('#containerProdutosNota .produto-nf-card');
+        let totalProdutos = cards.length;
+        let totalUnidades = 0;
+        let somaFinanceira = 0;
+
+        cards.forEach((card, idx) => {
+            const badge = card.querySelector('.num-item-badge');
+            if (badge) badge.textContent = `Item #${idx + 1} da Nota`;
+
+            const btnRemover = card.querySelector('.btn-remover-produto');
+            if (btnRemover) {
+                btnRemover.style.display = totalProdutos > 1 ? 'inline-block' : 'none';
+            }
+
+            const qtd = Math.max(1, parseInt(card.querySelector('.input-qtd-item')?.value || '1', 10));
+            const valUnit = parseFloat(card.querySelector('.input-valor-item')?.value || '0') || 0;
+            const subtotal = qtd * valUnit;
+
+            totalUnidades += qtd;
+            somaFinanceira += subtotal;
+
+            const inputSub = card.querySelector('.input-subtotal-item');
+            if (inputSub) {
+                inputSub.value = subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            }
+        });
+
+        const elQtdProd = document.getElementById('resumoQtdProdutos');
+        const elTotUnid = document.getElementById('resumoTotalUnidades');
+        const elValTot = document.getElementById('resumoValorTotalNota');
+        const inpValTot = document.getElementById('inputValorTotalNf');
+
+        if (elQtdProd) elQtdProd.textContent = totalProdutos;
+        if (elTotUnid) elTotUnid.textContent = totalUnidades;
+        if (elValTot) elValTot.textContent = somaFinanceira.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        if (inpValTot) inpValTot.value = somaFinanceira.toFixed(2);
+    }
+
+    function adicionarCardProduto(dadosClonados = null) {
+        const container = document.getElementById('containerProdutosNota');
+        if (!container) return;
+
+        const primeiroCard = container.querySelector('.produto-nf-card');
+        const novoCard = primeiroCard.cloneNode(true);
+        const novoIdx = contadorIndiceProduto++;
+        novoCard.setAttribute('data-index', novoIdx);
+
+        // Atualiza nome do input de foto e collapse de destino específico
+        const inputFoto = novoCard.querySelector('.input-foto-item');
+        if (inputFoto) {
+            inputFoto.name = `foto_bem_${novoIdx}`;
+            inputFoto.value = '';
+        }
+
+        const linkCollapse = novoCard.querySelector('[data-bs-toggle="collapse"]');
+        const divCollapse = novoCard.querySelector('.collapse');
+        if (linkCollapse && divCollapse) {
+            const collapseId = `collapseDestinoEspecifico_${novoIdx}`;
+            linkCollapse.setAttribute('href', `#${collapseId}`);
+            divCollapse.id = collapseId;
+            divCollapse.classList.remove('show');
+        }
+
+        if (dadosClonados) {
+            novoCard.querySelector('.input-descricao-item').value = dadosClonados.descricao || '';
+            novoCard.querySelector('.input-categoria-item').value = dadosClonados.categoria || 'Equipamentos de Informática / TI';
+            novoCard.querySelector('.input-qtd-item').value = dadosClonados.qtd || '1';
+            novoCard.querySelector('.input-tombamento-item').value = '';
+            novoCard.querySelector('.input-valor-item').value = dadosClonados.valor || '';
+            novoCard.querySelector('.input-marca-item').value = dadosClonados.marca || '';
+            novoCard.querySelector('.input-modelo-item').value = dadosClonados.modelo || '';
+            novoCard.querySelector('.input-serie-item').value = '';
+            novoCard.querySelector('.input-estado-item').value = dadosClonados.estado || 'Novo';
+            novoCard.querySelector('.input-situacao-item').value = dadosClonados.situacao || 'Em uso';
+            novoCard.querySelector('.input-vidautil-item').value = dadosClonados.vidaUtil || '5';
+            novoCard.querySelector('.input-garantia-item').value = dadosClonados.garantia || '';
+            novoCard.querySelector('.input-espec-item').value = dadosClonados.espec || '';
+            novoCard.querySelector('.input-local-esp').value = dadosClonados.localEsp || '';
+            novoCard.querySelector('.input-resp-esp').value = dadosClonados.respEsp || '';
+            atualizarTituloProduto(novoCard.querySelector('.input-descricao-item'));
+        } else {
+            novoCard.querySelector('.input-descricao-item').value = '';
+            novoCard.querySelector('.input-qtd-item').value = '1';
+            novoCard.querySelector('.input-tombamento-item').value = '';
+            novoCard.querySelector('.input-valor-item').value = '';
+            novoCard.querySelector('.input-marca-item').value = '';
+            novoCard.querySelector('.input-modelo-item').value = '';
+            novoCard.querySelector('.input-serie-item').value = '';
+            novoCard.querySelector('.input-espec-item').value = '';
+            novoCard.querySelector('.input-local-esp').value = '';
+            novoCard.querySelector('.input-resp-esp').value = '';
+            novoCard.querySelector('.titulo-preview-produto').textContent = 'Novo Produto / Bem Patrimonial';
+        }
+
+        novoCard.querySelector('.preview-faixa-tombamento').innerHTML = '';
+        container.appendChild(novoCard);
+        recalcularTotaisNota();
+        novoCard.querySelector('.input-descricao-item').focus();
+    }
+
+    function duplicarCardProduto(btnEl) {
+        const card = btnEl.closest('.produto-nf-card');
+        if (!card) return;
+        const dados = {
+            descricao: card.querySelector('.input-descricao-item').value,
+            categoria: card.querySelector('.input-categoria-item').value,
+            qtd: card.querySelector('.input-qtd-item').value,
+            valor: card.querySelector('.input-valor-item').value,
+            marca: card.querySelector('.input-marca-item').value,
+            modelo: card.querySelector('.input-modelo-item').value,
+            estado: card.querySelector('.input-estado-item').value,
+            situacao: card.querySelector('.input-situacao-item').value,
+            vidaUtil: card.querySelector('.input-vidautil-item').value,
+            garantia: card.querySelector('.input-garantia-item').value,
+            espec: card.querySelector('.input-espec-item').value,
+            localEsp: card.querySelector('.input-local-esp').value,
+            respEsp: card.querySelector('.input-resp-esp').value,
+        };
+        adicionarCardProduto(dados);
+    }
+
+    function removerCardProduto(btnEl) {
+        const cards = document.querySelectorAll('#containerProdutosNota .produto-nf-card');
+        if (cards.length <= 1) return;
+        const card = btnEl.closest('.produto-nf-card');
+        if (card) {
+            card.remove();
+            recalcularTotaisNota();
+        }
+    }
+
+    async function sugerirTombamentoParaCard(btnEl) {
+        const card = btnEl.closest('.produto-nf-card');
+        if (!card) return;
+        const inputTomb = card.querySelector('.input-tombamento-item');
+        try {
+            const resp = await fetch("{{ url_for('patrimonio.api_proximo_tombamento') }}");
+            const data = await resp.json();
+            if (data.sugestao) {
+                // Calcula quantos itens já estão preenchidos nos cards anteriores para não repetir
+                let offset = 0;
+                const todosCards = document.querySelectorAll('#containerProdutosNota .produto-nf-card');
+                for (const c of todosCards) {
+                    if (c === card) break;
+                    const q = Math.max(1, parseInt(c.querySelector('.input-qtd-item')?.value || '1', 10));
+                    offset += q;
+                }
+                inputTomb.value = incrementarCodigoTombamentoJS(data.sugestao, offset);
+                atualizarPreviewTombamentoCard(inputTomb);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function gerarTombamentoUnico(inputId) {
+        const inp = document.getElementById(inputId);
+        if (!inp) return;
+        try {
+            const resp = await fetch("{{ url_for('patrimonio.api_proximo_tombamento') }}");
+            const data = await resp.json();
+            if (data.sugestao) inp.value = data.sugestao;
+        } catch (e) {
+            console.error(e);
+        }
+    }
+</script>
 {% endblock %}

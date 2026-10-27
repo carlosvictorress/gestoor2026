@@ -19,21 +19,22 @@
         }
     </style>
 </head>
-<body onload="window.print()"> <div class="termo-container">
+<body onload="window.print()">
+    <div class="termo-container">
         <div class="timbre">
             <img src="{{ url_for('static', filename='timbre.jpg') }}" alt="Timbre Oficial">
             <h5 class="mt-2">ESTADO DO PIAUÍ</h5>
             <h6>PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ</h6>
         </div>
 
-        <div class="titulo">TERMO DE TRANSFERÊNCIA E RESPONSABILIDADE</div>
+        <div class="titulo">TERMO DE TRANSFERÊNCIA E RESPONSABILIDADE PATRIMONIAL</div>
 
         <div class="corpo">
             <p>Pelo presente Termo de Responsabilidade, certificamos que na data de 
             <strong>{{ mov.data_movimentacao.strftime('%d/%m/%Y') }}</strong>, às 
             <strong>{{ mov.data_movimentacao.strftime('%H:%M') }}</strong>, o bem patrimonial abaixo descrito foi transferido 
             de <strong>{{ mov.local_origem }}</strong> para <strong>{{ mov.local_destino }}</strong>, 
-            ficando sob a guarda e responsabilidade do setor de destino.</p>
+            ficando sob a guarda e responsabilidade do servidor/responsável do setor de destino.</p>
 
             <table class="table table-bordered mt-4">
                 <tr>
@@ -45,22 +46,32 @@
                     <td>{{ mov.patrimonio.descricao }}</td>
                 </tr>
                 <tr>
-                    <th>Marca/Modelo:</th>
-                    <td>{{ mov.patrimonio.marca or '-' }} / {{ mov.patrimonio.modelo or '-' }}</td>
+                    <th>Marca/Modelo/Série:</th>
+                    <td>{{ mov.patrimonio.marca or '-' }} / {{ mov.patrimonio.modelo or '-' }} {% if mov.patrimonio.numero_serie %}(Série: {{ mov.patrimonio.numero_serie }}){% endif %}</td>
                 </tr>
+                <tr>
+                    <th>Nota Fiscal / Empenho:</th>
+                    <td>NF: {{ mov.patrimonio.numero_nota_fiscal or 'Não informada' }} | Empenho: {{ mov.patrimonio.numero_empenho or '-' }}</td>
+                </tr>
+                {% if mov.motivo_transferencia %}
+                <tr>
+                    <th>Motivo / Despacho:</th>
+                    <td>{{ mov.motivo_transferencia }}</td>
+                </tr>
+                {% endif %}
             </table>
         </div>
 
         <div class="assinaturas d-flex justify-content-between">
             <div class="linha-assinatura">
-                <small>Enviado por:</small><br>
-                <strong>{{ mov.usuario_registro }}</strong><br>
-                <small>Setor de Origem</small>
+                <small>Entregue / Transferido por:</small><br>
+                <strong>{{ mov.nome_origem_exibicao if mov.nome_origem_exibicao != 'N/A' else mov.usuario_registro }}</strong><br>
+                <small>Origem: {{ mov.local_origem }}</small>
             </div>
             <div class="linha-assinatura">
-                <small>Recebido por:</small><br>
-                <strong>{{ mov.responsavel_novo.nome if mov.responsavel_novo else '__________________________' }}</strong><br>
-                <small>Setor de Destino</small>
+                <small>Recebido por (Responsável pela Guarda):</small><br>
+                <strong>{{ mov.nome_destino_exibicao if mov.nome_destino_exibicao != 'N/A' else '__________________________' }}</strong><br>
+                <small>Destino: {{ mov.local_destino }}</small>
             </div>
         </div>
 

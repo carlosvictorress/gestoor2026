@@ -270,7 +270,7 @@ def upload_arquivo_para_nuvem(file, pasta="geral"):
         print("Supabase Storage não configurado!")
         return None
     try:
-        extensao = file.filename.rsplit('.', 1)[1].lower()
+        extensao = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else 'bin'
         import uuid
         nome_arquivo = f"{uuid.uuid4().hex}.{extensao}"
         caminho_completo = f"{pasta}/{nome_arquivo}"
@@ -279,7 +279,7 @@ def upload_arquivo_para_nuvem(file, pasta="geral"):
         supabase_client.storage.from_("gestoor-arquivos").upload(
             path=caminho_completo,
             file=file_bytes,
-            file_options={"content-type": file.content_type}
+            file_options={"content-type": file.content_type or "application/octet-stream"}
         )
         public_url = supabase_client.storage.from_("gestoor-arquivos").get_public_url(caminho_completo)
         file.seek(0)

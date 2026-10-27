@@ -1,406 +1,1109 @@
 # patrimonio_routes.py
+import re
 from flask import (
     Blueprint, render_template, request, redirect, url_for, flash, session,
     make_response, current_app, send_from_directory, send_file, jsonify
 )
 import qrcode
-from models import Secretaria
-from utils import role_required
+from models import (
+    Secretaria, Patrimonio, MovimentacaoPatrimonio, Servidor,
+    LocalPatrimonio, NotaFiscalPatrimonio, Fornecedor, Escola
+)
+from utils import role_required, login_required, registrar_log, upload_arquivo_para_nuvem
 from extensions import db, bcrypt
-from models import Patrimonio, MovimentacaoPatrimonio, Servidor
-from utils import login_required, registrar_log
-from sqlalchemy import or_
-from datetime import datetime
+from sqlalchemy import or_, func, text
+from datetime import datetime, date
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas as canvas_lib
 from reportlab.lib.utils import ImageReader
-from utils import upload_arquivo_para_nuvem
-
 from flask_login import current_user
 
 patrimonio_bp = Blueprint('patrimonio', __name__, url_prefix='/patrimonio')
 
+_schema_patrimonio_verificado = False
+
+
+def executar_migracao_patrimonio_segura():
+    """Garante que as novas tabelas e colunas do módulo Patrimônio (Controle Interno / NF / Locais) existam no Supabase (PostgreSQL) e SQLite."""
+    global _schema_patrimonio_verificado
+    if _schema_patrimonio_verificado:
+        return
+    try:
+        db.create_all()
+    except Exception as e:
+        print(f"Aviso db.create_all() patrimonio: {e}")
+
+    # Criação explícita das novas tabelas para PostgreSQL (Supabase / Railway)
+    tabelas_postgres_sql = [
+        """
+        CREATE TABLE IF NOT EXISTS patrimonio_local (
+            id SERIAL PRIMARY KEY,
+            nome VARCHAR(200) NOT NULL,
+            predio_unidade VARCHAR(200),
+            sala_setor VARCHAR(150),
+            endereco VARCHAR(300),
+            responsavel_setor VARCHAR(200),
+            secretaria_id INTEGER,
+            ativo BOOLEAN DEFAULT TRUE,
+            data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS patrimonio_nota_fiscal (
+            id SERIAL PRIMARY KEY,
+            numero_nf VARCHAR(50) NOT NULL,
+            serie_nf VARCHAR(20),
+            chave_acesso VARCHAR(60),
+            data_emissao DATE,
+            data_recebimento DATE,
+            fornecedor_nome VARCHAR(200),
+            fornecedor_cnpj VARCHAR(25),
+            forma_aquisicao VARCHAR(80) DEFAULT 'Compra / Licitação',
+            numero_processo VARCHAR(100),
+            modalidade_licitacao VARCHAR(100),
+            numero_contrato VARCHAR(80),
+            numero_empenho VARCHAR(80),
+            fonte_recursos VARCHAR(150),
+            conta_contabil VARCHAR(120),
+            valor_total_nf FLOAT DEFAULT 0.0,
+            arquivo_nf_url VARCHAR(500),
+            observacoes TEXT,
+            usuario_registro VARCHAR(100),
+            data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+    ]
+
+    for sql_create in tabelas_postgres_sql:
+        try:
+            with db.engine.begin() as conn:
+                conn.execute(text(sql_create))
+        except Exception as e:
+            print(f"Aviso ao criar tabela de patrimônio: {e}")
+
+    # No PostgreSQL (Supabase), garante que numero_patrimonio permita NULL (para bens em depósito/sem tombamento imediato)
+    try:
+        with db.engine.begin() as conn:
+            conn.execute(text("ALTER TABLE patrimonio ALTER COLUMN numero_patrimonio DROP NOT NULL;"))
+    except Exception:
+        pass
+
+    colunas_patrimonio = [
+        ("estado_conservacao", "VARCHAR(50) DEFAULT 'Bom'"),
+        ("situacao_uso", "VARCHAR(50) DEFAULT 'Em uso'"),
+        ("marca", "VARCHAR(100)"),
+        ("modelo", "VARCHAR(100)"),
+        ("foto_url", "VARCHAR(500)"),
+        ("data_cadastro", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+        ("secretaria_id", "INTEGER"),
+        ("numero_serie", "VARCHAR(120)"),
+        ("especificacao_tecnica", "TEXT"),
+        ("local_id", "INTEGER"),
+        ("nota_fiscal_id", "INTEGER"),
+        ("forma_aquisicao", "VARCHAR(80)"),
+        ("numero_nota_fiscal", "VARCHAR(50)"),
+        ("serie_nota_fiscal", "VARCHAR(20)"),
+        ("chave_nfe", "VARCHAR(60)"),
+        ("data_nota_fiscal", "DATE"),
+        ("fornecedor_nome", "VARCHAR(200)"),
+        ("fornecedor_cnpj", "VARCHAR(25)"),
+        ("numero_empenho", "VARCHAR(80)"),
+        ("numero_processo", "VARCHAR(100)"),
+        ("modalidade_licitacao", "VARCHAR(100)"),
+        ("numero_contrato", "VARCHAR(80)"),
+        ("fonte_recursos", "VARCHAR(150)"),
+        ("conta_contabil", "VARCHAR(120)"),
+        ("vida_util_anos", "INTEGER DEFAULT 5"),
+        ("valor_residual", "FLOAT DEFAULT 0.0"),
+        ("garantia_ate", "DATE"),
+        ("data_atesto", "DATE"),
+        ("arquivo_nf_url", "VARCHAR(500)"),
+        ("responsavel_nome", "VARCHAR(200)"),
+        ("responsavel_cargo", "VARCHAR(120)"),
+        ("responsavel_matricula", "VARCHAR(60)"),
+    ]
+
+    for col_nome, col_tipo in colunas_patrimonio:
+        try:
+            with db.engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE patrimonio ADD COLUMN IF NOT EXISTS {col_nome} {col_tipo};"))
+        except Exception:
+            try:
+                with db.engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE patrimonio ADD COLUMN {col_nome} {col_tipo};"))
+            except Exception:
+                pass
+
+    colunas_movimentacao = [
+        ("responsavel_anterior_nome", "VARCHAR(200)"),
+        ("responsavel_novo_nome", "VARCHAR(200)"),
+        ("motivo_transferencia", "TEXT"),
+    ]
+
+    for col_nome, col_tipo in colunas_movimentacao:
+        try:
+            with db.engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE movimentacao_patrimonio ADD COLUMN IF NOT EXISTS {col_nome} {col_tipo};"))
+        except Exception:
+            try:
+                with db.engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE movimentacao_patrimonio ADD COLUMN {col_nome} {col_tipo};"))
+            except Exception:
+                pass
+
+    _schema_patrimonio_verificado = True
+
+
+@patrimonio_bp.before_app_request
+def _garantir_schema_patrimonio_request():
+    if not _schema_patrimonio_verificado and request.blueprint == 'patrimonio':
+        executar_migracao_patrimonio_segura()
+
+
+def _parse_moeda(valor_raw):
+    """Converte string monetária (ex: '1.250,50' ou '1250.50') em float."""
+    if not valor_raw:
+        return 0.0
+    s = str(valor_raw).strip().replace('R$', '').replace(' ', '')
+    if not s:
+        return 0.0
+    if ',' in s and '.' in s:
+        s = s.replace('.', '').replace(',', '.')
+    elif ',' in s:
+        s = s.replace(',', '.')
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
+
+
+def _parse_data(data_str):
+    if not data_str or not str(data_str).strip():
+        return None
+    try:
+        return datetime.strptime(str(data_str).strip(), '%Y-%m-%d').date()
+    except ValueError:
+        return None
+
+
+def _incrementar_tombamento(tombamento_base, offset):
+    """
+    Incrementa o sufixo numérico de um código de tombamento preservando zeros à esquerda.
+    Ex: ('20260001', 2) -> '20260003' | ('PAT-0010', 1) -> 'PAT-0011'
+    """
+    if not tombamento_base or not str(tombamento_base).strip():
+        return None
+    base = str(tombamento_base).strip()
+    if offset == 0:
+        return base
+    match = re.search(r'(\d+)$', base)
+    if match:
+        num_str = match.group(1)
+        prefix = base[:match.start(1)]
+        novo_num = int(num_str) + offset
+        return f"{prefix}{str(novo_num).zfill(len(num_str))}"
+    return f"{base}-{offset + 1}"
+
+
+def _obter_locais_disponiveis():
+    """Retorna objetos LocalPatrimonio ativos e lista combinada de nomes de localização."""
+    locais_db = LocalPatrimonio.query.filter_by(ativo=True).order_by(LocalPatrimonio.nome).all()
+    nomes_cadastrados = {l.nome.strip() for l in locais_db if l.nome}
+
+    # Também inclui locais já usados em patrimônios anteriores para não perder referências
+    locais_existentes = db.session.query(Patrimonio.localizacao).distinct().all()
+    locais_legados = sorted(
+        {r[0].strip() for r in locais_existentes if r[0] and r[0].strip() and r[0].strip() not in nomes_cadastrados}
+    )
+    return locais_db, locais_legados
+
+
 @patrimonio_bp.route('/')
 @login_required
-@role_required('Patrimonio', 'admin')
+@role_required('Patrimonio', 'admin', 'RH', 'Fiscal')
 def listar_itens():
+    executar_migracao_patrimonio_segura()
     query = Patrimonio.query
-    termo_busca = request.args.get('termo', '')
+
+    termo_busca = (request.args.get('termo') or request.args.get('q') or '').strip()
+    secretaria_filtro = request.args.get('secretaria_id', '').strip()
+    categoria_filtro = request.args.get('categoria', '').strip()
+    estado_filtro = request.args.get('estado', '').strip()
+    situacao_filtro = request.args.get('situacao', '').strip()
+    nf_filtro = request.args.get('nota_fiscal', '').strip()
 
     if termo_busca:
         search_pattern = f"%{termo_busca}%"
         query = query.filter(or_(
             Patrimonio.numero_patrimonio.ilike(search_pattern),
             Patrimonio.descricao.ilike(search_pattern),
-            Patrimonio.localizacao.ilike(search_pattern)
+            Patrimonio.localizacao.ilike(search_pattern),
+            Patrimonio.responsavel_nome.ilike(search_pattern),
+            Patrimonio.numero_nota_fiscal.ilike(search_pattern),
+            Patrimonio.fornecedor_nome.ilike(search_pattern),
+            Patrimonio.numero_empenho.ilike(search_pattern),
+            Patrimonio.marca.ilike(search_pattern),
+            Patrimonio.modelo.ilike(search_pattern),
+            Patrimonio.numero_serie.ilike(search_pattern),
         ))
-        
-    itens = query.order_by(Patrimonio.descricao).all()
-    return render_template('patrimonio/lista.html', itens=itens, termo_busca=termo_busca)
+
+    if secretaria_filtro and secretaria_filtro.isdigit():
+        query = query.filter(Patrimonio.secretaria_id == int(secretaria_filtro))
+    if categoria_filtro:
+        query = query.filter(Patrimonio.categoria == categoria_filtro)
+    if estado_filtro:
+        query = query.filter(Patrimonio.estado_conservacao == estado_filtro)
+    if situacao_filtro:
+        query = query.filter(Patrimonio.situacao_uso == situacao_filtro)
+    if nf_filtro:
+        query = query.filter(Patrimonio.numero_nota_fiscal.ilike(f"%{nf_filtro}%"))
+
+    itens = query.order_by(Patrimonio.id.desc()).all()
+    secretarias = Secretaria.query.order_by(Secretaria.nome).all()
+    notas_recentes = NotaFiscalPatrimonio.query.order_by(NotaFiscalPatrimonio.id.desc()).limit(20).all()
+    locais_db, _ = _obter_locais_disponiveis()
+
+    return render_template(
+        'patrimonio/lista.html',
+        itens=itens,
+        termo_busca=termo_busca,
+        secretarias=secretarias,
+        notas_recentes=notas_recentes,
+        locais_db=locais_db,
+        filtros={
+            'secretaria_id': secretaria_filtro,
+            'categoria': categoria_filtro,
+            'estado': estado_filtro,
+            'situacao': situacao_filtro,
+            'nota_fiscal': nf_filtro,
+        }
+    )
+
+
+@patrimonio_bp.route('/api/locais/novo', methods=['POST'])
+@login_required
+@role_required('Patrimonio', 'admin', 'RH', 'Fiscal')
+def api_novo_local():
+    """Endpoint AJAX para cadastrar um novo Local de Patrimônio no ato do cadastro do bem."""
+    executar_migracao_patrimonio_segura()
+    data = request.get_json(silent=True) or request.form
+
+    nome = (data.get('nome') or '').strip()
+    predio_unidade = (data.get('predio_unidade') or '').strip()
+    sala_setor = (data.get('sala_setor') or '').strip()
+    endereco = (data.get('endereco') or '').strip()
+    responsavel_setor = (data.get('responsavel_setor') or '').strip()
+    sec_id = data.get('secretaria_id')
+    secretaria_id = int(sec_id) if sec_id and str(sec_id).isdigit() else None
+
+    if not nome:
+        # Monta o nome automaticamente se informou prédio e sala
+        partes = [p for p in [predio_unidade, sala_setor] if p]
+        nome = " - ".join(partes)
+
+    if not nome:
+        return jsonify({'success': False, 'message': 'Informe o nome do local ou unidade/setor.'}), 400
+
+    # Se informou prédio e sala separadamente e o nome não contém a sala, compõe uma descrição clara
+    nome_formatado = nome
+    if predio_unidade and sala_setor and predio_unidade.lower() not in nome.lower():
+        nome_formatado = f"{predio_unidade} - { nome }"
+    elif sala_setor and sala_setor.lower() not in nome_formatado.lower():
+        nome_formatado = f"{nome_formatado} ({sala_setor})"
+
+    try:
+        existente = LocalPatrimonio.query.filter(
+            func.lower(LocalPatrimonio.nome) == nome_formatado.lower()
+        ).first()
+        if existente:
+            return jsonify({
+                'success': True,
+                'message': 'Local já existente selecionado.',
+                'local': {
+                    'id': existente.id,
+                    'nome': existente.nome,
+                    'predio_unidade': existente.predio_unidade or '',
+                    'sala_setor': existente.sala_setor or '',
+                    'responsavel_setor': existente.responsavel_setor or '',
+                    'secretaria_id': existente.secretaria_id,
+                }
+            })
+
+        novo_local = LocalPatrimonio(
+            nome=nome_formatado,
+            predio_unidade=predio_unidade or None,
+            sala_setor=sala_setor or None,
+            endereco=endereco or None,
+            responsavel_setor=responsavel_setor or None,
+            secretaria_id=secretaria_id,
+            ativo=True
+        )
+        db.session.add(novo_local)
+        db.session.commit()
+
+        try:
+            registrar_log(f"Cadastrou novo local patrimonial: {novo_local.nome}")
+        except Exception:
+            pass
+
+        return jsonify({
+            'success': True,
+            'message': 'Local cadastrado com sucesso!',
+            'local': {
+                'id': novo_local.id,
+                'nome': novo_local.nome,
+                'predio_unidade': novo_local.predio_unidade or '',
+                'sala_setor': novo_local.sala_setor or '',
+                'responsavel_setor': novo_local.responsavel_setor or '',
+                'secretaria_id': novo_local.secretaria_id,
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Erro ao salvar local: {str(e)}'}), 500
+
+
+@patrimonio_bp.route('/api/proximo-tombamento')
+@login_required
+def api_proximo_tombamento():
+    """Sugere o próximo número de tombamento sequencial."""
+    executar_migracao_patrimonio_segura()
+    ano_atual = datetime.now().year
+    prefixo = f"{ano_atual}"
+
+    todos = db.session.query(Patrimonio.numero_patrimonio).filter(
+        Patrimonio.numero_patrimonio.isnot(None)
+    ).all()
+
+    maior_num = 0
+    for (num_pat,) in todos:
+        if not num_pat:
+            continue
+        somente_digitos = re.sub(r'\D', '', str(num_pat))
+        if somente_digitos.startswith(prefixo) and len(somente_digitos) >= 8:
+            try:
+                seq = int(somente_digitos[4:])
+                if seq > maior_num:
+                    maior_num = seq
+            except ValueError:
+                pass
+        elif somente_digitos.isdigit():
+            try:
+                val = int(somente_digitos)
+                if val < 999999 and val > maior_num:
+                    maior_num = val
+            except ValueError:
+                pass
+
+    sugestao = f"{prefixo}{str(maior_num + 1).zfill(4)}"
+    while Patrimonio.query.filter_by(numero_patrimonio=sugestao).first() is not None:
+        maior_num += 1
+        sugestao = f"{prefixo}{str(maior_num + 1).zfill(4)}"
+
+    return jsonify({'sugestao': sugestao})
+
 
 @patrimonio_bp.route('/item/novo', methods=['GET', 'POST'])
 @login_required
-@role_required('admin', 'RH', 'Fiscal')
+@role_required('Patrimonio', 'admin', 'RH', 'Fiscal')
 def novo_item():
+    executar_migracao_patrimonio_segura()
+
     if request.method == 'POST':
         try:
-            # 1. Tratamento do Tombamento (Opcional)
-            tombamento = request.form.get('tombamento')
-            if not tombamento or tombamento.strip() == "":
-                tombamento = None
+            # =========================================================================
+            # 1. DADOS GERAIS DA AQUISIÇÃO / NOTA FISCAL / CONTROLE INTERNO
+            # =========================================================================
+            forma_aquisicao = (request.form.get('forma_aquisicao') or 'Compra / Licitação').strip()
+            numero_nf = (request.form.get('numero_nota_fiscal') or '').strip() or None
+            serie_nf = (request.form.get('serie_nota_fiscal') or '').strip() or None
+            chave_nfe = re.sub(r'\s+', '', (request.form.get('chave_nfe') or '').strip()) or None
+            data_nf = _parse_data(request.form.get('data_nota_fiscal'))
+            data_atesto = _parse_data(request.form.get('data_atesto')) or _parse_data(request.form.get('data_aquisicao'))
+            data_aquisicao = data_nf or data_atesto or date.today()
 
-            # 2. Captura da foto para o Supabase
-            foto_file = request.files.get('foto_bem')
-            foto_link = None
-            if foto_file and foto_file.filename != '':
-                from utils import upload_arquivo_para_nuvem
-                foto_link = upload_arquivo_para_nuvem(foto_file, pasta="patrimonio")
+            fornecedor_nome = (request.form.get('fornecedor_nome') or '').strip() or None
+            fornecedor_cnpj = (request.form.get('fornecedor_cnpj') or '').strip() or None
+            numero_processo = (request.form.get('numero_processo') or '').strip() or None
+            modalidade_licitacao = (request.form.get('modalidade_licitacao') or '').strip() or None
+            numero_contrato = (request.form.get('numero_contrato') or '').strip() or None
+            numero_empenho = (request.form.get('numero_empenho') or '').strip() or None
+            fonte_recursos = (request.form.get('fonte_recursos') or '').strip() or None
+            conta_contabil = (request.form.get('conta_contabil') or '').strip() or None
+            observacoes_nf = (request.form.get('observacoes_nf') or '').strip() or None
 
-            # 3. Tratamento de valores numéricos (CORRIGIDO PARA O PADRÃO BRASILEIRO)
-            valor_compra_raw = request.form.get('valor_compra')
-            if valor_compra_raw and valor_compra_raw.strip():
-                # Remove pontos de milhar e troca a vírgula por ponto para o Python entender
-                valor_str = valor_compra_raw.replace('.', '').replace(',', '.')
-                valor_final = float(valor_str)
-            else:
-                valor_final = 0.0
+            # Upload opcional do PDF/Imagem da Nota Fiscal
+            arquivo_nf_file = request.files.get('arquivo_nf')
+            arquivo_nf_link = None
+            if arquivo_nf_file and arquivo_nf_file.filename != '':
+                arquivo_nf_link = upload_arquivo_para_nuvem(arquivo_nf_file, pasta="patrimonio_nf")
 
-            # 4. Tratamento do ID da Secretaria e Servidor Responsável (Evita erro de Foreign Key)
+            # =========================================================================
+            # 2. LOCALIZAÇÃO E RESPONSABILIDADE PADRÃO DO LOTE / CADASTRO
+            # =========================================================================
             sec_id = request.form.get('secretaria_id')
-            secretaria_id_final = int(sec_id) if sec_id and sec_id.isdigit() else None
+            secretaria_id_padrao = int(sec_id) if sec_id and str(sec_id).isdigit() else None
 
-            resp_cpf = request.form.get('servidor_responsavel_cpf')
-            responsavel_cpf_final = resp_cpf if resp_cpf and resp_cpf.strip() != "" else None
+            localizacao_padrao = (request.form.get('localizacao') or '').strip()
+            local_id_raw = request.form.get('local_id')
+            local_id_padrao = int(local_id_raw) if local_id_raw and str(local_id_raw).isdigit() else None
 
-            # 5. Criando o objeto com as novas validações blindadas
-            novo_bem = Patrimonio(
-                numero_patrimonio=tombamento,
-                descricao=request.form.get('nome_bem'),
-                categoria=request.form.get('categoria'),
-                marca=request.form.get('marca'),
-                modelo=request.form.get('modelo'),
-                valor_aquisicao=valor_final,
-                estado_conservacao=request.form.get('estado_conservacao'),
-                situacao_uso=request.form.get('situacao_uso'),
-                localizacao=request.form.get('localizacao', 'Não informada'),
-                observacoes=request.form.get('descricao'),
-                foto_url=foto_link,
-                servidor_responsavel_cpf=responsavel_cpf_final,
-                secretaria_id=secretaria_id_final 
-            )
-            
-            db.session.add(novo_bem)
+            if not localizacao_padrao and local_id_padrao:
+                loc_obj = LocalPatrimonio.query.get(local_id_padrao)
+                if loc_obj:
+                    localizacao_padrao = loc_obj.nome
+            elif localizacao_padrao and not local_id_padrao:
+                loc_obj = LocalPatrimonio.query.filter(
+                    func.lower(LocalPatrimonio.nome) == localizacao_padrao.lower()
+                ).first()
+                if loc_obj:
+                    local_id_padrao = loc_obj.id
+
+            if not localizacao_padrao:
+                localizacao_padrao = "Não informada"
+
+            # Responsável pelo bem: campo livre digitado pelo usuário
+            responsavel_nome_padrao = (request.form.get('responsavel_nome') or '').strip() or None
+            responsavel_cargo_padrao = (request.form.get('responsavel_cargo') or '').strip() or None
+            responsavel_matricula_padrao = (request.form.get('responsavel_matricula') or '').strip() or None
+
+            # =========================================================================
+            # 3. COLETA DOS MÚLTIPLOS PRODUTOS DA NOTA FISCAL (OU ITEM ÚNICO)
+            # =========================================================================
+            descricoes = request.form.getlist('item_descricao[]')
+            categorias = request.form.getlist('item_categoria[]')
+            quantidades = request.form.getlist('item_quantidade[]')
+            tombamentos = request.form.getlist('item_tombamento[]')
+            marcas = request.form.getlist('item_marca[]')
+            modelos = request.form.getlist('item_modelo[]')
+            numeros_serie = request.form.getlist('item_numero_serie[]')
+            valores_unitarios = request.form.getlist('item_valor_unitario[]')
+            estados = request.form.getlist('item_estado_conservacao[]')
+            situacoes = request.form.getlist('item_situacao_uso[]')
+            vidas_uteis = request.form.getlist('item_vida_util[]')
+            garantias = request.form.getlist('item_garantia_ate[]')
+            locais_especificos = request.form.getlist('item_localizacao_especifica[]')
+            responsaveis_especificos = request.form.getlist('item_responsavel_especifico[]')
+            especificacoes = request.form.getlist('item_especificacao[]')
+
+            # Fallback caso venha do formato antigo de campo simples
+            if not descricoes and request.form.get('nome_bem'):
+                descricoes = [request.form.get('nome_bem')]
+                categorias = [request.form.get('categoria', '')]
+                quantidades = ['1']
+                tombamentos = [request.form.get('tombamento', '')]
+                marcas = [request.form.get('marca', '')]
+                modelos = [request.form.get('modelo', '')]
+                numeros_serie = [request.form.get('numero_serie', '')]
+                valores_unitarios = [request.form.get('valor_compra', '0')]
+                estados = [request.form.get('estado_conservacao', 'Bom')]
+                situacoes = [request.form.get('situacao_uso', 'Em uso')]
+                vidas_uteis = ['5']
+                garantias = ['']
+                locais_especificos = ['']
+                responsaveis_especificos = ['']
+                especificacoes = [request.form.get('descricao', '')]
+
+            produtos_validos = [d.strip() for d in descricoes if d and d.strip()]
+            if not produtos_validos:
+                flash("Informe pelo menos um produto/bem patrimonial para cadastrar.", "warning")
+                return redirect(url_for('patrimonio.novo_item'))
+
+            # Cria o registro mestre da Nota Fiscal se houver dados de Nota Fiscal ou múltiplos produtos
+            nota_fiscal_obj = None
+            if numero_nf or fornecedor_nome or numero_empenho or len(produtos_validos) > 1:
+                nota_fiscal_obj = NotaFiscalPatrimonio(
+                    numero_nf=numero_nf or f"S/NF-{datetime.now().strftime('%Y%m%d%H%M')}",
+                    serie_nf=serie_nf,
+                    chave_acesso=chave_nfe,
+                    data_emissao=data_nf,
+                    data_recebimento=data_atesto or date.today(),
+                    fornecedor_nome=fornecedor_nome,
+                    fornecedor_cnpj=fornecedor_cnpj,
+                    forma_aquisicao=forma_aquisicao,
+                    numero_processo=numero_processo,
+                    modalidade_licitacao=modalidade_licitacao,
+                    numero_contrato=numero_contrato,
+                    numero_empenho=numero_empenho,
+                    fonte_recursos=fonte_recursos,
+                    conta_contabil=conta_contabil,
+                    arquivo_nf_url=arquivo_nf_link,
+                    observacoes=observacoes_nf,
+                    usuario_registro=session.get('username') or getattr(current_user, 'username', 'Sistema'),
+                    valor_total_nf=0.0
+                )
+                db.session.add(nota_fiscal_obj)
+                db.session.flush()  # Obtém o ID da nota fiscal antes de criar os bens
+
+            total_bens_criados = 0
+            soma_valor_total_nf = 0.0
+            tombamentos_usados_no_lote = set()
+
+            for idx, desc_raw in enumerate(descricoes):
+                nome_produto = (desc_raw or '').strip()
+                if not nome_produto:
+                    continue
+
+                categoria_item = (categorias[idx] if idx < len(categorias) else '') or 'Outros'
+                qtd_raw = quantidades[idx] if idx < len(quantidades) else '1'
+                try:
+                    qtd_unidades = max(1, min(500, int(qtd_raw)))
+                except ValueError:
+                    qtd_unidades = 1
+
+                tombamento_base = (tombamentos[idx] if idx < len(tombamentos) else '').strip() or None
+                marca_item = (marcas[idx] if idx < len(marcas) else '').strip() or None
+                modelo_item = (modelos[idx] if idx < len(modelos) else '').strip() or None
+                serie_raw = (numeros_serie[idx] if idx < len(numeros_serie) else '').strip()
+                valor_unit = _parse_moeda(valores_unitarios[idx] if idx < len(valores_unitarios) else '0')
+                estado_item = (estados[idx] if idx < len(estados) else 'Bom') or 'Bom'
+                situacao_item = (situacoes[idx] if idx < len(situacoes) else 'Em uso') or 'Em uso'
+
+                vida_raw = vidas_uteis[idx] if idx < len(vidas_uteis) else '5'
+                try:
+                    vida_util_item = int(vida_raw) if vida_raw else 5
+                except ValueError:
+                    vida_util_item = 5
+
+                garantia_item = _parse_data(garantias[idx] if idx < len(garantias) else None)
+                local_especifico = (locais_especificos[idx] if idx < len(locais_especificos) else '').strip()
+                resp_especifico = (responsaveis_especificos[idx] if idx < len(responsaveis_especificos) else '').strip()
+                espec_item = (especificacoes[idx] if idx < len(especificacoes) else '').strip() or None
+
+                # Upload de foto específica deste produto (ou fallback foto_bem)
+                foto_file = request.files.get(f'foto_bem_{idx}')
+                if not foto_file and idx == 0:
+                    foto_file = request.files.get('foto_bem')
+                foto_link_item = None
+                if foto_file and foto_file.filename != '':
+                    foto_link_item = upload_arquivo_para_nuvem(foto_file, pasta="patrimonio")
+
+                # Se o usuário informou múltiplos números de série separados por vírgula ou ponto-e-vírgula
+                lista_series = [s.strip() for s in re.split(r'[,;\n]+', serie_raw) if s.strip()] if serie_raw else []
+
+                # Define localização e responsável efetivos para este produto
+                local_final = local_especifico if local_especifico else localizacao_padrao
+                local_id_final = local_id_padrao if not local_especifico else None
+                if local_especifico:
+                    loc_esp_obj = LocalPatrimonio.query.filter(
+                        func.lower(LocalPatrimonio.nome) == local_especifico.lower()
+                    ).first()
+                    if loc_esp_obj:
+                        local_id_final = loc_esp_obj.id
+
+                resp_nome_final = resp_especifico if resp_especifico else responsavel_nome_padrao
+
+                for u in range(qtd_unidades):
+                    tombamento_unidade = _incrementar_tombamento(tombamento_base, u) if tombamento_base else None
+
+                    # Valida duplicidade de tombamento
+                    if tombamento_unidade:
+                        if tombamento_unidade in tombamentos_usados_no_lote:
+                            raise ValueError(f"O Nº de Tombamento '{tombamento_unidade}' está repetido entre os itens informados.")
+                        ja_existe = Patrimonio.query.filter_by(numero_patrimonio=tombamento_unidade).first()
+                        if ja_existe:
+                            raise ValueError(f"O Nº de Tombamento '{tombamento_unidade}' já existe cadastrado no bem '{ja_existe.descricao}'.")
+                        tombamentos_usados_no_lote.add(tombamento_unidade)
+
+                    serie_unidade = None
+                    if u < len(lista_series):
+                        serie_unidade = lista_series[u]
+                    elif len(lista_series) == 1 and qtd_unidades == 1:
+                        serie_unidade = lista_series[0]
+
+                    novo_bem = Patrimonio(
+                        numero_patrimonio=tombamento_unidade,
+                        descricao=nome_produto,
+                        categoria=categoria_item,
+                        marca=marca_item,
+                        modelo=modelo_item,
+                        numero_serie=serie_unidade,
+                        especificacao_tecnica=espec_item,
+                        valor_aquisicao=valor_unit,
+                        data_aquisicao=data_aquisicao,
+                        estado_conservacao=estado_item,
+                        situacao_uso=situacao_item,
+                        status="Ativo",
+                        localizacao=local_final,
+                        local_id=local_id_final,
+                        observacoes=espec_item,
+                        foto_url=foto_link_item,
+                        arquivo_nf_url=arquivo_nf_link,
+                        responsavel_nome=resp_nome_final,
+                        responsavel_cargo=responsavel_cargo_padrao,
+                        responsavel_matricula=responsavel_matricula_padrao,
+                        secretaria_id=secretaria_id_padrao,
+                        nota_fiscal_id=nota_fiscal_obj.id if nota_fiscal_obj else None,
+                        forma_aquisicao=forma_aquisicao,
+                        numero_nota_fiscal=numero_nf,
+                        serie_nota_fiscal=serie_nf,
+                        chave_nfe=chave_nfe,
+                        data_nota_fiscal=data_nf,
+                        fornecedor_nome=fornecedor_nome,
+                        fornecedor_cnpj=fornecedor_cnpj,
+                        numero_empenho=numero_empenho,
+                        numero_processo=numero_processo,
+                        modalidade_licitacao=modalidade_licitacao,
+                        numero_contrato=numero_contrato,
+                        fonte_recursos=fonte_recursos,
+                        conta_contabil=conta_contabil,
+                        vida_util_anos=vida_util_item,
+                        garantia_ate=garantia_item,
+                        data_atesto=data_atesto,
+                    )
+                    db.session.add(novo_bem)
+                    total_bens_criados += 1
+                    soma_valor_total_nf += valor_unit
+
+            if nota_fiscal_obj:
+                valor_nf_informado = _parse_moeda(request.form.get('valor_total_nf'))
+                nota_fiscal_obj.valor_total_nf = valor_nf_informado if valor_nf_informado > 0 else soma_valor_total_nf
+
             db.session.commit()
-            
-            # Registrar Log
+
             try:
-                from app import registrar_log
-                registrar_log(f"Cadastrou novo patrimônio: {novo_bem.descricao} (Tomb: {tombamento or 'S/N'})")
-            except:
+                resumo_nf = f" (NF: {numero_nf})" if numero_nf else ""
+                registrar_log(
+                    f"Incorporou {total_bens_criados} bem(ns) patrimonial(is){resumo_nf} - Total: R$ {soma_valor_total_nf:.2f}"
+                )
+            except Exception:
                 pass
 
-            flash("Patrimônio cadastrado com sucesso!", "success")
+            if total_bens_criados == 1:
+                flash("Bem patrimonial cadastrado e incorporado com sucesso!", "success")
+            else:
+                flash(
+                    f"Incorporação concluída com sucesso! Foram cadastrados {total_bens_criados} bens patrimoniais "
+                    f"{'vinculados à NF ' + numero_nf if numero_nf else 'no lote'}.",
+                    "success"
+                )
             return redirect(url_for('patrimonio.listar_itens'))
-            
+
+        except ValueError as ve:
+            db.session.rollback()
+            flash(f"Atenção: {str(ve)}", "warning")
         except Exception as e:
             db.session.rollback()
             erro_str = str(e)
             print(f"Erro ao cadastrar patrimônio: {erro_str}")
-            
-            # 6. MENSAGEM DE ERRO MELHORADA (Aponta o que deu errado)
             if "UNIQUE constraint failed" in erro_str or "Duplicate" in erro_str:
                 flash("Erro: O Número de Tombamento informado já existe cadastrado em outro item.", "danger")
             elif "NOT NULL constraint failed" in erro_str:
-                flash("Erro: Você esqueceu de preencher um campo obrigatório (Ex: Nome do Bem).", "danger")
+                flash("Erro: Preencha todos os campos obrigatórios (Nome do Bem e Localização).", "danger")
             else:
-                # Mostra parte do erro real para ajudar no debug
-                flash(f"Falha ao salvar no banco de dados. Erro técnico: {erro_str[:50]}...", "danger")
+                flash(f"Falha ao salvar no banco de dados: {erro_str[:120]}", "danger")
 
-    # Busca de dados para carregar o formulário (GET)
     servidores = Servidor.query.order_by(Servidor.nome).all()
     secretarias = Secretaria.query.order_by(Secretaria.nome).all()
-    
-    return render_template('patrimonio/form.html', 
-                           servidores=servidores, 
-                           secretarias=secretarias, 
-                           patrimonio=None)
+    fornecedores = Fornecedor.query.order_by(Fornecedor.nome).all()
+    escolas = Escola.query.order_by(Escola.nome).all()
+    locais_db, locais_legados = _obter_locais_disponiveis()
+
+    return render_template(
+        'patrimonio/form.html',
+        servidores=servidores,
+        secretarias=secretarias,
+        fornecedores=fornecedores,
+        escolas=escolas,
+        locais_db=locais_db,
+        locais_legados=locais_legados,
+        patrimonio=None,
+        item=None
+    )
 
 
 @patrimonio_bp.route('/item/editar/<int:item_id>', methods=['GET', 'POST'])
 @login_required
-@role_required('Patrimonio', 'admin')
+@role_required('Patrimonio', 'admin', 'RH', 'Fiscal')
 def editar_item(item_id):
+    executar_migracao_patrimonio_segura()
     item = Patrimonio.query.get_or_404(item_id)
-    from models import Secretaria
 
     if request.method == 'POST':
         try:
-            # Tratamento de Valor de Aquisição (Corrigido também na edição)
-            valor_str = request.form.get('valor_aquisicao', '0').replace('.', '').replace(',', '.')
-            item.valor_aquisicao = float(valor_str) if valor_str else 0.0
-            
-            data_str = request.form.get('data_aquisicao')
-            if data_str:
-                item.data_aquisicao = datetime.strptime(data_str, '%Y-%m-%d').date()
+            tombamento = (request.form.get('tombamento') or request.form.get('numero_patrimonio') or '').strip() or None
+            if tombamento and tombamento != item.numero_patrimonio:
+                conflito = Patrimonio.query.filter(
+                    Patrimonio.numero_patrimonio == tombamento,
+                    Patrimonio.id != item.id
+                ).first()
+                if conflito:
+                    flash(f"O Nº de Tombamento '{tombamento}' já pertence a outro item ({conflito.descricao}).", "danger")
+                    return redirect(url_for('patrimonio.editar_item', item_id=item.id))
+            item.numero_patrimonio = tombamento
 
-            item.descricao = request.form.get('descricao')
-            item.categoria = request.form.get('categoria')
-            item.status = request.form.get('status')
-            item.observacoes = request.form.get('observacoes')
-            
-            # Tratamento da Secretaria e Responsável
+            nome_bem = (request.form.get('nome_bem') or request.form.get('descricao') or '').strip()
+            if nome_bem:
+                item.descricao = nome_bem
+
+            item.categoria = (request.form.get('categoria') or '').strip() or item.categoria
+            item.marca = (request.form.get('marca') or '').strip() or None
+            item.modelo = (request.form.get('modelo') or '').strip() or None
+            item.numero_serie = (request.form.get('numero_serie') or '').strip() or None
+            item.especificacao_tecnica = (request.form.get('especificacao_tecnica') or request.form.get('observacoes') or '').strip() or None
+            item.observacoes = (request.form.get('observacoes') or request.form.get('especificacao_tecnica') or '').strip() or None
+
+            item.estado_conservacao = request.form.get('estado_conservacao') or item.estado_conservacao
+            item.situacao_uso = request.form.get('situacao_uso') or item.situacao_uso
+            if request.form.get('status'):
+                item.status = request.form.get('status')
+
+            # Localização e Secretaria
+            localizacao_nova = (request.form.get('localizacao') or '').strip()
+            if localizacao_nova:
+                item.localizacao = localizacao_nova
+            local_id_raw = request.form.get('local_id')
+            if local_id_raw and str(local_id_raw).isdigit():
+                item.local_id = int(local_id_raw)
+
             sec_id = request.form.get('secretaria_id')
-            item.secretaria_id = int(sec_id) if sec_id and sec_id.isdigit() else None
-            
-            resp_cpf = request.form.get('servidor_responsavel_cpf')
-            item.servidor_responsavel_cpf = resp_cpf if resp_cpf and resp_cpf.strip() != "" else None
-            
+            item.secretaria_id = int(sec_id) if sec_id and str(sec_id).isdigit() else None
+
+            # Responsável (campo digitado)
+            item.responsavel_nome = (request.form.get('responsavel_nome') or '').strip() or None
+            item.responsavel_cargo = (request.form.get('responsavel_cargo') or '').strip() or None
+            item.responsavel_matricula = (request.form.get('responsavel_matricula') or '').strip() or None
+
+            # Dados Financeiros e Nota Fiscal
+            valor_raw = request.form.get('valor_compra') or request.form.get('valor_aquisicao')
+            if valor_raw is not None:
+                item.valor_aquisicao = _parse_moeda(valor_raw)
+
+            item.forma_aquisicao = (request.form.get('forma_aquisicao') or item.forma_aquisicao or 'Compra / Licitação').strip()
+            item.numero_nota_fiscal = (request.form.get('numero_nota_fiscal') or '').strip() or None
+            item.serie_nota_fiscal = (request.form.get('serie_nota_fiscal') or '').strip() or None
+            item.chave_nfe = re.sub(r'\s+', '', (request.form.get('chave_nfe') or '').strip()) or None
+            item.data_nota_fiscal = _parse_data(request.form.get('data_nota_fiscal'))
+            item.data_atesto = _parse_data(request.form.get('data_atesto'))
+            data_aq = _parse_data(request.form.get('data_aquisicao')) or item.data_nota_fiscal or item.data_atesto
+            if data_aq:
+                item.data_aquisicao = data_aq
+
+            item.fornecedor_nome = (request.form.get('fornecedor_nome') or '').strip() or None
+            item.fornecedor_cnpj = (request.form.get('fornecedor_cnpj') or '').strip() or None
+            item.numero_empenho = (request.form.get('numero_empenho') or '').strip() or None
+            item.numero_processo = (request.form.get('numero_processo') or '').strip() or None
+            item.modalidade_licitacao = (request.form.get('modalidade_licitacao') or '').strip() or None
+            item.numero_contrato = (request.form.get('numero_contrato') or '').strip() or None
+            item.fonte_recursos = (request.form.get('fonte_recursos') or '').strip() or None
+            item.conta_contabil = (request.form.get('conta_contabil') or '').strip() or None
+
+            vida_raw = request.form.get('vida_util_anos')
+            if vida_raw and str(vida_raw).isdigit():
+                item.vida_util_anos = int(vida_raw)
+            item.garantia_ate = _parse_data(request.form.get('garantia_ate'))
+
+            # Uploads opcionais na edição
+            foto_file = request.files.get('foto_bem')
+            if foto_file and foto_file.filename != '':
+                item.foto_url = upload_arquivo_para_nuvem(foto_file, pasta="patrimonio")
+
+            arquivo_nf_file = request.files.get('arquivo_nf')
+            if arquivo_nf_file and arquivo_nf_file.filename != '':
+                item.arquivo_nf_url = upload_arquivo_para_nuvem(arquivo_nf_file, pasta="patrimonio_nf")
+
             db.session.commit()
-            
-            registrar_log(f'Editou o item patrimonial: "{item.descricao}" ({item.numero_patrimonio}).')
+
+            registrar_log(f'Editou o item patrimonial: "{item.descricao}" ({item.numero_patrimonio or "S/N"}).')
             flash("Patrimônio atualizado com sucesso!", "success")
-            
             return redirect(url_for('patrimonio.detalhes_item', item_id=item.id))
-            
+
         except Exception as e:
             db.session.rollback()
             flash(f'Erro ao atualizar o item: {str(e)}', 'danger')
 
     servidores = Servidor.query.order_by(Servidor.nome).all()
     secretarias = Secretaria.query.order_by(Secretaria.nome).all()
-    
-    return render_template('patrimonio/form.html', 
-                           item=item, 
-                           servidores=servidores, 
-                           secretarias=secretarias)
+    fornecedores = Fornecedor.query.order_by(Fornecedor.nome).all()
+    escolas = Escola.query.order_by(Escola.nome).all()
+    locais_db, locais_legados = _obter_locais_disponiveis()
+
+    return render_template(
+        'patrimonio/form.html',
+        item=item,
+        patrimonio=item,
+        servidores=servidores,
+        secretarias=secretarias,
+        fornecedores=fornecedores,
+        escolas=escolas,
+        locais_db=locais_db,
+        locais_legados=locais_legados
+    )
+
 
 @patrimonio_bp.route('/item/detalhes/<int:item_id>')
 @login_required
-@role_required('Patrimonio', 'admin')
+@role_required('Patrimonio', 'admin', 'RH', 'Fiscal')
 def detalhes_item(item_id):
+    executar_migracao_patrimonio_segura()
     item = Patrimonio.query.get_or_404(item_id)
     servidores = Servidor.query.order_by(Servidor.nome).all()
-    movimentacoes = MovimentacaoPatrimonio.query.filter_by(patrimonio_id=item_id).order_by(MovimentacaoPatrimonio.data_movimentacao.desc()).all()
-    return render_template('patrimonio/detalhes.html', item=item, servidores=servidores, movimentacoes=movimentacoes)
+    secretarias = Secretaria.query.order_by(Secretaria.nome).all()
+    locais_db, locais_legados = _obter_locais_disponiveis()
+    movimentacoes = MovimentacaoPatrimonio.query.filter_by(patrimonio_id=item_id).order_by(
+        MovimentacaoPatrimonio.data_movimentacao.desc()
+    ).all()
+
+    # Busca outros bens vinculados à mesma Nota Fiscal para auditoria/controle interno
+    itens_mesma_nf = []
+    if item.nota_fiscal_id:
+        itens_mesma_nf = Patrimonio.query.filter(
+            Patrimonio.nota_fiscal_id == item.nota_fiscal_id,
+            Patrimonio.id != item.id
+        ).order_by(Patrimonio.numero_patrimonio).all()
+    elif item.numero_nota_fiscal:
+        itens_mesma_nf = Patrimonio.query.filter(
+            Patrimonio.numero_nota_fiscal == item.numero_nota_fiscal,
+            Patrimonio.id != item.id
+        ).order_by(Patrimonio.numero_patrimonio).all()
+
+    return render_template(
+        'patrimonio/detalhes.html',
+        item=item,
+        servidores=servidores,
+        secretarias=secretarias,
+        locais_db=locais_db,
+        locais_legados=locais_legados,
+        movimentacoes=movimentacoes,
+        itens_mesma_nf=itens_mesma_nf
+    )
+
 
 @patrimonio_bp.route('/item/transferir/<int:item_id>', methods=['POST'])
 @login_required
-@role_required('Patrimonio', 'admin')
+@role_required('Patrimonio', 'admin', 'RH', 'Fiscal')
 def transferir_item(item_id):
+    executar_migracao_patrimonio_segura()
     item = Patrimonio.query.get_or_404(item_id)
-    
+
     local_origem = item.localizacao
     responsavel_anterior_cpf = item.servidor_responsavel_cpf
-    
-    novo_local = request.form.get('local_destino')
-    novo_responsavel_cpf = request.form.get('servidor_responsavel_cpf') or None
+    responsavel_anterior_nome = item.nome_responsavel_atual
+
+    novo_local = (request.form.get('local_destino') or '').strip()
+    novo_responsavel_nome = (request.form.get('responsavel_novo_nome') or '').strip() or None
+    novo_responsavel_cargo = (request.form.get('responsavel_novo_cargo') or '').strip() or None
+    motivo_transferencia = (request.form.get('motivo_transferencia') or '').strip() or None
+    nova_secretaria_id = request.form.get('secretaria_destino_id')
 
     if not novo_local:
         flash('O novo local é obrigatório para a transferência.', 'warning')
         return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
-        
+
     try:
         movimentacao = MovimentacaoPatrimonio(
             patrimonio_id=item.id,
             local_origem=local_origem,
             responsavel_anterior_cpf=responsavel_anterior_cpf,
+            responsavel_anterior_nome=responsavel_anterior_nome,
             local_destino=novo_local,
-            responsavel_novo_cpf=novo_responsavel_cpf,
-            usuario_registro=session.get('username')
+            responsavel_novo_cpf=None,
+            responsavel_novo_nome=novo_responsavel_nome,
+            motivo_transferencia=motivo_transferencia,
+            usuario_registro=session.get('username') or getattr(current_user, 'username', 'Sistema')
         )
         db.session.add(movimentacao)
-        
+
         item.localizacao = novo_local
-        item.servidor_responsavel_cpf = novo_responsavel_cpf
-        
+        loc_obj = LocalPatrimonio.query.filter(
+            func.lower(LocalPatrimonio.nome) == novo_local.lower()
+        ).first()
+        item.local_id = loc_obj.id if loc_obj else None
+
+        if novo_responsavel_nome is not None:
+            item.responsavel_nome = novo_responsavel_nome
+            item.servidor_responsavel_cpf = None
+        if novo_responsavel_cargo:
+            item.responsavel_cargo = novo_responsavel_cargo
+        if nova_secretaria_id and str(nova_secretaria_id).isdigit():
+            item.secretaria_id = int(nova_secretaria_id)
+
         db.session.commit()
-        registrar_log(f'Transferiu o item "{item.descricao}" para "{novo_local}".')
-        flash('Item transferido e histórico registrado com sucesso!', 'success')
+        registrar_log(f'Transferiu o item "{item.descricao}" para "{novo_local}" (Resp: {novo_responsavel_nome or "N/A"}).')
+        flash('Item transferido e Termo de Transferência/Guarda registrado com sucesso!', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Erro ao transferir o item: {e}', 'danger')
-        
+
     return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
+
 
 @patrimonio_bp.route('/item/<int:item_id>/termo-baixa')
 @login_required
-@role_required('admin', 'RH', 'Fiscal')
+@role_required('Patrimonio', 'admin', 'RH', 'Fiscal')
 def termo_baixa(item_id):
     item = Patrimonio.query.get_or_404(item_id)
-    
-    # Opcional: Você pode pegar a última movimentação para saber mais detalhes
-    # movimentacao = MovimentacaoPatrimonio.query.filter_by(patrimonio_id=item.id).order_by(MovimentacaoPatrimonio.id.desc()).first()
-    
     return render_template('patrimonio/termo_baixa.html', item=item, usuario_logado=current_user)
+
 
 @patrimonio_bp.route('/termos_responsabilidade')
 @login_required
-@role_required('Patrimonio', 'admin')
+@role_required('Patrimonio', 'admin', 'RH', 'Fiscal')
 def listar_termos_responsabilidade():
     return render_template('patrimonio/termos_responsabilidade.html', termos=[])
 
+
 @patrimonio_bp.route('/<int:id>/etiqueta')
 @login_required
-@role_required('Patrimonio', 'admin')
+@role_required('Patrimonio', 'admin', 'RH', 'Fiscal')
 def gerar_etiqueta_qr(id):
     bem = Patrimonio.query.get_or_404(id)
-    
+
     try:
         buffer = BytesIO()
         p = canvas_lib.Canvas(buffer, pagesize=(200, 100))
-        
+
         link_consulta = url_for('patrimonio.detalhes_item', item_id=bem.id, _external=True)
         qr = qrcode.make(link_consulta)
         qr_buffer = BytesIO()
         qr.save(qr_buffer, format='PNG')
         qr_buffer.seek(0)
-        
+
         p.setFont("Helvetica-Bold", 8)
         p.drawString(10, 85, "PREFEITURA DE VALENÇA DO PIAUÍ")
-        
+
         p.setFont("Helvetica", 7)
         p.drawString(10, 75, f"Bem: {bem.descricao[:30]}")
-        
+
         p.setFont("Helvetica-Bold", 9)
-        p.drawString(10, 60, f"PATRIMÔNIO: {bem.numero_patrimonio}")
-        
+        p.drawString(10, 60, f"PATRIMÔNIO: {bem.numero_patrimonio or 'S/N'}")
+
+        if bem.numero_nota_fiscal:
+            p.setFont("Helvetica", 6)
+            p.drawString(10, 48, f"NF: {bem.numero_nota_fiscal} | {bem.localizacao[:22]}")
+
         qr_img = ImageReader(qr_buffer)
         p.drawImage(qr_img, 130, 10, width=60, height=60)
-        
+
         p.setFont("Helvetica-Oblique", 6)
-        p.drawString(10, 10, "Escaneie para detalhes")
-        
+        p.drawString(10, 10, "Controle Interno - Escaneie o QR")
+
         p.showPage()
         p.save()
-        
+
         buffer.seek(0)
-        
+
         return send_file(
-            buffer, 
+            buffer,
             mimetype='application/pdf',
             as_attachment=False,
-            download_name=f'etiqueta_{bem.numero_patrimonio}.pdf'
+            download_name=f'etiqueta_{bem.numero_patrimonio or bem.id}.pdf'
         )
-        
+
     except Exception as e:
         flash(f"Erro ao gerar etiqueta: {str(e)}", "danger")
         return redirect(url_for('patrimonio.listar_itens'))
 
+
 @patrimonio_bp.route('/movimentacao/<int:mov_id>/termo')
 @login_required
 def gerar_termo_recebimento(mov_id):
-    from models import MovimentacaoPatrimonio
     mov = MovimentacaoPatrimonio.query.get_or_404(mov_id)
     bem = mov.patrimonio
 
     buffer = BytesIO()
     p = canvas_lib.Canvas(buffer, pagesize=A4)
-    
+
     p.setFont("Helvetica-Bold", 14)
     p.drawCentredString(300, 800, "TERMO DE RESPONSABILIDADE E RECEBIMENTO")
     p.setFont("Helvetica", 10)
     p.drawCentredString(300, 785, "PREFEITURA DE VALENÇA DO PIAUÍ")
 
-    texto = f"""
-    Certifico que na data de {mov.data_movimentacao.strftime('%d/%m/%Y')}, o bem patrimonial abaixo 
-    descrito foi transferido para o local: {mov.local_destino}.
-    """
     p.setFont("Helvetica", 12)
     p.drawString(50, 730, "DADOS DO BEM:")
     p.setFont("Helvetica", 10)
     p.drawString(70, 710, f"Descrição: {bem.descricao}")
     p.drawString(70, 695, f"Tombamento: {bem.numero_patrimonio or 'Pendente'}")
-    p.drawString(70, 680, f"Origem: {mov.local_origem}")
+    p.drawString(70, 680, f"Origem: {mov.local_origem} ({mov.nome_origem_exibicao})")
+    p.drawString(70, 665, f"Destino: {mov.local_destino} ({mov.nome_destino_exibicao})")
 
     p.line(50, 500, 250, 500)
     p.drawString(80, 485, "Quem Entregou")
-    
+
     p.line(350, 500, 550, 500)
-    p.drawString(380, 485, "Quem Recebeu")
+    p.drawString(380, 485, f"Quem Recebeu ({mov.nome_destino_exibicao})")
 
     p.showPage()
     p.save()
     buffer.seek(0)
-    return send_file(buffer, mimetype='application/pdf', download_name=f'termo_mov_{mov.id}.pdf')    
+    return send_file(buffer, mimetype='application/pdf', download_name=f'termo_mov_{mov.id}.pdf')
+
 
 @patrimonio_bp.route('/movimentacao/<int:mov_id>/imprimir')
 @login_required
 def imprimir_termo_transferencia(mov_id):
-    from models import MovimentacaoPatrimonio
     movimentacao = MovimentacaoPatrimonio.query.get_or_404(mov_id)
     return render_template('patrimonio/termo_recebimento.html', mov=movimentacao)
 
+
 @patrimonio_bp.route('/item/baixa/<int:item_id>', methods=['POST'])
 @login_required
-@role_required('admin', 'Patrimonio')
+@role_required('admin', 'Patrimonio', 'Fiscal')
 def dar_baixa_item(item_id):
     item = Patrimonio.query.get_or_404(item_id)
-    
-    # 1. Pega os dados enviados pelo novo modal
+
     motivo_baixa = request.form.get('motivo_baixa')
     recebedor = request.form.get('recebedor', 'Não informado')
     imprimir_termo = request.form.get('imprimir_termo')
-    
+
     if not motivo_baixa:
         flash("A justificativa é obrigatória para dar baixa.", "warning")
         return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
-    
+
     try:
-        # 2. Atualiza o status do bem
         item.status = "Baixado"
         item.situacao_uso = "Inservível / Baixado"
-        
-        # 3. Formata a observação preservando o histórico anterior
+
         data_atual = datetime.now().strftime('%d/%m/%Y')
         texto_baixa = f"BAIXA REALIZADA EM {data_atual} - Motivo: {motivo_baixa} | Recebedor: {recebedor}"
-        
+
         if item.observacoes:
             item.observacoes = f"{item.observacoes}\n\n{texto_baixa}"
         else:
             item.observacoes = texto_baixa
-        
+
         db.session.commit()
         registrar_log(f"Baixa efetuada - Item: {item.descricao} (Pat: {item.numero_patrimonio or 'S/N'}) - Recebedor: {recebedor}")
-        
+
         flash("Baixa do patrimônio realizada com sucesso!", "success")
-        
-        # 4. Lógica de Redirecionamento
+
         if imprimir_termo == 'sim':
-            # Vai direto para a tela de geração do PDF
             return redirect(url_for('patrimonio.termo_baixa', item_id=item.id))
         else:
-            # Volta para a tela de detalhes
             return redirect(url_for('patrimonio.detalhes_item', item_id=item.id))
-            
+
     except Exception as e:
         db.session.rollback()
         flash(f"Erro ao processar a baixa: {str(e)}", "danger")
         return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
 
+
 @patrimonio_bp.route('/item/excluir/<int:item_id>', methods=['POST'])
 @login_required
-@role_required('admin') 
+@role_required('admin')
 def excluir_item_patrimonio(item_id):
     item = Patrimonio.query.get_or_404(item_id)
     justificativa = request.form.get('justificativa_exclusao')
-    
+
     try:
         descricao_log = f"EXCLUSÃO DEFINITIVA - Item: {item.descricao} (Tomb: {item.numero_patrimonio}) - Motivo: {justificativa}"
         db.session.delete(item)
         db.session.commit()
-        
+
         registrar_log(descricao_log)
         flash("Item excluído permanentemente do sistema.", "warning")
     except Exception as e:
         db.session.rollback()
         flash(f"Erro ao excluir: {e}", "danger")
-        
+
     return redirect(url_for('patrimonio.listar_itens'))
+
 
 @patrimonio_bp.route('/itens-baixados')
 @login_required
-@role_required('admin', 'Patrimonio')
+@role_required('admin', 'Patrimonio', 'Fiscal')
 def listar_itens_baixados():
+    executar_migracao_patrimonio_segura()
     itens = Patrimonio.query.filter_by(status='Baixado').order_by(Patrimonio.descricao).all()
     return render_template('patrimonio/itens_baixados.html', itens=itens)

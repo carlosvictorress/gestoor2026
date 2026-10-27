@@ -1,31 +1,33 @@
 {% extends 'base.html' %}
 
-{% block title %}Detalhes: {{ item.numero_patrimonio or 'Sem Tombamento' }}{% endblock %}
+{% block title %}Ficha Patrimonial: {{ item.numero_patrimonio or 'Sem Tombamento' }}{% endblock %}
 
 {% block head_extra %}
 <style>
     .detail-card {
-        border-radius: 20px;
-        border: none;
+        border-radius: 18px;
+        border: 1px solid #e2e8f0;
         background: #fff;
     }
     .info-label {
-        font-size: 0.75rem;
+        font-size: 0.72rem;
         text-transform: uppercase;
-        color: #6c757d;
+        color: #64748b;
         font-weight: 700;
         letter-spacing: 0.5px;
+        margin-bottom: 2px;
     }
     .info-value {
-        font-size: 1rem;
-        color: #212529;
-        margin-bottom: 1rem;
+        font-size: 0.96rem;
+        color: #1e293b;
+        font-weight: 600;
+        margin-bottom: 0.9rem;
     }
     .img-patrimonio {
         width: 100%;
-        max-height: 300px;
+        max-height: 280px;
         object-fit: cover;
-        border-radius: 15px;
+        border-radius: 14px;
     }
     .timeline-item {
         border-left: 3px solid #0d6efd;
@@ -47,93 +49,250 @@
         border-radius: 50px;
     }
     .modal-content {
-        border-radius: 20px;
+        border-radius: 18px;
         border: none;
     }
     @media print {
         .no-print { display: none !important; }
-        .card { border: none !important; box-shadow: none !important; }
+        .card { border: 1px solid #ddd !important; box-shadow: none !important; }
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
-    <div class="d-flex justify-content-between align-items-center mb-4 no-print">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3 no-print">
         <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3">
+                    Ficha Individual de Controle Patrimonial
+                </span>
+                <span class="badge bg-dark font-monospace">
+                    Tombamento: {{ item.numero_patrimonio or 'AGUARDANDO TOMBAMENTO' }}
+                </span>
+            </div>
             <h2 class="fw-bold text-dark mb-0">
-                <i class="bi bi-info-circle-fill text-primary"></i> Detalhes do Patrimônio
+                <i class="bi bi-box-seam-fill text-primary me-1"></i> {{ item.descricao }}
             </h2>
-            <p class="text-muted">Visualização completa e histórico do bem municipal.</p>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex flex-wrap gap-2">
             <a href="{{ url_for('patrimonio.listar_itens') }}" class="btn btn-outline-secondary btn-rounded">
-                <i class="bi bi-arrow-left"></i> Voltar
+                <i class="bi bi-arrow-left me-1"></i> Voltar ao Inventário
             </a>
-            <a href="{{ url_for('patrimonio.editar_item', item_id=item.id) }}" class="btn btn-primary btn-rounded shadow-sm">
-                <i class="bi bi-pencil-square"></i> Editar Bem
+            <button onclick="window.print()" class="btn btn-outline-dark btn-rounded">
+                <i class="bi bi-printer me-1"></i> Imprimir Ficha
+            </button>
+            <a href="{{ url_for('patrimonio.editar_item', item_id=item.id) }}" class="btn btn-primary btn-rounded shadow-sm fw-semibold">
+                <i class="bi bi-pencil-square me-1"></i> Editar Registro
             </a>
         </div>
     </div>
 
     <div class="row g-4">
         <div class="col-lg-8">
+            <!-- CARD 1: IDENTIFICAÇÃO TÉCNICA E CARACTERÍSTICAS DO BEM -->
             <div class="card detail-card shadow-sm mb-4">
+                <div class="card-header bg-light border-bottom py-3 px-4 d-flex justify-content-between align-items-center" style="border-top-left-radius: 18px; border-top-right-radius: 18px;">
+                    <h6 class="fw-bold mb-0 text-dark">
+                        <i class="bi bi-tag-fill text-primary me-2"></i> 1. Identificação Técnica e Estado do Bem
+                    </h6>
+                    <span class="badge {% if item.estado_conservacao in ['Novo', 'Bom'] %}bg-success{% elif item.estado_conservacao == 'Regular' %}bg-warning text-dark{% else %}bg-danger{% endif %} rounded-pill px-3">
+                        Conservação: {{ item.estado_conservacao }}
+                    </span>
+                </div>
                 <div class="card-body p-4">
                     <div class="row">
                         <div class="col-md-4 mb-3">
                             {% if item.foto_url %}
                                 <img src="{{ item.foto_url }}" class="img-patrimonio shadow-sm" alt="Foto do bem">
                             {% else %}
-                                <div class="bg-light d-flex flex-column align-items-center justify-content-center" style="height: 200px; border-radius: 15px;">
+                                <div class="bg-light border d-flex flex-column align-items-center justify-content-center" style="height: 210px; border-radius: 14px;">
                                     <i class="bi bi-camera text-muted display-4"></i>
-                                    <p class="text-muted small">Sem foto cadastrada</p>
+                                    <p class="text-muted small mb-0">Sem foto cadastrada</p>
                                 </div>
                             {% endif %}
                         </div>
                         <div class="col-md-8">
-                            <div class="d-flex align-items-center mb-2">
-                                <h3 class="fw-bold mb-0 me-2">{{ item.descricao }}</h3>
-                                <span class="badge bg-light text-primary border border-primary border-opacity-25">
-                                    {{ item.numero_patrimonio if item.numero_patrimonio else 'AGUARDANDO TOMBAMENTO' }}
-                                </span>
-                            </div>
-                            
-                            <div class="row mt-4">
-                                <div class="col-6">
-                                    <p class="info-label mb-1">Categoria</p>
+                            <div class="row">
+                                <div class="col-6 col-md-4">
+                                    <p class="info-label">Nº de Tombamento</p>
+                                    <p class="info-value font-monospace text-primary">{{ item.numero_patrimonio or 'Pendente' }}</p>
+                                </div>
+                                <div class="col-6 col-md-8">
+                                    <p class="info-label">Grupo / Categoria Patrimonial</p>
                                     <p class="info-value">{{ item.categoria or 'Não informada' }}</p>
                                 </div>
-                                <div class="col-6">
-                                    <p class="info-label mb-1">Estado de Conservação</p>
-                                    <p class="info-value">
-                                        <span class="badge {% if item.estado_conservacao == 'Bom' %}bg-success{% elif item.estado_conservacao == 'Regular' %}bg-warning{% else %}bg-danger{% endif %}">
-                                            {{ item.estado_conservacao }}
-                                        </span>
-                                    </p>
+                                <div class="col-6 col-md-4">
+                                    <p class="info-label">Marca</p>
+                                    <p class="info-value">{{ item.marca or '-' }}</p>
                                 </div>
-                                <div class="col-6">
-                                    <p class="info-label mb-1">Valor de Aquisição</p>
-                                    <p class="info-value">R$ {{ '%.2f'|format(item.valor_aquisicao)|replace('.', ',') if item.valor_aquisicao else '0,00' }}</p>
+                                <div class="col-6 col-md-4">
+                                    <p class="info-label">Modelo</p>
+                                    <p class="info-value">{{ item.modelo or '-' }}</p>
                                 </div>
-                                <div class="col-6">
-                                    <p class="info-label mb-1">Data de Aquisição</p>
-                                    <p class="info-value">{{ item.data_aquisicao.strftime('%d/%m/%Y') if item.data_aquisicao else 'Não registrada' }}</p>
+                                <div class="col-12 col-md-4">
+                                    <p class="info-label">Nº de Série / Chassi</p>
+                                    <p class="info-value font-monospace">{{ item.numero_serie or '-' }}</p>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <p class="info-label">Valor de Aquisição</p>
+                                    <p class="info-value text-success">R$ {{ '%.2f'|format(item.valor_aquisicao or 0)|replace('.', ',') }}</p>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <p class="info-label">Vida Útil Estimada</p>
+                                    <p class="info-value">{{ item.vida_util_anos or 5 }} anos</p>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <p class="info-label">Garantia Até</p>
+                                    <p class="info-value">{{ item.garantia_ate.strftime('%d/%m/%Y') if item.garantia_ate else 'Não informada' }}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <hr>
-                    <div class="mt-3">
-                        <p class="info-label mb-1">Observações Detalhadas</p>
-                        <p class="text-muted">{{ item.observacoes or 'Nenhuma observação registrada.' }}</p>
+                    <hr class="my-3">
+                    <div>
+                        <p class="info-label">Especificações Técnicas / Observações de Auditoria</p>
+                        <p class="text-dark small mb-0">{{ item.especificacao_tecnica or item.observacoes or 'Nenhuma especificação complementar registrada.' }}</p>
                     </div>
                 </div>
             </div>
 
+            <!-- CARD 2: DADOS DA NOTA FISCAL, EMPENHO E CONTROLE INTERNO -->
+            <div class="card detail-card shadow-sm mb-4">
+                <div class="card-header bg-light border-bottom py-3 px-4 d-flex justify-content-between align-items-center" style="border-top-left-radius: 18px; border-top-right-radius: 18px;">
+                    <h6 class="fw-bold mb-0 text-dark">
+                        <i class="bi bi-receipt-cutoff text-primary me-2"></i> 2. Dados da Nota Fiscal, Empenho e Processo Administrativo
+                    </h6>
+                    {% if item.arquivo_nf_url or (item.nota_fiscal_rel and item.nota_fiscal_rel.arquivo_nf_url) %}
+                    <a href="{{ item.arquivo_nf_url or item.nota_fiscal_rel.arquivo_nf_url }}" target="_blank" class="btn btn-sm btn-outline-success rounded-pill no-print">
+                        <i class="bi bi-file-earmark-pdf-fill me-1"></i> Ver Anexo da Nota Fiscal
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="card-body p-4">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <p class="info-label">Forma de Incorporação</p>
+                            <p class="info-value">{{ item.forma_aquisicao or 'Compra / Licitação' }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="info-label">Nº da Nota Fiscal</p>
+                            <p class="info-value">{{ item.numero_nota_fiscal or 'Não informada' }} {% if item.serie_nota_fiscal %}<small class="text-muted">(Série {{ item.serie_nota_fiscal }})</small>{% endif %}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="info-label">Data da NF / Aquisição</p>
+                            <p class="info-value">
+                                {% if item.data_nota_fiscal %}
+                                    {{ item.data_nota_fiscal.strftime('%d/%m/%Y') }}
+                                {% elif item.data_aquisicao %}
+                                    {{ item.data_aquisicao.strftime('%d/%m/%Y') }}
+                                {% else %}
+                                    Não registrada
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-2">
+                            <p class="info-label">Data do Atesto</p>
+                            <p class="info-value">{{ item.data_atesto.strftime('%d/%m/%Y') if item.data_atesto else '-' }}</p>
+                        </div>
+
+                        <div class="col-md-6">
+                            <p class="info-label">Fornecedor / Razão Social</p>
+                            <p class="info-value">{{ item.fornecedor_nome or 'Não informado' }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="info-label">CNPJ / CPF do Fornecedor</p>
+                            <p class="info-value font-monospace">{{ item.fornecedor_cnpj or '-' }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="info-label">Nº da Nota de Empenho</p>
+                            <p class="info-value">{{ item.numero_empenho or '-' }}</p>
+                        </div>
+
+                        <div class="col-md-4">
+                            <p class="info-label">Processo Administrativo</p>
+                            <p class="info-value">{{ item.numero_processo or '-' }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="info-label">Modalidade Licitatória</p>
+                            <p class="info-value">{{ item.modalidade_licitacao or '-' }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="info-label">Nº do Contrato / Ata SRP</p>
+                            <p class="info-value">{{ item.numero_contrato or '-' }}</p>
+                        </div>
+
+                        <div class="col-md-6">
+                            <p class="info-label">Fonte de Recursos / Dotação</p>
+                            <p class="info-value mb-0">{{ item.fonte_recursos or 'Não informada' }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="info-label">Classificação Contábil (PCASP)</p>
+                            <p class="info-value mb-0">{{ item.conta_contabil or '4.4.90.52 - Equipamentos e Material Permanente' }}</p>
+                        </div>
+
+                        {% if item.chave_nfe %}
+                        <div class="col-12 mt-3 pt-2 border-top">
+                            <p class="info-label">Chave de Acesso NF-e</p>
+                            <p class="font-monospace small mb-0 text-secondary">{{ item.chave_nfe }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD OPCIONAL: OUTROS BENS DA MESMA NOTA FISCAL -->
+            {% if itens_mesma_nf %}
+            <div class="card detail-card shadow-sm mb-4 no-print">
+                <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0 text-primary">
+                        <i class="bi bi-layers-fill me-2"></i> Outros Bens Incorporados nesta Mesma Nota Fiscal ({{ itens_mesma_nf|length }})
+                    </h6>
+                    {% if item.numero_nota_fiscal %}
+                    <a href="{{ url_for('patrimonio.listar_itens', nota_fiscal=item.numero_nota_fiscal) }}" class="btn btn-sm btn-outline-primary rounded-pill">
+                        Ver Todos da NF {{ item.numero_nota_fiscal }}
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0 small">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Tombamento</th>
+                                    <th>Bem / Produto</th>
+                                    <th>Localização</th>
+                                    <th>Responsável</th>
+                                    <th class="text-end">Valor</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for outro in itens_mesma_nf[:10] %}
+                                <tr>
+                                    <td class="font-monospace fw-bold">{{ outro.numero_patrimonio or 'S/N' }}</td>
+                                    <td>{{ outro.descricao }}</td>
+                                    <td>{{ outro.localizacao }}</td>
+                                    <td>{{ outro.nome_responsavel_atual or '-' }}</td>
+                                    <td class="text-end">R$ {{ "%.2f"|format(outro.valor_aquisicao or 0)|replace('.', ',') }}</td>
+                                    <td class="text-end">
+                                        <a href="{{ url_for('patrimonio.detalhes_item', item_id=outro.id) }}" class="btn btn-sm btn-light rounded-pill">
+                                            Abrir
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- CARD 3: HISTÓRICO DE MOVIMENTAÇÕES E TRANSFERÊNCIAS -->
             <div class="card detail-card shadow-sm">
                 <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
-                    <h5 class="fw-bold mb-0"><i class="bi bi-clock-history me-2"></i> Histórico de Movimentações</h5>
+                    <h5 class="fw-bold mb-0"><i class="bi bi-clock-history me-2"></i> Histórico de Movimentações e Guarda</h5>
                 </div>
                 <div class="card-body p-4">
                     {% if movimentacoes %}
@@ -145,16 +304,16 @@
                                     <span class="fw-bold text-dark">{{ mov.data_movimentacao.strftime('%d/%m/%Y %H:%M') }}</span>
                                     <small class="text-muted d-block">Registrado por: {{ mov.usuario_registro }}</small>
                                 </div>
-                                <a href="{{ url_for('patrimonio.imprimir_termo_transferencia', mov_id=mov.id) }}" 
+                                <a href="{{ url_for('patrimonio.imprimir_termo_transferencia', mov_id=mov.id) }}"
                                    target="_blank" class="btn btn-sm btn-outline-dark btn-rounded no-print">
                                     <i class="bi bi-printer me-1"></i> Imprimir Termo
                                 </a>
                             </div>
-                            <div class="row g-2 bg-light p-3 rounded-3 mt-2">
+                            <div class="row g-2 bg-light p-3 rounded-3 mt-2 border">
                                 <div class="col-md-5">
                                     <small class="info-label d-block mb-1">Origem</small>
                                     <p class="mb-0 small"><strong>Local:</strong> {{ mov.local_origem }}</p>
-                                    <p class="mb-0 small"><strong>Resp:</strong> {{ mov.responsavel_anterior.nome if mov.responsavel_anterior else 'N/A' }}</p>
+                                    <p class="mb-0 small"><strong>Resp:</strong> {{ mov.nome_origem_exibicao }}</p>
                                 </div>
                                 <div class="col-md-2 d-flex align-items-center justify-content-center">
                                     <i class="bi bi-arrow-right-circle-fill text-primary fs-4"></i>
@@ -162,8 +321,13 @@
                                 <div class="col-md-5">
                                     <small class="info-label d-block mb-1 text-primary">Destino</small>
                                     <p class="mb-0 small"><strong>Local:</strong> {{ mov.local_destino }}</p>
-                                    <p class="mb-0 small"><strong>Resp:</strong> {{ mov.responsavel_novo.nome if mov.responsavel_novo else 'N/A' }}</p>
+                                    <p class="mb-0 small"><strong>Resp:</strong> {{ mov.nome_destino_exibicao }}</p>
                                 </div>
+                                {% if mov.motivo_transferencia %}
+                                <div class="col-12 mt-2 pt-2 border-top small text-muted">
+                                    <strong>Justificativa / Observação:</strong> {{ mov.motivo_transferencia }}
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
                         {% endfor %}
@@ -171,88 +335,98 @@
                     {% else %}
                     <div class="text-center py-4">
                         <i class="bi bi-info-circle text-muted fs-2"></i>
-                        <p class="text-muted mt-2">Nenhuma movimentação registrada.</p>
+                        <p class="text-muted mt-2 mb-0">O bem permanece em seu local de incorporação inicial.</p>
                     </div>
                     {% endif %}
                 </div>
             </div>
 
-            <!-- NOVO CARD: Histórico de Baixa (Aparece apenas se estiver baixado) -->
+            <!-- CARD DE BAIXA (Se estiver baixado) -->
             {% if item.status == 'Baixado' %}
             <div class="card detail-card shadow-sm mt-4 border border-danger border-opacity-25 no-print">
                 <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
                     <h5 class="fw-bold mb-0 text-danger"><i class="bi bi-arrow-down-circle-fill me-2"></i> Registro de Baixa Patrimonial</h5>
                 </div>
                 <div class="card-body p-4">
-                    <div class="timeline">
-                        <!-- Estiliza a linha da timeline de azul para vermelho -->
-                        <style>.timeline-baixa::before { background: #dc3545 !important; border-color: #fff !important; }</style>
-                        
-                        <div class="timeline-item timeline-baixa mb-0 pb-2" style="border-left-color: #dc3545;">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <div>
-                                    <span class="fw-bold text-dark">Ação de Baixa Concluída</span>
-                                    <small class="text-muted d-block">Item inativo no inventário</small>
-                                </div>
-                                <a href="{{ url_for('patrimonio.termo_baixa', item_id=item.id) }}" 
-                                   target="_blank" class="btn btn-sm btn-outline-danger btn-rounded no-print">
-                                    <i class="bi bi-printer me-1"></i> Imprimir Termo
-                                </a>
-                            </div>
-                            
-                            <div class="row g-2 p-3 rounded-3 mt-2" style="background-color: #fff5f5; border: 1px solid #f8d7da;">
-                                <div class="col-12">
-                                    <small class="info-label d-block mb-1 text-danger">Detalhes e Justificativa</small>
-                                    <p class="mb-0 small text-dark">
-                                        {{ item.observacoes }}
-                                    </p>
-                                </div>
-                            </div>
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <span class="fw-bold text-dark">Ação de Baixa Concluída</span>
+                            <small class="text-muted d-block">Item retirado do inventário ativo</small>
                         </div>
+                        <a href="{{ url_for('patrimonio.termo_baixa', item_id=item.id) }}"
+                           target="_blank" class="btn btn-sm btn-outline-danger btn-rounded no-print">
+                            <i class="bi bi-printer me-1"></i> Imprimir Termo de Baixa
+                        </a>
+                    </div>
+                    <div class="p-3 rounded-3 mt-2" style="background-color: #fff5f5; border: 1px solid #f8d7da;">
+                        <small class="info-label d-block mb-1 text-danger">Detalhes e Justificativa</small>
+                        <p class="mb-0 small text-dark">{{ item.observacoes }}</p>
                     </div>
                 </div>
             </div>
             {% endif %}
-            <!-- FIM DO CARD DE BAIXA -->
-
         </div>
 
+        <!-- COLUNA LATERAL DIREITA: LOCALIZAÇÃO ATUAL, GUARDA E AÇÕES -->
         <div class="col-lg-4">
             <div class="card detail-card shadow-sm border-top border-primary border-5 mb-4">
-                <div class="card-body p-4 text-center">
-                    <div class="bg-primary bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
-                        <i class="bi bi-geo-alt-fill text-primary fs-2"></i>
-                    </div>
-                    <h5 class="fw-bold">Localização Atual</h5>
-                    <p class="fs-5 text-dark mb-1">{{ item.localizacao }}</p>
-                    <p class="text-muted small"><i class="bi bi-person-badge me-1"></i> {{ item.responsavel.nome if item.responsavel else 'Responsável não definido' }}</p>
-                    
-                    <div class="mt-4">
-                        <p class="info-label mb-1">Status de Uso</p>
-                        <span class="badge fs-6 rounded-pill {% if item.status == 'Ativo' %}bg-success{% elif item.status == 'Manutenção' %}bg-warning text-dark{% else %}bg-secondary{% endif %} w-100">
-                            {{ item.status }}
+                <div class="card-body p-4">
+                    <div class="text-center mb-3">
+                        <div class="bg-primary bg-opacity-10 p-3 rounded-circle d-inline-block mb-2">
+                            <i class="bi bi-geo-alt-fill text-primary fs-2"></i>
+                        </div>
+                        <h5 class="fw-bold mb-1">Alocação e Guarda Atual</h5>
+                        <span class="badge rounded-pill {% if item.status == 'Ativo' %}bg-success{% elif item.status == 'Manutenção' %}bg-warning text-dark{% else %}bg-secondary{% endif %} px-3">
+                            {{ item.status }} • {{ item.situacao_uso or 'Em uso' }}
                         </span>
                     </div>
 
-                    <button class="btn btn-primary btn-lg w-100 btn-rounded mt-4 shadow-sm no-print" data-bs-toggle="modal" data-bs-target="#transferModal">
-                        <i class="bi bi-arrows-move"></i> Transferir Bem
+                    <div class="bg-light rounded-3 p-3 border mb-3">
+                        <div class="mb-2">
+                            <small class="info-label d-block">Secretaria / Órgão</small>
+                            <div class="fw-bold text-dark">{{ item.secretaria.nome if item.secretaria else 'Não vinculada' }}</div>
+                        </div>
+                        <div class="mb-2">
+                            <small class="info-label d-block">Local onde se encontra o Bem</small>
+                            <div class="fw-bold text-primary fs-6">{{ item.localizacao }}</div>
+                        </div>
+                        <div>
+                            <small class="info-label d-block">Responsável pela Guarda do Bem</small>
+                            <div class="fw-bold text-dark">
+                                <i class="bi bi-person-Vcard me-1 text-secondary"></i>
+                                {{ item.nome_responsavel_atual or 'Responsável não informado' }}
+                            </div>
+                            {% if item.responsavel_cargo %}
+                                <small class="text-muted d-block">{{ item.responsavel_cargo }}</small>
+                            {% endif %}
+                            {% if item.responsavel_matricula %}
+                                <small class="text-muted d-block">Matrícula/Doc: {{ item.responsavel_matricula }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary btn-lg w-100 btn-rounded shadow-sm no-print fw-bold" data-bs-toggle="modal" data-bs-target="#transferModal">
+                        <i class="bi bi-arrows-move me-1"></i> Transferir Local / Responsável
                     </button>
                 </div>
             </div>
 
             <div class="card detail-card shadow-sm no-print">
                 <div class="card-body p-4">
-                    <h6 class="fw-bold mb-3">Ações Rápidas</h6>
+                    <h6 class="fw-bold mb-3">Ações de Controle Patrimonial</h6>
                     <div class="d-grid gap-2">
-                        <a href="{{ url_for('patrimonio.gerar_etiqueta_qr', id=item.id) }}" class="btn btn-outline-dark btn-rounded">
-                            <i class="bi bi-qr-code"></i> Imprimir Etiqueta QR
+                        <a href="{{ url_for('patrimonio.gerar_etiqueta_qr', id=item.id) }}" target="_blank" class="btn btn-outline-dark btn-rounded">
+                            <i class="bi bi-qr-code me-1"></i> Imprimir Etiqueta QR Code
                         </a>
-                        <button class="btn btn-outline-warning btn-rounded" data-bs-toggle="modal" data-bs-target="#baixaModal">
-                            <i class="bi bi-arrow-down-circle"></i> Dar Baixa no Bem
+                        <a href="{{ url_for('patrimonio.editar_item', item_id=item.id) }}" class="btn btn-outline-primary btn-rounded">
+                            <i class="bi bi-pencil-square me-1"></i> Editar Dados / Nota Fiscal
+                        </a>
+                        <button class="btn btn-outline-warning btn-rounded text-dark" data-bs-toggle="modal" data-bs-target="#baixaModal">
+                            <i class="bi bi-arrow-down-circle me-1"></i> Dar Baixa no Bem
                         </button>
                         {% if session.role == 'admin' %}
                         <button class="btn btn-outline-danger btn-rounded" data-bs-toggle="modal" data-bs-target="#excluirModal">
-                            <i class="bi bi-trash"></i> Excluir Registro
+                            <i class="bi bi-trash me-1"></i> Excluir Registro
                         </button>
                         {% endif %}
                     </div>
@@ -262,46 +436,84 @@
     </div>
 </div>
 
+<!-- MODAL DE TRANSFERÊNCIA (COM CAMPO DE DIGITAR O NOME DO RESPONSÁVEL E SELEÇÃO/CRIAÇÃO DE LOCAL) -->
 <div class="modal fade no-print" id="transferModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content shadow">
-      <div class="modal-header border-0 pt-4 px-4">
-        <h5 class="modal-title fw-bold">Transferência de Patrimônio</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <form action="{{ url_for('patrimonio.transferir_item', item_id=item.id) }}" method="POST">
-          <div class="modal-body p-4">
-            <div class="alert alert-info py-2" style="border-radius: 12px; border: none;">
-                <small><i class="bi bi-info-circle me-1"></i> Origem atual: <strong>{{ item.localizacao }}</strong></small>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow">
+            <div class="modal-header border-0 pt-4 px-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-arrows-move text-primary me-2"></i>Transferência e Termo de Guarda</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="mb-3">
-              <label for="local_destino" class="form-label">Destino Final*</label>
-              <input type="text" class="form-control" name="local_destino" id="local_destino" required placeholder="Ex: Secretaria de Saúde...">
-            </div>
-            <div class="mb-3">
-              <label for="servidor_responsavel_cpf" class="form-label">Novo Servidor Responsável</label>
-              <select class="form-select" name="servidor_responsavel_cpf" id="servidor_responsavel_cpf">
-                  <option value="">-- Manter sem responsável específico --</option>
-                  {% for s in servidores %}
-                  <option value="{{ s.cpf }}">{{ s.nome }}</option>
-                  {% endfor %}
-              </select>
-            </div>
-          </div>
-          <div class="modal-footer border-0 pb-4 px-4">
-            <button type="button" class="btn btn-light btn-rounded px-4" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-primary btn-rounded px-4">Confirmar Envio</button>
-          </div>
-      </form>
+            <form action="{{ url_for('patrimonio.transferir_item', item_id=item.id) }}" method="POST">
+                <div class="modal-body p-4">
+                    <div class="alert alert-info py-2 mb-3" style="border-radius: 12px; border: none;">
+                        <small class="d-block"><i class="bi bi-geo-alt me-1"></i> Local atual: <strong>{{ item.localizacao }}</strong></small>
+                        <small class="d-block"><i class="bi bi-person me-1"></i> Responsável atual: <strong>{{ item.nome_responsavel_atual or 'Não informado' }}</strong></small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Secretaria de Destino (Opcional)</label>
+                        <select class="form-select" name="secretaria_destino_id">
+                            <option value="">-- Manter secretaria atual --</option>
+                            {% for sec in secretarias %}
+                                <option value="{{ sec.id }}" {{ 'selected' if item.secretaria_id == sec.id else '' }}>{{ sec.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="local_destino" class="form-label fw-semibold">Novo Local de Destino*</label>
+                        <input type="text" class="form-control" name="local_destino" id="local_destino"
+                               list="listaLocaisTransferencia" required
+                               placeholder="Selecione da lista ou digite o novo local...">
+                        <datalist id="listaLocaisTransferencia">
+                            {% for loc in locais_db %}
+                                <option value="{{ loc.nome }}">
+                            {% endfor %}
+                            {% for loc_nome in locais_legados %}
+                                <option value="{{ loc_nome }}">
+                            {% endfor %}
+                        </datalist>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="responsavel_novo_nome" class="form-label fw-semibold">Novo Responsável pelo Bem (Digite o Nome)*</label>
+                        <input type="text" class="form-control" name="responsavel_novo_nome" id="responsavel_novo_nome"
+                               list="listaServidoresTransferencia"
+                               value="{{ item.nome_responsavel_atual or '' }}"
+                               placeholder="Digite o nome do servidor/responsável que receberá o bem...">
+                        <datalist id="listaServidoresTransferencia">
+                            {% for s in servidores %}
+                                <option value="{{ s.nome }}">
+                            {% endfor %}
+                        </datalist>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Cargo / Função do Novo Responsável (Opcional)</label>
+                        <input type="text" class="form-control" name="responsavel_novo_cargo"
+                               placeholder="Ex: Diretor(a), Coordenador(a), Chefe de Setor...">
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-semibold">Motivo / Despacho da Transferência</label>
+                        <textarea class="form-control" name="motivo_transferencia" rows="2"
+                                  placeholder="Ex: Remanejamento para atender demanda da unidade..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pb-4 px-4">
+                    <button type="button" class="btn btn-light btn-rounded px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-rounded px-4 fw-bold">Confirmar Transferência</button>
+                </div>
+            </form>
+        </div>
     </div>
-  </div>
 </div>
 
-<!-- Modal de Baixa Reconstruído -->
+<!-- Modal de Baixa -->
 <div class="modal fade no-print" id="baixaModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow">
-            <!-- Certifique-se de que a rota baixar_item está correspondendo à função Python -->
             <form action="{{ url_for('patrimonio.dar_baixa_item', item_id=item.id) }}" method="POST">
                 <div class="modal-header border-0 pt-4 px-4">
                     <h5 class="modal-title fw-bold">Dar Baixa no Patrimônio</h5>
@@ -310,27 +522,27 @@
                 <div class="modal-body p-4">
                     <div class="alert alert-warning d-flex align-items-center mb-4" role="alert" style="border-radius: 12px; border: none; background-color: #fff3cd; color: #856404;">
                         <i class="bi bi-exclamation-triangle-fill me-3 fs-4"></i>
-                        <div class="small">O item passará para o status <strong>Baixado</strong>. Esta ação é irreversível no controle de inventário ativo.</div>
+                        <div class="small">O item passará para o status <strong>Baixado</strong>. Esta ação é registrada para auditoria do Controle Interno.</div>
                     </div>
-                    
+
                     <div class="bg-light p-3 rounded-3 border mb-4">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <small class="info-label d-block mb-1">Servidor que Devolve</small>
-                                <div class="fw-medium text-dark small">{{ item.responsavel.nome if item.responsavel else 'Sem responsável vinculado' }}</div>
+                                <small class="info-label d-block mb-1">Responsável que Devolve</small>
+                                <div class="fw-medium text-dark small">{{ item.nome_responsavel_atual or 'Sem responsável vinculado' }}</div>
                             </div>
                             <div class="col-md-6">
                                 <small class="info-label d-block mb-1">Recebedor (Autorizador)</small>
-                                <input type="text" name="recebedor" value="{{ current_user.nome }}" required class="form-control form-control-sm">
+                                <input type="text" name="recebedor" value="{{ current_user.username if current_user else '' }}" required class="form-control form-control-sm">
                             </div>
                         </div>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Justificativa da Baixa*</label>
-                        <textarea class="form-control" name="motivo_baixa" required rows="3" placeholder="Ex: Item inservível, doação conforme decreto..."></textarea>
+                        <label class="form-label fw-bold">Justificativa / Parecer da Comissão de Baixa*</label>
+                        <textarea class="form-control" name="motivo_baixa" required rows="3" placeholder="Ex: Bem inservível/antieconômico conforme Laudo Técnico..."></textarea>
                     </div>
-                    
+
                     <div class="form-check mt-3">
                         <input class="form-check-input" type="checkbox" value="sim" id="imprimir_termo" name="imprimir_termo" checked>
                         <label class="form-check-label text-muted small" for="imprimir_termo">
@@ -347,6 +559,7 @@
     </div>
 </div>
 
+<!-- Modal de Exclusão -->
 <div class="modal fade no-print" id="excluirModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow">
@@ -372,5 +585,4 @@
         </div>
     </div>
 </div>
-
 {% endblock %}

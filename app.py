@@ -217,9 +217,18 @@ def garantir_schema_academico():
         except Exception as e:
             print(f"Verificação de schema acadêmico: {e}")
 
+def garantir_schema_patrimonio():
+    with app.app_context():
+        try:
+            from patrimonio_routes import executar_migracao_patrimonio_segura
+            executar_migracao_patrimonio_segura()
+        except Exception as e:
+            print(f"Verificação de schema patrimônio: {e}")
+
 try:
     garantir_schema_estoque_movimento()
     garantir_schema_academico()
+    garantir_schema_patrimonio()
 except Exception as e:
     print(f"Aviso ao inicializar schemas: {e}")
 

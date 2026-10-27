@@ -87,7 +87,6 @@
         
         <!-- Cabeçalho Institucional (Timbre) -->
         <div class="timbre-header">
-            <!-- Coloque o caminho correto da logo/brasão de Valença do Piauí aqui -->
             <img src="{{ url_for('static', filename='img/logo.png') }}" class="timbre-logo" alt="Brasão do Município">
             
             <div class="timbre-titulo">MUNICÍPIO DE VALENÇA DO PIAUÍ</div>
@@ -109,20 +108,22 @@
                 PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ
             </div>
             
-            <div class="documento-titulo">TERMO DE RECOLHIMENTO E BAIXA</div>
+            <div class="documento-titulo">TERMO DE RECOLHIMENTO E BAIXA PATRIMONIAL</div>
         </div>
 
-        <!-- Dados do Bem em Tabela Simples (Igual Transferência) -->
+        <!-- Dados do Bem em Tabela Simples -->
         <div class="info-grid">
             <div class="info-box"><strong>Nº Patrimônio:</strong><span>{{ item.numero_patrimonio or '000000' }}</span></div>
             <div class="info-box"><strong>Data da Baixa:</strong><span>{{ item.data_cadastro.strftime('%d/%m/%Y') }}</span></div>
             <div class="info-box"><strong>Descrição do Bem:</strong><span>{{ item.descricao }}</span></div>
             <div class="info-box"><strong>Marca / Modelo:</strong><span>{{ item.marca or '--' }} / {{ item.modelo or '--' }}</span></div>
+            <div class="info-box"><strong>Nota Fiscal / Empenho:</strong><span>NF {{ item.numero_nota_fiscal or 'S/N' }} / NE {{ item.numero_empenho or '-' }}</span></div>
+            <div class="info-box"><strong>Localização de Origem:</strong><span>{{ item.localizacao }}</span></div>
         </div>
 
         <!-- Termo em Texto Corrido -->
         <p class="texto-corrido">
-            Pelo presente Termo de Recolhimento e Baixa, certificamos que o bem patrimonial acima descrito foi devidamente inspecionado e <strong>BAIXADO</strong> do inventário ativo nesta data. O servidor responsável pela devolução encontra-se isento de responsabilidades futuras sobre a guarda e conservação do referido item.
+            Pelo presente Termo de Recolhimento e Baixa, certificamos que o bem patrimonial acima descrito foi devidamente inspecionado e <strong>BAIXADO</strong> do inventário ativo nesta data. O servidor/responsável pela devolução encontra-se isento de responsabilidades futuras sobre a guarda e conservação do referido item.
         </p>
 
         <p class="texto-corrido">
@@ -132,11 +133,11 @@
         <!-- Assinaturas -->
         <div class="assinaturas">
             <div class="assinatura-linha">
-                <strong>{{ item.responsavel.nome if item.responsavel else 'Servidor Não Identificado' }}</strong>
+                <strong>{{ item.nome_responsavel_atual or 'Responsável Não Identificado' }}</strong>
                 <span>Enviado por / Setor de Origem</span>
             </div>
             <div class="assinatura-linha">
-                <strong>{{ usuario_logado.nome if usuario_logado else 'Gestor do Sistema' }}</strong>
+                <strong>{{ usuario_logado.username if usuario_logado else 'Gestor do Sistema' }}</strong>
                 <span>Recebedor / Autorizador da Baixa</span>
             </div>
         </div>

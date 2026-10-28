@@ -223,7 +223,22 @@ def _obter_locais_disponiveis():
 @login_required
 @role_required('Patrimonio', 'admin', 'RH', 'Fiscal')
 def listar_itens():
+    import math
     executar_migracao_patrimonio_segura()
+
+    # Remove eventuais registros órfãos de NotaFiscalPatrimonio sem nenhum bem vinculado
+    try:
+        notas_todas = NotaFiscalPatrimonio.query.all()
+        removidas = False
+        for nf_check in notas_todas:
+            if not nf_check.bens:
+                db.session.delete(nf_check)
+                removidas = True
+        if removidas:
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
+
     query = Patrimonio.query
 
     termo_busca = (request.args.get('termo') or request.args.get('q') or '').strip()
@@ -232,6 +247,7 @@ def listar_itens():
     estado_filtro = request.args.get('estado', '').strip()
     situacao_filtro = request.args.get('situacao', '').strip()
     nf_filtro = request.args.get('nota_fiscal', '').strip()
+    aba_ativa = request.args.get('aba', '').strip()
 
     if termo_busca:
         search_pattern = f"%{termo_busca}%"
@@ -242,6 +258,7 @@ def listar_itens():
             Patrimonio.responsavel_nome.ilike(search_pattern),
             Patrimonio.numero_nota_fiscal.ilike(search_pattern),
             Patrimonio.fornecedor_nome.ilike(search_pattern),
+            Patrimonio.fornecedor_cnpj.ilike(search_pattern),
             Patrimonio.numero_empenho.ilike(search_pattern),
             Patrimonio.marca.ilike(search_pattern),
             Patrimonio.modelo.ilike(search_pattern),
@@ -259,14 +276,163 @@ def listar_itens():
     if nf_filtro:
         query = query.filter(Patrimonio.numero_nota_fiscal.ilike(f"%{nf_filtro}%"))
 
-    itens = query.order_by(Patrimonio.id.desc()).all()
+    todos_itens_filtrados = query.order_by(Patrimonio.id.desc()).all()
+
+    # KPIs globais sobre o conjunto filtrado
+    kpis = {
+        'total_bens': len(todos_itens_filtrados),
+        'valor_acervo': sum((b.valor_aquisicao or 0.0) for b in todos_itens_filtrados),
+        'total_locais': len({b.localizacao for b in todos_itens_filtrados if b.localizacao}),
+        'total_com_nf': sum(1 for b in todos_itens_filtrados if b.numero_nota_fiscal),
+    }
+
+    # =========================================================================
+    # AGRUPAMENTO POR FORNECEDOR -> NOTAS FISCAIS -> BENS PATRIMONIAIS
+    # =========================================================================
+    mapa_fornecedores = {}
+
+    for bem in todos_itens_filtrados:
+        nf_rel = bem.nota_fiscal_rel
+        nome_forn = (
+            (bem.fornecedor_nome or '').strip()
+            or (nf_rel.fornecedor_nome.strip() if nf_rel and nf_rel.fornecedor_nome else '')
+            or 'Incorporação Direta / Sem Fornecedor Informado'
+        )
+        cnpj_forn = (
+            (bem.fornecedor_cnpj or '').strip()
+            or (nf_rel.fornecedor_cnpj.strip() if nf_rel and nf_rel.fornecedor_cnpj else '')
+        )
+        chave_forn = nome_forn.lower()
+
+        if chave_forn not in mapa_fornecedores:
+            mapa_fornecedores[chave_forn] = {
+                'nome': nome_forn,
+                'cnpj': cnpj_forn,
+                'notas_map': {},
+                'qtd_bens': 0,
+                'valor_total': 0.0,
+                'ultima_data': None,
+                'maior_id_bem': bem.id,
+            }
+        else:
+            if not mapa_fornecedores[chave_forn]['cnpj'] and cnpj_forn:
+                mapa_fornecedores[chave_forn]['cnpj'] = cnpj_forn
+            if bem.id > mapa_fornecedores[chave_forn]['maior_id_bem']:
+                mapa_fornecedores[chave_forn]['maior_id_bem'] = bem.id
+
+        forn_entry = mapa_fornecedores[chave_forn]
+        forn_entry['qtd_bens'] += 1
+        forn_entry['valor_total'] += (bem.valor_aquisicao or 0.0)
+
+        data_ref = bem.data_nota_fiscal or bem.data_aquisicao or (bem.data_cadastro.date() if bem.data_cadastro else None)
+        if data_ref and (not forn_entry['ultima_data'] or data_ref > forn_entry['ultima_data']):
+            forn_entry['ultima_data'] = data_ref
+
+        num_nf = (
+            (bem.numero_nota_fiscal or '').strip()
+            or (nf_rel.numero_nf.strip() if nf_rel and nf_rel.numero_nf else '')
+            or 'Sem Nº de Nota Fiscal'
+        )
+        chave_nf = f"{ bem.nota_fiscal_id or '' }_{num_nf.lower()}"
+
+        if chave_nf not in forn_entry['notas_map']:
+            forn_entry['notas_map'][chave_nf] = {
+                'id': bem.nota_fiscal_id,
+                'numero_nf': num_nf,
+                'serie_nf': bem.serie_nota_fiscal or (nf_rel.serie_nf if nf_rel else None),
+                'chave_nfe': bem.chave_nfe or (nf_rel.chave_acesso if nf_rel else None),
+                'data_emissao': bem.data_nota_fiscal or (nf_rel.data_emissao if nf_rel else None) or bem.data_aquisicao,
+                'numero_empenho': bem.numero_empenho or (nf_rel.numero_empenho if nf_rel else None),
+                'numero_processo': bem.numero_processo or (nf_rel.numero_processo if nf_rel else None),
+                'modalidade_licitacao': bem.modalidade_licitacao or (nf_rel.modalidade_licitacao if nf_rel else None),
+                'numero_contrato': bem.numero_contrato or (nf_rel.numero_contrato if nf_rel else None),
+                'fonte_recursos': bem.fonte_recursos or (nf_rel.fonte_recursos if nf_rel else None),
+                'forma_aquisicao': bem.forma_aquisicao or (nf_rel.forma_aquisicao if nf_rel else 'Compra / Licitação'),
+                'arquivo_nf_url': bem.arquivo_nf_url or (nf_rel.arquivo_nf_url if nf_rel else None),
+                'valor_total': 0.0,
+                'qtd_bens': 0,
+                'bens': [],
+            }
+
+        nf_entry = forn_entry['notas_map'][chave_nf]
+        nf_entry['bens'].append(bem)
+        nf_entry['qtd_bens'] += 1
+        nf_entry['valor_total'] += (bem.valor_aquisicao or 0.0)
+        if not nf_entry['arquivo_nf_url'] and bem.arquivo_nf_url:
+            nf_entry['arquivo_nf_url'] = bem.arquivo_nf_url
+
+    lista_fornecedores_completa = []
+    for idx_f, (_, dados_f) in enumerate(
+        sorted(mapa_fornecedores.items(), key=lambda x: x[1]['maior_id_bem'], reverse=True), start=1
+    ):
+        notas_ordenadas = list(dados_f['notas_map'].values())
+        lista_fornecedores_completa.append({
+            'indice': idx_f,
+            'nome': dados_f['nome'],
+            'cnpj': dados_f['cnpj'],
+            'qtd_notas': len(notas_ordenadas),
+            'qtd_bens': dados_f['qtd_bens'],
+            'valor_total': dados_f['valor_total'],
+            'ultima_data': dados_f['ultima_data'],
+            'notas': notas_ordenadas,
+        })
+
+    kpis['total_fornecedores'] = len(lista_fornecedores_completa)
+    kpis['total_notas_fiscais'] = sum(f['qtd_notas'] for f in lista_fornecedores_completa)
+
+    # Paginação de Fornecedores: Limite de 10 fornecedores por página
+    per_page_forn = 10
+    page_forn = max(1, request.args.get('page_forn', 1, type=int))
+    total_fornecedores = len(lista_fornecedores_completa)
+    total_pages_forn = max(1, math.ceil(total_fornecedores / per_page_forn))
+    if page_forn > total_pages_forn:
+        page_forn = total_pages_forn
+    inicio_forn = (page_forn - 1) * per_page_forn
+    fornecedores_paginados = lista_fornecedores_completa[inicio_forn: inicio_forn + per_page_forn]
+
+    # Paginação de Bens Individuais: Limite de 10 bens por página
+    per_page_bens = 10
+    page_bens = max(1, request.args.get('page_bens', 1, type=int))
+    total_bens = len(todos_itens_filtrados)
+    total_pages_bens = max(1, math.ceil(total_bens / per_page_bens))
+    if page_bens > total_pages_bens:
+        page_bens = total_pages_bens
+    inicio_bens = (page_bens - 1) * per_page_bens
+    itens_paginados = todos_itens_filtrados[inicio_bens: inicio_bens + per_page_bens]
+
+    # Se filtrou por NF específica ou clicou em paginação de bens, abre na aba de bens; caso contrário, abre em Fornecedores
+    if not aba_ativa:
+        if nf_filtro or request.args.get('page_bens'):
+            aba_ativa = 'bens'
+        else:
+            aba_ativa = 'fornecedores'
+
     secretarias = Secretaria.query.order_by(Secretaria.nome).all()
     notas_recentes = NotaFiscalPatrimonio.query.order_by(NotaFiscalPatrimonio.id.desc()).limit(20).all()
     locais_db, _ = _obter_locais_disponiveis()
 
     return render_template(
         'patrimonio/lista.html',
-        itens=itens,
+        itens=itens_paginados,
+        fornecedores_paginados=fornecedores_paginados,
+        kpis=kpis,
+        aba_ativa=aba_ativa,
+        paginacao_forn={
+            'page': page_forn,
+            'per_page': per_page_forn,
+            'total': total_fornecedores,
+            'total_pages': total_pages_forn,
+            'inicio': inicio_forn + 1 if total_fornecedores > 0 else 0,
+            'fim': min(inicio_forn + per_page_forn, total_fornecedores),
+        },
+        paginacao_bens={
+            'page': page_bens,
+            'per_page': per_page_bens,
+            'total': total_bens,
+            'total_pages': total_pages_bens,
+            'inicio': inicio_bens + 1 if total_bens > 0 else 0,
+            'fim': min(inicio_bens + per_page_bens, total_bens),
+        },
         termo_busca=termo_busca,
         secretarias=secretarias,
         notas_recentes=notas_recentes,

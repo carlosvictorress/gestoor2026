@@ -1,4 +1,5 @@
 # patrimonio_routes.py
+import os
 import re
 from flask import (
     Blueprint, render_template, request, redirect, url_for, flash, session,
@@ -9,14 +10,21 @@ from models import (
     Secretaria, Patrimonio, MovimentacaoPatrimonio, Servidor,
     LocalPatrimonio, NotaFiscalPatrimonio, Fornecedor, Escola
 )
-from utils import role_required, login_required, registrar_log, upload_arquivo_para_nuvem
+from utils import role_required, login_required, registrar_log, upload_arquivo_para_nuvem, obter_data_hora_br_str
 from extensions import db, bcrypt
 from sqlalchemy import or_, func, text
 from datetime import datetime, date
 from io import BytesIO
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.pdfgen import canvas as canvas_lib
 from reportlab.lib.utils import ImageReader
+from reportlab.platypus import (
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage, KeepTogether, HRFlowable
+)
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from reportlab.lib.units import cm
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
 from flask_login import current_user
 
 patrimonio_bp = Blueprint('patrimonio', __name__, url_prefix='/patrimonio')
@@ -409,12 +417,77 @@ def listar_itens():
 
     secretarias = Secretaria.query.order_by(Secretaria.nome).all()
     notas_recentes = NotaFiscalPatrimonio.query.order_by(NotaFiscalPatrimonio.id.desc()).limit(20).all()
-    locais_db, _ = _obter_locais_disponiveis()
+    locais_db, locais_legados = _obter_locais_disponiveis()
+
+    # =========================================================================
+    # AGRUPAMENTO DE BENS POR LOCALIZAÇÃO (PARA O MODAL E PDF PADRÃO GOVERNO)
+    # =========================================================================
+    todos_bens_ativos = Patrimonio.query.filter(Patrimonio.status != 'Baixado').order_by(
+        Patrimonio.localizacao, Patrimonio.descricao
+    ).all()
+
+    mapa_locais = {}
+    for loc_cadastrado in locais_db:
+        nome_l = (loc_cadastrado.nome or '').strip()
+        if nome_l:
+            mapa_locais[nome_l] = {
+                'nome': nome_l,
+                'secretaria_nome': loc_cadastrado.secretaria.nome if loc_cadastrado.secretaria else '',
+                'responsavel_padrao': loc_cadastrado.responsavel_setor or '',
+                'qtd_bens': 0,
+                'valor_total': 0.0,
+                'bens': []
+            }
+
+    for bem_loc in todos_bens_ativos:
+        nome_l = (bem_loc.localizacao or 'Não informada').strip()
+        if nome_l not in mapa_locais:
+            mapa_locais[nome_l] = {
+                'nome': nome_l,
+                'secretaria_nome': bem_loc.secretaria.nome if bem_loc.secretaria else '',
+                'responsavel_padrao': bem_loc.nome_responsavel_atual or '',
+                'qtd_bens': 0,
+                'valor_total': 0.0,
+                'bens': []
+            }
+        entry_l = mapa_locais[nome_l]
+        if not entry_l['secretaria_nome'] and bem_loc.secretaria:
+            entry_l['secretaria_nome'] = bem_loc.secretaria.nome
+        if not entry_l['responsavel_padrao'] and bem_loc.nome_responsavel_atual:
+            entry_l['responsavel_padrao'] = bem_loc.nome_responsavel_atual
+
+        entry_l['qtd_bens'] += 1
+        entry_l['valor_total'] += (bem_loc.valor_aquisicao or 0.0)
+        entry_l['bens'].append({
+            'id': bem_loc.id,
+            'tombamento': bem_loc.numero_patrimonio or 'S/N',
+            'descricao': bem_loc.descricao or '',
+            'categoria': bem_loc.categoria or '-',
+            'marca_modelo': " / ".join([x for x in [bem_loc.marca, bem_loc.modelo] if x]) or '-',
+            'numero_serie': bem_loc.numero_serie or '',
+            'nota_fiscal': bem_loc.numero_nota_fiscal or '-',
+            'empenho': bem_loc.numero_empenho or '-',
+            'fornecedor': bem_loc.fornecedor_nome or '-',
+            'estado': bem_loc.estado_conservacao or 'Bom',
+            'situacao': bem_loc.situacao_uso or 'Em uso',
+            'responsavel': bem_loc.nome_responsavel_atual or 'Não informado',
+            'secretaria': bem_loc.secretaria.nome if bem_loc.secretaria else '-',
+            'data_aquisicao': bem_loc.data_aquisicao.strftime('%d/%m/%Y') if bem_loc.data_aquisicao else '-',
+            'valor': float(bem_loc.valor_aquisicao or 0.0),
+            'valor_fmt': f"{(bem_loc.valor_aquisicao or 0.0):,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+            'url_detalhes': url_for('patrimonio.detalhes_item', item_id=bem_loc.id),
+        })
+
+    locais_inventario = sorted(
+        mapa_locais.values(),
+        key=lambda x: (-x['qtd_bens'], x['nome'].lower())
+    )
 
     return render_template(
         'patrimonio/lista.html',
         itens=itens_paginados,
         fornecedores_paginados=fornecedores_paginados,
+        locais_inventario=locais_inventario,
         kpis=kpis,
         aba_ativa=aba_ativa,
         paginacao_forn={
@@ -444,6 +517,453 @@ def listar_itens():
             'situacao': situacao_filtro,
             'nota_fiscal': nf_filtro,
         }
+    )
+
+
+@patrimonio_bp.route('/relatorio-local/pdf')
+@login_required
+@role_required('Patrimonio', 'admin', 'RH', 'Fiscal')
+def gerar_relatorio_local_pdf():
+    """
+    Gera o Relatório Oficial de Inventário Setorial e Termo de Guarda por Local (Padrão Governo / TCE / MCASP) em PDF.
+    """
+    executar_migracao_patrimonio_segura()
+
+    local_selecionado = (request.args.get('local') or '').strip()
+    estado_filtro = (request.args.get('estado') or '').strip()
+    responsavel_assinatura = (request.args.get('responsavel_setor') or '').strip()
+    cargo_assinatura = (request.args.get('cargo_responsavel') or '').strip()
+    incluir_valores = request.args.get('incluir_valores', 'sim') != 'nao'
+
+    query = Patrimonio.query.filter(Patrimonio.status != 'Baixado')
+    if local_selecionado and local_selecionado != '__TODOS__':
+        query = query.filter(Patrimonio.localizacao == local_selecionado)
+    if estado_filtro:
+        query = query.filter(Patrimonio.estado_conservacao == estado_filtro)
+
+    bens = query.order_by(Patrimonio.localizacao, Patrimonio.descricao, Patrimonio.numero_patrimonio).all()
+
+    titulo_local = local_selecionado if (local_selecionado and local_selecionado != '__TODOS__') else "TODOS OS LOCAIS / INVENTÁRIO GERAL"
+
+    # Descobre secretaria e responsável padrão se não foram passados
+    secretaria_nome = "PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ"
+    for b in bens:
+        if b.secretaria and b.secretaria.nome:
+            secretaria_nome = b.secretaria.nome.upper()
+            break
+    if not responsavel_assinatura:
+        for b in bens:
+            if b.nome_responsavel_atual:
+                responsavel_assinatura = b.nome_responsavel_atual
+                if not cargo_assinatura and b.responsavel_cargo:
+                    cargo_assinatura = b.responsavel_cargo
+                break
+
+    buffer = BytesIO()
+    page_width, page_height = landscape(A4)
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=1.2 * cm,
+        rightMargin=1.2 * cm,
+        topMargin=3.4 * cm,
+        bottomMargin=1.8 * cm,
+        title=f"Inventário Patrimonial - {titulo_local}"
+    )
+
+    styles = getSampleStyleSheet()
+    cor_gov_azul = colors.HexColor("#0f2942")
+    cor_gov_secundaria = colors.HexColor("#1e4e79")
+    cor_cinza_claro = colors.HexColor("#f1f5f9")
+    cor_borda = colors.HexColor("#cbd5e1")
+
+    style_titulo_doc = ParagraphStyle(
+        'TituloDocGov',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=12,
+        leading=15,
+        textColor=cor_gov_azul,
+        alignment=TA_CENTER,
+        spaceAfter=2
+    )
+    style_subtitulo_doc = ParagraphStyle(
+        'SubtituloDocGov',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor("#475569"),
+        alignment=TA_CENTER,
+        spaceAfter=10
+    )
+    style_celula = ParagraphStyle(
+        'CelulaPat',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=7.5,
+        leading=9.5,
+        textColor=colors.HexColor("#1e293b")
+    )
+    style_celula_bold = ParagraphStyle(
+        'CelulaPatBold',
+        parent=style_celula,
+        fontName='Helvetica-Bold'
+    )
+    style_celula_center = ParagraphStyle(
+        'CelulaPatCenter',
+        parent=style_celula,
+        alignment=TA_CENTER
+    )
+    style_celula_right = ParagraphStyle(
+        'CelulaPatRight',
+        parent=style_celula,
+        alignment=TA_RIGHT
+    )
+    style_header_tabela = ParagraphStyle(
+        'HeaderPat',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=7.5,
+        leading=9.5,
+        textColor=colors.white,
+        alignment=TA_CENTER
+    )
+    style_termo = ParagraphStyle(
+        'TermoJuridico',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8,
+        leading=11.5,
+        alignment=TA_JUSTIFY,
+        textColor=colors.HexColor("#1e293b")
+    )
+
+    data_emissao_str = obter_data_hora_br_str()
+    protocolo_relatorio = f"INV-{datetime.now().strftime('%Y%m%d-%H%M')}"
+    usuario_emissor = session.get('username') or getattr(current_user, 'username', 'Controle Interno')
+
+    # Gera QR Code de verificação do relatório
+    url_verificacao = url_for('patrimonio.listar_itens', _external=True)
+    qr = qrcode.make(f"PREFEITURA DE VALENCA DO PIAUI | {protocolo_relatorio} | LOCAL: {titulo_local} | {url_verificacao}")
+    qr_buffer = BytesIO()
+    qr.save(qr_buffer, format='PNG')
+    qr_buffer.seek(0)
+    qr_reader = ImageReader(qr_buffer)
+
+    def desenhar_cabecalho_rodape_gov(canvas, doc_obj):
+        canvas.saveState()
+        basedir = current_app.root_path
+        logo_path = os.path.join(basedir, 'static', 'logo.png')
+        timbre_path = os.path.join(basedir, 'static', 'timbre.jpg')
+
+        # Faixa superior institucional
+        canvas.setFillColor(cor_gov_azul)
+        canvas.rect(1.2 * cm, page_height - 1.0 * cm, page_width - 2.4 * cm, 0.15 * cm, fill=1, stroke=0)
+
+        if os.path.exists(logo_path):
+            try:
+                canvas.drawImage(logo_path, 1.3 * cm, page_height - 3.0 * cm, width=1.8 * cm, height=1.8 * cm, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
+        elif os.path.exists(timbre_path):
+            try:
+                canvas.drawImage(timbre_path, 1.3 * cm, page_height - 2.9 * cm, width=3.5 * cm, height=1.6 * cm, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
+
+        # Textos Oficiais do Governo Municipal
+        canvas.setFillColor(cor_gov_azul)
+        canvas.setFont("Helvetica-Bold", 11)
+        canvas.drawCentredString(page_width / 2.0, page_height - 1.55 * cm, "ESTADO DO PIAUÍ — PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ")
+
+        canvas.setFont("Helvetica-Bold", 9)
+        canvas.drawCentredString(page_width / 2.0, page_height - 1.95 * cm, secretaria_nome)
+
+        canvas.setFillColor(colors.HexColor("#334155"))
+        canvas.setFont("Helvetica", 7.5)
+        canvas.drawCentredString(
+            page_width / 2.0,
+            page_height - 2.35 * cm,
+            "CONTROLADORIA GERAL DO MUNICÍPIO • COORDENADORIA DE CONTROLE PATRIMONIAL E ALMOXARIFADO"
+        )
+        canvas.drawCentredString(
+            page_width / 2.0,
+            page_height - 2.70 * cm,
+            "CNPJ: 06.095.146/0001-44 • Rua Epaminondas Nogueira, nº 1425, Centro - Valença do Piauí/PI"
+        )
+
+        # QR Code e protocolo no canto superior direito
+        try:
+            canvas.drawImage(qr_reader, page_width - 3.1 * cm, page_height - 3.0 * cm, width=1.8 * cm, height=1.8 * cm)
+        except Exception:
+            pass
+
+        # Linha divisória dupla (Verde e Amarela / Institucional)
+        canvas.setStrokeColor(colors.HexColor("#198754"))
+        canvas.setLineWidth(1.5)
+        canvas.line(1.2 * cm, page_height - 3.1 * cm, page_width - 1.2 * cm, page_height - 3.1 * cm)
+
+        # Rodapé Oficial
+        canvas.setStrokeColor(cor_borda)
+        canvas.setLineWidth(0.7)
+        canvas.line(1.2 * cm, 1.35 * cm, page_width - 1.2 * cm, 1.35 * cm)
+
+        canvas.setFillColor(colors.HexColor("#475569"))
+        canvas.setFont("Helvetica", 7)
+        canvas.drawString(
+            1.2 * cm,
+            0.95 * cm,
+            f"Gestor 360º - Sistema Integrado de Gestão Pública e Controle Interno Auditável | Protocolo: {protocolo_relatorio} | Emitido por: {usuario_emissor} em {data_emissao_str}"
+        )
+        canvas.drawRightString(
+            page_width - 1.2 * cm,
+            0.95 * cm,
+            f"Página {doc_obj.page}"
+        )
+        canvas.restoreState()
+
+    elementos = []
+
+    # Título do Relatório
+    elementos.append(Paragraph("RELATÓRIO OFICIAL DE INVENTÁRIO SETORIAL E TERMO DE GUARDA DE BENS PATRIMONIAIS", style_titulo_doc))
+    elementos.append(Paragraph("Demonstrativo analítico de bens permanentes alocados por unidade/setor em conformidade com as normas do Controle Interno e MCASP/TCE", style_subtitulo_doc))
+
+    # =========================================================================
+    # QUADRO 1: METADADOS DO LOCAL / UNIDADE E DETENTOR DA GUARDA
+    # =========================================================================
+    qtd_total = len(bens)
+    soma_total = sum((b.valor_aquisicao or 0.0) for b in bens)
+    soma_total_fmt = f"R$ {soma_total:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    dados_quadro_local = [
+        [
+            Paragraph("<b>UNIDADE / LOCALIZAÇÃO FÍSICA:</b>", style_celula),
+            Paragraph(f"<b>{titulo_local}</b>", style_celula_bold),
+            Paragraph("<b>EXERCÍCIO / PROTOCOLO:</b>", style_celula),
+            Paragraph(f"{datetime.now().year} / {protocolo_relatorio}", style_celula),
+        ],
+        [
+            Paragraph("<b>ÓRGÃO / SECRETARIA GESTORA:</b>", style_celula),
+            Paragraph(secretaria_nome, style_celula),
+            Paragraph("<b>TOTAL DE BENS NO LOCAL:</b>", style_celula),
+            Paragraph(f"<b>{qtd_total} item(ns) patrimonial(is)</b>", style_celula_bold),
+        ],
+        [
+            Paragraph("<b>RESPONSÁVEL PELA GUARDA / SETOR:</b>", style_celula),
+            Paragraph(
+                f"{responsavel_assinatura or 'Não especificado'}"
+                f"{' (' + cargo_assinatura + ')' if cargo_assinatura else ''}",
+                style_celula
+            ),
+            Paragraph("<b>VALOR CONTÁBIL ACUMULADO:</b>", style_celula),
+            Paragraph(f"<b>{soma_total_fmt if incluir_valores else 'Oculto'}</b>", style_celula_bold),
+        ],
+    ]
+
+    tabela_meta = Table(dados_quadro_local, colWidths=[5.2 * cm, 11.3 * cm, 5.0 * cm, 5.8 * cm])
+    tabela_meta.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), cor_cinza_claro),
+        ('BACKGROUND', (2, 0), (2, -1), cor_cinza_claro),
+        ('GRID', (0, 0), (-1, -1), 0.5, cor_borda),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elementos.append(tabela_meta)
+    elementos.append(Spacer(1, 0.35 * cm))
+
+    # =========================================================================
+    # QUADRO 2: TABELA ANALÍTICA DE BENS PATRIMONIAIS DO LOCAL
+    # =========================================================================
+    cabecalho_tabela = [
+        Paragraph("ITEM", style_header_tabela),
+        Paragraph("Nº TOMBAMENTO", style_header_tabela),
+        Paragraph("DESCRIÇÃO DO BEM / ESPECIFICAÇÃO TÉCNICA", style_header_tabela),
+        Paragraph("MARCA / MODELO / SÉRIE", style_header_tabela),
+        Paragraph("NOTA FISCAL / EMPENHO", style_header_tabela),
+        Paragraph("RESPONSÁVEL DIRETO", style_header_tabela),
+        Paragraph("ESTADO DO BEM / USO", style_header_tabela),
+        Paragraph("VALOR (R$)", style_header_tabela),
+        Paragraph("CONF.", style_header_tabela),
+    ]
+    linhas_tabela = [cabecalho_tabela]
+
+    contagem_estados = {'Novo': 0, 'Bom': 0, 'Regular': 0, 'Ruim': 0, 'Inservível': 0}
+
+    if bens:
+        for idx, b in enumerate(bens, start=1):
+            est = b.estado_conservacao or 'Bom'
+            contagem_estados[est] = contagem_estados.get(est, 0) + 1
+
+            desc_completa = f"<b>{b.descricao}</b>"
+            if b.categoria:
+                desc_completa += f"<br/><font size=6.5 color='#64748b'>Grupo: {b.categoria}</font>"
+            if local_selecionado == '__TODOS__' and b.localizacao:
+                desc_completa += f"<br/><font size=6.5 color='#0f4c81'>Local: {b.localizacao}</font>"
+
+            marca_mod = " / ".join([x for x in [b.marca, b.modelo] if x]) or "-"
+            if b.numero_serie:
+                marca_mod += f"<br/><font size=6.5 color='#475569'>Série: {b.numero_serie}</font>"
+
+            nf_emp = f"NF: {b.numero_nota_fiscal or 'S/N'}"
+            if b.numero_empenho:
+                nf_emp += f"<br/>NE: {b.numero_empenho}"
+            if b.data_aquisicao:
+                nf_emp += f"<br/><font size=6.5 color='#64748b'>Aq: {b.data_aquisicao.strftime('%d/%m/%Y')}</font>"
+
+            estado_uso_str = f"<b>{est.upper()}</b><br/><font size=6.5 color='#475569'>{b.situacao_uso or 'Em uso'}</font>"
+
+            val_fmt = f"{(b.valor_aquisicao or 0.0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+            linhas_tabela.append([
+                Paragraph(f"{idx:02d}", style_celula_center),
+                Paragraph(f"<b>{b.numero_patrimonio or 'S/N'}</b>", style_celula_center),
+                Paragraph(desc_completa, style_celula),
+                Paragraph(marca_mod, style_celula),
+                Paragraph(nf_emp, style_celula_center),
+                Paragraph(b.nome_responsavel_atual or responsavel_assinatura or "-", style_celula),
+                Paragraph(estado_uso_str, style_celula_center),
+                Paragraph(val_fmt if incluir_valores else "-", style_celula_right),
+                Paragraph("[   ]", style_celula_center),
+            ])
+    else:
+        linhas_tabela.append([
+            Paragraph("-", style_celula_center),
+            Paragraph("-", style_celula_center),
+            Paragraph("Nenhum bem patrimonial ativo registrado para este local/filtro.", style_celula),
+            Paragraph("-", style_celula_center),
+            Paragraph("-", style_celula_center),
+            Paragraph("-", style_celula_center),
+            Paragraph("-", style_celula_center),
+            Paragraph("0,00", style_celula_right),
+            Paragraph("[   ]", style_celula_center),
+        ])
+
+    # Linha de Totalização Final da Tabela
+    linhas_tabela.append([
+        Paragraph("", style_celula),
+        Paragraph("", style_celula),
+        Paragraph(f"<b>TOTAL GERAL DE BENS RELACIONADOS NO SETOR: {qtd_total} UNIDADE(S)</b>", style_celula_bold),
+        Paragraph("", style_celula),
+        Paragraph("", style_celula),
+        Paragraph("", style_celula),
+        Paragraph("<b>VALOR TOTAL:</b>", style_celula_center),
+        Paragraph(f"<b>{soma_total_fmt if incluir_valores else '-'}</b>", style_celula_right),
+        Paragraph("", style_celula),
+    ])
+
+    larguras_colunas = [
+        1.1 * cm,  # ITEM
+        2.5 * cm,  # TOMBAMENTO
+        7.3 * cm,  # DESCRIÇÃO
+        3.5 * cm,  # MARCA/MODELO/SÉRIE
+        2.8 * cm,  # NF/EMPENHO
+        3.6 * cm,  # RESPONSÁVEL
+        2.6 * cm,  # ESTADO DO BEM
+        2.5 * cm,  # VALOR
+        1.4 * cm,  # CONF.
+    ]
+
+    tabela_bens = Table(linhas_tabela, colWidths=larguras_colunas, repeatRows=1)
+    estilo_tabela_bens = [
+        ('BACKGROUND', (0, 0), (-1, 0), cor_gov_azul),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('GRID', (0, 0), (-1, -1), 0.45, cor_borda),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        # Linha final de totalização
+        ('SPAN', (2, -1), (5, -1)),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#e2e8f0")),
+    ]
+    # Zebra striping nas linhas de dados
+    for row_idx in range(1, len(linhas_tabela) - 1):
+        if row_idx % 2 == 0:
+            estilo_tabela_bens.append(('BACKGROUND', (0, row_idx), (-1, row_idx), colors.HexColor("#f8fafc")))
+
+    tabela_bens.setStyle(TableStyle(estilo_tabela_bens))
+    elementos.append(tabela_bens)
+    elementos.append(Spacer(1, 0.35 * cm))
+
+    # =========================================================================
+    # QUADRO 3: SÍNTESE DO ESTADO DE CONSERVAÇÃO E TERMO DE GUARDA + ASSINATURAS
+    # =========================================================================
+    resumo_conservacao_data = [[
+        Paragraph("<b>SÍNTESE POR ESTADO DE CONSERVAÇÃO:</b>", style_celula_bold),
+        Paragraph(f"Novo / Excelente: <b>{contagem_estados.get('Novo', 0)}</b>", style_celula_center),
+        Paragraph(f"Bom Estado: <b>{contagem_estados.get('Bom', 0)}</b>", style_celula_center),
+        Paragraph(f"Estado Regular: <b>{contagem_estados.get('Regular', 0)}</b>", style_celula_center),
+        Paragraph(f"Ruim / Manutenção: <b>{contagem_estados.get('Ruim', 0)}</b>", style_celula_center),
+        Paragraph(f"Inservível: <b>{contagem_estados.get('Inservível', 0)}</b>", style_celula_center),
+    ]]
+    tabela_resumo_est = Table(
+        resumo_conservacao_data,
+        colWidths=[6.3 * cm, 4.2 * cm, 4.2 * cm, 4.2 * cm, 4.2 * cm, 4.2 * cm]
+    )
+    tabela_resumo_est.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), cor_cinza_claro),
+        ('GRID', (0, 0), (-1, -1), 0.45, cor_borda),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+
+    texto_declaracao = (
+        "<b>TERMO DE GUARDA, CONFERÊNCIA E RESPONSABILIDADE PATRIMONIAL:</b> "
+        "Pelo presente instrumento oficial de Controle Interno, declaramos que os bens permanentes acima discriminados encontram-se "
+        f"alocados no setor/local <b>{titulo_local}</b>, tendo sido conferidos fisicamente quanto ao seu número de tombamento, especificações "
+        "e estado de conservação. O responsável setorial abaixo assinado assume o compromisso de zelar pela guarda, conservação e uso "
+        "exclusivo no interesse do serviço público, comunicando formalmente à Coordenadoria de Patrimônio qualquer movimentação, avaria ou extravio, "
+        "em observância às normas da Administração Pública e do Tribunal de Contas."
+    )
+
+    nome_resp_assinatura = responsavel_assinatura or "___________________________________________________"
+    sub_resp_assinatura = cargo_assinatura or "Responsável pelo Setor / Detentor da Carga Patrimonial"
+
+    bloco_assinaturas = Table(
+        [
+            [
+                Paragraph("___________________________________________________", style_celula_center),
+                Paragraph("___________________________________________________", style_celula_center),
+                Paragraph("___________________________________________________", style_celula_center),
+            ],
+            [
+                Paragraph(f"<b>{nome_resp_assinatura}</b><br/><font size=7 color='#475569'>{sub_resp_assinatura}</font>", style_celula_center),
+                Paragraph(f"<b>{usuario_emissor.upper()}</b><br/><font size=7 color='#475569'>Coordenadoria de Patrimônio / Emissor</font>", style_celula_center),
+                Paragraph("<b>CONTROLADORIA GERAL / COMISSÃO</b><br/><font size=7 color='#475569'>Visto de Auditoria e Controle Interno</font>", style_celula_center),
+            ],
+        ],
+        colWidths=[9.1 * cm, 9.1 * cm, 9.1 * cm]
+    )
+    bloco_assinaturas.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+
+    elementos.append(KeepTogether([
+        tabela_resumo_est,
+        Spacer(1, 0.25 * cm),
+        Paragraph(texto_declaracao, style_termo),
+        Spacer(1, 0.85 * cm),
+        bloco_assinaturas,
+    ]))
+
+    doc.build(elementos, onFirstPage=desenhar_cabecalho_rodape_gov, onLaterPages=desenhar_cabecalho_rodape_gov)
+    buffer.seek(0)
+
+    nome_limpo = re.sub(r'[^a-zA-Z0-9_-]', '_', titulo_local)[:40]
+    return send_file(
+        buffer,
+        mimetype='application/pdf',
+        as_attachment=False,
+        download_name=f"Inventario_Patrimonial_{nome_limpo}_{datetime.now().strftime('%Y%m%d')}.pdf"
     )
 
 

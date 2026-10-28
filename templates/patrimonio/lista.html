@@ -140,6 +140,9 @@
             <p class="text-muted small mb-0">Gestão organizada por Fornecedores, Notas Fiscais, Tombamentos e Termos de Guarda Municipal.</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-success btn-rounded shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalBensPorLocal">
+                <i class="bi bi-geo-alt-fill me-1"></i> Bens por Local / PDF Oficial
+            </button>
             <a href="{{ url_for('patrimonio.listar_itens_baixados') }}" class="btn btn-outline-warning btn-rounded shadow-sm text-dark">
                 <i class="bi bi-archive me-1"></i> Bens Baixados
             </a>
@@ -744,4 +747,261 @@
         </div>
     </div>
 </div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: CONSULTA DE BENS POR LOCAL E EMISSÃO DE PDF PADRÃO GOVERNO          -->
+<!-- ========================================================================= -->
+<div class="modal fade" id="modalBensPorLocal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 18px;">
+            <div class="modal-header text-white border-0 py-3 px-4" style="background: linear-gradient(135deg, #0f2942 0%, #164e87 100%); border-top-left-radius: 18px; border-top-right-radius: 18px;">
+                <div>
+                    <span class="badge bg-warning text-dark fw-bold mb-1">
+                        <i class="bi bi-shield-check me-1"></i> Relatório Oficial de Inventário Setorial &amp; Termo de Guarda
+                    </span>
+                    <h5 class="modal-title fw-bold mb-0">
+                        <i class="bi bi-geo-alt-fill me-2"></i> Bens Patrimoniais Alocados por Local / Setor
+                    </h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <!-- Formulário de Seleção do Local e Parâmetros do PDF Padrão Governo -->
+                <form method="GET" action="{{ url_for('patrimonio.gerar_relatorio_local_pdf') }}" target="_blank" id="formRelatorioLocalPdf">
+                    <div class="p-3 bg-light rounded-4 border mb-4">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-5">
+                                <label class="form-label fw-bold text-dark small mb-1">
+                                    1. Selecione o Local / Unidade / Sala*
+                                </label>
+                                <select class="form-select fw-semibold" name="local" id="selectModalLocalInventario" onchange="atualizarTabelaModalLocal()">
+                                    <option value="">-- Escolha um Local para visualizar os bens --</option>
+                                    <option value="__TODOS__">📋 TODOS OS LOCAIS (Inventário Geral Completo)</option>
+                                    {% for loc_item in locais_inventario %}
+                                        <option value="{{ loc_item.nome }}"
+                                                data-responsavel="{{ loc_item.responsavel_padrao }}"
+                                                data-secretaria="{{ loc_item.secretaria_nome }}">
+                                            📍 {{ loc_item.nome }} ({{ loc_item.qtd_bens }} bem(ns))
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold text-dark small mb-1">
+                                    2. Filtrar Estado do Bem
+                                </label>
+                                <select class="form-select" name="estado" id="selectModalEstadoLocal" onchange="atualizarTabelaModalLocal()">
+                                    <option value="">Todos os Estados</option>
+                                    <option value="Novo">Apenas Novo</option>
+                                    <option value="Bom">Apenas Bom</option>
+                                    <option value="Regular">Apenas Regular</option>
+                                    <option value="Ruim">Apenas Ruim</option>
+                                    <option value="Inservível">Apenas Inservível</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-dark small mb-1">
+                                    3. Responsável pelo Local (Assinatura no PDF)
+                                </label>
+                                <input type="text" class="form-control" name="responsavel_setor" id="inputModalRespLocal"
+                                       placeholder="Nome do responsável pela guarda no local...">
+                            </div>
+
+                            <div class="col-md-5">
+                                <label class="form-label fw-bold text-dark small mb-1">
+                                    Cargo / Função do Responsável (Opcional no PDF)
+                                </label>
+                                <input type="text" class="form-control form-control-sm" name="cargo_responsavel" id="inputModalCargoLocal"
+                                       placeholder="Ex: Diretor(a) Escolar, Coordenador(a), Chefe de Setor...">
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold text-dark small mb-1">
+                                    Exibir Valores Contábeis no PDF?
+                                </label>
+                                <select class="form-select form-select-sm" name="incluir_valores">
+                                    <option value="sim" selected>Sim (Com Valores em R$)</option>
+                                    <option value="nao">Não (Apenas Quantitativo / Físico)</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-4 d-grid">
+                                <button type="submit" class="btn btn-danger btn-rounded fw-bold shadow-sm" id="btnGerarPdfLocal" disabled>
+                                    <i class="bi bi-file-earmark-pdf-fill me-1"></i> Gerar PDF Padrão Governo
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Resumo do Local Selecionado -->
+                <div id="painelResumoLocalModal" class="d-none mb-3">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="p-3 rounded-3 border bg-white text-center">
+                                <small class="text-muted text-uppercase fw-bold d-block" style="font-size: 0.7rem;">Local / Setor Selecionado</small>
+                                <span class="fw-bold text-primary fs-6" id="lblNomeLocalModal">-</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 rounded-3 border bg-white text-center">
+                                <small class="text-muted text-uppercase fw-bold d-block" style="font-size: 0.7rem;">Quantidade de Bens no Local</small>
+                                <span class="fw-bold text-dark fs-4" id="lblQtdBensLocalModal">0</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 rounded-3 border bg-white text-center">
+                                <small class="text-muted text-uppercase fw-bold d-block" style="font-size: 0.7rem;">Valor Total Alocado no Local</small>
+                                <span class="fw-bold text-success fs-4" id="lblValorTotalLocalModal">R$ 0,00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabela Dinâmica dos Bens Enviados para o Local -->
+                <div id="containerTabelaBensLocal">
+                    <div class="text-center py-5 text-muted border rounded-4 bg-light">
+                        <i class="bi bi-geo-alt display-4 text-secondary"></i>
+                        <h6 class="fw-bold mt-2 mb-1">Selecione um Local acima</h6>
+                        <p class="small mb-0">Ao selecionar o local, todos os bens patrimoniais enviados para lá serão listados aqui instantaneamente.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer border-0 bg-light">
+                <button type="button" class="btn btn-secondary btn-rounded px-4" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Dados estruturados dos locais e seus respectivos bens enviados pelo backend
+    const DADOS_LOCAIS_INVENTARIO = {{ locais_inventario|tojson if locais_inventario else '[]' }};
+
+    function atualizarTabelaModalLocal() {
+        const selectLocal = document.getElementById('selectModalLocalInventario');
+        const selectEstado = document.getElementById('selectModalEstadoLocal');
+        const inputResp = document.getElementById('inputModalRespLocal');
+        const btnPdf = document.getElementById('btnGerarPdfLocal');
+        const painelResumo = document.getElementById('painelResumoLocalModal');
+        const containerTabela = document.getElementById('containerTabelaBensLocal');
+
+        const localEscolhido = selectLocal.value;
+        const estadoFiltro = selectEstado.value;
+
+        if (!localEscolhido) {
+            btnPdf.disabled = true;
+            painelResumo.classList.add('d-none');
+            containerTabela.innerHTML = `
+                <div class="text-center py-5 text-muted border rounded-4 bg-light">
+                    <i class="bi bi-geo-alt display-4 text-secondary"></i>
+                    <h6 class="fw-bold mt-2 mb-1">Selecione um Local acima</h6>
+                    <p class="small mb-0">Ao selecionar o local, todos os bens patrimoniais enviados para lá serão listados aqui instantaneamente.</p>
+                </div>`;
+            return;
+        }
+
+        btnPdf.disabled = false;
+        painelResumo.classList.remove('d-none');
+
+        let listaBens = [];
+        let nomeExibicao = localEscolhido === '__TODOS__' ? 'TODOS OS LOCAIS (Inventário Geral)' : localEscolhido;
+
+        if (localEscolhido === '__TODOS__') {
+            DADOS_LOCAIS_INVENTARIO.forEach(loc => {
+                loc.bens.forEach(b => {
+                    listaBens.push({ ...b, local_nome: loc.nome });
+                });
+            });
+        } else {
+            const locObj = DADOS_LOCAIS_INVENTARIO.find(l => l.nome === localEscolhido);
+            if (locObj) {
+                if (locObj.responsavel_padrao) {
+                    inputResp.value = locObj.responsavel_padrao;
+                }
+                listaBens = locObj.bens.map(b => ({ ...b, local_nome: locObj.nome }));
+            }
+        }
+
+        if (estadoFiltro) {
+            listaBens = listaBens.filter(b => b.estado === estadoFiltro);
+        }
+
+        const somaValor = listaBens.reduce((acc, item) => acc + (parseFloat(item.valor) || 0), 0);
+        document.getElementById('lblNomeLocalModal').textContent = nomeExibicao;
+        document.getElementById('lblQtdBensLocalModal').textContent = `${listaBens.length} bem(ns)`;
+        document.getElementById('lblValorTotalLocalModal').textContent = somaValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+        if (listaBens.length === 0) {
+            containerTabela.innerHTML = `
+                <div class="alert alert-warning text-center rounded-4 py-4 mb-0">
+                    <i class="bi bi-exclamation-circle fs-3 d-block mb-1"></i>
+                    Nenhum bem patrimonial encontrado neste local para o filtro selecionado.
+                </div>`;
+            return;
+        }
+
+        let rowsHtml = '';
+        listaBens.forEach((b, idx) => {
+            let badgeClass = 'bg-success-subtle text-success';
+            if (b.estado === 'Regular') badgeClass = 'bg-warning-subtle text-warning-emphasis';
+            else if (b.estado === 'Ruim' || b.estado === 'Inservível') badgeClass = 'bg-danger-subtle text-danger';
+
+            rowsHtml += `
+                <tr>
+                    <td class="text-center text-muted">${String(idx + 1).padStart(2, '0')}</td>
+                    <td class="font-monospace fw-bold text-primary">${b.tombamento}</td>
+                    <td>
+                        <div class="fw-bold text-dark">${b.descricao}</div>
+                        <small class="text-muted">${b.categoria}${localEscolhido === '__TODOS__' ? ' • Local: ' + b.local_nome : ''}</small>
+                    </td>
+                    <td>
+                        <div>${b.marca_modelo}</div>
+                        ${b.numero_serie ? `<small class="text-muted font-monospace">Série: ${b.numero_serie}</small>` : ''}
+                    </td>
+                    <td>
+                        <div>NF: <strong>${b.nota_fiscal}</strong></div>
+                        <small class="text-muted">NE: ${b.empenho} | Aq: ${b.data_aquisicao}</small>
+                    </td>
+                    <td>${b.responsavel}</td>
+                    <td class="text-center">
+                        <span class="badge ${badgeClass} rounded-pill px-2 py-1">${b.estado}</span>
+                        <small class="d-block text-muted" style="font-size:0.7rem;">${b.situacao}</small>
+                    </td>
+                    <td class="text-end fw-bold">R$ ${b.valor_fmt}</td>
+                    <td class="text-end">
+                        <a href="${b.url_detalhes}" class="btn btn-sm btn-outline-primary rounded-pill py-0 px-2">
+                            Ficha
+                        </a>
+                    </td>
+                </tr>`;
+        });
+
+        containerTabela.innerHTML = `
+            <div class="table-responsive border rounded-4 bg-white">
+                <table class="table table-hover align-middle mb-0 small">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="text-center">#</th>
+                            <th>Nº Tombamento</th>
+                            <th>Descrição do Bem</th>
+                            <th>Marca / Modelo</th>
+                            <th>NF / Empenho</th>
+                            <th>Responsável</th>
+                            <th class="text-center">Estado do Bem</th>
+                            <th class="text-end">Valor (R$)</th>
+                            <th class="text-end">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            </div>`;
+    }
+</script>
 {% endblock %}

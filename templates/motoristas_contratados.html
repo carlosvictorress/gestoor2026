@@ -561,6 +561,12 @@
                                         <td>
                                             <label for="chk_mot_{{ m.id }}" class="mb-0 fw-bold d-block text-dark cursor-pointer">{{ m.nome }}</label>
                                             <small class="text-muted d-block">{{ m.rota }} | Placa: {{ m.veiculo_placa }}</small>
+                                            <div class="input-group input-group-sm mt-1">
+                                                <span class="input-group-text bg-danger bg-opacity-10 text-danger border-danger-subtle" title="Observação na folha (sairá em negrito e vermelho no PDF)">
+                                                    <i class="bi bi-chat-left-text-fill"></i>
+                                                </span>
+                                                <input type="text" name="obs_motorista_{{ m.id }}" class="form-control form-control-sm border-danger-subtle input-obs-folha fw-bold text-danger" placeholder="Observação na folha (negrito e vermelho no PDF)..." data-id="{{ m.id }}">
+                                            </div>
                                         </td>
                                         <td>
                                             <div class="input-group input-group-sm">
@@ -600,6 +606,7 @@
         document.querySelectorAll('.chk-motorista-folha').forEach(function(chk) {
             const row = chk.closest('tr');
             const valInput = row.querySelector('.input-valor-folha');
+            const obsInput = row.querySelector('.input-obs-folha');
             if (chk.checked) {
                 count++;
                 if (valInput) {
@@ -608,9 +615,15 @@
                     let val = parseFloat(valStr) || 0;
                     total += val;
                 }
+                if (obsInput) {
+                    obsInput.disabled = false;
+                }
             } else {
                 if (valInput) {
                     valInput.disabled = true;
+                }
+                if (obsInput) {
+                    obsInput.disabled = true;
                 }
             }
         });

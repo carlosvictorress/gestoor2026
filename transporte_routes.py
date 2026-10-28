@@ -540,6 +540,15 @@ def gerar_pdf_folha_pagamento_geral(motoristas, folha, filepath):
         textColor=colors.HexColor('#0F172A')
     )
 
+    obs_bold_red_style = ParagraphStyle(
+        'ObsBoldRedStyle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor('#DC2626')
+    )
+
     # TÍTULO EXATO SOLICITADO PELO USUÁRIO (SEM TIMBRE DA PREFEITURA)
     story.append(Paragraph("FOLHA DE PAGAMENTO TRANSPORTE ESCOLAR - TERCERIZADO", title_style))
     story.append(Spacer(1, 0.2*cm))
@@ -567,8 +576,7 @@ def gerar_pdf_folha_pagamento_geral(motoristas, folha, filepath):
     story.append(t_meta)
     story.append(Spacer(1, 0.5*cm))
 
-    # Tabela principal contendo APENAS as 9 informações solicitadas:
-    # (nome, cpf, rota, agencia, conta, tipo de conta, valor, veiculo e placa do veiculo)
+    # Tabela principal contendo as informações solicitadas + coluna OBSERVAÇÃO (em negrito e vermelho)
     headers = [
         Paragraph("NOME", header_col_style),
         Paragraph("CPF", header_col_style),
@@ -579,6 +587,7 @@ def gerar_pdf_folha_pagamento_geral(motoristas, folha, filepath):
         Paragraph("VALOR (R$)", header_col_style),
         Paragraph("VEÍCULO", header_col_style),
         Paragraph("PLACA", header_col_style),
+        Paragraph("OBSERVAÇÃO", header_col_style),
     ]
 
     table_data = [headers]
@@ -595,6 +604,7 @@ def gerar_pdf_folha_pagamento_geral(motoristas, folha, filepath):
             v = float(m.valor_recebe or 0.0)
             m_veiculo = m.veiculo or ''
             m_placa = m.veiculo_placa or ''
+            m_obs = getattr(m, 'observacao', '') or ''
         else:
             m_nome = m.get('nome', '')
             m_cpf = m.get('cpf', '')
@@ -605,6 +615,19 @@ def gerar_pdf_folha_pagamento_geral(motoristas, folha, filepath):
             v = float(m.get('valor', 0.0))
             m_veiculo = m.get('veiculo', '')
             m_placa = m.get('veiculo_placa', '')
+            m_obs = m.get('observacao', '') or ''
+
+        m_obs_safe = (
+            str(m_obs)
+            .replace('&', '&amp;')
+            .replace('<', '&lt;')
+            .replace('>', '&gt;')
+        )
+        obs_cell = (
+            Paragraph(f"<b><font color='#DC2626'>{m_obs_safe}</font></b>", obs_bold_red_style)
+            if m_obs_safe.strip()
+            else Paragraph("", cell_style)
+        )
 
         valor_total += v
         valor_fmt = f"R$ {v:,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
@@ -618,6 +641,7 @@ def gerar_pdf_folha_pagamento_geral(motoristas, folha, filepath):
             Paragraph(valor_fmt, cell_bold_style),
             Paragraph(m_veiculo, cell_style),
             Paragraph(m_placa, cell_style),
+            obs_cell,
         ])
 
     # Linha do Total Geral
@@ -632,9 +656,10 @@ def gerar_pdf_folha_pagamento_geral(motoristas, folha, filepath):
         Paragraph(f"<b>{valor_total_fmt}</b>", cell_bold_style),
         Paragraph("", cell_style),
         Paragraph("", cell_style),
+        Paragraph("", cell_style),
     ])
 
-    col_widths = [4.5*cm, 2.8*cm, 3.8*cm, 2.0*cm, 2.4*cm, 2.4*cm, 2.6*cm, 5.0*cm, 2.2*cm]
+    col_widths = [4.0*cm, 2.5*cm, 3.3*cm, 1.7*cm, 2.1*cm, 2.1*cm, 2.4*cm, 3.8*cm, 1.9*cm, 3.9*cm]
     tbl = Table(table_data, colWidths=col_widths)
     tbl.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#E2E8F0')),
@@ -850,6 +875,8 @@ def gerar_folha_pagamento():
             except ValueError:
                 v = float(m.valor_recebe or 0.0)
 
+            obs_motorista = request.form.get(f'obs_motorista_{m.id}', '').strip()
+
             valor_total += v
             itens_dados.append({
                 'id': m.id,
@@ -862,7 +889,8 @@ def gerar_folha_pagamento():
                 'tipo_conta': m.tipo_conta or '',
                 'valor': v,
                 'veiculo': m.veiculo or '',
-                'veiculo_placa': m.veiculo_placa or ''
+                'veiculo_placa': m.veiculo_placa or '',
+                'observacao': obs_motorista
             })
 
         upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'folhas_pagamento')

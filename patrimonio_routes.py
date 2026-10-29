@@ -780,7 +780,7 @@ def gerar_relatorio_local_pdf():
     def desenhar_cabecalho_rodape_gov(canvas, doc_obj):
         canvas.saveState()
         basedir = current_app.root_path
-        logo_path = os.path.join(basedir, 'static', 'logo.png')
+        logo_path = os.path.join(basedir, 'static', 'logo1.png')
         timbre_path = os.path.join(basedir, 'static', 'timbre.jpg')
 
         # Faixa superior institucional
@@ -811,7 +811,7 @@ def gerar_relatorio_local_pdf():
         canvas.drawCentredString(
             page_width / 2.0,
             page_height - 2.35 * cm,
-            "CONTROLADORIA GERAL DO MUNICÍPIO • COORDENADORIA DE CONTROLE PATRIMONIAL E ALMOXARIFADO"
+            "COORDENADORIA DE CONTROLE PATRIMONIAL E ALMOXARIFADO"
         )
         canvas.drawCentredString(
             page_width / 2.0,
@@ -1056,15 +1056,13 @@ def gerar_relatorio_local_pdf():
             [
                 Paragraph("___________________________________________________", style_celula_center),
                 Paragraph("___________________________________________________", style_celula_center),
-                Paragraph("___________________________________________________", style_celula_center),
             ],
             [
+                Paragraph(f"<b>{usuario_emissor.upper()}</b><br/><font size=7 color='#475569'>Entregador / Setor de Patrimônio (Origem)</font>", style_celula_center),
                 Paragraph(f"<b>{nome_resp_assinatura}</b><br/><font size=7 color='#475569'>{sub_resp_assinatura}</font>", style_celula_center),
-                Paragraph(f"<b>{usuario_emissor.upper()}</b><br/><font size=7 color='#475569'>Coordenadoria de Patrimônio / Emissor</font>", style_celula_center),
-                Paragraph("<b>CONTROLADORIA GERAL / COMISSÃO</b><br/><font size=7 color='#475569'>Visto de Auditoria e Controle Interno</font>", style_celula_center),
             ],
         ],
-        colWidths=[9.1 * cm, 9.1 * cm, 9.1 * cm]
+        colWidths=[13.65 * cm, 13.65 * cm]
     )
     bloco_assinaturas.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -2006,7 +2004,7 @@ def gerar_termo_remessa_lote_pdf():
     def desenhar_cabecalho_rodape_remessa(canvas, doc_obj):
         canvas.saveState()
         basedir = current_app.root_path
-        logo_path = os.path.join(basedir, 'static', 'logo.png')
+        logo_path = os.path.join(basedir, 'static', 'logo1.png')
         timbre_path = os.path.join(basedir, 'static', 'timbre.jpg')
 
         canvas.setFillColor(cor_gov_azul)
@@ -2035,7 +2033,7 @@ def gerar_termo_remessa_lote_pdf():
         canvas.drawCentredString(
             page_width / 2.0,
             page_height - 2.35 * cm,
-            "CONTROLADORIA GERAL DO MUNICÍPIO • COORDENADORIA DE CONTROLE PATRIMONIAL E ALMOXARIFADO"
+            "COORDENADORIA DE CONTROLE PATRIMONIAL E ALMOXARIFADO"
         )
         canvas.drawCentredString(
             page_width / 2.0,
@@ -2256,15 +2254,13 @@ def gerar_termo_remessa_lote_pdf():
             [
                 Paragraph("___________________________________________________", style_celula_center),
                 Paragraph("___________________________________________________", style_celula_center),
-                Paragraph("___________________________________________________", style_celula_center),
             ],
             [
                 Paragraph(f"<b>{usuario_emissor.upper()}</b><br/><font size=7 color='#475569'>Entregador / Setor de Patrimônio (Origem)</font>", style_celula_center),
                 Paragraph(f"<b>{nome_resp_assinatura}</b><br/><font size=7 color='#475569'>{sub_resp_assinatura}</font>", style_celula_center),
-                Paragraph("<b>CONTROLADORIA GERAL / VISTO</b><br/><font size=7 color='#475569'>Controle Interno Municipal</font>", style_celula_center),
             ],
         ],
-        colWidths=[9.1 * cm, 9.1 * cm, 9.1 * cm]
+        colWidths=[13.65 * cm, 13.65 * cm]
     )
     bloco_assinaturas.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),

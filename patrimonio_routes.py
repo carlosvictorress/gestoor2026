@@ -483,11 +483,131 @@ def listar_itens():
         key=lambda x: (-x['qtd_bens'], x['nome'].lower())
     )
 
+    # =========================================================================
+    # AGRUPAMENTO DE LOTES DISPONÍVEIS PARA TRANSFERÊNCIA POR QUANTIDADE
+    # (Ex: 100 Mesas no Depósito -> permite digitar "50" para enviar para Escola X)
+    # =========================================================================
+    mapa_lotes_transf = {}
+    for bem_t in todos_bens_ativos:
+        nf_rel_t = bem_t.nota_fiscal_rel
+        desc_limpa = (bem_t.descricao or 'Bem sem descrição').strip()
+        local_limpo = (bem_t.localizacao or 'Não informada').strip()
+        nf_limpa = (
+            (bem_t.numero_nota_fiscal or '').strip()
+            or (nf_rel_t.numero_nf.strip() if nf_rel_t and nf_rel_t.numero_nf else '')
+            or 'S/N'
+        )
+        forn_limpo = (
+            (bem_t.fornecedor_nome or '').strip()
+            or (nf_rel_t.fornecedor_nome.strip() if nf_rel_t and nf_rel_t.fornecedor_nome else '')
+            or 'Incorporação Direta / Sem Fornecedor'
+        )
+        chave_lote = (desc_limpa.lower(), local_limpo.lower(), nf_limpa.lower(), forn_limpo.lower())
+
+        if chave_lote not in mapa_lotes_transf:
+            mapa_lotes_transf[chave_lote] = {
+                'descricao': desc_limpa,
+                'categoria': bem_t.categoria or '-',
+                'marca_modelo': " / ".join([x for x in [bem_t.marca, bem_t.modelo] if x]) or '-',
+                'local_atual': local_limpo,
+                'fornecedor': forn_limpo,
+                'nota_fiscal': nf_limpa,
+                'empenho': bem_t.numero_empenho or (nf_rel_t.numero_empenho if nf_rel_t else None) or '-',
+                'valor_unitario': float(bem_t.valor_aquisicao or 0.0),
+                'valor_unitario_fmt': f"{(bem_t.valor_aquisicao or 0.0):,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+                'bens_objs': [],
+            }
+        mapa_lotes_transf[chave_lote]['bens_objs'].append(bem_t)
+
+    lotes_transferencia = []
+    for idx_lote, (_, dados_lote) in enumerate(
+        sorted(
+            mapa_lotes_transf.items(),
+            key=lambda item_kv: (-len(item_kv[1]['bens_objs']), item_kv[1]['descricao'].lower())
+        ),
+        start=1
+    ):
+        bens_ordenados = sorted(
+            dados_lote['bens_objs'],
+            key=lambda b: (str(b.numero_patrimonio or 'ZZZZZZZZ'), b.id)
+        )
+        itens_serializados = [
+            {
+                'id': b.id,
+                'tombamento': b.numero_patrimonio or 'S/N',
+                'estado': b.estado_conservacao or 'Bom',
+                'serie': b.numero_serie or '',
+                'responsavel': b.nome_responsavel_atual or 'Não informado',
+                'valor': float(b.valor_aquisicao or 0.0),
+            }
+            for b in bens_ordenados
+        ]
+        tomb_ini = itens_serializados[0]['tombamento'] if itens_serializados else 'S/N'
+        tomb_fim = itens_serializados[-1]['tombamento'] if itens_serializados else 'S/N'
+
+        lotes_transferencia.append({
+            'codigo_lote': f"lote_{idx_lote}",
+            'descricao': dados_lote['descricao'],
+            'categoria': dados_lote['categoria'],
+            'marca_modelo': dados_lote['marca_modelo'],
+            'local_atual': dados_lote['local_atual'],
+            'fornecedor': dados_lote['fornecedor'],
+            'nota_fiscal': dados_lote['nota_fiscal'],
+            'empenho': dados_lote['empenho'],
+            'qtd_disponivel': len(itens_serializados),
+            'valor_unitario': dados_lote['valor_unitario'],
+            'valor_unitario_fmt': dados_lote['valor_unitario_fmt'],
+            'tombamento_inicial': tomb_ini,
+            'tombamento_final': tomb_fim,
+            'faixa_tombamento': tomb_ini if len(itens_serializados) == 1 else f"{tomb_ini} até {tomb_fim}",
+            'itens': itens_serializados,
+        })
+
+    # Lista de locais de destino sugeridos (Locais Cadastrados + Escolas + Locais já usados)
+    escolas_ativas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
+    nomes_locais_set = set()
+    locais_destino_sugestoes = []
+
+    for loc_c in locais_db:
+        n_loc = (loc_c.nome or '').strip()
+        if n_loc and n_loc.lower() not in nomes_locais_set:
+            nomes_locais_set.add(n_loc.lower())
+            locais_destino_sugestoes.append({
+                'nome': n_loc,
+                'tipo': 'Local Cadastrado',
+                'responsavel': loc_c.responsavel_setor or '',
+                'secretaria_id': loc_c.secretaria_id or '',
+            })
+
+    for esc in escolas_ativas:
+        n_esc = (esc.nome or '').strip()
+        if n_esc and n_esc.lower() not in nomes_locais_set:
+            nomes_locais_set.add(n_esc.lower())
+            locais_destino_sugestoes.append({
+                'nome': n_esc,
+                'tipo': 'Unidade Escolar',
+                'responsavel': '',
+                'secretaria_id': '',
+            })
+
+    for n_leg in locais_legados:
+        if n_leg and n_leg.lower() not in nomes_locais_set:
+            nomes_locais_set.add(n_leg.lower())
+            locais_destino_sugestoes.append({
+                'nome': n_leg,
+                'tipo': 'Local em Uso',
+                'responsavel': '',
+                'secretaria_id': '',
+            })
+
     return render_template(
         'patrimonio/lista.html',
         itens=itens_paginados,
         fornecedores_paginados=fornecedores_paginados,
         locais_inventario=locais_inventario,
+        lotes_transferencia=lotes_transferencia,
+        locais_destino_sugestoes=locais_destino_sugestoes,
+        ultima_remessa=session.get('ultima_remessa_patrimonio'),
         kpis=kpis,
         aba_ativa=aba_ativa,
         paginacao_forn={
@@ -1613,6 +1733,508 @@ def transferir_item(item_id):
         flash(f'Erro ao transferir o item: {e}', 'danger')
 
     return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
+
+
+@patrimonio_bp.route('/transferir-lote', methods=['POST'])
+@login_required
+@role_required('Patrimonio', 'admin', 'RH', 'Fiscal')
+def transferir_itens_lote():
+    """
+    Transfere múltiplos bens patrimoniais de uma só vez (ex: enviar 50 de 100 mesas de um depósito para uma escola).
+    Registra histórico individual em MovimentacaoPatrimonio e permite emitir Guia/Termo de Remessa em PDF.
+    """
+    executar_migracao_patrimonio_segura()
+
+    ids_raw = request.form.getlist('patrimonio_ids[]') or request.form.getlist('patrimonio_ids')
+    ids_selecionados = [int(i) for i in ids_raw if str(i).isdigit()]
+
+    novo_local = (request.form.get('local_destino') or '').strip()
+    novo_responsavel_nome = (request.form.get('responsavel_novo_nome') or '').strip() or None
+    novo_responsavel_cargo = (request.form.get('responsavel_novo_cargo') or '').strip() or None
+    motivo_transferencia = (request.form.get('motivo_transferencia') or '').strip() or None
+    nova_secretaria_id_raw = request.form.get('secretaria_destino_id')
+    nova_secretaria_id = int(nova_secretaria_id_raw) if nova_secretaria_id_raw and str(nova_secretaria_id_raw).isdigit() else None
+    acao_apos = (request.form.get('acao_apos') or 'salvar').strip()
+
+    if not ids_selecionados:
+        flash('Informe a quantidade de bens (ou selecione os itens) que deseja transferir.', 'warning')
+        return redirect(url_for('patrimonio.listar_itens'))
+
+    if not novo_local:
+        flash('Informe ou selecione o Local de Destino para realizar a transferência em lote.', 'warning')
+        return redirect(url_for('patrimonio.listar_itens'))
+
+    try:
+        bens_transferir = Patrimonio.query.filter(
+            Patrimonio.id.in_(ids_selecionados),
+            Patrimonio.status != 'Baixado'
+        ).order_by(Patrimonio.descricao, Patrimonio.numero_patrimonio, Patrimonio.id).all()
+
+        if not bens_transferir:
+            flash('Nenhum bem patrimonial ativo foi encontrado para a seleção informada.', 'warning')
+            return redirect(url_for('patrimonio.listar_itens'))
+
+        # Verifica ou cria automaticamente o LocalPatrimonio de destino para manter o cadastro padronizado
+        loc_obj = LocalPatrimonio.query.filter(
+            func.lower(LocalPatrimonio.nome) == novo_local.lower()
+        ).first()
+        if not loc_obj:
+            loc_obj = LocalPatrimonio(
+                nome=novo_local,
+                responsavel_setor=novo_responsavel_nome,
+                secretaria_id=nova_secretaria_id,
+                ativo=True
+            )
+            db.session.add(loc_obj)
+            db.session.flush()
+        else:
+            if novo_responsavel_nome and not loc_obj.responsavel_setor:
+                loc_obj.responsavel_setor = novo_responsavel_nome
+            if nova_secretaria_id and not loc_obj.secretaria_id:
+                loc_obj.secretaria_id = nova_secretaria_id
+
+        usuario_atual = session.get('username') or getattr(current_user, 'username', 'Sistema')
+        locais_origem_set = set()
+        ids_efetivados = []
+
+        for item in bens_transferir:
+            local_origem_item = item.localizacao or 'Não informada'
+            locais_origem_set.add(local_origem_item)
+
+            mov = MovimentacaoPatrimonio(
+                patrimonio_id=item.id,
+                local_origem=local_origem_item,
+                responsavel_anterior_cpf=item.servidor_responsavel_cpf,
+                responsavel_anterior_nome=item.nome_responsavel_atual,
+                local_destino=novo_local,
+                responsavel_novo_cpf=None,
+                responsavel_novo_nome=novo_responsavel_nome,
+                motivo_transferencia=motivo_transferencia or f'Transferência em lote ({len(bens_transferir)} unid.) para {novo_local}',
+                usuario_registro=usuario_atual
+            )
+            db.session.add(mov)
+
+            item.localizacao = novo_local
+            item.local_id = loc_obj.id if loc_obj else None
+            if novo_responsavel_nome is not None:
+                item.responsavel_nome = novo_responsavel_nome
+                item.servidor_responsavel_cpf = None
+            if novo_responsavel_cargo:
+                item.responsavel_cargo = novo_responsavel_cargo
+            if nova_secretaria_id:
+                item.secretaria_id = nova_secretaria_id
+            elif loc_obj and loc_obj.secretaria_id and not item.secretaria_id:
+                item.secretaria_id = loc_obj.secretaria_id
+
+            ids_efetivados.append(item.id)
+
+        db.session.commit()
+
+        protocolo_remessa = f"REM-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        origem_resumo = ", ".join(sorted(locais_origem_set))
+
+        session['ultima_remessa_patrimonio'] = {
+            'protocolo': protocolo_remessa,
+            'ids': ids_efetivados,
+            'qtd': len(ids_efetivados),
+            'local_origem': origem_resumo,
+            'local_destino': novo_local,
+            'responsavel_novo_nome': novo_responsavel_nome or '',
+            'responsavel_novo_cargo': novo_responsavel_cargo or '',
+            'motivo_transferencia': motivo_transferencia or '',
+            'data_hora': obter_data_hora_br_str(),
+        }
+
+        registrar_log(
+            f'Transferência em Lote ({protocolo_remessa}): {len(ids_efetivados)} bem(ns) de "{origem_resumo}" '
+            f'para "{novo_local}" (Resp: {novo_responsavel_nome or "N/A"}).'
+        )
+
+        flash(
+            f'Transferência em lote concluída com sucesso! {len(ids_efetivados)} bem(ns) foram enviados para "{novo_local}".',
+            'success'
+        )
+
+        if acao_apos == 'pdf':
+            return redirect(url_for('patrimonio.gerar_termo_remessa_lote_pdf'))
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao realizar transferência em lote: {str(e)}', 'danger')
+
+    return redirect(url_for('patrimonio.listar_itens'))
+
+
+@patrimonio_bp.route('/termo-remessa-lote/pdf')
+@login_required
+@role_required('Patrimonio', 'admin', 'RH', 'Fiscal')
+def gerar_termo_remessa_lote_pdf():
+    """
+    Gera a Guia de Remessa e Termo de Transferência/Guarda Coletiva em PDF (Padrão Governo)
+    para os bens transferidos em lote.
+    """
+    executar_migracao_patrimonio_segura()
+
+    dados_remessa = session.get('ultima_remessa_patrimonio') or {}
+    ids_query = request.args.get('ids', '').strip()
+    if ids_query:
+        ids_lista = [int(x) for x in ids_query.split(',') if x.strip().isdigit()]
+    else:
+        ids_lista = dados_remessa.get('ids') or []
+
+    if not ids_lista:
+        flash('Nenhuma remessa em lote recente encontrada para gerar o PDF.', 'warning')
+        return redirect(url_for('patrimonio.listar_itens'))
+
+    bens = Patrimonio.query.filter(Patrimonio.id.in_(ids_lista)).order_by(
+        Patrimonio.descricao, Patrimonio.numero_patrimonio, Patrimonio.id
+    ).all()
+
+    if not bens:
+        flash('Os bens desta remessa não foram encontrados.', 'warning')
+        return redirect(url_for('patrimonio.listar_itens'))
+
+    local_origem = request.args.get('origem') or dados_remessa.get('local_origem') or 'Depósito / Origem'
+    local_destino = request.args.get('destino') or dados_remessa.get('local_destino') or (bens[0].localizacao if bens else 'Destino')
+    responsavel_destino = request.args.get('resp') or dados_remessa.get('responsavel_novo_nome') or (bens[0].nome_responsavel_atual if bens else '')
+    cargo_destino = request.args.get('cargo') or dados_remessa.get('responsavel_novo_cargo') or (bens[0].responsavel_cargo if bens else '')
+    motivo_remessa = request.args.get('motivo') or dados_remessa.get('motivo_transferencia') or 'Distribuição / Transferência de Bens Patrimoniais'
+    protocolo = dados_remessa.get('protocolo') or f"REM-{datetime.now().strftime('%Y%m%d-%H%M')}"
+    data_emissao_str = dados_remessa.get('data_hora') or obter_data_hora_br_str()
+    usuario_emissor = session.get('username') or getattr(current_user, 'username', 'Controle Interno')
+
+    secretaria_nome = "PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ"
+    for b in bens:
+        if b.secretaria and b.secretaria.nome:
+            secretaria_nome = b.secretaria.nome.upper()
+            break
+
+    buffer = BytesIO()
+    page_width, page_height = landscape(A4)
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=1.2 * cm,
+        rightMargin=1.2 * cm,
+        topMargin=3.4 * cm,
+        bottomMargin=1.8 * cm,
+        title=f"Guia de Remessa Patrimonial - {local_destino}"
+    )
+
+    styles = getSampleStyleSheet()
+    cor_gov_azul = colors.HexColor("#0f2942")
+    cor_cinza_claro = colors.HexColor("#f1f5f9")
+    cor_borda = colors.HexColor("#cbd5e1")
+
+    style_titulo_doc = ParagraphStyle(
+        'TituloRemessaGov',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=12,
+        leading=15,
+        textColor=cor_gov_azul,
+        alignment=TA_CENTER,
+        spaceAfter=2
+    )
+    style_subtitulo_doc = ParagraphStyle(
+        'SubtituloRemessaGov',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor("#475569"),
+        alignment=TA_CENTER,
+        spaceAfter=10
+    )
+    style_celula = ParagraphStyle(
+        'CelulaRemessa',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=7.5,
+        leading=9.5,
+        textColor=colors.HexColor("#1e293b")
+    )
+    style_celula_bold = ParagraphStyle(
+        'CelulaRemessaBold',
+        parent=style_celula,
+        fontName='Helvetica-Bold'
+    )
+    style_celula_center = ParagraphStyle(
+        'CelulaRemessaCenter',
+        parent=style_celula,
+        alignment=TA_CENTER
+    )
+    style_celula_right = ParagraphStyle(
+        'CelulaRemessaRight',
+        parent=style_celula,
+        alignment=TA_RIGHT
+    )
+    style_header_tabela = ParagraphStyle(
+        'HeaderRemessa',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=7.5,
+        leading=9.5,
+        textColor=colors.white,
+        alignment=TA_CENTER
+    )
+    style_termo = ParagraphStyle(
+        'TermoRemessaJuridico',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8,
+        leading=11.5,
+        alignment=TA_JUSTIFY,
+        textColor=colors.HexColor("#1e293b")
+    )
+
+    url_verificacao = url_for('patrimonio.listar_itens', _external=True)
+    qr = qrcode.make(f"PREFEITURA DE VALENCA DO PIAUI | {protocolo} | DESTINO: {local_destino} | QTD: {len(bens)} | {url_verificacao}")
+    qr_buffer = BytesIO()
+    qr.save(qr_buffer, format='PNG')
+    qr_buffer.seek(0)
+    qr_reader = ImageReader(qr_buffer)
+
+    def desenhar_cabecalho_rodape_remessa(canvas, doc_obj):
+        canvas.saveState()
+        basedir = current_app.root_path
+        logo_path = os.path.join(basedir, 'static', 'logo.png')
+        timbre_path = os.path.join(basedir, 'static', 'timbre.jpg')
+
+        canvas.setFillColor(cor_gov_azul)
+        canvas.rect(1.2 * cm, page_height - 1.0 * cm, page_width - 2.4 * cm, 0.15 * cm, fill=1, stroke=0)
+
+        if os.path.exists(logo_path):
+            try:
+                canvas.drawImage(logo_path, 1.3 * cm, page_height - 3.0 * cm, width=1.8 * cm, height=1.8 * cm, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
+        elif os.path.exists(timbre_path):
+            try:
+                canvas.drawImage(timbre_path, 1.3 * cm, page_height - 2.9 * cm, width=3.5 * cm, height=1.6 * cm, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
+
+        canvas.setFillColor(cor_gov_azul)
+        canvas.setFont("Helvetica-Bold", 11)
+        canvas.drawCentredString(page_width / 2.0, page_height - 1.55 * cm, "ESTADO DO PIAUÍ — PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ")
+
+        canvas.setFont("Helvetica-Bold", 9)
+        canvas.drawCentredString(page_width / 2.0, page_height - 1.95 * cm, secretaria_nome)
+
+        canvas.setFillColor(colors.HexColor("#334155"))
+        canvas.setFont("Helvetica", 7.5)
+        canvas.drawCentredString(
+            page_width / 2.0,
+            page_height - 2.35 * cm,
+            "CONTROLADORIA GERAL DO MUNICÍPIO • COORDENADORIA DE CONTROLE PATRIMONIAL E ALMOXARIFADO"
+        )
+        canvas.drawCentredString(
+            page_width / 2.0,
+            page_height - 2.70 * cm,
+            "CNPJ: 06.095.146/0001-44 • Rua Epaminondas Nogueira, nº 1425, Centro - Valença do Piauí/PI"
+        )
+
+        try:
+            canvas.drawImage(qr_reader, page_width - 3.1 * cm, page_height - 3.0 * cm, width=1.8 * cm, height=1.8 * cm)
+        except Exception:
+            pass
+
+        canvas.setStrokeColor(colors.HexColor("#198754"))
+        canvas.setLineWidth(1.5)
+        canvas.line(1.2 * cm, page_height - 3.1 * cm, page_width - 1.2 * cm, page_height - 3.1 * cm)
+
+        canvas.setStrokeColor(cor_borda)
+        canvas.setLineWidth(0.7)
+        canvas.line(1.2 * cm, 1.35 * cm, page_width - 1.2 * cm, 1.35 * cm)
+
+        canvas.setFillColor(colors.HexColor("#475569"))
+        canvas.setFont("Helvetica", 7)
+        canvas.drawString(
+            1.2 * cm,
+            0.95 * cm,
+            f"Gestor 360º - Guia Oficial de Transferência em Lote | Protocolo: {protocolo} | Emitido por: {usuario_emissor} em {data_emissao_str}"
+        )
+        canvas.drawRightString(
+            page_width - 1.2 * cm,
+            0.95 * cm,
+            f"Página {doc_obj.page}"
+        )
+        canvas.restoreState()
+
+    elementos = []
+    elementos.append(Paragraph("GUIA DE REMESSA E TERMO DE TRANSFERÊNCIA DE BENS PATRIMONIAIS EM LOTE", style_titulo_doc))
+    elementos.append(Paragraph("Documento oficial de movimentação, distribuição física e transferência de responsabilidade patrimonial", style_subtitulo_doc))
+
+    soma_total = sum((b.valor_aquisicao or 0.0) for b in bens)
+    soma_total_fmt = f"R$ {soma_total:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    dados_quadro_remessa = [
+        [
+            Paragraph("<b>LOCAL DE ORIGEM (SAÍDA):</b>", style_celula),
+            Paragraph(f"{local_origem}", style_celula),
+            Paragraph("<b>PROTOCOLO / DATA:</b>", style_celula),
+            Paragraph(f"<b>{protocolo}</b> ({data_emissao_str})", style_celula),
+        ],
+        [
+            Paragraph("<b>LOCAL DE DESTINO (RECEBEDOR):</b>", style_celula),
+            Paragraph(f"<b>{local_destino}</b>", style_celula_bold),
+            Paragraph("<b>QUANTIDADE TRANSFERIDA:</b>", style_celula),
+            Paragraph(f"<b>{len(bens)} unidade(s) patrimonial(is)</b>", style_celula_bold),
+        ],
+        [
+            Paragraph("<b>RESPONSÁVEL PELO RECEBIMENTO:</b>", style_celula),
+            Paragraph(
+                f"{responsavel_destino or 'Não informado'}"
+                f"{' (' + cargo_destino + ')' if cargo_destino else ''}",
+                style_celula
+            ),
+            Paragraph("<b>VALOR CONTÁBIL DA REMESSA:</b>", style_celula),
+            Paragraph(f"<b>{soma_total_fmt}</b>", style_celula_bold),
+        ],
+        [
+            Paragraph("<b>MOTIVO / OBSERVAÇÃO DA REMESSA:</b>", style_celula),
+            Paragraph(f"{motivo_remessa}", style_celula),
+            Paragraph("<b>ÓRGÃO / SECRETARIA:</b>", style_celula),
+            Paragraph(f"{secretaria_nome}", style_celula),
+        ],
+    ]
+
+    tabela_meta = Table(dados_quadro_remessa, colWidths=[5.2 * cm, 11.3 * cm, 5.0 * cm, 5.8 * cm])
+    tabela_meta.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), cor_cinza_claro),
+        ('BACKGROUND', (2, 0), (2, -1), cor_cinza_claro),
+        ('GRID', (0, 0), (-1, -1), 0.5, cor_borda),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elementos.append(tabela_meta)
+    elementos.append(Spacer(1, 0.35 * cm))
+
+    cabecalho_tabela = [
+        Paragraph("ITEM", style_header_tabela),
+        Paragraph("Nº TOMBAMENTO", style_header_tabela),
+        Paragraph("DESCRIÇÃO DO BEM PATRIMONIAL", style_header_tabela),
+        Paragraph("MARCA / MODELO", style_header_tabela),
+        Paragraph("NOTA FISCAL / FORNECEDOR", style_header_tabela),
+        Paragraph("ESTADO DO BEM", style_header_tabela),
+        Paragraph("VALOR UNIT. (R$)", style_header_tabela),
+        Paragraph("CONF.", style_header_tabela),
+    ]
+    linhas_tabela = [cabecalho_tabela]
+
+    for idx, b in enumerate(bens, start=1):
+        marca_mod = " / ".join([x for x in [b.marca, b.modelo] if x]) or "-"
+        nf_forn = f"NF: {b.numero_nota_fiscal or 'S/N'}"
+        if b.fornecedor_nome:
+            nf_forn += f"<br/><font size=6.5 color='#475569'>{b.fornecedor_nome[:35]}</font>"
+        val_fmt = f"{(b.valor_aquisicao or 0.0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        linhas_tabela.append([
+            Paragraph(f"{idx:02d}", style_celula_center),
+            Paragraph(f"<b>{b.numero_patrimonio or 'S/N'}</b>", style_celula_center),
+            Paragraph(f"<b>{b.descricao}</b>", style_celula),
+            Paragraph(marca_mod, style_celula),
+            Paragraph(nf_forn, style_celula),
+            Paragraph(f"<b>{(b.estado_conservacao or 'Bom').upper()}</b>", style_celula_center),
+            Paragraph(val_fmt, style_celula_right),
+            Paragraph("[   ]", style_celula_center),
+        ])
+
+    linhas_tabela.append([
+        Paragraph("", style_celula),
+        Paragraph("", style_celula),
+        Paragraph(f"<b>TOTAL DE BENS TRANSFERIDOS NESTA REMESSA: {len(bens)} UNIDADE(S)</b>", style_celula_bold),
+        Paragraph("", style_celula),
+        Paragraph("", style_celula),
+        Paragraph("<b>TOTAL:</b>", style_celula_center),
+        Paragraph(f"<b>{soma_total_fmt}</b>", style_celula_right),
+        Paragraph("", style_celula),
+    ])
+
+    larguras_colunas = [
+        1.2 * cm,  # ITEM
+        2.8 * cm,  # TOMBAMENTO
+        8.2 * cm,  # DESCRIÇÃO
+        3.8 * cm,  # MARCA/MODELO
+        5.2 * cm,  # NF/FORNECEDOR
+        2.5 * cm,  # ESTADO
+        2.4 * cm,  # VALOR
+        1.2 * cm,  # CONF.
+    ]
+
+    tabela_bens = Table(linhas_tabela, colWidths=larguras_colunas, repeatRows=1)
+    estilo_tabela_bens = [
+        ('BACKGROUND', (0, 0), (-1, 0), cor_gov_azul),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('GRID', (0, 0), (-1, -1), 0.45, cor_borda),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('SPAN', (2, -1), (4, -1)),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#e2e8f0")),
+    ]
+    for row_idx in range(1, len(linhas_tabela) - 1):
+        if row_idx % 2 == 0:
+            estilo_tabela_bens.append(('BACKGROUND', (0, row_idx), (-1, row_idx), colors.HexColor("#f8fafc")))
+
+    tabela_bens.setStyle(TableStyle(estilo_tabela_bens))
+    elementos.append(tabela_bens)
+    elementos.append(Spacer(1, 0.35 * cm))
+
+    texto_declaracao = (
+        "<b>DECLARAÇÃO DE RECEBIMENTO E ASSUNÇÃO DE GUARDA PATRIMONIAL:</b> "
+        f"Declaro que recebi da Coordenadoria de Controle Patrimonial os <b>{len(bens)} bem(ns) permanente(s)</b> acima relacionados, "
+        f"oriundos de <b>{local_origem}</b> e destinados à unidade/local <b>{local_destino}</b>, conferidos fisicamente quanto ao seu número de tombamento "
+        "e estado de conservação, assumindo a responsabilidade por sua guarda, zelo e uso exclusivo no interesse do serviço público municipal."
+    )
+
+    nome_resp_assinatura = responsavel_destino or "___________________________________________________"
+    sub_resp_assinatura = cargo_destino or f"Responsável pelo Recebimento ({local_destino})"
+
+    bloco_assinaturas = Table(
+        [
+            [
+                Paragraph("___________________________________________________", style_celula_center),
+                Paragraph("___________________________________________________", style_celula_center),
+                Paragraph("___________________________________________________", style_celula_center),
+            ],
+            [
+                Paragraph(f"<b>{usuario_emissor.upper()}</b><br/><font size=7 color='#475569'>Entregador / Setor de Patrimônio (Origem)</font>", style_celula_center),
+                Paragraph(f"<b>{nome_resp_assinatura}</b><br/><font size=7 color='#475569'>{sub_resp_assinatura}</font>", style_celula_center),
+                Paragraph("<b>CONTROLADORIA GERAL / VISTO</b><br/><font size=7 color='#475569'>Controle Interno Municipal</font>", style_celula_center),
+            ],
+        ],
+        colWidths=[9.1 * cm, 9.1 * cm, 9.1 * cm]
+    )
+    bloco_assinaturas.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+
+    elementos.append(KeepTogether([
+        Paragraph(texto_declaracao, style_termo),
+        Spacer(1, 0.85 * cm),
+        bloco_assinaturas,
+    ]))
+
+    doc.build(elementos, onFirstPage=desenhar_cabecalho_rodape_remessa, onLaterPages=desenhar_cabecalho_rodape_remessa)
+    buffer.seek(0)
+
+    nome_limpo = re.sub(r'[^a-zA-Z0-9_-]', '_', local_destino)[:35]
+    return send_file(
+        buffer,
+        mimetype='application/pdf',
+        as_attachment=False,
+        download_name=f"Guia_Remessa_Patrimonio_{nome_limpo}_{datetime.now().strftime('%Y%m%d')}.pdf"
+    )
 
 
 @patrimonio_bp.route('/item/<int:item_id>/termo-baixa')

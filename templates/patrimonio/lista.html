@@ -140,6 +140,9 @@
             <p class="text-muted small mb-0">Gestão organizada por Fornecedores, Notas Fiscais, Tombamentos e Termos de Guarda Municipal.</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-dark btn-rounded shadow-sm fw-bold" onclick="abrirModalTransferenciaLote('', '')">
+                <i class="bi bi-arrow-left-right me-1 text-warning"></i> Transferir Bens em Lote
+            </button>
             <button type="button" class="btn btn-success btn-rounded shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalBensPorLocal">
                 <i class="bi bi-geo-alt-fill me-1"></i> Bens por Local / PDF Oficial
             </button>
@@ -151,6 +154,24 @@
             </a>
         </div>
     </div>
+
+    {% if ultima_remessa and ultima_remessa.ids %}
+    <!-- Banner de Acesso Rápido à Guia de Remessa da Última Transferência em Lote -->
+    <div class="alert alert-info border-0 shadow-sm rounded-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-4 py-3 px-4">
+        <div>
+            <span class="badge bg-primary me-2">{{ ultima_remessa.protocolo }}</span>
+            <strong>Última Transferência em Lote:</strong>
+            {{ ultima_remessa.qtd }} bem(ns) enviados de <strong>{{ ultima_remessa.local_origem }}</strong> para
+            <strong>{{ ultima_remessa.local_destino }}</strong>
+            {% if ultima_remessa.responsavel_novo_nome %} (Resp: {{ ultima_remessa.responsavel_novo_nome }}){% endif %}.
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('patrimonio.gerar_termo_remessa_lote_pdf') }}" target="_blank" class="btn btn-sm btn-danger btn-rounded fw-bold shadow-sm">
+                <i class="bi bi-file-earmark-pdf-fill me-1"></i> Imprimir Guia / Termo de Remessa (PDF)
+            </a>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Cards de Indicadores (KPIs) -->
     <div class="row g-3 mb-4">
@@ -468,6 +489,12 @@
                                                         <i class="bi bi-file-earmark-pdf me-1"></i> Anexo NF
                                                     </a>
                                                     {% endif %}
+                                                    <button class="btn btn-sm btn-warning text-dark fw-semibold rounded-pill"
+                                                            type="button"
+                                                            onclick='abrirModalTransferenciaPorNF({{ forn.nome|tojson }}, {{ nf.numero_nf|tojson }})'
+                                                            title="Selecionar quantidade de itens desta Nota Fiscal para enviar a uma Escola ou Setor">
+                                                        <i class="bi bi-arrow-left-right me-1"></i> Distribuir / Transferir
+                                                    </button>
                                                     <button class="btn btn-sm btn-primary rounded-pill"
                                                             type="button"
                                                             data-bs-toggle="collapse"
@@ -1002,6 +1029,462 @@
                     </tbody>
                 </table>
             </div>`;
+    }
+</script>
+
+<!-- ========================================================================= -->
+<!-- MODAL: TRANSFERÊNCIA E DISTRIBUIÇÃO DE BENS EM LOTE (POR QUANTIDADE)       -->
+<!-- ========================================================================= -->
+<div class="modal fade" id="modalTransferenciaLote" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 18px;">
+            <div class="modal-header text-white border-0 py-3 px-4" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-top-left-radius: 18px; border-top-right-radius: 18px;">
+                <div>
+                    <span class="badge bg-warning text-dark fw-bold mb-1">
+                        <i class="bi bi-arrow-left-right me-1"></i> Distribuição de Depósito / Transferência Coletiva
+                    </span>
+                    <h5 class="modal-title fw-bold mb-0">
+                        <i class="bi bi-box-seam-fill me-2 text-warning"></i> Transferir Múltiplos Bens por Quantidade
+                    </h5>
+                    <small class="text-white-50">
+                        Digite a quantidade de cada produto que deseja retirar do depósito/local atual e enviar para a escola ou setor de destino.
+                    </small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+
+            <form method="POST" action="{{ url_for('patrimonio.transferir_itens_lote') }}" id="formTransferenciaLote">
+                <input type="hidden" name="acao_apos" id="inputAcaoAposTransferencia" value="salvar">
+
+                <div class="modal-body p-4">
+                    <!-- PASSO 1: FILTRAR E DEFINIR A QUANTIDADE DE BENS A ENVIAR -->
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-2">
+                        <h6 class="fw-bold text-dark mb-0">
+                            <span class="badge bg-primary rounded-pill me-1">1</span>
+                            Selecione os Bens e Informe a Quantidade a Enviar
+                        </h6>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" onclick="zerarSelecaoTransferenciaLote()">
+                            <i class="bi bi-eraser me-1"></i> Limpar Quantidades Selecionadas
+                        </button>
+                    </div>
+
+                    <!-- Barra de Filtros Rápidos dos Lotes -->
+                    <div class="p-3 bg-light rounded-4 border mb-3">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-5">
+                                <label class="form-label small fw-bold text-muted mb-1">
+                                    <i class="bi bi-geo-alt me-1"></i> Filtrar por Local Atual (Ex: Depósito)
+                                </label>
+                                <select id="filtroLoteLocalOrigem" class="form-select form-select-sm" onchange="filtrarLotesTransferencia()">
+                                    <option value="">Todos os Locais de Origem</option>
+                                    {% for loc_item in locais_inventario %}
+                                        {% if loc_item.qtd_bens > 0 %}
+                                        <option value="{{ loc_item.nome|lower }}">📍 {{ loc_item.nome }} ({{ loc_item.qtd_bens }} bem(ns))</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label small fw-bold text-muted mb-1">
+                                    <i class="bi bi-search me-1"></i> Buscar por Produto, Fornecedor ou Nota Fiscal
+                                </label>
+                                <input type="text" id="filtroLoteBuscaTexto" class="form-control form-control-sm"
+                                       placeholder="Ex: Mesa, Cadeira, Nome do Fornecedor ou Nº da NF..."
+                                       oninput="filtrarLotesTransferencia()">
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button type="button" class="btn btn-sm btn-outline-dark" onclick="limparFiltrosModalLote()">
+                                    Mostrar Todos
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabela de Lotes Agrupados -->
+                    <div class="table-responsive border rounded-4 mb-4" style="max-height: 320px; overflow-y: auto;">
+                        <table class="table table-hover align-middle mb-0 small" id="tabelaLotesTransferencia">
+                            <thead class="table-dark sticky-top">
+                                <tr>
+                                    <th>Produto / Bem Patrimonial</th>
+                                    <th>Fornecedor / Nota Fiscal</th>
+                                    <th>Local Atual (Origem)</th>
+                                    <th class="text-center" style="width: 120px;">Disponível</th>
+                                    <th class="text-center" style="width: 230px;">Quantidade a Enviar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for lote in lotes_transferencia %}
+                                <tr class="linha-lote-transf"
+                                    data-codigo="{{ lote.codigo_lote }}"
+                                    data-local="{{ lote.local_atual|lower }}"
+                                    data-busca="{{ (lote.descricao ~ ' ' ~ lote.fornecedor ~ ' ' ~ lote.nota_fiscal ~ ' ' ~ lote.marca_modelo)|lower }}"
+                                    data-max="{{ lote.qtd_disponivel }}">
+                                    <td>
+                                        <div class="fw-bold text-dark fs-6">{{ lote.descricao }}</div>
+                                        <div class="text-muted" style="font-size: 0.75rem;">
+                                            {{ lote.categoria }} • {{ lote.marca_modelo }} • R$ {{ lote.valor_unitario_fmt }}/un.
+                                        </div>
+                                        <div class="font-monospace text-primary" style="font-size: 0.73rem;">
+                                            <i class="bi bi-upc-scan me-1"></i>Tombamentos: {{ lote.faixa_tombamento }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark">{{ lote.fornecedor }}</div>
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                            NF: {{ lote.nota_fiscal }}
+                                        </span>
+                                        {% if lote.empenho and lote.empenho != '-' %}
+                                            <span class="badge bg-light text-secondary border">NE: {{ lote.empenho }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border px-2 py-1">
+                                            <i class="bi bi-geo-alt-fill text-danger me-1"></i>{{ lote.local_atual }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-secondary rounded-pill fs-6 px-3 py-1">
+                                            {{ lote.qtd_disponivel }} unid.
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-1 justify-content-center">
+                                            <input type="number"
+                                                   min="0"
+                                                   max="{{ lote.qtd_disponivel }}"
+                                                   value="0"
+                                                   id="input_qtd_{{ lote.codigo_lote }}"
+                                                   class="form-control form-control-sm text-center fw-bold input-qtd-lote"
+                                                   style="width: 90px;"
+                                                   data-codigo="{{ lote.codigo_lote }}"
+                                                   data-max="{{ lote.qtd_disponivel }}"
+                                                   oninput="aplicarQuantidadeLote('{{ lote.codigo_lote }}', this.value)">
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-primary py-1 px-2"
+                                                    title="Selecionar todas as {{ lote.qtd_disponivel }} unidades deste lote"
+                                                    onclick="definirTotalLote('{{ lote.codigo_lote }}', {{ lote.qtd_disponivel }})">
+                                                Tudo
+                                            </button>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-secondary py-1 px-2"
+                                                    data-bs-toggle="collapse"
+                                                    data-bs-target="#collapseItens_{{ lote.codigo_lote }}"
+                                                    title="Ver ou escolher números de tombamento específicos">
+                                                <i class="bi bi-list-check"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <!-- Linha expansível para ver/marcar tombamentos individuais deste lote -->
+                                <tr class="collapse bg-light" id="collapseItens_{{ lote.codigo_lote }}">
+                                    <td colspan="5" class="p-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <small class="fw-bold text-secondary">
+                                                <i class="bi bi-upc-scan me-1"></i>
+                                                Tombamentos disponíveis neste lote ({{ lote.descricao }} — {{ lote.local_atual }}):
+                                            </small>
+                                            <small class="text-muted">Ao digitar a quantidade acima, os primeiros tombamentos são marcados automaticamente.</small>
+                                        </div>
+                                        <div class="row g-2" style="max-height: 160px; overflow-y: auto;">
+                                            {% for item_b in lote.itens %}
+                                            <div class="col-6 col-md-3 col-lg-2">
+                                                <label class="d-flex align-items-center gap-1 p-1 px-2 bg-white border rounded-2 small cursor-pointer">
+                                                    <input type="checkbox"
+                                                           name="patrimonio_ids[]"
+                                                           value="{{ item_b.id }}"
+                                                           class="form-check-input mt-0 chk-item-lote chk-{{ lote.codigo_lote }}"
+                                                           data-codigo="{{ lote.codigo_lote }}"
+                                                           data-valor="{{ item_b.valor }}"
+                                                           onchange="sincronizarQtdPeloCheckbox('{{ lote.codigo_lote }}')">
+                                                    <span class="font-monospace fw-semibold text-dark">{{ item_b.tombamento }}</span>
+                                                </label>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">
+                                        Nenhum bem patrimonial ativo disponível para transferência.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- PASSO 2: LOCAL DE DESTINO E RESPONSÁVEL PELO RECEBIMENTO -->
+                    <h6 class="fw-bold text-dark mb-2">
+                        <span class="badge bg-success rounded-pill me-1">2</span>
+                        Informe o Destino da Remessa (Escola / Unidade / Setor)
+                    </h6>
+
+                    <div class="p-3 rounded-4 border" style="background: #f8fafd;">
+                        <div class="row g-3">
+                            <div class="col-md-5">
+                                <label class="form-label small fw-bold text-dark mb-1">
+                                    Local de Destino (Escola, Sala, Unidade ou Setor) <span class="text-danger">*</span>
+                                </label>
+                                <input type="text"
+                                       name="local_destino"
+                                       id="inputLocalDestinoLote"
+                                       class="form-control fw-semibold"
+                                       list="datalistLocaisDestinoLote"
+                                       placeholder="Digite ou selecione a Escola / Setor de destino..."
+                                       oninput="preencherDadosLocalDestino(this.value)"
+                                       required>
+                                <datalist id="datalistLocaisDestinoLote">
+                                    {% for loc_sug in locais_destino_sugestoes %}
+                                        <option value="{{ loc_sug.nome }}" label="{{ loc_sug.tipo }}"></option>
+                                    {% endfor %}
+                                </datalist>
+                                <small class="text-muted" style="font-size: 0.72rem;">
+                                    Você pode escolher uma escola/local da lista ou digitar o nome de um novo local.
+                                </small>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-dark mb-1">
+                                    Secretaria de Destino
+                                </label>
+                                <select name="secretaria_destino_id" id="selectSecretariaDestinoLote" class="form-select">
+                                    <option value="">-- Manter atual / Opcional --</option>
+                                    {% for sec in secretarias %}
+                                        <option value="{{ sec.id }}">{{ sec.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-dark mb-1">
+                                    Responsável pelo Recebimento no Local
+                                </label>
+                                <input type="text"
+                                       name="responsavel_novo_nome"
+                                       id="inputResponsavelDestinoLote"
+                                       class="form-control"
+                                       placeholder="Digite o nome do diretor(a) / responsável...">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-dark mb-1">
+                                    Cargo / Função do Recebedor (Opcional)
+                                </label>
+                                <input type="text"
+                                       name="responsavel_novo_cargo"
+                                       id="inputCargoDestinoLote"
+                                       class="form-control form-control-sm"
+                                       placeholder="Ex: Diretor(a) Escolar, Coordenador(a)...">
+                            </div>
+
+                            <div class="col-md-8">
+                                <label class="form-label small fw-bold text-dark mb-1">
+                                    Motivo / Observação da Remessa
+                                </label>
+                                <input type="text"
+                                       name="motivo_transferencia"
+                                       id="inputMotivoDestinoLote"
+                                       class="form-control form-control-sm"
+                                       placeholder="Ex: Remessa de mobiliário do Depósito para atendimento à unidade escolar...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Barra de Resumo em Tempo Real da Seleção -->
+                    <div class="alert alert-success border-0 rounded-4 mt-3 mb-0 py-2 px-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+                        <div>
+                            <i class="bi bi-check-circle-fill me-1"></i>
+                            Total selecionado para transferência:
+                            <strong class="fs-6" id="lblTotalItensTransferirLote">0</strong> bem(ns) patrimonial(is)
+                        </div>
+                        <div class="fw-bold">
+                            Valor Contábil da Remessa: <span id="lblValorTotalTransferirLote">R$ 0,00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-0 bg-light d-flex justify-content-between flex-wrap gap-2">
+                    <button type="button" class="btn btn-secondary btn-rounded px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button"
+                                class="btn btn-primary btn-rounded fw-bold shadow-sm"
+                                id="btnSalvarTransferenciaLote"
+                                onclick="submeterTransferenciaLote('salvar')"
+                                disabled>
+                            <i class="bi bi-check2-circle me-1"></i> Confirmar Transferência em Lote
+                        </button>
+                        <button type="button"
+                                class="btn btn-danger btn-rounded fw-bold shadow-sm"
+                                id="btnSalvarImprimirTransferenciaLote"
+                                onclick="submeterTransferenciaLote('pdf')"
+                                disabled>
+                            <i class="bi bi-file-earmark-pdf-fill me-1"></i> Transferir e Gerar Guia PDF
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SUGESTOES_LOCAIS_DESTINO = {{ locais_destino_sugestoes|tojson if locais_destino_sugestoes else '[]' }};
+
+    function aplicarQuantidadeLote(codigoLote, valorDigitado) {
+        const inputQtd = document.getElementById('input_qtd_' + codigoLote);
+        const maxDisp = parseInt(inputQtd ? inputQtd.dataset.max : '0', 10) || 0;
+        let qtd = parseInt(valorDigitado, 10);
+        if (isNaN(qtd) || qtd < 0) qtd = 0;
+        if (qtd > maxDisp) {
+            qtd = maxDisp;
+            if (inputQtd) inputQtd.value = maxDisp;
+        }
+
+        const checkboxes = document.querySelectorAll('.chk-' + codigoLote);
+        checkboxes.forEach((chk, index) => {
+            chk.checked = (index < qtd);
+        });
+
+        recalcularResumoTransferenciaLote();
+    }
+
+    function definirTotalLote(codigoLote, maxDisp) {
+        const inputQtd = document.getElementById('input_qtd_' + codigoLote);
+        if (inputQtd) {
+            inputQtd.value = maxDisp;
+        }
+        aplicarQuantidadeLote(codigoLote, maxDisp);
+    }
+
+    function sincronizarQtdPeloCheckbox(codigoLote) {
+        const checkboxes = document.querySelectorAll('.chk-' + codigoLote);
+        let marcados = 0;
+        checkboxes.forEach(chk => {
+            if (chk.checked) marcados++;
+        });
+        const inputQtd = document.getElementById('input_qtd_' + codigoLote);
+        if (inputQtd) {
+            inputQtd.value = marcados;
+        }
+        recalcularResumoTransferenciaLote();
+    }
+
+    function recalcularResumoTransferenciaLote() {
+        const todosMarcados = document.querySelectorAll('.chk-item-lote:checked');
+        let qtdTotal = todosMarcados.length;
+        let somaValor = 0.0;
+
+        todosMarcados.forEach(chk => {
+            somaValor += parseFloat(chk.dataset.valor || '0') || 0.0;
+        });
+
+        const lblQtd = document.getElementById('lblTotalItensTransferirLote');
+        const lblVal = document.getElementById('lblValorTotalTransferirLote');
+        const btnSalvar = document.getElementById('btnSalvarTransferenciaLote');
+        const btnPdf = document.getElementById('btnSalvarImprimirTransferenciaLote');
+
+        if (lblQtd) lblQtd.textContent = qtdTotal;
+        if (lblVal) lblVal.textContent = somaValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        if (btnSalvar) btnSalvar.disabled = (qtdTotal === 0);
+        if (btnPdf) btnPdf.disabled = (qtdTotal === 0);
+    }
+
+    function zerarSelecaoTransferenciaLote() {
+        document.querySelectorAll('.input-qtd-lote').forEach(inp => { inp.value = 0; });
+        document.querySelectorAll('.chk-item-lote').forEach(chk => { chk.checked = false; });
+        recalcularResumoTransferenciaLote();
+    }
+
+    function filtrarLotesTransferencia() {
+        const localFiltro = (document.getElementById('filtroLoteLocalOrigem').value || '').trim().toLowerCase();
+        const textoFiltro = (document.getElementById('filtroLoteBuscaTexto').value || '').trim().toLowerCase();
+
+        document.querySelectorAll('.linha-lote-transf').forEach(tr => {
+            const locLinha = tr.dataset.local || '';
+            const buscaLinha = tr.dataset.busca || '';
+            const matchLocal = !localFiltro || (locLinha === localFiltro);
+            const matchTexto = !textoFiltro || buscaLinha.includes(textoFiltro);
+
+            if (matchLocal && matchTexto) {
+                tr.classList.remove('d-none');
+            } else {
+                tr.classList.add('d-none');
+            }
+        });
+    }
+
+    function limparFiltrosModalLote() {
+        document.getElementById('filtroLoteLocalOrigem').value = '';
+        document.getElementById('filtroLoteBuscaTexto').value = '';
+        filtrarLotesTransferencia();
+    }
+
+    function preencherDadosLocalDestino(nomeLocalDigitado) {
+        if (!nomeLocalDigitado) return;
+        const limpo = nomeLocalDigitado.trim().toLowerCase();
+        const encontrado = SUGESTOES_LOCAIS_DESTINO.find(l => (l.nome || '').toLowerCase() === limpo);
+        if (encontrado) {
+            const inputResp = document.getElementById('inputResponsavelDestinoLote');
+            const selectSec = document.getElementById('selectSecretariaDestinoLote');
+            if (encontrado.responsavel && inputResp && !inputResp.value) {
+                inputResp.value = encontrado.responsavel;
+            }
+            if (encontrado.secretaria_id && selectSec && !selectSec.value) {
+                selectSec.value = String(encontrado.secretaria_id);
+            }
+        }
+    }
+
+    function abrirModalTransferenciaLote(fornecedorFiltro, nfFiltro) {
+        const inputBusca = document.getElementById('filtroLoteBuscaTexto');
+        const selectLocal = document.getElementById('filtroLoteLocalOrigem');
+        if (selectLocal) selectLocal.value = '';
+
+        if (nfFiltro && nfFiltro !== 'Sem Nº de Nota Fiscal' && nfFiltro !== 'S/N') {
+            if (inputBusca) inputBusca.value = nfFiltro;
+        } else if (fornecedorFiltro) {
+            if (inputBusca) inputBusca.value = fornecedorFiltro;
+        } else {
+            if (inputBusca) inputBusca.value = '';
+        }
+
+        filtrarLotesTransferencia();
+
+        const modalEl = document.getElementById('modalTransferenciaLote');
+        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modalInstance.show();
+    }
+
+    function abrirModalTransferenciaPorNF(fornecedorNome, numeroNF) {
+        // Fecha qualquer modal de fornecedor aberto antes de exibir o modal de transferência em lote
+        document.querySelectorAll('.modal.show').forEach(m => {
+            const inst = bootstrap.Modal.getInstance(m);
+            if (inst) inst.hide();
+        });
+        setTimeout(() => {
+            abrirModalTransferenciaLote(fornecedorNome, numeroNF);
+        }, 220);
+    }
+
+    function submeterTransferenciaLote(acao) {
+        const form = document.getElementById('formTransferenciaLote');
+        const inputDestino = document.getElementById('inputLocalDestinoLote');
+        const inputAcao = document.getElementById('inputAcaoAposTransferencia');
+        const qtdMarcados = document.querySelectorAll('.chk-item-lote:checked').length;
+
+        if (qtdMarcados === 0) {
+            alert('Informe a quantidade de bens que deseja transferir.');
+            return;
+        }
+        if (!inputDestino || !inputDestino.value.trim()) {
+            alert('Informe o Local de Destino (ex: nome da escola ou setor).');
+            inputDestino.focus();
+            return;
+        }
+
+        if (inputAcao) inputAcao.value = acao;
+        form.submit();
     }
 </script>
 {% endblock %}

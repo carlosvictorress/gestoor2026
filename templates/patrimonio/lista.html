@@ -1033,83 +1033,68 @@
 </script>
 
 <!-- ========================================================================= -->
-<!-- MODAL: TRANSFERÊNCIA E DISTRIBUIÇÃO DE BENS EM LOTE (POR QUANTIDADE)       -->
+<!-- MODAL SIMPLIFICADO: TRANSFERIR BENS POR QUANTIDADE                        -->
 <!-- ========================================================================= -->
 <div class="modal fade" id="modalTransferenciaLote" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 18px;">
-            <div class="modal-header text-white border-0 py-3 px-4" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-top-left-radius: 18px; border-top-right-radius: 18px;">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+            <!-- Cabeçalho direto no modal-content -->
+            <div class="modal-header bg-dark text-white border-0 py-3 px-4">
                 <div>
-                    <span class="badge bg-warning text-dark fw-bold mb-1">
-                        <i class="bi bi-arrow-left-right me-1"></i> Distribuição de Depósito / Transferência Coletiva
-                    </span>
                     <h5 class="modal-title fw-bold mb-0">
-                        <i class="bi bi-box-seam-fill me-2 text-warning"></i> Transferir Múltiplos Bens por Quantidade
+                        <i class="bi bi-arrow-left-right me-2 text-warning"></i> Transferir Bens por Quantidade
                     </h5>
                     <small class="text-white-50">
-                        Digite a quantidade de cada produto que deseja retirar do depósito/local atual e enviar para a escola ou setor de destino.
+                        Informe a quantidade que deseja retirar do local atual e escolha o local de destino.
                     </small>
                 </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
 
-            <form method="POST" action="{{ url_for('patrimonio.transferir_itens_lote') }}" id="formTransferenciaLote">
-                <input type="hidden" name="acao_apos" id="inputAcaoAposTransferencia" value="salvar">
+            <!-- modal-body direto como filho de modal-content para garantir rolagem perfeita -->
+            <div class="modal-body p-4" style="max-height: 72vh; overflow-y: auto;">
+                <form method="POST" action="{{ url_for('patrimonio.transferir_itens_lote') }}" id="formTransferenciaLote">
+                    <input type="hidden" name="acao_apos" id="inputAcaoAposTransferencia" value="salvar">
+                    <div id="containerInputsIdsTransferencia"></div>
 
-                <div class="modal-body p-4">
-                    <!-- PASSO 1: FILTRAR E DEFINIR A QUANTIDADE DE BENS A ENVIAR -->
-                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-2">
-                        <h6 class="fw-bold text-dark mb-0">
+                    <!-- PASSO 1: ESCOLHER OS BENS E A QUANTIDADE -->
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="fw-bold text-dark mb-0">
                             <span class="badge bg-primary rounded-pill me-1">1</span>
-                            Selecione os Bens e Informe a Quantidade a Enviar
-                        </h6>
-                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" onclick="zerarSelecaoTransferenciaLote()">
-                            <i class="bi bi-eraser me-1"></i> Limpar Quantidades Selecionadas
+                            Quais bens e quantas unidades deseja enviar?
+                        </label>
+                        <button type="button" class="btn btn-sm btn-link text-decoration-none p-0" onclick="limparFiltrosModalLote()">
+                            Mostrar todos os bens
                         </button>
                     </div>
 
-                    <!-- Barra de Filtros Rápidos dos Lotes -->
-                    <div class="p-3 bg-light rounded-4 border mb-3">
-                        <div class="row g-2 align-items-end">
-                            <div class="col-md-5">
-                                <label class="form-label small fw-bold text-muted mb-1">
-                                    <i class="bi bi-geo-alt me-1"></i> Filtrar por Local Atual (Ex: Depósito)
-                                </label>
-                                <select id="filtroLoteLocalOrigem" class="form-select form-select-sm" onchange="filtrarLotesTransferencia()">
-                                    <option value="">Todos os Locais de Origem</option>
-                                    {% for loc_item in locais_inventario %}
-                                        {% if loc_item.qtd_bens > 0 %}
-                                        <option value="{{ loc_item.nome|lower }}">📍 {{ loc_item.nome }} ({{ loc_item.qtd_bens }} bem(ns))</option>
-                                        {% endif %}
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-5">
-                                <label class="form-label small fw-bold text-muted mb-1">
-                                    <i class="bi bi-search me-1"></i> Buscar por Produto, Fornecedor ou Nota Fiscal
-                                </label>
-                                <input type="text" id="filtroLoteBuscaTexto" class="form-control form-control-sm"
-                                       placeholder="Ex: Mesa, Cadeira, Nome do Fornecedor ou Nº da NF..."
-                                       oninput="filtrarLotesTransferencia()">
-                            </div>
-                            <div class="col-md-2 d-grid">
-                                <button type="button" class="btn btn-sm btn-outline-dark" onclick="limparFiltrosModalLote()">
-                                    Mostrar Todos
-                                </button>
-                            </div>
+                    <!-- Filtro simples em uma única linha -->
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-5">
+                            <select id="filtroLoteLocalOrigem" class="form-select form-select-sm" onchange="filtrarLotesTransferencia()">
+                                <option value="">📍 Filtrar por Local Atual (Todos)</option>
+                                {% for loc_item in locais_inventario %}
+                                    {% if loc_item.qtd_bens > 0 %}
+                                    <option value="{{ loc_item.nome|lower }}">{{ loc_item.nome }} ({{ loc_item.qtd_bens }})</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-7">
+                            <input type="text" id="filtroLoteBuscaTexto" class="form-control form-control-sm"
+                                   placeholder="🔍 Buscar produto, fornecedor ou nº da Nota Fiscal..."
+                                   oninput="filtrarLotesTransferencia()">
                         </div>
                     </div>
 
-                    <!-- Tabela de Lotes Agrupados -->
-                    <div class="table-responsive border rounded-4 mb-4" style="max-height: 320px; overflow-y: auto;">
-                        <table class="table table-hover align-middle mb-0 small" id="tabelaLotesTransferencia">
-                            <thead class="table-dark sticky-top">
+                    <!-- Lista limpa de bens agrupados com campo de quantidade -->
+                    <div class="border rounded-3 mb-4" style="max-height: 240px; overflow-y: auto;">
+                        <table class="table table-sm table-hover align-middle mb-0 small">
+                            <thead class="table-light sticky-top">
                                 <tr>
-                                    <th>Produto / Bem Patrimonial</th>
-                                    <th>Fornecedor / Nota Fiscal</th>
-                                    <th>Local Atual (Origem)</th>
-                                    <th class="text-center" style="width: 120px;">Disponível</th>
-                                    <th class="text-center" style="width: 230px;">Quantidade a Enviar</th>
+                                    <th class="ps-3">Bem / Local Atual</th>
+                                    <th class="text-center" style="width: 100px;">Disponível</th>
+                                    <th class="text-center pe-3" style="width: 175px;">Qtd. a Enviar</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1118,96 +1103,45 @@
                                     data-codigo="{{ lote.codigo_lote }}"
                                     data-local="{{ lote.local_atual|lower }}"
                                     data-secretaria="{{ lote.secretaria_id or '' }}"
-                                    data-busca="{{ (lote.descricao ~ ' ' ~ lote.fornecedor ~ ' ' ~ lote.nota_fiscal ~ ' ' ~ lote.marca_modelo)|lower }}"
-                                    data-max="{{ lote.qtd_disponivel }}">
-                                    <td>
-                                        <div class="fw-bold text-dark fs-6">{{ lote.descricao }}</div>
-                                        <div class="text-muted" style="font-size: 0.75rem;">
-                                            {{ lote.categoria }} • {{ lote.marca_modelo }} • R$ {{ lote.valor_unitario_fmt }}/un.
+                                    data-busca="{{ (lote.descricao ~ ' ' ~ lote.fornecedor ~ ' ' ~ lote.nota_fiscal ~ ' ' ~ lote.local_atual)|lower }}"
+                                    data-max="{{ lote.qtd_disponivel }}"
+                                    data-valor="{{ lote.valor_unitario }}"
+                                    data-ids='{{ lote.itens|map(attribute="id")|list|tojson }}'>
+                                    <td class="ps-3 py-2">
+                                        <div class="fw-bold text-dark">{{ lote.descricao }}</div>
+                                        <div class="text-muted" style="font-size: 0.74rem;">
+                                            <i class="bi bi-geo-alt-fill text-danger"></i> <strong>Origem:</strong> {{ lote.local_atual }}
+                                            <span class="mx-1">•</span> NF: {{ lote.nota_fiscal }}
                                         </div>
-                                        <div class="font-monospace text-primary" style="font-size: 0.73rem;">
-                                            <i class="bi bi-upc-scan me-1"></i>Tombamentos: {{ lote.faixa_tombamento }}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div class="fw-semibold text-dark">{{ lote.fornecedor }}</div>
-                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
-                                            NF: {{ lote.nota_fiscal }}
-                                        </span>
-                                        {% if lote.empenho and lote.empenho != '-' %}
-                                            <span class="badge bg-light text-secondary border">NE: {{ lote.empenho }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-light text-dark border px-2 py-1">
-                                            <i class="bi bi-geo-alt-fill text-danger me-1"></i>{{ lote.local_atual }}
-                                        </span>
                                     </td>
                                     <td class="text-center">
-                                        <span class="badge bg-secondary rounded-pill fs-6 px-3 py-1">
+                                        <span class="badge bg-secondary-subtle text-dark border rounded-pill px-2 py-1">
                                             {{ lote.qtd_disponivel }} unid.
                                         </span>
                                     </td>
-                                    <td>
-                                        <div class="d-flex align-items-center gap-1 justify-content-center">
+                                    <td class="pe-3">
+                                        <div class="input-group input-group-sm">
                                             <input type="number"
                                                    min="0"
                                                    max="{{ lote.qtd_disponivel }}"
                                                    value="0"
                                                    id="input_qtd_{{ lote.codigo_lote }}"
-                                                   class="form-control form-control-sm text-center fw-bold input-qtd-lote"
-                                                   style="width: 90px;"
+                                                   class="form-control text-center fw-bold input-qtd-lote"
                                                    data-codigo="{{ lote.codigo_lote }}"
                                                    data-max="{{ lote.qtd_disponivel }}"
                                                    oninput="aplicarQuantidadeLote('{{ lote.codigo_lote }}', this.value)">
                                             <button type="button"
-                                                    class="btn btn-sm btn-outline-primary py-1 px-2"
-                                                    title="Selecionar todas as {{ lote.qtd_disponivel }} unidades deste lote"
+                                                    class="btn btn-outline-primary"
                                                     onclick="definirTotalLote('{{ lote.codigo_lote }}', {{ lote.qtd_disponivel }})">
                                                 Tudo
                                             </button>
-                                            <button type="button"
-                                                    class="btn btn-sm btn-outline-secondary py-1 px-2"
-                                                    data-bs-toggle="collapse"
-                                                    data-bs-target="#collapseItens_{{ lote.codigo_lote }}"
-                                                    title="Ver ou escolher números de tombamento específicos">
-                                                <i class="bi bi-list-check"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <!-- Linha expansível para ver/marcar tombamentos individuais deste lote -->
-                                <tr class="collapse bg-light" id="collapseItens_{{ lote.codigo_lote }}">
-                                    <td colspan="5" class="p-3">
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <small class="fw-bold text-secondary">
-                                                <i class="bi bi-upc-scan me-1"></i>
-                                                Tombamentos disponíveis neste lote ({{ lote.descricao }} — {{ lote.local_atual }}):
-                                            </small>
-                                            <small class="text-muted">Ao digitar a quantidade acima, os primeiros tombamentos são marcados automaticamente.</small>
-                                        </div>
-                                        <div class="row g-2" style="max-height: 160px; overflow-y: auto;">
-                                            {% for item_b in lote.itens %}
-                                            <div class="col-6 col-md-3 col-lg-2">
-                                                <label class="d-flex align-items-center gap-1 p-1 px-2 bg-white border rounded-2 small cursor-pointer">
-                                                    <input type="checkbox"
-                                                           name="patrimonio_ids[]"
-                                                           value="{{ item_b.id }}"
-                                                           class="form-check-input mt-0 chk-item-lote chk-{{ lote.codigo_lote }}"
-                                                           data-codigo="{{ lote.codigo_lote }}"
-                                                           data-valor="{{ item_b.valor }}"
-                                                           onchange="sincronizarQtdPeloCheckbox('{{ lote.codigo_lote }}')">
-                                                    <span class="font-monospace fw-semibold text-dark">{{ item_b.tombamento }}</span>
-                                                </label>
-                                            </div>
-                                            {% endfor %}
                                         </div>
                                     </td>
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="5" class="text-center py-4 text-muted">
-                                        Nenhum bem patrimonial ativo disponível para transferência.
+                                    <td colspan="3" class="text-center py-4 text-muted">
+                                        Nenhum bem patrimonial disponível para transferência.
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -1215,46 +1149,37 @@
                         </table>
                     </div>
 
-                    <!-- PASSO 2: SECRETARIA DE ORIGEM, LOCAL DE DESTINO E RESPONSÁVEL (IGUAL AO CADASTRO DE BENS) -->
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="fw-bold text-dark mb-0">
-                            <span class="badge bg-success rounded-pill me-1">2</span>
-                            Secretaria de Origem, Local de Destino e Responsável pelo Bem
-                        </h6>
-                        <button type="button" class="btn btn-sm btn-outline-primary btn-rounded fw-semibold" data-bs-toggle="modal" data-bs-target="#modalNovoLocalLote">
-                            <i class="bi bi-plus-circle-fill me-1"></i> Cadastrar Novo Local Agora
-                        </button>
-                    </div>
+                    <!-- PASSO 2: DESTINO (MESMO PADRÃO DO CADASTRO DE BENS) -->
+                    <label class="fw-bold text-dark mb-2 d-block">
+                        <span class="badge bg-success rounded-pill me-1">2</span>
+                        Para onde os bens serão enviados?
+                    </label>
 
-                    <div class="p-3 rounded-4 border" style="background: #f8fafd;">
+                    <div class="p-3 bg-light rounded-3 border">
                         <div class="row g-3">
                             <!-- Secretaria de Origem -->
                             <div class="col-md-4">
-                                <label for="selectSecretariaOrigemLote" class="form-label small fw-bold text-dark mb-1">
+                                <label class="form-label small fw-bold text-dark mb-1">
                                     Secretaria de Origem <span class="text-danger">*</span>
                                 </label>
-                                <select name="secretaria_origem_id" id="selectSecretariaOrigemLote" class="form-select" required>
-                                    <option value="">-- Selecione a Secretaria de Origem --</option>
+                                <select name="secretaria_origem_id" id="selectSecretariaOrigemLote" class="form-select form-select-sm" required>
+                                    <option value="">-- Selecione --</option>
                                     {% for sec in secretarias %}
                                         <option value="{{ sec.id }}">{{ sec.nome }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
 
-                            <!-- Local de Destino (mesmo padrão do Cadastro de Bens: Dropdown + Campo Texto + Botão Novo Local) -->
+                            <!-- Local de Destino (igual ao Cadastro de Bens) -->
                             <div class="col-md-8">
-                                <label for="inputLocalDestinoLote" class="form-label small fw-bold text-dark mb-1 d-flex justify-content-between align-items-center">
-                                    <span>Local de Destino (Unidade / Escola / Prédio / Sala) <span class="text-danger">*</span></span>
-                                    <a href="javascript:void(0)" class="text-primary small fw-bold text-decoration-none" data-bs-toggle="modal" data-bs-target="#modalNovoLocalLote">
-                                        <i class="bi bi-plus-lg"></i> Novo Local
-                                    </a>
+                                <label class="form-label small fw-bold text-dark mb-1">
+                                    Local de Destino (Unidade / Escola / Setor) <span class="text-danger">*</span>
                                 </label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light"><i class="bi bi-geo-alt-fill text-primary"></i></span>
-                                    <select class="form-select" id="selectLocalCadastradoLote" onchange="aoSelecionarLocalDropdownLote(this)" style="max-width: 48%;">
-                                        <option value="">-- Escolher local cadastrado --</option>
+                                <div class="input-group input-group-sm">
+                                    <select class="form-select" id="selectLocalCadastradoLote" onchange="aoSelecionarLocalDropdownLote(this)" style="max-width: 45%;">
+                                        <option value="">-- Escolher local --</option>
                                         {% if locais_db %}
-                                        <optgroup label="Locais / Setores Cadastrados" id="optgroupLocaisCadastradosLote">
+                                        <optgroup label="Locais Cadastrados" id="optgroupLocaisCadastradosLote">
                                             {% for loc in locais_db %}
                                                 <option value="{{ loc.nome }}"
                                                         data-id="{{ loc.id }}"
@@ -1265,7 +1190,7 @@
                                             {% endfor %}
                                         </optgroup>
                                         {% else %}
-                                        <optgroup label="Locais / Setores Cadastrados" id="optgroupLocaisCadastradosLote"></optgroup>
+                                        <optgroup label="Locais Cadastrados" id="optgroupLocaisCadastradosLote"></optgroup>
                                         {% endif %}
 
                                         {% if escolas %}
@@ -1277,7 +1202,7 @@
                                         {% endif %}
 
                                         {% if locais_legados %}
-                                        <optgroup label="Outros Locais Utilizados">
+                                        <optgroup label="Outros Locais">
                                             {% for loc_nome in locais_legados %}
                                                 <option value="{{ loc_nome }}">{{ loc_nome }}</option>
                                             {% endfor %}
@@ -1288,90 +1213,66 @@
                                            class="form-control fw-semibold"
                                            name="local_destino"
                                            id="inputLocalDestinoLote"
-                                           placeholder="Ou digite / complemente (Ex: Escola Municipal X - Sala 02)"
+                                           placeholder="Ou digite o local de destino..."
                                            required>
                                     <input type="hidden" name="local_id" id="inputLocalIdLote" value="">
                                     <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNovoLocalLote" title="Cadastrar Novo Local">
                                         <i class="bi bi-plus-lg"></i> Novo Local
                                     </button>
                                 </div>
-                                <small class="text-muted" style="font-size: 0.72rem;">
-                                    Selecione um local da lista, digite diretamente ou clique em <strong>"+ Novo Local"</strong> para salvar um novo setor no sistema.
-                                </small>
                             </div>
 
-                            <!-- Responsável pelo Bem no Local de Destino -->
-                            <div class="col-md-4">
+                            <!-- Responsável e Observação -->
+                            <div class="col-md-6">
                                 <label class="form-label small fw-bold text-dark mb-1">
                                     Responsável pelo Recebimento (Digite o Nome)
                                 </label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light"><i class="bi bi-person-vcard text-primary"></i></span>
-                                    <input type="text"
-                                           name="responsavel_novo_nome"
-                                           id="inputResponsavelDestinoLote"
-                                           class="form-control"
-                                           placeholder="Digite o nome do diretor(a) / responsável...">
-                                </div>
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label small fw-bold text-dark mb-1">
-                                    Cargo / Função (Opcional)
-                                </label>
                                 <input type="text"
-                                       name="responsavel_novo_cargo"
-                                       id="inputCargoDestinoLote"
-                                       class="form-control"
-                                       placeholder="Ex: Diretor(a), Coordenador(a)...">
+                                       name="responsavel_novo_nome"
+                                       id="inputResponsavelDestinoLote"
+                                       class="form-control form-control-sm"
+                                       placeholder="Nome de quem está recebendo os bens...">
                             </div>
 
-                            <div class="col-md-5">
+                            <div class="col-md-6">
                                 <label class="form-label small fw-bold text-dark mb-1">
-                                    Motivo / Observação da Remessa
+                                    Motivo / Observação (Opcional)
                                 </label>
                                 <input type="text"
                                        name="motivo_transferencia"
                                        id="inputMotivoDestinoLote"
-                                       class="form-control"
-                                       placeholder="Ex: Remessa de mobiliário do Depósito para a escola...">
+                                       class="form-control form-control-sm"
+                                       placeholder="Ex: Envio de mesas do depósito para a escola...">
                             </div>
                         </div>
                     </div>
+                </form>
+            </div>
 
-                    <!-- Barra de Resumo em Tempo Real da Seleção -->
-                    <div class="alert alert-success border-0 rounded-4 mt-3 mb-0 py-2 px-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
-                        <div>
-                            <i class="bi bi-check-circle-fill me-1"></i>
-                            Total selecionado para transferência:
-                            <strong class="fs-6" id="lblTotalItensTransferirLote">0</strong> bem(ns) patrimonial(is)
-                        </div>
-                        <div class="fw-bold">
-                            Valor Contábil da Remessa: <span id="lblValorTotalTransferirLote">R$ 0,00</span>
-                        </div>
-                    </div>
+            <!-- Rodapé fixo do modal -->
+            <div class="modal-footer bg-light d-flex justify-content-between align-items-center flex-wrap gap-2 py-2 px-4">
+                <div class="small">
+                    Selecionados: <strong class="text-primary fs-6" id="lblTotalItensTransferirLote">0</strong> bem(ns)
+                    <span class="text-muted ms-2">(<span id="lblValorTotalTransferirLote">R$ 0,00</span>)</span>
                 </div>
-
-                <div class="modal-footer border-0 bg-light d-flex justify-content-between flex-wrap gap-2">
-                    <button type="button" class="btn btn-secondary btn-rounded px-4" data-bs-dismiss="modal">Cancelar</button>
-                    <div class="d-flex flex-wrap gap-2">
-                        <button type="button"
-                                class="btn btn-primary btn-rounded fw-bold shadow-sm"
-                                id="btnSalvarTransferenciaLote"
-                                onclick="submeterTransferenciaLote('salvar')"
-                                disabled>
-                            <i class="bi bi-check2-circle me-1"></i> Confirmar Transferência em Lote
-                        </button>
-                        <button type="button"
-                                class="btn btn-danger btn-rounded fw-bold shadow-sm"
-                                id="btnSalvarImprimirTransferenciaLote"
-                                onclick="submeterTransferenciaLote('pdf')"
-                                disabled>
-                            <i class="bi bi-file-earmark-pdf-fill me-1"></i> Transferir e Gerar Guia PDF
-                        </button>
-                    </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-secondary btn-sm btn-rounded px-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button"
+                            class="btn btn-primary btn-sm btn-rounded fw-bold px-3"
+                            id="btnSalvarTransferenciaLote"
+                            onclick="submeterTransferenciaLote('salvar')"
+                            disabled>
+                        <i class="bi bi-check2-circle me-1"></i> Transferir Bens
+                    </button>
+                    <button type="button"
+                            class="btn btn-danger btn-sm btn-rounded fw-bold px-3"
+                            id="btnSalvarImprimirTransferenciaLote"
+                            onclick="submeterTransferenciaLote('pdf')"
+                            disabled>
+                        <i class="bi bi-file-earmark-pdf-fill me-1"></i> Transferir + Gerar PDF
+                    </button>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 </div>
@@ -1381,22 +1282,19 @@
 <!-- ========================================================================= -->
 <div class="modal fade" id="modalNovoLocalLote" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 18px;">
-            <div class="modal-header bg-primary text-white border-0" style="border-top-left-radius: 18px; border-top-right-radius: 18px;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+            <div class="modal-header bg-primary text-white border-0">
                 <h5 class="modal-title fw-bold">
                     <i class="bi bi-geo-alt-fill me-2"></i> Cadastrar Novo Local / Setor
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <div class="modal-body p-4">
-                <p class="text-muted small mb-3">
-                    Cadastre a unidade, escola, prédio ou sala de destino. Ele será selecionado automaticamente na transferência.
-                </p>
                 <div id="alertaModalLocalLote" class="alert d-none py-2 small"></div>
 
                 <div class="mb-3">
                     <label class="form-label small fw-bold">Secretaria Vinculada</label>
-                    <select class="form-select" id="novoLocalLoteSecretariaId">
+                    <select class="form-select form-select-sm" id="novoLocalLoteSecretariaId">
                         <option value="">-- Selecione (Opcional) --</option>
                         {% for sec in secretarias %}
                             <option value="{{ sec.id }}">{{ sec.nome }}</option>
@@ -1406,41 +1304,35 @@
 
                 <div class="mb-3">
                     <label class="form-label small fw-bold">Prédio / Unidade / Escola*</label>
-                    <input type="text" class="form-control" id="novoLocalLotePredio"
+                    <input type="text" class="form-control form-control-sm" id="novoLocalLotePredio"
                            oninput="comporNomeLocalModalLote()"
-                           placeholder="Ex: Escola Municipal X, Sede da SEMED, Prefeitura...">
+                           placeholder="Ex: Escola Municipal X, Sede da SEMED...">
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">Sala / Setor / Ambiente Específico*</label>
-                    <input type="text" class="form-control" id="novoLocalLoteSala"
+                    <label class="form-label small fw-bold">Sala / Setor (Opcional)</label>
+                    <input type="text" class="form-control form-control-sm" id="novoLocalLoteSala"
                            oninput="comporNomeLocalModalLote()"
-                           placeholder="Ex: Sala 04, Diretoria, Secretaria Escolar, Depósito...">
+                           placeholder="Ex: Sala 04, Diretoria, Depósito...">
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">Nome de Exibição do Local (Gerado ou Personalizado)</label>
-                    <input type="text" class="form-control bg-light fw-semibold" id="novoLocalLoteNomeCompleto"
+                    <label class="form-label small fw-bold">Nome do Local</label>
+                    <input type="text" class="form-control form-control-sm bg-light fw-semibold" id="novoLocalLoteNomeCompleto"
                            placeholder="Ex: Escola Municipal X - Sala 04">
                 </div>
 
-                <div class="row g-2">
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold">Responsável pelo Local (Opcional)</label>
-                        <input type="text" class="form-control" id="novoLocalLoteResponsavel"
-                               placeholder="Digite o nome do responsável...">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold">Endereço / Referência (Opcional)</label>
-                        <input type="text" class="form-control" id="novoLocalLoteEndereco"
-                               placeholder="Rua, Bairro...">
-                    </div>
+                <div class="mb-0">
+                    <label class="form-label small fw-bold">Responsável pelo Local (Opcional)</label>
+                    <input type="text" class="form-control form-control-sm" id="novoLocalLoteResponsavel"
+                           placeholder="Digite o nome do responsável...">
+                    <input type="hidden" id="novoLocalLoteEndereco" value="">
                 </div>
             </div>
-            <div class="modal-footer border-0 pt-0 px-4 pb-4">
-                <button type="button" class="btn btn-light btn-rounded px-4" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary btn-rounded px-4 fw-bold" id="btnSalvarNovoLocalLote" onclick="salvarNovoLocalLoteAjax()">
-                    <i class="bi bi-check-lg me-1"></i> Salvar e Selecionar Local
+            <div class="modal-footer border-0 pt-0 px-4 pb-3">
+                <button type="button" class="btn btn-light btn-sm btn-rounded px-3" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary btn-sm btn-rounded px-4 fw-bold" id="btnSalvarNovoLocalLote" onclick="salvarNovoLocalLoteAjax()">
+                    <i class="bi bi-check-lg me-1"></i> Salvar e Selecionar
                 </button>
             </div>
         </div>
@@ -1448,8 +1340,6 @@
 </div>
 
 <script>
-    const SUGESTOES_LOCAIS_DESTINO = {{ locais_destino_sugestoes|tojson if locais_destino_sugestoes else '[]' }};
-
     function aplicarQuantidadeLote(codigoLote, valorDigitado) {
         const inputQtd = document.getElementById('input_qtd_' + codigoLote);
         const maxDisp = parseInt(inputQtd ? inputQtd.dataset.max : '0', 10) || 0;
@@ -1460,12 +1350,6 @@
             if (inputQtd) inputQtd.value = maxDisp;
         }
 
-        const checkboxes = document.querySelectorAll('.chk-' + codigoLote);
-        checkboxes.forEach((chk, index) => {
-            chk.checked = (index < qtd);
-        });
-
-        // Preenche automaticamente a Secretaria de Origem a partir do lote selecionado
         if (qtd > 0) {
             const trLote = document.querySelector(`.linha-lote-transf[data-codigo="${codigoLote}"]`);
             const secId = trLote ? trLote.dataset.secretaria : '';
@@ -1486,27 +1370,34 @@
         aplicarQuantidadeLote(codigoLote, maxDisp);
     }
 
-    function sincronizarQtdPeloCheckbox(codigoLote) {
-        const checkboxes = document.querySelectorAll('.chk-' + codigoLote);
-        let marcados = 0;
-        checkboxes.forEach(chk => {
-            if (chk.checked) marcados++;
-        });
-        const inputQtd = document.getElementById('input_qtd_' + codigoLote);
-        if (inputQtd) {
-            inputQtd.value = marcados;
-        }
-        recalcularResumoTransferenciaLote();
-    }
-
     function recalcularResumoTransferenciaLote() {
-        const todosMarcados = document.querySelectorAll('.chk-item-lote:checked');
-        let qtdTotal = todosMarcados.length;
+        let qtdTotal = 0;
         let somaValor = 0.0;
+        const containerIds = document.getElementById('containerInputsIdsTransferencia');
+        let htmlInputs = '';
 
-        todosMarcados.forEach(chk => {
-            somaValor += parseFloat(chk.dataset.valor || '0') || 0.0;
+        document.querySelectorAll('.linha-lote-transf').forEach(tr => {
+            const codigo = tr.dataset.codigo;
+            const inputQtd = document.getElementById('input_qtd_' + codigo);
+            const qtd = parseInt(inputQtd ? inputQtd.value : '0', 10) || 0;
+            if (qtd > 0) {
+                const valorUnit = parseFloat(tr.dataset.valor || '0') || 0.0;
+                let idsLista = [];
+                try {
+                    idsLista = JSON.parse(tr.dataset.ids || '[]');
+                } catch (e) {
+                    idsLista = [];
+                }
+                const selecionados = idsLista.slice(0, qtd);
+                qtdTotal += selecionados.length;
+                somaValor += selecionados.length * valorUnit;
+                selecionados.forEach(idItem => {
+                    htmlInputs += `<input type="hidden" name="patrimonio_ids[]" value="${idItem}">`;
+                });
+            }
         });
+
+        if (containerIds) containerIds.innerHTML = htmlInputs;
 
         const lblQtd = document.getElementById('lblTotalItensTransferirLote');
         const lblVal = document.getElementById('lblValorTotalTransferirLote');
@@ -1521,7 +1412,6 @@
 
     function zerarSelecaoTransferenciaLote() {
         document.querySelectorAll('.input-qtd-lote').forEach(inp => { inp.value = 0; });
-        document.querySelectorAll('.chk-item-lote').forEach(chk => { chk.checked = false; });
         recalcularResumoTransferenciaLote();
     }
 
@@ -1677,31 +1567,53 @@
         const modalEl = document.getElementById('modalTransferenciaLote');
         const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
         modalInstance.show();
+        setTimeout(() => {
+            document.body.classList.add('modal-open');
+        }, 350);
     }
 
     function abrirModalTransferenciaPorNF(fornecedorNome, numeroNF) {
-        // Fecha qualquer modal de fornecedor aberto antes de exibir o modal de transferência em lote
         document.querySelectorAll('.modal.show').forEach(m => {
             const inst = bootstrap.Modal.getInstance(m);
             if (inst) inst.hide();
         });
         setTimeout(() => {
             abrirModalTransferenciaLote(fornecedorNome, numeroNF);
-        }, 220);
+        }, 300);
     }
 
+    // Garante que fechar o modal de Novo Local não trave a rolagem do modal principal
+    document.addEventListener('DOMContentLoaded', function() {
+        const modalNovoLocalEl = document.getElementById('modalNovoLocalLote');
+        if (modalNovoLocalEl) {
+            modalNovoLocalEl.addEventListener('hidden.bs.modal', function() {
+                const modalTransf = document.getElementById('modalTransferenciaLote');
+                if (modalTransf && modalTransf.classList.contains('show')) {
+                    document.body.classList.add('modal-open');
+                }
+            });
+        }
+    });
+
     function submeterTransferenciaLote(acao) {
+        recalcularResumoTransferenciaLote();
         const form = document.getElementById('formTransferenciaLote');
         const inputDestino = document.getElementById('inputLocalDestinoLote');
+        const selectSec = document.getElementById('selectSecretariaOrigemLote');
         const inputAcao = document.getElementById('inputAcaoAposTransferencia');
-        const qtdMarcados = document.querySelectorAll('.chk-item-lote:checked').length;
+        const qtdMarcados = document.querySelectorAll('#containerInputsIdsTransferencia input').length;
 
         if (qtdMarcados === 0) {
-            alert('Informe a quantidade de bens que deseja transferir.');
+            alert('Digite a quantidade de bens que deseja enviar.');
+            return;
+        }
+        if (selectSec && !selectSec.value) {
+            alert('Selecione a Secretaria de Origem.');
+            selectSec.focus();
             return;
         }
         if (!inputDestino || !inputDestino.value.trim()) {
-            alert('Informe o Local de Destino (ex: nome da escola ou setor).');
+            alert('Informe ou selecione o Local de Destino (ex: nome da escola ou setor).');
             inputDestino.focus();
             return;
         }

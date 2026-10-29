@@ -1117,6 +1117,7 @@
                                 <tr class="linha-lote-transf"
                                     data-codigo="{{ lote.codigo_lote }}"
                                     data-local="{{ lote.local_atual|lower }}"
+                                    data-secretaria="{{ lote.secretaria_id or '' }}"
                                     data-busca="{{ (lote.descricao ~ ' ' ~ lote.fornecedor ~ ' ' ~ lote.nota_fiscal ~ ' ' ~ lote.marca_modelo)|lower }}"
                                     data-max="{{ lote.qtd_disponivel }}">
                                     <td>
@@ -1214,79 +1215,126 @@
                         </table>
                     </div>
 
-                    <!-- PASSO 2: LOCAL DE DESTINO E RESPONSÁVEL PELO RECEBIMENTO -->
-                    <h6 class="fw-bold text-dark mb-2">
-                        <span class="badge bg-success rounded-pill me-1">2</span>
-                        Informe o Destino da Remessa (Escola / Unidade / Setor)
-                    </h6>
+                    <!-- PASSO 2: SECRETARIA DE ORIGEM, LOCAL DE DESTINO E RESPONSÁVEL (IGUAL AO CADASTRO DE BENS) -->
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold text-dark mb-0">
+                            <span class="badge bg-success rounded-pill me-1">2</span>
+                            Secretaria de Origem, Local de Destino e Responsável pelo Bem
+                        </h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-rounded fw-semibold" data-bs-toggle="modal" data-bs-target="#modalNovoLocalLote">
+                            <i class="bi bi-plus-circle-fill me-1"></i> Cadastrar Novo Local Agora
+                        </button>
+                    </div>
 
                     <div class="p-3 rounded-4 border" style="background: #f8fafd;">
                         <div class="row g-3">
-                            <div class="col-md-5">
-                                <label class="form-label small fw-bold text-dark mb-1">
-                                    Local de Destino (Escola, Sala, Unidade ou Setor) <span class="text-danger">*</span>
+                            <!-- Secretaria de Origem -->
+                            <div class="col-md-4">
+                                <label for="selectSecretariaOrigemLote" class="form-label small fw-bold text-dark mb-1">
+                                    Secretaria de Origem <span class="text-danger">*</span>
                                 </label>
-                                <input type="text"
-                                       name="local_destino"
-                                       id="inputLocalDestinoLote"
-                                       class="form-control fw-semibold"
-                                       list="datalistLocaisDestinoLote"
-                                       placeholder="Digite ou selecione a Escola / Setor de destino..."
-                                       oninput="preencherDadosLocalDestino(this.value)"
-                                       required>
-                                <datalist id="datalistLocaisDestinoLote">
-                                    {% for loc_sug in locais_destino_sugestoes %}
-                                        <option value="{{ loc_sug.nome }}" label="{{ loc_sug.tipo }}"></option>
-                                    {% endfor %}
-                                </datalist>
-                                <small class="text-muted" style="font-size: 0.72rem;">
-                                    Você pode escolher uma escola/local da lista ou digitar o nome de um novo local.
-                                </small>
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label small fw-bold text-dark mb-1">
-                                    Secretaria de Destino
-                                </label>
-                                <select name="secretaria_destino_id" id="selectSecretariaDestinoLote" class="form-select">
-                                    <option value="">-- Manter atual / Opcional --</option>
+                                <select name="secretaria_origem_id" id="selectSecretariaOrigemLote" class="form-select" required>
+                                    <option value="">-- Selecione a Secretaria de Origem --</option>
                                     {% for sec in secretarias %}
                                         <option value="{{ sec.id }}">{{ sec.nome }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
 
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold text-dark mb-1">
-                                    Responsável pelo Recebimento no Local
+                            <!-- Local de Destino (mesmo padrão do Cadastro de Bens: Dropdown + Campo Texto + Botão Novo Local) -->
+                            <div class="col-md-8">
+                                <label for="inputLocalDestinoLote" class="form-label small fw-bold text-dark mb-1 d-flex justify-content-between align-items-center">
+                                    <span>Local de Destino (Unidade / Escola / Prédio / Sala) <span class="text-danger">*</span></span>
+                                    <a href="javascript:void(0)" class="text-primary small fw-bold text-decoration-none" data-bs-toggle="modal" data-bs-target="#modalNovoLocalLote">
+                                        <i class="bi bi-plus-lg"></i> Novo Local
+                                    </a>
                                 </label>
-                                <input type="text"
-                                       name="responsavel_novo_nome"
-                                       id="inputResponsavelDestinoLote"
-                                       class="form-control"
-                                       placeholder="Digite o nome do diretor(a) / responsável...">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light"><i class="bi bi-geo-alt-fill text-primary"></i></span>
+                                    <select class="form-select" id="selectLocalCadastradoLote" onchange="aoSelecionarLocalDropdownLote(this)" style="max-width: 48%;">
+                                        <option value="">-- Escolher local cadastrado --</option>
+                                        {% if locais_db %}
+                                        <optgroup label="Locais / Setores Cadastrados" id="optgroupLocaisCadastradosLote">
+                                            {% for loc in locais_db %}
+                                                <option value="{{ loc.nome }}"
+                                                        data-id="{{ loc.id }}"
+                                                        data-secretaria="{{ loc.secretaria_id or '' }}"
+                                                        data-responsavel="{{ loc.responsavel_setor or '' }}">
+                                                    {{ loc.nome }}
+                                                </option>
+                                            {% endfor %}
+                                        </optgroup>
+                                        {% else %}
+                                        <optgroup label="Locais / Setores Cadastrados" id="optgroupLocaisCadastradosLote"></optgroup>
+                                        {% endif %}
+
+                                        {% if escolas %}
+                                        <optgroup label="Unidades Escolares">
+                                            {% for esc in escolas %}
+                                                <option value="{{ esc.nome }}">{{ esc.nome }}</option>
+                                            {% endfor %}
+                                        </optgroup>
+                                        {% endif %}
+
+                                        {% if locais_legados %}
+                                        <optgroup label="Outros Locais Utilizados">
+                                            {% for loc_nome in locais_legados %}
+                                                <option value="{{ loc_nome }}">{{ loc_nome }}</option>
+                                            {% endfor %}
+                                        </optgroup>
+                                        {% endif %}
+                                    </select>
+                                    <input type="text"
+                                           class="form-control fw-semibold"
+                                           name="local_destino"
+                                           id="inputLocalDestinoLote"
+                                           placeholder="Ou digite / complemente (Ex: Escola Municipal X - Sala 02)"
+                                           required>
+                                    <input type="hidden" name="local_id" id="inputLocalIdLote" value="">
+                                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNovoLocalLote" title="Cadastrar Novo Local">
+                                        <i class="bi bi-plus-lg"></i> Novo Local
+                                    </button>
+                                </div>
+                                <small class="text-muted" style="font-size: 0.72rem;">
+                                    Selecione um local da lista, digite diretamente ou clique em <strong>"+ Novo Local"</strong> para salvar um novo setor no sistema.
+                                </small>
                             </div>
 
+                            <!-- Responsável pelo Bem no Local de Destino -->
                             <div class="col-md-4">
                                 <label class="form-label small fw-bold text-dark mb-1">
-                                    Cargo / Função do Recebedor (Opcional)
+                                    Responsável pelo Recebimento (Digite o Nome)
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light"><i class="bi bi-person-vcard text-primary"></i></span>
+                                    <input type="text"
+                                           name="responsavel_novo_nome"
+                                           id="inputResponsavelDestinoLote"
+                                           class="form-control"
+                                           placeholder="Digite o nome do diretor(a) / responsável...">
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-dark mb-1">
+                                    Cargo / Função (Opcional)
                                 </label>
                                 <input type="text"
                                        name="responsavel_novo_cargo"
                                        id="inputCargoDestinoLote"
-                                       class="form-control form-control-sm"
-                                       placeholder="Ex: Diretor(a) Escolar, Coordenador(a)...">
+                                       class="form-control"
+                                       placeholder="Ex: Diretor(a), Coordenador(a)...">
                             </div>
 
-                            <div class="col-md-8">
+                            <div class="col-md-5">
                                 <label class="form-label small fw-bold text-dark mb-1">
                                     Motivo / Observação da Remessa
                                 </label>
                                 <input type="text"
                                        name="motivo_transferencia"
                                        id="inputMotivoDestinoLote"
-                                       class="form-control form-control-sm"
-                                       placeholder="Ex: Remessa de mobiliário do Depósito para atendimento à unidade escolar...">
+                                       class="form-control"
+                                       placeholder="Ex: Remessa de mobiliário do Depósito para a escola...">
                             </div>
                         </div>
                     </div>
@@ -1328,6 +1376,77 @@
     </div>
 </div>
 
+<!-- ========================================================================= -->
+<!-- MODAL AUXILIAR: CADASTRAR NOVO LOCAL DE DESTINO NA HORA                   -->
+<!-- ========================================================================= -->
+<div class="modal fade" id="modalNovoLocalLote" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 18px;">
+            <div class="modal-header bg-primary text-white border-0" style="border-top-left-radius: 18px; border-top-right-radius: 18px;">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-geo-alt-fill me-2"></i> Cadastrar Novo Local / Setor
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted small mb-3">
+                    Cadastre a unidade, escola, prédio ou sala de destino. Ele será selecionado automaticamente na transferência.
+                </p>
+                <div id="alertaModalLocalLote" class="alert d-none py-2 small"></div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Secretaria Vinculada</label>
+                    <select class="form-select" id="novoLocalLoteSecretariaId">
+                        <option value="">-- Selecione (Opcional) --</option>
+                        {% for sec in secretarias %}
+                            <option value="{{ sec.id }}">{{ sec.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Prédio / Unidade / Escola*</label>
+                    <input type="text" class="form-control" id="novoLocalLotePredio"
+                           oninput="comporNomeLocalModalLote()"
+                           placeholder="Ex: Escola Municipal X, Sede da SEMED, Prefeitura...">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Sala / Setor / Ambiente Específico*</label>
+                    <input type="text" class="form-control" id="novoLocalLoteSala"
+                           oninput="comporNomeLocalModalLote()"
+                           placeholder="Ex: Sala 04, Diretoria, Secretaria Escolar, Depósito...">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Nome de Exibição do Local (Gerado ou Personalizado)</label>
+                    <input type="text" class="form-control bg-light fw-semibold" id="novoLocalLoteNomeCompleto"
+                           placeholder="Ex: Escola Municipal X - Sala 04">
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Responsável pelo Local (Opcional)</label>
+                        <input type="text" class="form-control" id="novoLocalLoteResponsavel"
+                               placeholder="Digite o nome do responsável...">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Endereço / Referência (Opcional)</label>
+                        <input type="text" class="form-control" id="novoLocalLoteEndereco"
+                               placeholder="Rua, Bairro...">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0 px-4 pb-4">
+                <button type="button" class="btn btn-light btn-rounded px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary btn-rounded px-4 fw-bold" id="btnSalvarNovoLocalLote" onclick="salvarNovoLocalLoteAjax()">
+                    <i class="bi bi-check-lg me-1"></i> Salvar e Selecionar Local
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     const SUGESTOES_LOCAIS_DESTINO = {{ locais_destino_sugestoes|tojson if locais_destino_sugestoes else '[]' }};
 
@@ -1345,6 +1464,16 @@
         checkboxes.forEach((chk, index) => {
             chk.checked = (index < qtd);
         });
+
+        // Preenche automaticamente a Secretaria de Origem a partir do lote selecionado
+        if (qtd > 0) {
+            const trLote = document.querySelector(`.linha-lote-transf[data-codigo="${codigoLote}"]`);
+            const secId = trLote ? trLote.dataset.secretaria : '';
+            const selectSecOrigem = document.getElementById('selectSecretariaOrigemLote');
+            if (secId && selectSecOrigem && !selectSecOrigem.value) {
+                selectSecOrigem.value = String(secId);
+            }
+        }
 
         recalcularResumoTransferenciaLote();
     }
@@ -1420,19 +1549,113 @@
         filtrarLotesTransferencia();
     }
 
-    function preencherDadosLocalDestino(nomeLocalDigitado) {
-        if (!nomeLocalDigitado) return;
-        const limpo = nomeLocalDigitado.trim().toLowerCase();
-        const encontrado = SUGESTOES_LOCAIS_DESTINO.find(l => (l.nome || '').toLowerCase() === limpo);
-        if (encontrado) {
-            const inputResp = document.getElementById('inputResponsavelDestinoLote');
-            const selectSec = document.getElementById('selectSecretariaDestinoLote');
-            if (encontrado.responsavel && inputResp && !inputResp.value) {
-                inputResp.value = encontrado.responsavel;
+    function aoSelecionarLocalDropdownLote(selectEl) {
+        const opt = selectEl.options[selectEl.selectedIndex];
+        const inputLocalizacao = document.getElementById('inputLocalDestinoLote');
+        const inputLocalId = document.getElementById('inputLocalIdLote');
+        if (!opt || !opt.value) {
+            if (inputLocalId) inputLocalId.value = '';
+            return;
+        }
+        if (inputLocalizacao) inputLocalizacao.value = opt.value;
+        if (inputLocalId) inputLocalId.value = opt.getAttribute('data-id') || '';
+
+        const secId = opt.getAttribute('data-secretaria');
+        const selectSec = document.getElementById('selectSecretariaOrigemLote');
+        if (secId && selectSec && !selectSec.value) {
+            selectSec.value = secId;
+        }
+
+        const respSetor = opt.getAttribute('data-responsavel');
+        const inputResp = document.getElementById('inputResponsavelDestinoLote');
+        if (respSetor && inputResp && !inputResp.value.trim()) {
+            inputResp.value = respSetor;
+        }
+    }
+
+    function comporNomeLocalModalLote() {
+        const p = (document.getElementById('novoLocalLotePredio').value || '').trim();
+        const s = (document.getElementById('novoLocalLoteSala').value || '').trim();
+        const inputNome = document.getElementById('novoLocalLoteNomeCompleto');
+        if (!inputNome) return;
+        if (p && s) {
+            inputNome.value = `${p} - ${s}`;
+        } else if (p) {
+            inputNome.value = p;
+        } else if (s) {
+            inputNome.value = s;
+        }
+    }
+
+    async function salvarNovoLocalLoteAjax() {
+        const predio = (document.getElementById('novoLocalLotePredio').value || '').trim();
+        const sala = (document.getElementById('novoLocalLoteSala').value || '').trim();
+        const nomeCompleto = (document.getElementById('novoLocalLoteNomeCompleto').value || '').trim();
+        const responsavel = (document.getElementById('novoLocalLoteResponsavel').value || '').trim();
+        const endereco = (document.getElementById('novoLocalLoteEndereco').value || '').trim();
+        const secretariaId = document.getElementById('novoLocalLoteSecretariaId').value;
+        const alerta = document.getElementById('alertaModalLocalLote');
+        const btn = document.getElementById('btnSalvarNovoLocalLote');
+
+        if (!nomeCompleto && !predio && !sala) {
+            alerta.className = 'alert alert-warning py-2 small';
+            alerta.textContent = 'Informe pelo menos a Unidade/Escola ou Sala/Setor.';
+            return;
+        }
+
+        btn.disabled = true;
+        try {
+            const resp = await fetch("{{ url_for('patrimonio.api_novo_local') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nome: nomeCompleto,
+                    predio_unidade: predio,
+                    sala_setor: sala,
+                    responsavel_setor: responsavel,
+                    endereco: endereco,
+                    secretaria_id: secretariaId
+                })
+            });
+            const dados = await resp.json();
+            if (!dados.success) {
+                alerta.className = 'alert alert-danger py-2 small';
+                alerta.textContent = dados.message || 'Erro ao salvar local.';
+                btn.disabled = false;
+                return;
             }
-            if (encontrado.secretaria_id && selectSec && !selectSec.value) {
-                selectSec.value = String(encontrado.secretaria_id);
+
+            const loc = dados.local;
+            const optGroup = document.getElementById('optgroupLocaisCadastradosLote');
+            const selectLoc = document.getElementById('selectLocalCadastradoLote');
+            if (optGroup && selectLoc) {
+                const novaOpt = document.createElement('option');
+                novaOpt.value = loc.nome;
+                novaOpt.textContent = loc.nome;
+                novaOpt.setAttribute('data-id', loc.id);
+                novaOpt.setAttribute('data-secretaria', loc.secretaria_id || '');
+                novaOpt.setAttribute('data-responsavel', loc.responsavel_setor || '');
+                optGroup.appendChild(novaOpt);
+                selectLoc.value = loc.nome;
             }
+
+            document.getElementById('inputLocalDestinoLote').value = loc.nome;
+            document.getElementById('inputLocalIdLote').value = loc.id || '';
+            if (loc.responsavel_setor && !document.getElementById('inputResponsavelDestinoLote').value) {
+                document.getElementById('inputResponsavelDestinoLote').value = loc.responsavel_setor;
+            }
+            if (loc.secretaria_id && !document.getElementById('selectSecretariaOrigemLote').value) {
+                document.getElementById('selectSecretariaOrigemLote').value = String(loc.secretaria_id);
+            }
+
+            const modalNovoEl = document.getElementById('modalNovoLocalLote');
+            const instNovo = bootstrap.Modal.getInstance(modalNovoEl);
+            if (instNovo) instNovo.hide();
+        } catch (err) {
+            alerta.className = 'alert alert-danger py-2 small';
+            alerta.textContent = 'Erro de comunicação ao salvar o local.';
+        } finally {
+            btn.disabled = false;
         }
     }
 

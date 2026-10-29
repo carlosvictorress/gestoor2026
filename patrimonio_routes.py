@@ -510,6 +510,7 @@ def listar_itens():
                 'categoria': bem_t.categoria or '-',
                 'marca_modelo': " / ".join([x for x in [bem_t.marca, bem_t.modelo] if x]) or '-',
                 'local_atual': local_limpo,
+                'secretaria_id': bem_t.secretaria_id or '',
                 'fornecedor': forn_limpo,
                 'nota_fiscal': nf_limpa,
                 'empenho': bem_t.numero_empenho or (nf_rel_t.numero_empenho if nf_rel_t else None) or '-',
@@ -517,6 +518,8 @@ def listar_itens():
                 'valor_unitario_fmt': f"{(bem_t.valor_aquisicao or 0.0):,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
                 'bens_objs': [],
             }
+        elif not mapa_lotes_transf[chave_lote]['secretaria_id'] and bem_t.secretaria_id:
+            mapa_lotes_transf[chave_lote]['secretaria_id'] = bem_t.secretaria_id
         mapa_lotes_transf[chave_lote]['bens_objs'].append(bem_t)
 
     lotes_transferencia = []
@@ -551,6 +554,7 @@ def listar_itens():
             'categoria': dados_lote['categoria'],
             'marca_modelo': dados_lote['marca_modelo'],
             'local_atual': dados_lote['local_atual'],
+            'secretaria_id': dados_lote['secretaria_id'],
             'fornecedor': dados_lote['fornecedor'],
             'nota_fiscal': dados_lote['nota_fiscal'],
             'empenho': dados_lote['empenho'],
@@ -630,6 +634,8 @@ def listar_itens():
         secretarias=secretarias,
         notas_recentes=notas_recentes,
         locais_db=locais_db,
+        locais_legados=locais_legados,
+        escolas=escolas_ativas,
         filtros={
             'secretaria_id': secretaria_filtro,
             'categoria': categoria_filtro,
@@ -1752,7 +1758,7 @@ def transferir_itens_lote():
     novo_responsavel_nome = (request.form.get('responsavel_novo_nome') or '').strip() or None
     novo_responsavel_cargo = (request.form.get('responsavel_novo_cargo') or '').strip() or None
     motivo_transferencia = (request.form.get('motivo_transferencia') or '').strip() or None
-    nova_secretaria_id_raw = request.form.get('secretaria_destino_id')
+    nova_secretaria_id_raw = request.form.get('secretaria_origem_id') or request.form.get('secretaria_destino_id')
     nova_secretaria_id = int(nova_secretaria_id_raw) if nova_secretaria_id_raw and str(nova_secretaria_id_raw).isdigit() else None
     acao_apos = (request.form.get('acao_apos') or 'salvar').strip()
 

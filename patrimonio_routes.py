@@ -1761,6 +1761,7 @@ def transferir_itens_lote():
     nova_secretaria_id_raw = request.form.get('secretaria_origem_id') or request.form.get('secretaria_destino_id')
     nova_secretaria_id = int(nova_secretaria_id_raw) if nova_secretaria_id_raw and str(nova_secretaria_id_raw).isdigit() else None
     acao_apos = (request.form.get('acao_apos') or 'salvar').strip()
+    incluir_valores = (request.form.get('incluir_valores') or 'sim').strip()
 
     if not ids_selecionados:
         flash('Informe a quantidade de bens (ou selecione os itens) que deseja transferir.', 'warning')
@@ -1848,6 +1849,7 @@ def transferir_itens_lote():
             'responsavel_novo_nome': novo_responsavel_nome or '',
             'responsavel_novo_cargo': novo_responsavel_cargo or '',
             'motivo_transferencia': motivo_transferencia or '',
+            'incluir_valores': incluir_valores,
             'data_hora': obter_data_hora_br_str(),
         }
 
@@ -1862,7 +1864,7 @@ def transferir_itens_lote():
         )
 
         if acao_apos == 'pdf':
-            return redirect(url_for('patrimonio.gerar_termo_remessa_lote_pdf'))
+            return redirect(url_for('patrimonio.gerar_termo_remessa_lote_pdf', incluir_valores=incluir_valores))
 
     except Exception as e:
         db.session.rollback()
@@ -2074,6 +2076,8 @@ def gerar_termo_remessa_lote_pdf():
 
     soma_total = sum((b.valor_aquisicao or 0.0) for b in bens)
     soma_total_fmt = f"R$ {soma_total:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    incluir_valores_param = (request.args.get('incluir_valores') or dados_remessa.get('incluir_valores') or 'sim').strip().lower()
+    mostrar_valores = (incluir_valores_param != 'nao')
 
     dados_quadro_remessa = [
         [
@@ -2095,8 +2099,8 @@ def gerar_termo_remessa_lote_pdf():
                 f"{' (' + cargo_destino + ')' if cargo_destino else ''}",
                 style_celula
             ),
-            Paragraph("<b>VALOR CONTÁBIL DA REMESSA:</b>", style_celula),
-            Paragraph(f"<b>{soma_total_fmt}</b>", style_celula_bold),
+            Paragraph("<b>VALOR CONTÁBIL DA REMESSA:</b>" if mostrar_valores else "<b>TIPO DE GUIA:</b>", style_celula),
+            Paragraph(f"<b>{soma_total_fmt}</b>" if mostrar_valores else "<b>Conferência Física de Bens</b>", style_celula_bold),
         ],
         [
             Paragraph("<b>MOTIVO / OBSERVAÇÃO DA REMESSA:</b>", style_celula),
@@ -2120,16 +2124,28 @@ def gerar_termo_remessa_lote_pdf():
     elementos.append(tabela_meta)
     elementos.append(Spacer(1, 0.35 * cm))
 
-    cabecalho_tabela = [
-        Paragraph("ITEM", style_header_tabela),
-        Paragraph("Nº TOMBAMENTO", style_header_tabela),
-        Paragraph("DESCRIÇÃO DO BEM PATRIMONIAL", style_header_tabela),
-        Paragraph("MARCA / MODELO", style_header_tabela),
-        Paragraph("NOTA FISCAL / FORNECEDOR", style_header_tabela),
-        Paragraph("ESTADO DO BEM", style_header_tabela),
-        Paragraph("VALOR UNIT. (R$)", style_header_tabela),
-        Paragraph("CONF.", style_header_tabela),
-    ]
+    if mostrar_valores:
+        cabecalho_tabela = [
+            Paragraph("ITEM", style_header_tabela),
+            Paragraph("Nº TOMBAMENTO", style_header_tabela),
+            Paragraph("DESCRIÇÃO DO BEM PATRIMONIAL", style_header_tabela),
+            Paragraph("MARCA / MODELO", style_header_tabela),
+            Paragraph("NOTA FISCAL / FORNECEDOR", style_header_tabela),
+            Paragraph("ESTADO DO BEM", style_header_tabela),
+            Paragraph("VALOR UNIT. (R$)", style_header_tabela),
+            Paragraph("CONF.", style_header_tabela),
+        ]
+    else:
+        cabecalho_tabela = [
+            Paragraph("ITEM", style_header_tabela),
+            Paragraph("Nº TOMBAMENTO", style_header_tabela),
+            Paragraph("DESCRIÇÃO DO BEM PATRIMONIAL", style_header_tabela),
+            Paragraph("MARCA / MODELO", style_header_tabela),
+            Paragraph("NOTA FISCAL / FORNECEDOR", style_header_tabela),
+            Paragraph("ESTADO DO BEM", style_header_tabela),
+            Paragraph("CONF.", style_header_tabela),
+        ]
+
     linhas_tabela = [cabecalho_tabela]
 
     for idx, b in enumerate(bens, start=1):
@@ -2139,38 +2155,70 @@ def gerar_termo_remessa_lote_pdf():
             nf_forn += f"<br/><font size=6.5 color='#475569'>{b.fornecedor_nome[:35]}</font>"
         val_fmt = f"{(b.valor_aquisicao or 0.0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
+        if mostrar_valores:
+            linhas_tabela.append([
+                Paragraph(f"{idx:02d}", style_celula_center),
+                Paragraph(f"<b>{b.numero_patrimonio or 'S/N'}</b>", style_celula_center),
+                Paragraph(f"<b>{b.descricao}</b>", style_celula),
+                Paragraph(marca_mod, style_celula),
+                Paragraph(nf_forn, style_celula),
+                Paragraph(f"<b>{(b.estado_conservacao or 'Bom').upper()}</b>", style_celula_center),
+                Paragraph(val_fmt, style_celula_right),
+                Paragraph("[   ]", style_celula_center),
+            ])
+        else:
+            linhas_tabela.append([
+                Paragraph(f"{idx:02d}", style_celula_center),
+                Paragraph(f"<b>{b.numero_patrimonio or 'S/N'}</b>", style_celula_center),
+                Paragraph(f"<b>{b.descricao}</b>", style_celula),
+                Paragraph(marca_mod, style_celula),
+                Paragraph(nf_forn, style_celula),
+                Paragraph(f"<b>{(b.estado_conservacao or 'Bom').upper()}</b>", style_celula_center),
+                Paragraph("[   ]", style_celula_center),
+            ])
+
+    if mostrar_valores:
         linhas_tabela.append([
-            Paragraph(f"{idx:02d}", style_celula_center),
-            Paragraph(f"<b>{b.numero_patrimonio or 'S/N'}</b>", style_celula_center),
-            Paragraph(f"<b>{b.descricao}</b>", style_celula),
-            Paragraph(marca_mod, style_celula),
-            Paragraph(nf_forn, style_celula),
-            Paragraph(f"<b>{(b.estado_conservacao or 'Bom').upper()}</b>", style_celula_center),
-            Paragraph(val_fmt, style_celula_right),
-            Paragraph("[   ]", style_celula_center),
+            Paragraph("", style_celula),
+            Paragraph("", style_celula),
+            Paragraph(f"<b>TOTAL DE BENS TRANSFERIDOS NESTA REMESSA: {len(bens)} UNIDADE(S)</b>", style_celula_bold),
+            Paragraph("", style_celula),
+            Paragraph("", style_celula),
+            Paragraph("<b>TOTAL:</b>", style_celula_center),
+            Paragraph(f"<b>{soma_total_fmt}</b>", style_celula_right),
+            Paragraph("", style_celula),
         ])
-
-    linhas_tabela.append([
-        Paragraph("", style_celula),
-        Paragraph("", style_celula),
-        Paragraph(f"<b>TOTAL DE BENS TRANSFERIDOS NESTA REMESSA: {len(bens)} UNIDADE(S)</b>", style_celula_bold),
-        Paragraph("", style_celula),
-        Paragraph("", style_celula),
-        Paragraph("<b>TOTAL:</b>", style_celula_center),
-        Paragraph(f"<b>{soma_total_fmt}</b>", style_celula_right),
-        Paragraph("", style_celula),
-    ])
-
-    larguras_colunas = [
-        1.2 * cm,  # ITEM
-        2.8 * cm,  # TOMBAMENTO
-        8.2 * cm,  # DESCRIÇÃO
-        3.8 * cm,  # MARCA/MODELO
-        5.2 * cm,  # NF/FORNECEDOR
-        2.5 * cm,  # ESTADO
-        2.4 * cm,  # VALOR
-        1.2 * cm,  # CONF.
-    ]
+        larguras_colunas = [
+            1.2 * cm,  # ITEM
+            2.8 * cm,  # TOMBAMENTO
+            8.2 * cm,  # DESCRIÇÃO
+            3.8 * cm,  # MARCA/MODELO
+            5.2 * cm,  # NF/FORNECEDOR
+            2.5 * cm,  # ESTADO
+            2.4 * cm,  # VALOR
+            1.2 * cm,  # CONF.
+        ]
+        span_final = ('SPAN', (2, -1), (4, -1))
+    else:
+        linhas_tabela.append([
+            Paragraph("", style_celula),
+            Paragraph("", style_celula),
+            Paragraph(f"<b>TOTAL DE BENS TRANSFERIDOS NESTA REMESSA: {len(bens)} UNIDADE(S)</b>", style_celula_bold),
+            Paragraph("", style_celula),
+            Paragraph("", style_celula),
+            Paragraph("", style_celula),
+            Paragraph("", style_celula),
+        ])
+        larguras_colunas = [
+            1.2 * cm,  # ITEM
+            3.0 * cm,  # TOMBAMENTO
+            9.6 * cm,  # DESCRIÇÃO
+            4.4 * cm,  # MARCA/MODELO
+            5.4 * cm,  # NF/FORNECEDOR
+            2.5 * cm,  # ESTADO
+            1.2 * cm,  # CONF.
+        ]
+        span_final = ('SPAN', (2, -1), (5, -1))
 
     tabela_bens = Table(linhas_tabela, colWidths=larguras_colunas, repeatRows=1)
     estilo_tabela_bens = [
@@ -2182,7 +2230,7 @@ def gerar_termo_remessa_lote_pdf():
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ('LEFTPADDING', (0, 0), (-1, -1), 4),
         ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-        ('SPAN', (2, -1), (4, -1)),
+        span_final,
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#e2e8f0")),
     ]
     for row_idx in range(1, len(linhas_tabela) - 1):

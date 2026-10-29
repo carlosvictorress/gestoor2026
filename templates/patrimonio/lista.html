@@ -165,9 +165,12 @@
             <strong>{{ ultima_remessa.local_destino }}</strong>
             {% if ultima_remessa.responsavel_novo_nome %} (Resp: {{ ultima_remessa.responsavel_novo_nome }}){% endif %}.
         </div>
-        <div class="d-flex gap-2">
-            <a href="{{ url_for('patrimonio.gerar_termo_remessa_lote_pdf') }}" target="_blank" class="btn btn-sm btn-danger btn-rounded fw-bold shadow-sm">
-                <i class="bi bi-file-earmark-pdf-fill me-1"></i> Imprimir Guia / Termo de Remessa (PDF)
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ url_for('patrimonio.gerar_termo_remessa_lote_pdf', incluir_valores='sim') }}" target="_blank" class="btn btn-sm btn-danger btn-rounded fw-bold shadow-sm">
+                <i class="bi bi-file-earmark-pdf-fill me-1"></i> PDF com Valores
+            </a>
+            <a href="{{ url_for('patrimonio.gerar_termo_remessa_lote_pdf', incluir_valores='nao') }}" target="_blank" class="btn btn-sm btn-outline-danger btn-rounded fw-bold shadow-sm bg-white">
+                <i class="bi bi-file-earmark-pdf me-1"></i> PDF sem Coluna de Valor
             </a>
         </div>
     </div>
@@ -1222,8 +1225,8 @@
                                 </div>
                             </div>
 
-                            <!-- Responsável e Observação -->
-                            <div class="col-md-6">
+                            <!-- Responsável, Observação e Opção de Valor no PDF -->
+                            <div class="col-md-4">
                                 <label class="form-label small fw-bold text-dark mb-1">
                                     Responsável pelo Recebimento (Digite o Nome)
                                 </label>
@@ -1234,7 +1237,7 @@
                                        placeholder="Nome de quem está recebendo os bens...">
                             </div>
 
-                            <div class="col-md-6">
+                            <div class="col-md-5">
                                 <label class="form-label small fw-bold text-dark mb-1">
                                     Motivo / Observação (Opcional)
                                 </label>
@@ -1243,6 +1246,16 @@
                                        id="inputMotivoDestinoLote"
                                        class="form-control form-control-sm"
                                        placeholder="Ex: Envio de mesas do depósito para a escola...">
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-dark mb-1">
+                                    Coluna Valor Unit. (R$) no PDF?
+                                </label>
+                                <select name="incluir_valores" id="selectIncluirValoresLote" class="form-select form-select-sm">
+                                    <option value="sim" selected>Sim (Com Valor R$)</option>
+                                    <option value="nao">Não (Sem coluna Valor)</option>
+                                </select>
                             </div>
                         </div>
                     </div>

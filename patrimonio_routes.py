@@ -1696,14 +1696,26 @@ def transferir_item(item_id):
     novo_responsavel_cargo = (request.form.get('responsavel_novo_cargo') or '').strip() or None
     motivo_transferencia = (request.form.get('motivo_transferencia') or '').strip() or None
     nova_secretaria_id = request.form.get('secretaria_destino_id')
+    numero_serie_informado = (request.form.get('numero_serie_transferencia') or request.form.get('numero_serie') or '').strip()
+    data_transf_date = _parse_data(request.form.get('data_transferencia'))
+    dt_mov = datetime.combine(data_transf_date, datetime.now().time()) if data_transf_date else datetime.now()
 
     if not novo_local:
         flash('O novo local é obrigatório para a transferência.', 'warning')
         return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
 
+    serie_efetiva = numero_serie_informado or (item.numero_serie or '').strip()
+    if not serie_efetiva:
+        flash('Para transferir o bem para outro setor/local, é obrigatório informar o "Nº de Série / Chassi / Placa".', 'warning')
+        return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
+
     try:
+        if numero_serie_informado:
+            item.numero_serie = numero_serie_informado
+
         movimentacao = MovimentacaoPatrimonio(
             patrimonio_id=item.id,
+            data_movimentacao=dt_mov,
             local_origem=local_origem,
             responsavel_anterior_cpf=responsavel_anterior_cpf,
             responsavel_anterior_nome=responsavel_anterior_nome,
@@ -1760,6 +1772,9 @@ def transferir_itens_lote():
     nova_secretaria_id = int(nova_secretaria_id_raw) if nova_secretaria_id_raw and str(nova_secretaria_id_raw).isdigit() else None
     acao_apos = (request.form.get('acao_apos') or 'salvar').strip()
     incluir_valores = (request.form.get('incluir_valores') or 'sim').strip()
+    data_transf_date = _parse_data(request.form.get('data_transferencia'))
+    dt_mov = datetime.combine(data_transf_date, datetime.now().time()) if data_transf_date else datetime.now()
+    data_transferencia_fmt = dt_mov.strftime('%d/%m/%Y')
 
     if not ids_selecionados:
         flash('Informe a quantidade de bens (ou selecione os itens) que deseja transferir.', 'warning')
@@ -1777,6 +1792,24 @@ def transferir_itens_lote():
 
         if not bens_transferir:
             flash('Nenhum bem patrimonial ativo foi encontrado para a seleção informada.', 'warning')
+            return redirect(url_for('patrimonio.listar_itens'))
+
+        # Valida e atualiza o Nº de Série / Chassi / Placa antes de efetivar a transferência
+        bens_sem_serie = []
+        for item_check in bens_transferir:
+            serie_form = (request.form.get(f'serie_item_{item_check.id}') or '').strip()
+            if serie_form:
+                item_check.numero_serie = serie_form
+            if not (item_check.numero_serie and str(item_check.numero_serie).strip()):
+                bens_sem_serie.append(item_check)
+
+        if bens_sem_serie:
+            db.session.rollback()
+            flash(
+                f'Atenção: {len(bens_sem_serie)} bem(ns) selecionado(s) não possuem "Nº de Série / Chassi / Placa". '
+                'Informe o número de série antes de concluir a transferência.',
+                'warning'
+            )
             return redirect(url_for('patrimonio.listar_itens'))
 
         # Verifica ou cria automaticamente o LocalPatrimonio de destino para manter o cadastro padronizado
@@ -1808,6 +1841,7 @@ def transferir_itens_lote():
 
             mov = MovimentacaoPatrimonio(
                 patrimonio_id=item.id,
+                data_movimentacao=dt_mov,
                 local_origem=local_origem_item,
                 responsavel_anterior_cpf=item.servidor_responsavel_cpf,
                 responsavel_anterior_nome=item.nome_responsavel_atual,
@@ -1848,6 +1882,7 @@ def transferir_itens_lote():
             'responsavel_novo_cargo': novo_responsavel_cargo or '',
             'motivo_transferencia': motivo_transferencia or '',
             'incluir_valores': incluir_valores,
+            'data_transferencia': data_transferencia_fmt,
             'data_hora': obter_data_hora_br_str(),
         }
 
@@ -1907,6 +1942,7 @@ def gerar_termo_remessa_lote_pdf():
     motivo_remessa = request.args.get('motivo') or dados_remessa.get('motivo_transferencia') or 'Distribuição / Transferência de Bens Patrimoniais'
     protocolo = dados_remessa.get('protocolo') or f"REM-{datetime.now().strftime('%Y%m%d-%H%M')}"
     data_emissao_str = dados_remessa.get('data_hora') or obter_data_hora_br_str()
+    data_transferencia_str = request.args.get('data_transf') or dados_remessa.get('data_transferencia') or datetime.now().strftime('%d/%m/%Y')
     usuario_emissor = session.get('username') or getattr(current_user, 'username', 'Controle Interno')
 
     secretaria_nome = "PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ"
@@ -2081,8 +2117,8 @@ def gerar_termo_remessa_lote_pdf():
         [
             Paragraph("<b>LOCAL DE ORIGEM (SAÍDA):</b>", style_celula),
             Paragraph(f"{local_origem}", style_celula),
-            Paragraph("<b>PROTOCOLO / DATA:</b>", style_celula),
-            Paragraph(f"<b>{protocolo}</b> ({data_emissao_str})", style_celula),
+            Paragraph("<b>DATA DA TRANSFERÊNCIA:</b>", style_celula),
+            Paragraph(f"<b>{data_transferencia_str}</b> (Prot: {protocolo})", style_celula),
         ],
         [
             Paragraph("<b>LOCAL DE DESTINO (RECEBEDOR):</b>", style_celula),
@@ -2127,7 +2163,7 @@ def gerar_termo_remessa_lote_pdf():
             Paragraph("ITEM", style_header_tabela),
             Paragraph("Nº TOMBAMENTO", style_header_tabela),
             Paragraph("DESCRIÇÃO DO BEM PATRIMONIAL", style_header_tabela),
-            Paragraph("MARCA / MODELO", style_header_tabela),
+            Paragraph("MARCA / MODELO / SÉRIE", style_header_tabela),
             Paragraph("NOTA FISCAL / FORNECEDOR", style_header_tabela),
             Paragraph("ESTADO DO BEM", style_header_tabela),
             Paragraph("VALOR UNIT. (R$)", style_header_tabela),
@@ -2138,7 +2174,7 @@ def gerar_termo_remessa_lote_pdf():
             Paragraph("ITEM", style_header_tabela),
             Paragraph("Nº TOMBAMENTO", style_header_tabela),
             Paragraph("DESCRIÇÃO DO BEM PATRIMONIAL", style_header_tabela),
-            Paragraph("MARCA / MODELO", style_header_tabela),
+            Paragraph("MARCA / MODELO / SÉRIE", style_header_tabela),
             Paragraph("NOTA FISCAL / FORNECEDOR", style_header_tabela),
             Paragraph("ESTADO DO BEM", style_header_tabela),
             Paragraph("CONF.", style_header_tabela),
@@ -2148,6 +2184,8 @@ def gerar_termo_remessa_lote_pdf():
 
     for idx, b in enumerate(bens, start=1):
         marca_mod = " / ".join([x for x in [b.marca, b.modelo] if x]) or "-"
+        if b.numero_serie:
+            marca_mod += f"<br/><font size=6.5 color='#475569'>Série: {b.numero_serie}</font>"
         nf_forn = f"NF: {b.numero_nota_fiscal or 'S/N'}"
         if b.fornecedor_nome:
             nf_forn += f"<br/><font size=6.5 color='#475569'>{b.fornecedor_nome[:35]}</font>"
@@ -2241,7 +2279,7 @@ def gerar_termo_remessa_lote_pdf():
 
     texto_declaracao = (
         "<b>DECLARAÇÃO DE RECEBIMENTO E ASSUNÇÃO DE GUARDA PATRIMONIAL:</b> "
-        f"Declaro que recebi da Coordenadoria de Controle Patrimonial os <b>{len(bens)} bem(ns) permanente(s)</b> acima relacionados, "
+        f"Declaro que recebi na data de <b>{data_transferencia_str}</b>, da Coordenadoria de Controle Patrimonial, os <b>{len(bens)} bem(ns) permanente(s)</b> acima relacionados, "
         f"oriundos de <b>{local_origem}</b> e destinados à unidade/local <b>{local_destino}</b>, conferidos fisicamente quanto ao seu número de tombamento "
         "e estado de conservação, assumindo a responsabilidade por sua guarda, zelo e uso exclusivo no interesse do serviço público municipal."
     )
@@ -2371,10 +2409,11 @@ def gerar_termo_recebimento(mov_id):
     p.setFont("Helvetica", 12)
     p.drawString(50, 730, "DADOS DO BEM:")
     p.setFont("Helvetica", 10)
-    p.drawString(70, 710, f"Descrição: {bem.descricao}")
-    p.drawString(70, 695, f"Tombamento: {bem.numero_patrimonio or 'Pendente'}")
-    p.drawString(70, 680, f"Origem: {mov.local_origem} ({mov.nome_origem_exibicao})")
-    p.drawString(70, 665, f"Destino: {mov.local_destino} ({mov.nome_destino_exibicao})")
+    p.drawString(70, 710, f"Data da Transferência: {mov.data_movimentacao.strftime('%d/%m/%Y') if mov.data_movimentacao else '-'}")
+    p.drawString(70, 695, f"Descrição: {bem.descricao}")
+    p.drawString(70, 680, f"Tombamento: {bem.numero_patrimonio or 'Pendente'} | Nº de Série / Chassi / Placa: {bem.numero_serie or '-'}")
+    p.drawString(70, 665, f"Origem: {mov.local_origem} ({mov.nome_origem_exibicao})")
+    p.drawString(70, 650, f"Destino: {mov.local_destino} ({mov.nome_destino_exibicao})")
 
     p.line(50, 500, 250, 500)
     p.drawString(80, 485, "Quem Entregou")

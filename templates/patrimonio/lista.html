@@ -163,6 +163,7 @@
             <strong>Última Transferência em Lote:</strong>
             {{ ultima_remessa.qtd }} bem(ns) enviados de <strong>{{ ultima_remessa.local_origem }}</strong> para
             <strong>{{ ultima_remessa.local_destino }}</strong>
+            {% if ultima_remessa.data_transferencia %} na data de <strong>{{ ultima_remessa.data_transferencia }}</strong>{% endif %}
             {% if ultima_remessa.responsavel_novo_nome %} (Resp: {{ ultima_remessa.responsavel_novo_nome }}){% endif %}.
         </div>
         <div class="d-flex flex-wrap gap-2">
@@ -1102,16 +1103,28 @@
                             </thead>
                             <tbody>
                                 {% for lote in lotes_transferencia %}
+                                {% set qtd_sem_serie = lote.itens|selectattr("serie", "equalto", "")|list|length %}
                                 <tr class="linha-lote-transf"
                                     data-codigo="{{ lote.codigo_lote }}"
+                                    data-descricao="{{ lote.descricao }}"
                                     data-local="{{ lote.local_atual|lower }}"
                                     data-secretaria="{{ lote.secretaria_id or '' }}"
                                     data-busca="{{ (lote.descricao ~ ' ' ~ lote.fornecedor ~ ' ' ~ lote.nota_fiscal ~ ' ' ~ lote.local_atual)|lower }}"
                                     data-max="{{ lote.qtd_disponivel }}"
                                     data-valor="{{ lote.valor_unitario }}"
-                                    data-ids='{{ lote.itens|map(attribute="id")|list|tojson }}'>
+                                    data-ids='{{ lote.itens|map(attribute="id")|list|tojson }}'
+                                    data-itens='{{ lote.itens|tojson }}'>
                                     <td class="ps-3 py-2">
-                                        <div class="fw-bold text-dark">{{ lote.descricao }}</div>
+                                        <div class="fw-bold text-dark d-flex align-items-center flex-wrap gap-1">
+                                            <span>{{ lote.descricao }}</span>
+                                            {% if qtd_sem_serie > 0 %}
+                                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill"
+                                                      style="font-size: 0.65rem;"
+                                                      title="{{ qtd_sem_serie }} unidade(s) neste lote ainda não possuem Nº de Série / Chassi / Placa">
+                                                    <i class="bi bi-upc-scan me-1"></i>{{ qtd_sem_serie }} sem Nº Série
+                                                </span>
+                                            {% endif %}
+                                        </div>
                                         <div class="text-muted" style="font-size: 0.74rem;">
                                             <i class="bi bi-geo-alt-fill text-danger"></i> <strong>Origem:</strong> {{ lote.local_atual }}
                                             <span class="mx-1">•</span> NF: {{ lote.nota_fiscal }}
@@ -1150,6 +1163,62 @@
                                 {% endfor %}
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- PAINEL AUTOMÁTICO: EXIGÊNCIA DE Nº DE SÉRIE / CHASSI / PLACA ANTES DA TRANSFERÊNCIA -->
+                    <div id="painelSeriesPendentesLote" class="d-none mb-4 p-3 rounded-3 border border-warning" style="background-color: #fffbeb;">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-2">
+                            <div>
+                                <div class="fw-bold text-dark small d-flex align-items-center gap-2">
+                                    <i class="bi bi-exclamation-triangle-fill text-warning fs-5"></i>
+                                    <span>Identificação Obrigatória: Nº de Série / Chassi / Placa</span>
+                                    <span class="badge bg-warning text-dark rounded-pill" id="badgeQtdSemSerieLote">0 pendente(s)</span>
+                                </div>
+                                <small class="text-muted d-block">
+                                    Os bens abaixo não possuem <strong>Nº de Série / Chassi / Placa</strong> cadastrado. Informe o número de cada unidade antes de transferir:
+                                </small>
+                            </div>
+                            <div class="d-flex flex-wrap gap-1">
+                                <button type="button"
+                                        class="btn btn-xs btn-outline-dark btn-sm py-0 px-2 rounded-pill"
+                                        onclick="toggleCaixaColarSeriesLote()">
+                                    <i class="bi bi-clipboard-plus me-1"></i> Colar Lista
+                                </button>
+                                <button type="button"
+                                        class="btn btn-xs btn-outline-secondary btn-sm py-0 px-2 rounded-pill"
+                                        onclick="preencherSeriesVaziasComSN()"
+                                        title="Preenche com S/N os campos em branco (para móveis/bens sem número de série físico)">
+                                    <i class="bi bi-check2-all me-1"></i> Sem Série (S/N) nos Vazios
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Caixa expansível opcional para colar vários números de série de uma vez -->
+                        <div id="boxColarSeriesLote" class="d-none mb-2 p-2 bg-white rounded-3 border">
+                            <label class="form-label small fw-bold mb-1">
+                                Cole os Números de Série separados por vírgula, ponto-e-vírgula ou quebra de linha:
+                            </label>
+                            <div class="input-group input-group-sm">
+                                <input type="text" id="inputColarSeriesLoteMassa" class="form-control font-monospace"
+                                       placeholder="Ex: SN001, SN002, SN003...">
+                                <button type="button" class="btn btn-primary fw-semibold" onclick="aplicarListaColadaSeriesLote()">
+                                    Distribuir nos Campos
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="border rounded-3 bg-white" style="max-height: 210px; overflow-y: auto;">
+                            <table class="table table-sm align-middle mb-0 small">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th class="ps-3" style="width: 130px;">Tombamento</th>
+                                        <th>Bem Patrimonial</th>
+                                        <th class="pe-3" style="width: 280px;">Nº de Série / Chassi / Placa <span class="text-danger">*</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyCamposSerieLote"></tbody>
+                            </table>
+                        </div>
                     </div>
 
                     <!-- PASSO 2: DESTINO (MESMO PADRÃO DO CADASTRO DE BENS) -->
@@ -1225,19 +1294,30 @@
                                 </div>
                             </div>
 
-                            <!-- Responsável, Observação e Opção de Valor no PDF -->
-                            <div class="col-md-4">
+                            <!-- Data da Transferência, Responsável, Observação e Opção de Valor no PDF -->
+                            <div class="col-md-3">
                                 <label class="form-label small fw-bold text-dark mb-1">
-                                    Responsável pelo Recebimento (Digite o Nome)
+                                    Data da Transferência <span class="text-danger">*</span>
+                                </label>
+                                <input type="date"
+                                       name="data_transferencia"
+                                       id="inputDataTransferenciaLote"
+                                       class="form-control form-control-sm"
+                                       required>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-dark mb-1">
+                                    Responsável pelo Recebimento
                                 </label>
                                 <input type="text"
                                        name="responsavel_novo_nome"
                                        id="inputResponsavelDestinoLote"
                                        class="form-control form-control-sm"
-                                       placeholder="Nome de quem está recebendo os bens...">
+                                       placeholder="Nome de quem está recebendo...">
                             </div>
 
-                            <div class="col-md-5">
+                            <div class="col-md-3">
                                 <label class="form-label small fw-bold text-dark mb-1">
                                     Motivo / Observação (Opcional)
                                 </label>
@@ -1245,7 +1325,7 @@
                                        name="motivo_transferencia"
                                        id="inputMotivoDestinoLote"
                                        class="form-control form-control-sm"
-                                       placeholder="Ex: Envio de mesas do depósito para a escola...">
+                                       placeholder="Ex: Envio para a escola...">
                             </div>
 
                             <div class="col-md-3">
@@ -1383,34 +1463,195 @@
         aplicarQuantidadeLote(codigoLote, maxDisp);
     }
 
+    const mapaSeriesDigitadasLote = {};
+
+    function escaparHtmlAttr(str) {
+        return String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    function registrarSerieDigitadaLote(itemId, inputEl) {
+        if (!inputEl) return;
+        const val = inputEl.value || '';
+        mapaSeriesDigitadasLote[String(itemId)] = val;
+        if (val.trim()) {
+            inputEl.classList.remove('is-invalid');
+        }
+        atualizarContadorSeriesPendentesLote();
+    }
+
+    function definirSerieIndividualSN(itemId) {
+        const inp = document.getElementById('input_serie_lote_' + itemId);
+        if (inp) {
+            inp.value = 'S/N';
+            registrarSerieDigitadaLote(itemId, inp);
+        }
+    }
+
+    function preencherSeriesVaziasComSN() {
+        document.querySelectorAll('.input-serie-pendente-lote').forEach(inp => {
+            if (!inp.value.trim()) {
+                inp.value = 'S/N';
+                const itemId = inp.getAttribute('data-item-id');
+                if (itemId) mapaSeriesDigitadasLote[String(itemId)] = 'S/N';
+                inp.classList.remove('is-invalid');
+            }
+        });
+        atualizarContadorSeriesPendentesLote();
+    }
+
+    function toggleCaixaColarSeriesLote() {
+        const box = document.getElementById('boxColarSeriesLote');
+        if (box) {
+            box.classList.toggle('d-none');
+            const inp = document.getElementById('inputColarSeriesLoteMassa');
+            if (!box.classList.contains('d-none') && inp) inp.focus();
+        }
+    }
+
+    function aplicarListaColadaSeriesLote() {
+        const inpMassa = document.getElementById('inputColarSeriesLoteMassa');
+        if (!inpMassa || !inpMassa.value.trim()) return;
+        const partes = inpMassa.value
+            .split(/[,;\n\r]+/)
+            .map(s => s.trim())
+            .filter(Boolean);
+        const inputs = Array.from(document.querySelectorAll('.input-serie-pendente-lote'));
+        inputs.forEach((inp, idx) => {
+            if (idx < partes.length) {
+                inp.value = partes[idx];
+                const itemId = inp.getAttribute('data-item-id');
+                if (itemId) mapaSeriesDigitadasLote[String(itemId)] = partes[idx];
+                inp.classList.remove('is-invalid');
+            }
+        });
+        atualizarContadorSeriesPendentesLote();
+    }
+
+    function atualizarContadorSeriesPendentesLote() {
+        const badge = document.getElementById('badgeQtdSemSerieLote');
+        if (!badge) return;
+        const inputs = Array.from(document.querySelectorAll('.input-serie-pendente-lote'));
+        const faltando = inputs.filter(inp => !inp.value.trim()).length;
+        if (faltando === 0 && inputs.length > 0) {
+            badge.className = 'badge bg-success text-white rounded-pill';
+            badge.textContent = 'Todos preenchidos ✓';
+        } else {
+            badge.className = 'badge bg-warning text-dark rounded-pill';
+            badge.textContent = `${faltando} pendente(s)`;
+        }
+    }
+
     function recalcularResumoTransferenciaLote() {
+        // Salva valores já digitados nos campos de série antes de reconstruir a tabela
+        document.querySelectorAll('.input-serie-pendente-lote').forEach(inp => {
+            const idAttr = inp.getAttribute('data-item-id');
+            if (idAttr) {
+                mapaSeriesDigitadasLote[String(idAttr)] = inp.value || '';
+            }
+        });
+
         let qtdTotal = 0;
         let somaValor = 0.0;
         const containerIds = document.getElementById('containerInputsIdsTransferencia');
         let htmlInputs = '';
+        let itensSemSerie = [];
 
         document.querySelectorAll('.linha-lote-transf').forEach(tr => {
             const codigo = tr.dataset.codigo;
+            const descricaoLote = tr.dataset.descricao || 'Bem Patrimonial';
             const inputQtd = document.getElementById('input_qtd_' + codigo);
             const qtd = parseInt(inputQtd ? inputQtd.value : '0', 10) || 0;
             if (qtd > 0) {
                 const valorUnit = parseFloat(tr.dataset.valor || '0') || 0.0;
-                let idsLista = [];
+                let itensLista = [];
                 try {
-                    idsLista = JSON.parse(tr.dataset.ids || '[]');
+                    itensLista = JSON.parse(tr.dataset.itens || '[]');
                 } catch (e) {
-                    idsLista = [];
+                    itensLista = [];
                 }
-                const selecionados = idsLista.slice(0, qtd);
-                qtdTotal += selecionados.length;
-                somaValor += selecionados.length * valorUnit;
-                selecionados.forEach(idItem => {
-                    htmlInputs += `<input type="hidden" name="patrimonio_ids[]" value="${idItem}">`;
-                });
+                if (itensLista.length > 0) {
+                    const selecionados = itensLista.slice(0, qtd);
+                    qtdTotal += selecionados.length;
+                    somaValor += selecionados.length * valorUnit;
+                    selecionados.forEach(itemObj => {
+                        htmlInputs += `<input type="hidden" name="patrimonio_ids[]" value="${itemObj.id}">`;
+                        const serieOriginal = String(itemObj.serie || '').trim();
+                        if (!serieOriginal) {
+                            itensSemSerie.push({
+                                id: itemObj.id,
+                                tombamento: itemObj.tombamento || 'S/N',
+                                descricao: descricaoLote
+                            });
+                        }
+                    });
+                } else {
+                    let idsLista = [];
+                    try {
+                        idsLista = JSON.parse(tr.dataset.ids || '[]');
+                    } catch (e) {
+                        idsLista = [];
+                    }
+                    const selecionadosIds = idsLista.slice(0, qtd);
+                    qtdTotal += selecionadosIds.length;
+                    somaValor += selecionadosIds.length * valorUnit;
+                    selecionadosIds.forEach(idItem => {
+                        htmlInputs += `<input type="hidden" name="patrimonio_ids[]" value="${idItem}">`;
+                    });
+                }
             }
         });
 
         if (containerIds) containerIds.innerHTML = htmlInputs;
+
+        const painelSeries = document.getElementById('painelSeriesPendentesLote');
+        const tbodySeries = document.getElementById('tbodyCamposSerieLote');
+        if (painelSeries && tbodySeries) {
+            if (itensSemSerie.length > 0) {
+                let htmlRowsSerie = '';
+                itensSemSerie.forEach((itemPend, idx) => {
+                    const valorSalvo = mapaSeriesDigitadasLote[String(itemPend.id)] || '';
+                    htmlRowsSerie += `
+                        <tr>
+                            <td class="ps-3 font-monospace fw-bold text-primary">
+                                ${escaparHtmlAttr(itemPend.tombamento)}
+                            </td>
+                            <td>
+                                <div class="fw-semibold text-dark">${escaparHtmlAttr(itemPend.descricao)}</div>
+                                <small class="text-muted">Unidade #${idx + 1} sem Nº de Série</small>
+                            </td>
+                            <td class="pe-3">
+                                <div class="input-group input-group-sm">
+                                    <input type="text"
+                                           name="serie_item_${itemPend.id}"
+                                           id="input_serie_lote_${itemPend.id}"
+                                           data-item-id="${itemPend.id}"
+                                           value="${escaparHtmlAttr(valorSalvo)}"
+                                           class="form-control font-monospace fw-bold input-serie-pendente-lote"
+                                           placeholder="Nº de Série / Chassi / Placa *"
+                                           oninput="registrarSerieDigitadaLote('${itemPend.id}', this)"
+                                           required>
+                                    <button type="button"
+                                            class="btn btn-outline-secondary"
+                                            onclick="definirSerieIndividualSN('${itemPend.id}')"
+                                            title="Marcar esta unidade como S/N (Sem Série)">
+                                        S/N
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>`;
+                });
+                tbodySeries.innerHTML = htmlRowsSerie;
+                painelSeries.classList.remove('d-none');
+                atualizarContadorSeriesPendentesLote();
+            } else {
+                tbodySeries.innerHTML = '';
+                painelSeries.classList.add('d-none');
+            }
+        }
 
         const lblQtd = document.getElementById('lblTotalItensTransferirLote');
         const lblVal = document.getElementById('lblValorTotalTransferirLote');
@@ -1562,7 +1803,19 @@
         }
     }
 
+    function preencherDataHojeTransferenciaLote() {
+        const inputData = document.getElementById('inputDataTransferenciaLote');
+        if (inputData && !inputData.value) {
+            const hoje = new Date();
+            const ano = hoje.getFullYear();
+            const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+            const dia = String(hoje.getDate()).padStart(2, '0');
+            inputData.value = `${ano}-${mes}-${dia}`;
+        }
+    }
+
     function abrirModalTransferenciaLote(fornecedorFiltro, nfFiltro) {
+        preencherDataHojeTransferenciaLote();
         const inputBusca = document.getElementById('filtroLoteBuscaTexto');
         const selectLocal = document.getElementById('filtroLoteLocalOrigem');
         if (selectLocal) selectLocal.value = '';
@@ -1597,6 +1850,7 @@
 
     // Garante que fechar o modal de Novo Local não trave a rolagem do modal principal
     document.addEventListener('DOMContentLoaded', function() {
+        preencherDataHojeTransferenciaLote();
         const modalNovoLocalEl = document.getElementById('modalNovoLocalLote');
         if (modalNovoLocalEl) {
             modalNovoLocalEl.addEventListener('hidden.bs.modal', function() {
@@ -1613,6 +1867,7 @@
         const form = document.getElementById('formTransferenciaLote');
         const inputDestino = document.getElementById('inputLocalDestinoLote');
         const selectSec = document.getElementById('selectSecretariaOrigemLote');
+        const inputData = document.getElementById('inputDataTransferenciaLote');
         const inputAcao = document.getElementById('inputAcaoAposTransferencia');
         const qtdMarcados = document.querySelectorAll('#containerInputsIdsTransferencia input').length;
 
@@ -1620,6 +1875,24 @@
             alert('Digite a quantidade de bens que deseja enviar.');
             return;
         }
+
+        // Verifica se todos os bens sem Nº de Série / Chassi / Placa foram preenchidos antes de transferir
+        const inputsSeriePendentes = Array.from(document.querySelectorAll('.input-serie-pendente-lote'));
+        const inputsSerieVazios = inputsSeriePendentes.filter(inp => !inp.value.trim());
+        if (inputsSerieVazios.length > 0) {
+            inputsSerieVazios.forEach(inp => inp.classList.add('is-invalid'));
+            const painelSeries = document.getElementById('painelSeriesPendentesLote');
+            if (painelSeries) {
+                painelSeries.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            inputsSerieVazios[0].focus();
+            alert(
+                `Atenção: ${inputsSerieVazios.length} bem(ns) selecionado(s) não possuem "Nº de Série / Chassi / Placa".\n\n` +
+                `Informe o número de série (ou clique em "S/N" caso não se aplique) antes de transferir para o setor de destino.`
+            );
+            return;
+        }
+
         if (selectSec && !selectSec.value) {
             alert('Selecione a Secretaria de Origem.');
             selectSec.focus();
@@ -1628,6 +1901,11 @@
         if (!inputDestino || !inputDestino.value.trim()) {
             alert('Informe ou selecione o Local de Destino (ex: nome da escola ou setor).');
             inputDestino.focus();
+            return;
+        }
+        if (inputData && !inputData.value) {
+            alert('Informe a Data da Transferência.');
+            inputData.focus();
             return;
         }
 

@@ -22,23 +22,27 @@
 <body onload="window.print()">
     <div class="termo-container">
         <div class="timbre">
-            <img src="{{ url_for('static', filename='timbre.jpg') }}" alt="Timbre Oficial">
-            <h5 class="mt-2">ESTADO DO PIAUÍ</h5>
-            <h6>PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ</h6>
+            <img src="{{ url_for('static', filename='logo1.png') }}" alt="Brasão Oficial" style="max-height: 80px; width: auto;" onerror="this.src='{{ url_for('static', filename='timbre.jpg') }}'">
+            <h5 class="mt-2 mb-0 fw-bold">ESTADO DO PIAUÍ</h5>
+            <h6 class="fw-bold">PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ</h6>
+            <small class="text-muted">COORDENADORIA DE CONTROLE PATRIMONIAL E ALMOXARIFADO</small>
         </div>
 
         <div class="titulo">TERMO DE TRANSFERÊNCIA E RESPONSABILIDADE PATRIMONIAL</div>
 
         <div class="corpo">
             <p>Pelo presente Termo de Responsabilidade, certificamos que na data de 
-            <strong>{{ mov.data_movimentacao.strftime('%d/%m/%Y') }}</strong>, às 
-            <strong>{{ mov.data_movimentacao.strftime('%H:%M') }}</strong>, o bem patrimonial abaixo descrito foi transferido 
+            <strong>{{ mov.data_movimentacao.strftime('%d/%m/%Y') }}</strong>, o bem patrimonial abaixo descrito foi transferido 
             de <strong>{{ mov.local_origem }}</strong> para <strong>{{ mov.local_destino }}</strong>, 
             ficando sob a guarda e responsabilidade do servidor/responsável do setor de destino.</p>
 
             <table class="table table-bordered mt-4">
                 <tr>
-                    <th width="30%">Nº Patrimônio:</th>
+                    <th width="30%">Data da Transferência:</th>
+                    <td><strong>{{ mov.data_movimentacao.strftime('%d/%m/%Y') }}</strong></td>
+                </tr>
+                <tr>
+                    <th>Nº Patrimônio:</th>
                     <td>{{ mov.patrimonio.numero_patrimonio or 'Pendente de Tombamento' }}</td>
                 </tr>
                 <tr>

@@ -131,8 +131,14 @@
                                     <p class="info-value">{{ item.modelo or '-' }}</p>
                                 </div>
                                 <div class="col-12 col-md-4">
-                                    <p class="info-label">Nº de Série / Chassi</p>
-                                    <p class="info-value font-monospace">{{ item.numero_serie or '-' }}</p>
+                                    <p class="info-label">Nº de Série / Chassi / Placa</p>
+                                    <p class="info-value font-monospace">
+                                        {% if item.numero_serie %}
+                                            {{ item.numero_serie }}
+                                        {% else %}
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">Não informado</span>
+                                        {% endif %}
+                                    </p>
                                 </div>
                                 <div class="col-6 col-md-4">
                                     <p class="info-label">Valor de Aquisição</p>
@@ -301,7 +307,9 @@
                         <div class="timeline-item mb-4 pb-2">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <div>
-                                    <span class="fw-bold text-dark">{{ mov.data_movimentacao.strftime('%d/%m/%Y %H:%M') }}</span>
+                                    <span class="fw-bold text-dark">
+                                        <i class="bi bi-calendar-event text-primary me-1"></i>Data da Transferência: {{ mov.data_movimentacao.strftime('%d/%m/%Y') }}
+                                    </span>
                                     <small class="text-muted d-block">Registrado por: {{ mov.usuario_registro }}</small>
                                 </div>
                                 <a href="{{ url_for('patrimonio.imprimir_termo_transferencia', mov_id=mov.id) }}"
@@ -444,21 +452,62 @@
                 <h5 class="modal-title fw-bold"><i class="bi bi-arrows-move text-primary me-2"></i>Transferência e Termo de Guarda</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="{{ url_for('patrimonio.transferir_item', item_id=item.id) }}" method="POST">
+            <form action="{{ url_for('patrimonio.transferir_item', item_id=item.id) }}" method="POST" id="formTransferenciaIndividual">
                 <div class="modal-body p-4">
                     <div class="alert alert-info py-2 mb-3" style="border-radius: 12px; border: none;">
                         <small class="d-block"><i class="bi bi-geo-alt me-1"></i> Local atual: <strong>{{ item.localizacao }}</strong></small>
                         <small class="d-block"><i class="bi bi-person me-1"></i> Responsável atual: <strong>{{ item.nome_responsavel_atual or 'Não informado' }}</strong></small>
+                        {% if item.numero_serie %}
+                        <small class="d-block"><i class="bi bi-upc-scan me-1"></i> Nº de Série / Chassi / Placa: <strong class="font-monospace">{{ item.numero_serie }}</strong></small>
+                        {% endif %}
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Secretaria de Destino (Opcional)</label>
-                        <select class="form-select" name="secretaria_destino_id">
-                            <option value="">-- Manter secretaria atual --</option>
-                            {% for sec in secretarias %}
-                                <option value="{{ sec.id }}" {{ 'selected' if item.secretaria_id == sec.id else '' }}>{{ sec.nome }}</option>
-                            {% endfor %}
-                        </select>
+                    {% if not item.numero_serie %}
+                    <div class="p-3 mb-3 rounded-3 border border-warning" style="background-color: #fffbeb;">
+                        <div class="d-flex align-items-center gap-2 mb-2 text-warning-emphasis">
+                            <i class="bi bi-exclamation-triangle-fill fs-5 text-warning"></i>
+                            <div class="small fw-bold">
+                                Identificação Obrigatória Antes da Transferência
+                            </div>
+                        </div>
+                        <p class="small text-muted mb-2">
+                            Este bem ainda não possui <strong>Nº de Série / Chassi / Placa</strong> cadastrado. Informe o número abaixo para liberar a transferência para o novo setor:
+                        </p>
+                        <label for="numero_serie_transferencia" class="form-label small fw-bold text-dark mb-1">
+                            Nº de Série / Chassi / Placa <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white"><i class="bi bi-upc-scan text-primary"></i></span>
+                            <input type="text"
+                                   class="form-control fw-bold font-monospace"
+                                   name="numero_serie_transferencia"
+                                   id="numero_serie_transferencia"
+                                   required
+                                   placeholder="Digite o Nº de Série, Service Tag, Chassi ou Placa...">
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    onclick="document.getElementById('numero_serie_transferencia').value='S/N'"
+                                    title="Preencher como S/N caso o bem não possua numeração física de fábrica">
+                                Sem Série (S/N)
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-5">
+                            <label for="inputDataTransferenciaIndividual" class="form-label fw-semibold">Data da Transferência*</label>
+                            <input type="date" class="form-control" name="data_transferencia" id="inputDataTransferenciaIndividual" required>
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label fw-semibold">Secretaria de Destino (Opcional)</label>
+                            <select class="form-select" name="secretaria_destino_id">
+                                <option value="">-- Manter secretaria atual --</option>
+                                {% for sec in secretarias %}
+                                    <option value="{{ sec.id }}" {{ 'selected' if item.secretaria_id == sec.id else '' }}>{{ sec.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
 
                     <div class="mb-3">
@@ -585,4 +634,27 @@
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputData = document.getElementById('inputDataTransferenciaIndividual');
+        if (inputData && !inputData.value) {
+            const hoje = new Date();
+            const ano = hoje.getFullYear();
+            const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+            const dia = String(hoje.getDate()).padStart(2, '0');
+            inputData.value = `${ano}-${mes}-${dia}`;
+        }
+
+        const transferModalEl = document.getElementById('transferModal');
+        if (transferModalEl) {
+            transferModalEl.addEventListener('shown.bs.modal', function() {
+                const inputSerie = document.getElementById('numero_serie_transferencia');
+                if (inputSerie && !inputSerie.value.trim()) {
+                    inputSerie.focus();
+                }
+            });
+        }
+    });
+</script>
 {% endblock %}

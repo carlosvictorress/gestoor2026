@@ -574,6 +574,14 @@ class Patrimonio(db.Model):
             return self.responsavel.nome
         return None
 
+    @property
+    def ja_transferido(self):
+        return bool(self.movimentacoes and len(self.movimentacoes) > 0)
+
+    @property
+    def qtd_transferencias(self):
+        return len(self.movimentacoes) if self.movimentacoes else 0
+
     def __repr__(self):
         return f'<Patrimonio {self.numero_patrimonio} - {self.descricao}>'
 
@@ -589,6 +597,7 @@ class MovimentacaoPatrimonio(db.Model):
     # De onde veio
     local_origem = db.Column(db.String(200), nullable=False)
     responsavel_anterior_nome = db.Column(db.String(200), nullable=True)
+    responsavel_anterior_cargo = db.Column(db.String(120), nullable=True)
     responsavel_anterior_cpf = db.Column(
         db.String(14), db.ForeignKey("servidor.cpf"), nullable=True
     )
@@ -596,6 +605,8 @@ class MovimentacaoPatrimonio(db.Model):
     # Para onde foi
     local_destino = db.Column(db.String(200), nullable=False)
     responsavel_novo_nome = db.Column(db.String(200), nullable=True)
+    responsavel_novo_cpf_doc = db.Column(db.String(30), nullable=True)
+    responsavel_novo_cargo = db.Column(db.String(120), nullable=True)
     responsavel_novo_cpf = db.Column(
         db.String(14), db.ForeignKey("servidor.cpf"), nullable=True
     )
@@ -625,6 +636,24 @@ class MovimentacaoPatrimonio(db.Model):
         if self.responsavel_novo:
             return self.responsavel_novo.nome
         return "N/A"
+
+    @property
+    def cpf_destino_exibicao(self):
+        if self.responsavel_novo_cpf_doc and self.responsavel_novo_cpf_doc.strip():
+            return self.responsavel_novo_cpf_doc.strip()
+        if self.responsavel_novo_cpf and self.responsavel_novo_cpf.strip():
+            return self.responsavel_novo_cpf.strip()
+        if self.responsavel_novo and self.responsavel_novo.cpf:
+            return self.responsavel_novo.cpf
+        return None
+
+    @property
+    def cargo_destino_exibicao(self):
+        if self.responsavel_novo_cargo and self.responsavel_novo_cargo.strip():
+            return self.responsavel_novo_cargo.strip()
+        if self.responsavel_novo and self.responsavel_novo.funcao:
+            return self.responsavel_novo.funcao
+        return None
 
 
 class Escola(db.Model):

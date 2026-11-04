@@ -21,6 +21,44 @@
 </head>
 <body onload="window.print()">
     <div class="termo-container">
+        <div class="no-print mb-3 p-3 bg-light border rounded d-flex justify-content-between align-items-center flex-wrap gap-2" style="font-family: system-ui, -apple-system, sans-serif;">
+            <div>
+                <strong class="text-dark">Opções do Termo (#{{ mov.id }}):</strong>
+                <span class="text-muted small ms-1">Você pode imprimir, gerar PDF ou corrigir os dados do recebedor antes de imprimir.</span>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-warning fw-bold" onclick="document.getElementById('boxEditarRecebedorTermo').classList.toggle('d-none')">
+                    ✏️ Alterar Recebedor (Nome / CPF / Função)
+                </button>
+                <a href="{{ url_for('patrimonio.gerar_termo_recebimento', mov_id=mov.id) }}" class="btn btn-sm btn-outline-danger fw-bold">
+                    📄 Baixar PDF
+                </a>
+                <button type="button" onclick="window.print()" class="btn btn-sm btn-primary fw-bold">
+                    🖨️ Imprimir
+                </button>
+            </div>
+            <div id="boxEditarRecebedorTermo" class="w-100 mt-2 pt-2 border-top d-none">
+                <form action="{{ url_for('patrimonio.editar_recebedor_movimentacao', mov_id=mov.id) }}" method="POST" class="row g-2 align-items-end">
+                    <input type="hidden" name="acao_termo" value="imprimir">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold mb-1">Nome de Quem Recebeu *</label>
+                        <input type="text" name="responsavel_novo_nome" class="form-control form-control-sm" value="{{ mov.nome_destino_exibicao if mov.nome_destino_exibicao != 'N/A' else '' }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold mb-1">CPF do Recebedor</label>
+                        <input type="text" name="responsavel_novo_cpf_doc" class="form-control form-control-sm" value="{{ mov.cpf_destino_exibicao }}" placeholder="000.000.000-00">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold mb-1">Cargo / Função</label>
+                        <input type="text" name="responsavel_novo_cargo" class="form-control form-control-sm" value="{{ mov.cargo_destino_exibicao }}" placeholder="Ex: Diretor(a), Coordenador(a)">
+                    </div>
+                    <div class="col-md-2 d-grid">
+                        <button type="submit" class="btn btn-sm btn-success fw-bold">Salvar e Atualizar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <div class="timbre">
             <img src="{{ url_for('static', filename='logo1.png') }}" alt="Brasão Oficial" style="max-height: 80px; width: auto;" onerror="this.src='{{ url_for('static', filename='timbre.jpg') }}'">
             <h5 class="mt-2 mb-0 fw-bold">ESTADO DO PIAUÍ</h5>
@@ -32,30 +70,38 @@
 
         <div class="corpo">
             <p>Pelo presente Termo de Responsabilidade, certificamos que na data de 
-            <strong>{{ mov.data_movimentacao.strftime('%d/%m/%Y') }}</strong>, o bem patrimonial abaixo descrito foi transferido 
+            <strong>{{ mov.data_movimentacao.strftime('%d/%m/%Y') if mov.data_movimentacao else '-' }}</strong>, o bem patrimonial abaixo descrito foi transferido 
             de <strong>{{ mov.local_origem }}</strong> para <strong>{{ mov.local_destino }}</strong>, 
-            ficando sob a guarda e responsabilidade do servidor/responsável do setor de destino.</p>
+            ficando sob a guarda e responsabilidade direta de <strong>{{ mov.nome_destino_exibicao }}</strong>{% if mov.cpf_destino_exibicao %}, inscrito(a) no CPF sob nº <strong>{{ mov.cpf_destino_exibicao }}</strong>{% endif %}{% if mov.cargo_destino_exibicao %}, na função/cargo de <strong>{{ mov.cargo_destino_exibicao }}</strong>{% endif %}.</p>
 
             <table class="table table-bordered mt-4">
                 <tr>
-                    <th width="30%">Data da Transferência:</th>
-                    <td><strong>{{ mov.data_movimentacao.strftime('%d/%m/%Y') }}</strong></td>
+                    <th width="32%">Data da Transferência:</th>
+                    <td><strong>{{ mov.data_movimentacao.strftime('%d/%m/%Y às %H:%M') if mov.data_movimentacao else '-' }}</strong></td>
                 </tr>
                 <tr>
-                    <th>Nº Patrimônio:</th>
-                    <td>{{ mov.patrimonio.numero_patrimonio or 'Pendente de Tombamento' }}</td>
+                    <th>Nº Patrimônio / Identificação:</th>
+                    <td><strong>{{ mov.patrimonio.numero_patrimonio or ('S/N (Registro #' ~ mov.patrimonio.id ~ ')') }}</strong></td>
                 </tr>
                 <tr>
                     <th>Descrição do Bem:</th>
                     <td>{{ mov.patrimonio.descricao }}</td>
                 </tr>
                 <tr>
-                    <th>Marca/Modelo/Série:</th>
-                    <td>{{ mov.patrimonio.marca or '-' }} / {{ mov.patrimonio.modelo or '-' }} {% if mov.patrimonio.numero_serie %}(Série: {{ mov.patrimonio.numero_serie }}){% endif %}</td>
+                    <th>Marca / Modelo / Nº de Série:</th>
+                    <td>{{ mov.patrimonio.marca or '-' }} / {{ mov.patrimonio.modelo or '-' }} {% if mov.patrimonio.numero_serie %}| <strong>Nº de Série: {{ mov.patrimonio.numero_serie }}</strong>{% endif %}</td>
                 </tr>
                 <tr>
                     <th>Nota Fiscal / Empenho:</th>
                     <td>NF: {{ mov.patrimonio.numero_nota_fiscal or 'Não informada' }} | Empenho: {{ mov.patrimonio.numero_empenho or '-' }}</td>
+                </tr>
+                <tr>
+                    <th>Recebedor (Responsável pela Guarda):</th>
+                    <td>
+                        <strong>{{ mov.nome_destino_exibicao }}</strong>
+                        {% if mov.cpf_destino_exibicao %} — <strong>CPF:</strong> {{ mov.cpf_destino_exibicao }}{% endif %}
+                        {% if mov.cargo_destino_exibicao %} — <strong>Função/Cargo:</strong> {{ mov.cargo_destino_exibicao }}{% endif %}
+                    </td>
                 </tr>
                 {% if mov.motivo_transferencia %}
                 <tr>
@@ -75,6 +121,13 @@
             <div class="linha-assinatura">
                 <small>Recebido por (Responsável pela Guarda):</small><br>
                 <strong>{{ mov.nome_destino_exibicao if mov.nome_destino_exibicao != 'N/A' else '__________________________' }}</strong><br>
+                {% if mov.cpf_destino_exibicao or mov.cargo_destino_exibicao %}
+                <small>
+                    {% if mov.cpf_destino_exibicao %}CPF: {{ mov.cpf_destino_exibicao }}{% endif %}
+                    {% if mov.cpf_destino_exibicao and mov.cargo_destino_exibicao %} | {% endif %}
+                    {% if mov.cargo_destino_exibicao %}{{ mov.cargo_destino_exibicao }}{% endif %}
+                </small><br>
+                {% endif %}
                 <small>Destino: {{ mov.local_destino }}</small>
             </div>
         </div>

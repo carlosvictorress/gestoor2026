@@ -63,13 +63,22 @@
 <div class="container mt-4 mb-5">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3 no-print">
         <div>
-            <div class="d-flex align-items-center gap-2 mb-1">
+            <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3">
                     Ficha Individual de Controle Patrimonial
                 </span>
                 <span class="badge bg-dark font-monospace">
-                    Tombamento: {{ item.numero_patrimonio or 'AGUARDANDO TOMBAMENTO' }}
+                    Tombamento: {{ item.numero_patrimonio or ('S/N (#' ~ item.id ~ ')') }}
                 </span>
+                {% if item.ja_transferido %}
+                <span class="badge bg-warning text-dark border border-warning rounded-pill px-3">
+                    <i class="bi bi-lock-fill me-1"></i> Já Transferido ({{ item.qtd_transferencias }}x) • Alocado em: {{ item.localizacao }}
+                </span>
+                {% else %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3">
+                    <i class="bi bi-check-circle-fill me-1"></i> Disponível no Local Inicial ({{ item.localizacao }})
+                </span>
+                {% endif %}
             </div>
             <h2 class="fw-bold text-dark mb-0">
                 <i class="bi bi-box-seam-fill text-primary me-1"></i> {{ item.descricao }}
@@ -249,47 +258,81 @@
 
             <!-- CARD OPCIONAL: OUTROS BENS DA MESMA NOTA FISCAL -->
             {% if itens_mesma_nf %}
-            <div class="card detail-card shadow-sm mb-4 no-print">
-                <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
-                    <h6 class="fw-bold mb-0 text-primary">
-                        <i class="bi bi-layers-fill me-2"></i> Outros Bens Incorporados nesta Mesma Nota Fiscal ({{ itens_mesma_nf|length }})
-                    </h6>
-                    {% if item.numero_nota_fiscal %}
-                    <a href="{{ url_for('patrimonio.listar_itens', nota_fiscal=item.numero_nota_fiscal) }}" class="btn btn-sm btn-outline-primary rounded-pill">
-                        Ver Todos da NF {{ item.numero_nota_fiscal }}
-                    </a>
-                    {% endif %}
+            {% set qtd_outros_transf = itens_mesma_nf | selectattr('ja_transferido') | list | length %}
+            {% set qtd_outros_disp = (itens_mesma_nf | length) - qtd_outros_transf %}
+            <div class="card detail-card shadow-sm mb-4 no-print border-start border-4 border-primary">
+                <div class="card-header bg-transparent border-0 pt-3 pb-3 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <h6 class="fw-bold mb-1 text-primary">
+                            <i class="bi bi-layers-fill me-2"></i> Outros Bens Incorporados nesta Mesma Nota Fiscal ({{ itens_mesma_nf|length }})
+                        </h6>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">
+                                🟢 {{ qtd_outros_disp }} No Local Inicial (Não Transferidos)
+                            </span>
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning rounded-pill">
+                                🔒 {{ qtd_outros_transf }} Já Transferidos para Setores
+                            </span>
+                            <small class="text-muted">(Oculto por padrão para evitar confusão com este bem)</small>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-primary rounded-pill fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOutrosBensNF" aria-expanded="false">
+                            <i class="bi bi-eye me-1"></i> Mostrar / Ocultar Lista ({{ itens_mesma_nf|length }})
+                        </button>
+                        {% if item.numero_nota_fiscal %}
+                        <a href="{{ url_for('patrimonio.listar_itens', nota_fiscal=item.numero_nota_fiscal) }}" class="btn btn-sm btn-outline-primary rounded-pill">
+                            Ver NF {{ item.numero_nota_fiscal }}
+                        </a>
+                        {% endif %}
+                    </div>
                 </div>
-                <div class="card-body px-4 pb-4">
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover align-middle mb-0 small">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Tombamento</th>
-                                    <th>Bem / Produto</th>
-                                    <th>Localização</th>
-                                    <th>Responsável</th>
-                                    <th class="text-end">Valor</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for outro in itens_mesma_nf[:10] %}
-                                <tr>
-                                    <td class="font-monospace fw-bold">{{ outro.numero_patrimonio or 'S/N' }}</td>
-                                    <td>{{ outro.descricao }}</td>
-                                    <td>{{ outro.localizacao }}</td>
-                                    <td>{{ outro.nome_responsavel_atual or '-' }}</td>
-                                    <td class="text-end">R$ {{ "%.2f"|format(outro.valor_aquisicao or 0)|replace('.', ',') }}</td>
-                                    <td class="text-end">
-                                        <a href="{{ url_for('patrimonio.detalhes_item', item_id=outro.id) }}" class="btn btn-sm btn-light rounded-pill">
-                                            Abrir
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                <div class="collapse" id="collapseOutrosBensNF">
+                    <div class="card-body px-4 pb-4 pt-0">
+                        <div class="table-responsive border rounded-3" style="max-height: 340px; overflow-y: auto;">
+                            <table class="table table-sm table-hover align-middle mb-0 small">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>Tombamento / ID</th>
+                                        <th>Status de Alocação</th>
+                                        <th>Bem / Produto</th>
+                                        <th>Nº de Série</th>
+                                        <th>Localização Atual</th>
+                                        <th>Responsável</th>
+                                        <th class="text-end">Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for outro in itens_mesma_nf %}
+                                    <tr class="{% if outro.ja_transferido %}table-warning{% endif %}">
+                                        <td class="font-monospace fw-bold">
+                                            {{ outro.numero_patrimonio or ('S/N (#' ~ outro.id ~ ')') }}
+                                        </td>
+                                        <td>
+                                            {% if outro.ja_transferido %}
+                                            <span class="badge bg-warning text-dark border border-warning-subtle">
+                                                <i class="bi bi-lock-fill me-1"></i> Já Transferido ({{ outro.qtd_transferencias }}x)
+                                            </span>
+                                            {% else %}
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                <i class="bi bi-check-circle-fill me-1"></i> No Local Inicial
+                                            </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ outro.descricao }}</td>
+                                        <td class="font-monospace text-muted">{{ outro.numero_serie or '-' }}</td>
+                                        <td class="fw-semibold">{{ outro.localizacao }}</td>
+                                        <td>{{ outro.nome_responsavel_atual or '-' }}</td>
+                                        <td class="text-end">
+                                            <a href="{{ url_for('patrimonio.detalhes_item', item_id=outro.id) }}" class="btn btn-sm btn-outline-dark rounded-pill px-3">
+                                                Abrir
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -299,23 +342,48 @@
             <div class="card detail-card shadow-sm">
                 <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
                     <h5 class="fw-bold mb-0"><i class="bi bi-clock-history me-2"></i> Histórico de Movimentações e Guarda</h5>
+                    {% if movimentacoes %}
+                    <span class="badge bg-warning text-dark rounded-pill px-3">
+                        <i class="bi bi-lock-fill me-1"></i> {{ movimentacoes|length }} transferência(s) registrada(s)
+                    </span>
+                    {% endif %}
                 </div>
                 <div class="card-body p-4">
                     {% if movimentacoes %}
                     <div class="timeline">
                         {% for mov in movimentacoes %}
                         <div class="timeline-item mb-4 pb-2">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="d-flex flex-wrap justify-content-between align-items-start mb-2 gap-2">
                                 <div>
                                     <span class="fw-bold text-dark">
-                                        <i class="bi bi-calendar-event text-primary me-1"></i>Data da Transferência: {{ mov.data_movimentacao.strftime('%d/%m/%Y') }}
+                                        <i class="bi bi-calendar-event text-primary me-1"></i>Data da Transferência: {{ mov.data_movimentacao.strftime('%d/%m/%Y') if mov.data_movimentacao else '-' }}
                                     </span>
                                     <small class="text-muted d-block">Registrado por: {{ mov.usuario_registro }}</small>
                                 </div>
-                                <a href="{{ url_for('patrimonio.imprimir_termo_transferencia', mov_id=mov.id) }}"
-                                   target="_blank" class="btn btn-sm btn-outline-dark btn-rounded no-print">
-                                    <i class="bi bi-printer me-1"></i> Imprimir Termo
-                                </a>
+                                <div class="d-flex flex-wrap gap-2 no-print">
+                                    <button type="button"
+                                            class="btn btn-sm btn-warning btn-rounded fw-semibold text-dark"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#modalEditarRecebedor"
+                                            data-mov-id="{{ mov.id }}"
+                                            data-mov-url="{{ url_for('patrimonio.editar_recebedor_movimentacao', mov_id=mov.id) }}"
+                                            data-mov-local="{{ mov.local_destino }}"
+                                            data-mov-nome="{{ mov.nome_destino_exibicao if mov.nome_destino_exibicao != 'N/A' else '' }}"
+                                            data-mov-cpf="{{ mov.cpf_destino_exibicao }}"
+                                            data-mov-cargo="{{ mov.cargo_destino_exibicao }}"
+                                            data-mov-motivo="{{ mov.motivo_transferencia or '' }}"
+                                            onclick="abrirModalEditarRecebedor(this)">
+                                        <i class="bi bi-pencil-square me-1"></i> Alterar Recebedor
+                                    </button>
+                                    <a href="{{ url_for('patrimonio.imprimir_termo_transferencia', mov_id=mov.id) }}"
+                                       target="_blank" class="btn btn-sm btn-outline-dark btn-rounded">
+                                        <i class="bi bi-printer me-1"></i> Imprimir Termo
+                                    </a>
+                                    <a href="{{ url_for('patrimonio.gerar_termo_recebimento', mov_id=mov.id) }}"
+                                       target="_blank" class="btn btn-sm btn-outline-danger btn-rounded">
+                                        <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+                                    </a>
+                                </div>
                             </div>
                             <div class="row g-2 bg-light p-3 rounded-3 mt-2 border">
                                 <div class="col-md-5">
@@ -327,9 +395,15 @@
                                     <i class="bi bi-arrow-right-circle-fill text-primary fs-4"></i>
                                 </div>
                                 <div class="col-md-5">
-                                    <small class="info-label d-block mb-1 text-primary">Destino</small>
+                                    <small class="info-label d-block mb-1 text-primary">Destino (Quem Recebeu)</small>
                                     <p class="mb-0 small"><strong>Local:</strong> {{ mov.local_destino }}</p>
-                                    <p class="mb-0 small"><strong>Resp:</strong> {{ mov.nome_destino_exibicao }}</p>
+                                    <p class="mb-0 small"><strong>Recebedor:</strong> {{ mov.nome_destino_exibicao }}</p>
+                                    <p class="mb-0 small">
+                                        <strong>CPF:</strong> {{ mov.cpf_destino_exibicao or 'Não informado' }}
+                                        {% if mov.cargo_destino_exibicao %}
+                                        • <strong>Função:</strong> {{ mov.cargo_destino_exibicao }}
+                                        {% endif %}
+                                    </p>
                                 </div>
                                 {% if mov.motivo_transferencia %}
                                 <div class="col-12 mt-2 pt-2 border-top small text-muted">
@@ -343,7 +417,7 @@
                     {% else %}
                     <div class="text-center py-4">
                         <i class="bi bi-info-circle text-muted fs-2"></i>
-                        <p class="text-muted mt-2 mb-0">O bem permanece em seu local de incorporação inicial.</p>
+                        <p class="text-muted mt-2 mb-0">O bem permanece em seu local de incorporação inicial (ainda não foi transferido).</p>
                     </div>
                     {% endif %}
                 </div>
@@ -377,17 +451,29 @@
 
         <!-- COLUNA LATERAL DIREITA: LOCALIZAÇÃO ATUAL, GUARDA E AÇÕES -->
         <div class="col-lg-4">
-            <div class="card detail-card shadow-sm border-top border-primary border-5 mb-4">
+            <div class="card detail-card shadow-sm border-top {% if item.ja_transferido %}border-warning{% else %}border-primary{% endif %} border-5 mb-4">
                 <div class="card-body p-4">
                     <div class="text-center mb-3">
-                        <div class="bg-primary bg-opacity-10 p-3 rounded-circle d-inline-block mb-2">
-                            <i class="bi bi-geo-alt-fill text-primary fs-2"></i>
+                        <div class="{% if item.ja_transferido %}bg-warning bg-opacity-25{% else %}bg-primary bg-opacity-10{% endif %} p-3 rounded-circle d-inline-block mb-2">
+                            <i class="bi {% if item.ja_transferido %}bi-shield-lock-fill text-warning-emphasis{% else %}bi-geo-alt-fill text-primary{% endif %} fs-2"></i>
                         </div>
                         <h5 class="fw-bold mb-1">Alocação e Guarda Atual</h5>
                         <span class="badge rounded-pill {% if item.status == 'Ativo' %}bg-success{% elif item.status == 'Manutenção' %}bg-warning text-dark{% else %}bg-secondary{% endif %} px-3">
                             {{ item.status }} • {{ item.situacao_uso or 'Em uso' }}
                         </span>
                     </div>
+
+                    {% if item.ja_transferido %}
+                    <div class="alert alert-warning py-2 px-3 small mb-3 border border-warning" style="border-radius: 12px;">
+                        <div class="fw-bold text-dark"><i class="bi bi-lock-fill me-1"></i> Bem Já Transferido ({{ item.qtd_transferencias }}x)</div>
+                        <div class="text-muted">Este bem já saiu do local de origem. Uma nova transferência exigirá confirmação com a sua senha.</div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success py-2 px-3 small mb-3 border border-success-subtle" style="border-radius: 12px;">
+                        <div class="fw-bold"><i class="bi bi-check-circle-fill me-1"></i> Disponível no Local Inicial</div>
+                        <div class="text-muted">Este bem ainda não foi transferido para outro setor.</div>
+                    </div>
+                    {% endif %}
 
                     <div class="bg-light rounded-3 p-3 border mb-3">
                         <div class="mb-2">
@@ -405,17 +491,23 @@
                                 {{ item.nome_responsavel_atual or 'Responsável não informado' }}
                             </div>
                             {% if item.responsavel_cargo %}
-                                <small class="text-muted d-block">{{ item.responsavel_cargo }}</small>
+                                <small class="text-muted d-block">Função/Cargo: {{ item.responsavel_cargo }}</small>
                             {% endif %}
                             {% if item.responsavel_matricula %}
-                                <small class="text-muted d-block">Matrícula/Doc: {{ item.responsavel_matricula }}</small>
+                                <small class="text-muted d-block">CPF / Matrícula: {{ item.responsavel_matricula }}</small>
                             {% endif %}
                         </div>
                     </div>
 
+                    {% if item.ja_transferido %}
+                    <button class="btn btn-warning text-dark btn-lg w-100 btn-rounded shadow-sm no-print fw-bold border border-warning-subtle" data-bs-toggle="modal" data-bs-target="#transferModal">
+                        <i class="bi bi-shield-lock-fill me-1"></i> Re-transferir de Setor (Com Senha)
+                    </button>
+                    {% else %}
                     <button class="btn btn-primary btn-lg w-100 btn-rounded shadow-sm no-print fw-bold" data-bs-toggle="modal" data-bs-target="#transferModal">
                         <i class="bi bi-arrows-move me-1"></i> Transferir Local / Responsável
                     </button>
+                    {% endif %}
                 </div>
             </div>
 
@@ -444,12 +536,15 @@
     </div>
 </div>
 
-<!-- MODAL DE TRANSFERÊNCIA (COM CAMPO DE DIGITAR O NOME DO RESPONSÁVEL E SELEÇÃO/CRIAÇÃO DE LOCAL) -->
+<!-- MODAL DE TRANSFERÊNCIA (COM CAMPO DE DIGITAR O NOME, CPF E FUNÇÃO DO RESPONSÁVEL E SENHA QUANDO JÁ TRANSFERIDO) -->
 <div class="modal fade no-print" id="transferModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow">
             <div class="modal-header border-0 pt-4 px-4">
-                <h5 class="modal-title fw-bold"><i class="bi bi-arrows-move text-primary me-2"></i>Transferência e Termo de Guarda</h5>
+                <h5 class="modal-title fw-bold">
+                    <i class="bi {% if item.ja_transferido %}bi-shield-lock-fill text-warning{% else %}bi-arrows-move text-primary{% endif %} me-2"></i>
+                    {% if item.ja_transferido %}Nova Transferência de Bem Já Alocado{% else %}Transferência e Termo de Guarda{% endif %}
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="{{ url_for('patrimonio.transferir_item', item_id=item.id) }}" method="POST" id="formTransferenciaIndividual">
@@ -461,6 +556,31 @@
                         <small class="d-block"><i class="bi bi-upc-scan me-1"></i> Nº de Série / Chassi / Placa: <strong class="font-monospace">{{ item.numero_serie }}</strong></small>
                         {% endif %}
                     </div>
+
+                    {% if item.ja_transferido %}
+                    <div class="p-3 mb-3 rounded-3 border border-danger" style="background-color: #fff5f5;">
+                        <div class="d-flex align-items-center gap-2 mb-1 text-danger">
+                            <i class="bi bi-shield-lock-fill fs-5"></i>
+                            <div class="small fw-bold">Atenção: Este bem já foi transferido anteriormente ({{ item.qtd_transferencias }}x)!</div>
+                        </div>
+                        <p class="small text-muted mb-2">
+                            Atualmente este bem encontra-se alocado em <strong>{{ item.localizacao }}</strong>. Para evitar transferências duplicadas acidentais e confirmar a transferência dele para outro setor, digite a <strong>sua senha de acesso</strong>:
+                        </p>
+                        <label for="senha_confirmacao" class="form-label small fw-bold text-danger mb-1">
+                            Sua Senha de Usuário (Confirmação Obrigatória) *
+                        </label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white"><i class="bi bi-key-fill text-danger"></i></span>
+                            <input type="password"
+                                   class="form-control"
+                                   name="senha_confirmacao"
+                                   id="senha_confirmacao"
+                                   required
+                                   autocomplete="current-password"
+                                   placeholder="Digite sua senha de login para liberar...">
+                        </div>
+                    </div>
+                    {% endif %}
 
                     {% if not item.numero_serie %}
                     <div class="p-3 mb-3 rounded-3 border border-warning" style="background-color: #fffbeb;">
@@ -526,11 +646,11 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="responsavel_novo_nome" class="form-label fw-semibold">Novo Responsável pelo Bem (Digite o Nome)*</label>
+                        <label for="responsavel_novo_nome" class="form-label fw-semibold">Nome de Quem Está Recebendo o Bem*</label>
                         <input type="text" class="form-control" name="responsavel_novo_nome" id="responsavel_novo_nome"
                                list="listaServidoresTransferencia"
-                               value="{{ item.nome_responsavel_atual or '' }}"
-                               placeholder="Digite o nome do servidor/responsável que receberá o bem...">
+                               required
+                               placeholder="Digite o nome completo do recebedor no setor de destino...">
                         <datalist id="listaServidoresTransferencia">
                             {% for s in servidores %}
                                 <option value="{{ s.nome }}">
@@ -538,10 +658,17 @@
                         </datalist>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Cargo / Função do Novo Responsável (Opcional)</label>
-                        <input type="text" class="form-control" name="responsavel_novo_cargo"
-                               placeholder="Ex: Diretor(a), Coordenador(a), Chefe de Setor...">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">CPF do Recebedor</label>
+                            <input type="text" class="form-control" name="responsavel_novo_cpf_doc"
+                                   placeholder="000.000.000-00">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Cargo / Função do Recebedor</label>
+                            <input type="text" class="form-control" name="responsavel_novo_cargo"
+                                   placeholder="Ex: Diretor(a), Coordenador(a)...">
+                        </div>
                     </div>
 
                     <div class="mb-2">
@@ -552,7 +679,66 @@
                 </div>
                 <div class="modal-footer border-0 pb-4 px-4">
                     <button type="button" class="btn btn-light btn-rounded px-4" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary btn-rounded px-4 fw-bold">Confirmar Transferência</button>
+                    <button type="submit" class="btn {% if item.ja_transferido %}btn-warning text-dark{% else %}btn-primary{% endif %} btn-rounded px-4 fw-bold">
+                        {% if item.ja_transferido %}Confirmar Re-transferência{% else %}Confirmar Transferência{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PARA EDITAR RECEBEDOR (NOME, CPF E FUNÇÃO) NO HISTÓRICO DE MOVIMENTAÇÕES -->
+<div class="modal fade no-print" id="modalEditarRecebedor" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow">
+            <div class="modal-header border-0 pt-4 px-4">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-person-lines-fill text-warning me-2"></i>Alterar Dados do Recebedor (Termo / PDF)
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" id="formEditarRecebedorMov">
+                <input type="hidden" name="acao_termo" id="edit_mov_acao_termo" value="">
+                <div class="modal-body p-4">
+                    <div class="alert alert-light border py-2 mb-3 small">
+                        <strong>Setor de Destino:</strong> <span id="edit_mov_local_label" class="text-primary fw-bold"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nome Completo de Quem Recebeu o Bem *</label>
+                        <input type="text" class="form-control" name="responsavel_novo_nome" id="edit_mov_nome"
+                               list="listaServidoresTransferencia" required
+                               placeholder="Digite o nome completo do recebedor...">
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">CPF do Recebedor</label>
+                            <input type="text" class="form-control" name="responsavel_novo_cpf_doc" id="edit_mov_cpf"
+                                   placeholder="000.000.000-00">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Cargo / Função</label>
+                            <input type="text" class="form-control" name="responsavel_novo_cargo" id="edit_mov_cargo"
+                                   placeholder="Ex: Diretor(a), Secretário(a), Vigia...">
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-semibold">Justificativa / Observação no Termo</label>
+                        <textarea class="form-control" name="motivo_transferencia" id="edit_mov_motivo" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pb-4 px-4 d-flex justify-content-between flex-wrap gap-2">
+                    <button type="button" class="btn btn-light btn-rounded" data-bs-dismiss="modal">Cancelar</button>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-outline-primary btn-rounded fw-semibold"
+                                onclick="document.getElementById('edit_mov_acao_termo').value=''">
+                            Salvar Alterações
+                        </button>
+                        <button type="submit" class="btn btn-dark btn-rounded fw-bold"
+                                onclick="document.getElementById('edit_mov_acao_termo').value='imprimir'">
+                            <i class="bi bi-printer me-1"></i> Salvar e Imprimir Termo
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -636,6 +822,18 @@
 </div>
 
 <script>
+    function abrirModalEditarRecebedor(btn) {
+        const form = document.getElementById('formEditarRecebedorMov');
+        if (!form || !btn) return;
+        form.action = btn.getAttribute('data-mov-url') || '';
+        document.getElementById('edit_mov_local_label').textContent = btn.getAttribute('data-mov-local') || '';
+        document.getElementById('edit_mov_nome').value = btn.getAttribute('data-mov-nome') || '';
+        document.getElementById('edit_mov_cpf').value = btn.getAttribute('data-mov-cpf') || '';
+        document.getElementById('edit_mov_cargo').value = btn.getAttribute('data-mov-cargo') || '';
+        document.getElementById('edit_mov_motivo').value = btn.getAttribute('data-mov-motivo') || '';
+        document.getElementById('edit_mov_acao_termo').value = '';
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         const inputData = document.getElementById('inputDataTransferenciaIndividual');
         if (inputData && !inputData.value) {
@@ -649,8 +847,11 @@
         const transferModalEl = document.getElementById('transferModal');
         if (transferModalEl) {
             transferModalEl.addEventListener('shown.bs.modal', function() {
+                const inputSenha = document.getElementById('senha_confirmacao');
                 const inputSerie = document.getElementById('numero_serie_transferencia');
-                if (inputSerie && !inputSerie.value.trim()) {
+                if (inputSenha && !inputSenha.value.trim()) {
+                    inputSenha.focus();
+                } else if (inputSerie && !inputSerie.value.trim()) {
                     inputSerie.focus();
                 }
             });

@@ -8,7 +8,7 @@ from flask import (
 import qrcode
 from models import (
     Secretaria, Patrimonio, MovimentacaoPatrimonio, Servidor,
-    LocalPatrimonio, NotaFiscalPatrimonio, Fornecedor, Escola
+    LocalPatrimonio, NotaFiscalPatrimonio, Fornecedor, Escola, User
 )
 from utils import role_required, login_required, registrar_log, upload_arquivo_para_nuvem, obter_data_hora_br_str
 from extensions import db, bcrypt
@@ -145,7 +145,10 @@ def executar_migracao_patrimonio_segura():
 
     colunas_movimentacao = [
         ("responsavel_anterior_nome", "VARCHAR(200)"),
+        ("responsavel_anterior_cargo", "VARCHAR(120)"),
         ("responsavel_novo_nome", "VARCHAR(200)"),
+        ("responsavel_novo_cpf_doc", "VARCHAR(30)"),
+        ("responsavel_novo_cargo", "VARCHAR(120)"),
         ("motivo_transferencia", "TEXT"),
     ]
 
@@ -167,6 +170,28 @@ def executar_migracao_patrimonio_segura():
 def _garantir_schema_patrimonio_request():
     if not _schema_patrimonio_verificado and request.blueprint == 'patrimonio':
         executar_migracao_patrimonio_segura()
+
+
+def _validar_senha_usuario_logado(senha_digitada):
+    """Valida a senha do usuário logado na sessão para autorizar re-transferência de bens já transferidos."""
+    if not senha_digitada or not str(senha_digitada).strip():
+        return False
+    username = session.get('username') or getattr(current_user, 'username', None)
+    user_id = session.get('user_id') or getattr(current_user, 'id', None)
+    user_obj = None
+    if user_id:
+        try:
+            user_obj = User.query.get(int(user_id))
+        except Exception:
+            user_obj = None
+    if not user_obj and username:
+        user_obj = User.query.filter_by(username=username).first()
+    if not user_obj or not user_obj.password_hash:
+        return False
+    try:
+        return bcrypt.check_password_hash(user_obj.password_hash, str(senha_digitada).strip())
+    except Exception:
+        return False
 
 
 def _parse_moeda(valor_raw):
@@ -460,7 +485,7 @@ def listar_itens():
         entry_l['valor_total'] += (bem_loc.valor_aquisicao or 0.0)
         entry_l['bens'].append({
             'id': bem_loc.id,
-            'tombamento': bem_loc.numero_patrimonio or 'S/N',
+            'tombamento': bem_loc.numero_patrimonio or f'S/N (#{bem_loc.id})',
             'descricao': bem_loc.descricao or '',
             'categoria': bem_loc.categoria or '-',
             'marca_modelo': " / ".join([x for x in [bem_loc.marca, bem_loc.modelo] if x]) or '-',
@@ -475,6 +500,8 @@ def listar_itens():
             'data_aquisicao': bem_loc.data_aquisicao.strftime('%d/%m/%Y') if bem_loc.data_aquisicao else '-',
             'valor': float(bem_loc.valor_aquisicao or 0.0),
             'valor_fmt': f"{(bem_loc.valor_aquisicao or 0.0):,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+            'ja_transferido': bool(bem_loc.ja_transferido),
+            'qtd_transferencias': bem_loc.qtd_transferencias,
             'url_detalhes': url_for('patrimonio.detalhes_item', item_id=bem_loc.id),
         })
 
@@ -486,6 +513,7 @@ def listar_itens():
     # =========================================================================
     # AGRUPAMENTO DE LOTES DISPONÍVEIS PARA TRANSFERÊNCIA POR QUANTIDADE
     # (Ex: 100 Mesas no Depósito -> permite digitar "50" para enviar para Escola X)
+    # Separa bens nunca transferidos (disponíveis no depósito) dos bens já transferidos
     # =========================================================================
     mapa_lotes_transf = {}
     for bem_t in todos_bens_ativos:
@@ -502,7 +530,8 @@ def listar_itens():
             or (nf_rel_t.fornecedor_nome.strip() if nf_rel_t and nf_rel_t.fornecedor_nome else '')
             or 'Incorporação Direta / Sem Fornecedor'
         )
-        chave_lote = (desc_limpa.lower(), local_limpo.lower(), nf_limpa.lower(), forn_limpo.lower())
+        foi_transferido = bool(bem_t.ja_transferido)
+        chave_lote = (desc_limpa.lower(), local_limpo.lower(), nf_limpa.lower(), forn_limpo.lower(), foi_transferido)
 
         if chave_lote not in mapa_lotes_transf:
             mapa_lotes_transf[chave_lote] = {
@@ -516,6 +545,7 @@ def listar_itens():
                 'empenho': bem_t.numero_empenho or (nf_rel_t.numero_empenho if nf_rel_t else None) or '-',
                 'valor_unitario': float(bem_t.valor_aquisicao or 0.0),
                 'valor_unitario_fmt': f"{(bem_t.valor_aquisicao or 0.0):,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+                'ja_transferido': foi_transferido,
                 'bens_objs': [],
             }
         elif not mapa_lotes_transf[chave_lote]['secretaria_id'] and bem_t.secretaria_id:
@@ -526,7 +556,11 @@ def listar_itens():
     for idx_lote, (_, dados_lote) in enumerate(
         sorted(
             mapa_lotes_transf.items(),
-            key=lambda item_kv: (-len(item_kv[1]['bens_objs']), item_kv[1]['descricao'].lower())
+            key=lambda item_kv: (
+                1 if item_kv[1]['ja_transferido'] else 0,
+                -len(item_kv[1]['bens_objs']),
+                item_kv[1]['descricao'].lower()
+            )
         ),
         start=1
     ):
@@ -537,11 +571,13 @@ def listar_itens():
         itens_serializados = [
             {
                 'id': b.id,
-                'tombamento': b.numero_patrimonio or 'S/N',
+                'tombamento': b.numero_patrimonio or f'S/N (#{b.id})',
                 'estado': b.estado_conservacao or 'Bom',
                 'serie': b.numero_serie or '',
                 'responsavel': b.nome_responsavel_atual or 'Não informado',
                 'valor': float(b.valor_aquisicao or 0.0),
+                'ja_transferido': bool(b.ja_transferido),
+                'qtd_transferencias': b.qtd_transferencias,
             }
             for b in bens_ordenados
         ]
@@ -564,6 +600,7 @@ def listar_itens():
             'tombamento_inicial': tomb_ini,
             'tombamento_final': tomb_fim,
             'faixa_tombamento': tomb_ini if len(itens_serializados) == 1 else f"{tomb_ini} até {tomb_fim}",
+            'ja_transferido': dados_lote['ja_transferido'],
             'itens': itens_serializados,
         })
 
@@ -1690,19 +1727,32 @@ def transferir_item(item_id):
     local_origem = item.localizacao
     responsavel_anterior_cpf = item.servidor_responsavel_cpf
     responsavel_anterior_nome = item.nome_responsavel_atual
+    responsavel_anterior_cargo = item.responsavel_cargo
 
     novo_local = (request.form.get('local_destino') or '').strip()
     novo_responsavel_nome = (request.form.get('responsavel_novo_nome') or '').strip() or None
+    novo_responsavel_cpf_doc = (request.form.get('responsavel_novo_cpf_doc') or '').strip() or None
     novo_responsavel_cargo = (request.form.get('responsavel_novo_cargo') or '').strip() or None
     motivo_transferencia = (request.form.get('motivo_transferencia') or '').strip() or None
     nova_secretaria_id = request.form.get('secretaria_destino_id')
     numero_serie_informado = (request.form.get('numero_serie_transferencia') or request.form.get('numero_serie') or '').strip()
+    senha_confirmacao = (request.form.get('senha_confirmacao') or '').strip()
     data_transf_date = _parse_data(request.form.get('data_transferencia'))
     dt_mov = datetime.combine(data_transf_date, datetime.now().time()) if data_transf_date else datetime.now()
 
     if not novo_local:
         flash('O novo local é obrigatório para a transferência.', 'warning')
         return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
+
+    # Se o bem JÁ FOI TRANSFERIDO anteriormente, exige confirmação com a senha do usuário logado
+    if item.ja_transferido:
+        if not _validar_senha_usuario_logado(senha_confirmacao):
+            flash(
+                'Bloqueio de Segurança: Este bem já foi transferido anteriormente. '
+                'Informe sua senha de usuário corretamente para confirmar a re-transferência para outro setor.',
+                'danger'
+            )
+            return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
 
     serie_efetiva = numero_serie_informado or (item.numero_serie or '').strip()
     if not serie_efetiva:
@@ -1719,9 +1769,12 @@ def transferir_item(item_id):
             local_origem=local_origem,
             responsavel_anterior_cpf=responsavel_anterior_cpf,
             responsavel_anterior_nome=responsavel_anterior_nome,
+            responsavel_anterior_cargo=responsavel_anterior_cargo,
             local_destino=novo_local,
             responsavel_novo_cpf=None,
             responsavel_novo_nome=novo_responsavel_nome,
+            responsavel_novo_cpf_doc=novo_responsavel_cpf_doc,
+            responsavel_novo_cargo=novo_responsavel_cargo,
             motivo_transferencia=motivo_transferencia,
             usuario_registro=session.get('username') or getattr(current_user, 'username', 'Sistema')
         )
@@ -1736,13 +1789,18 @@ def transferir_item(item_id):
         if novo_responsavel_nome is not None:
             item.responsavel_nome = novo_responsavel_nome
             item.servidor_responsavel_cpf = None
-        if novo_responsavel_cargo:
+        if novo_responsavel_cargo is not None:
             item.responsavel_cargo = novo_responsavel_cargo
+        if novo_responsavel_cpf_doc is not None:
+            item.responsavel_matricula = novo_responsavel_cpf_doc
         if nova_secretaria_id and str(nova_secretaria_id).isdigit():
             item.secretaria_id = int(nova_secretaria_id)
 
         db.session.commit()
-        registrar_log(f'Transferiu o item "{item.descricao}" para "{novo_local}" (Resp: {novo_responsavel_nome or "N/A"}).')
+        registrar_log(
+            f'Transferiu o item "{item.descricao}" (#{item.id}) de "{local_origem}" para "{novo_local}" '
+            f'(Recebedor: {novo_responsavel_nome or "N/A"} | CPF: {novo_responsavel_cpf_doc or "-"}).'
+        )
         flash('Item transferido e Termo de Transferência/Guarda registrado com sucesso!', 'success')
     except Exception as e:
         db.session.rollback()
@@ -1766,8 +1824,10 @@ def transferir_itens_lote():
 
     novo_local = (request.form.get('local_destino') or '').strip()
     novo_responsavel_nome = (request.form.get('responsavel_novo_nome') or '').strip() or None
+    novo_responsavel_cpf_doc = (request.form.get('responsavel_novo_cpf_doc') or '').strip() or None
     novo_responsavel_cargo = (request.form.get('responsavel_novo_cargo') or '').strip() or None
     motivo_transferencia = (request.form.get('motivo_transferencia') or '').strip() or None
+    senha_confirmacao_lote = (request.form.get('senha_confirmacao_lote') or '').strip()
     nova_secretaria_id_raw = request.form.get('secretaria_origem_id') or request.form.get('secretaria_destino_id')
     nova_secretaria_id = int(nova_secretaria_id_raw) if nova_secretaria_id_raw and str(nova_secretaria_id_raw).isdigit() else None
     acao_apos = (request.form.get('acao_apos') or 'salvar').strip()
@@ -1793,6 +1853,18 @@ def transferir_itens_lote():
         if not bens_transferir:
             flash('Nenhum bem patrimonial ativo foi encontrado para a seleção informada.', 'warning')
             return redirect(url_for('patrimonio.listar_itens'))
+
+        # Se algum bem selecionado JÁ FOI TRANSFERIDO anteriormente, exige confirmação com a senha do usuário
+        bens_ja_transferidos = [b for b in bens_transferir if b.ja_transferido]
+        if bens_ja_transferidos:
+            if not _validar_senha_usuario_logado(senha_confirmacao_lote):
+                db.session.rollback()
+                flash(
+                    f'Bloqueio de Segurança: {len(bens_ja_transferidos)} bem(ns) selecionado(s) já haviam sido transferidos anteriormente. '
+                    'Para re-transferi-los para outro setor, digite sua senha de usuário corretamente.',
+                    'danger'
+                )
+                return redirect(url_for('patrimonio.listar_itens'))
 
         # Valida e atualiza o Nº de Série / Chassi / Placa antes de efetivar a transferência
         bens_sem_serie = []
@@ -1845,9 +1917,12 @@ def transferir_itens_lote():
                 local_origem=local_origem_item,
                 responsavel_anterior_cpf=item.servidor_responsavel_cpf,
                 responsavel_anterior_nome=item.nome_responsavel_atual,
+                responsavel_anterior_cargo=item.responsavel_cargo,
                 local_destino=novo_local,
                 responsavel_novo_cpf=None,
                 responsavel_novo_nome=novo_responsavel_nome,
+                responsavel_novo_cpf_doc=novo_responsavel_cpf_doc,
+                responsavel_novo_cargo=novo_responsavel_cargo,
                 motivo_transferencia=motivo_transferencia or f'Transferência em lote ({len(bens_transferir)} unid.) para {novo_local}',
                 usuario_registro=usuario_atual
             )
@@ -1860,6 +1935,8 @@ def transferir_itens_lote():
                 item.servidor_responsavel_cpf = None
             if novo_responsavel_cargo:
                 item.responsavel_cargo = novo_responsavel_cargo
+            if novo_responsavel_cpf_doc:
+                item.responsavel_matricula = novo_responsavel_cpf_doc
             if nova_secretaria_id:
                 item.secretaria_id = nova_secretaria_id
             elif loc_obj and loc_obj.secretaria_id and not item.secretaria_id:
@@ -1879,6 +1956,7 @@ def transferir_itens_lote():
             'local_origem': origem_resumo,
             'local_destino': novo_local,
             'responsavel_novo_nome': novo_responsavel_nome or '',
+            'responsavel_novo_cpf_doc': novo_responsavel_cpf_doc or '',
             'responsavel_novo_cargo': novo_responsavel_cargo or '',
             'motivo_transferencia': motivo_transferencia or '',
             'incluir_valores': incluir_valores,
@@ -1938,6 +2016,7 @@ def gerar_termo_remessa_lote_pdf():
     local_origem = request.args.get('origem') or dados_remessa.get('local_origem') or 'Depósito / Origem'
     local_destino = request.args.get('destino') or dados_remessa.get('local_destino') or (bens[0].localizacao if bens else 'Destino')
     responsavel_destino = request.args.get('resp') or dados_remessa.get('responsavel_novo_nome') or (bens[0].nome_responsavel_atual if bens else '')
+    cpf_destino = request.args.get('cpf') or dados_remessa.get('responsavel_novo_cpf_doc') or (bens[0].responsavel_matricula if bens else '')
     cargo_destino = request.args.get('cargo') or dados_remessa.get('responsavel_novo_cargo') or (bens[0].responsavel_cargo if bens else '')
     motivo_remessa = request.args.get('motivo') or dados_remessa.get('motivo_transferencia') or 'Distribuição / Transferência de Bens Patrimoniais'
     protocolo = dados_remessa.get('protocolo') or f"REM-{datetime.now().strftime('%Y%m%d-%H%M')}"
@@ -2129,7 +2208,8 @@ def gerar_termo_remessa_lote_pdf():
         [
             Paragraph("<b>RESPONSÁVEL PELO RECEBIMENTO:</b>", style_celula),
             Paragraph(
-                f"{responsavel_destino or 'Não informado'}"
+                f"<b>{responsavel_destino or 'Não informado'}</b>"
+                f"{' — CPF: ' + cpf_destino if cpf_destino else ''}"
                 f"{' (' + cargo_destino + ')' if cargo_destino else ''}",
                 style_celula
             ),
@@ -2191,10 +2271,11 @@ def gerar_termo_remessa_lote_pdf():
             nf_forn += f"<br/><font size=6.5 color='#475569'>{b.fornecedor_nome[:35]}</font>"
         val_fmt = f"{(b.valor_aquisicao or 0.0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
+        tomb_str = b.numero_patrimonio or f"S/N (#{b.id})"
         if mostrar_valores:
             linhas_tabela.append([
                 Paragraph(f"{idx:02d}", style_celula_center),
-                Paragraph(f"<b>{b.numero_patrimonio or 'S/N'}</b>", style_celula_center),
+                Paragraph(f"<b>{tomb_str}</b>", style_celula_center),
                 Paragraph(f"<b>{b.descricao}</b>", style_celula),
                 Paragraph(marca_mod, style_celula),
                 Paragraph(nf_forn, style_celula),
@@ -2205,7 +2286,7 @@ def gerar_termo_remessa_lote_pdf():
         else:
             linhas_tabela.append([
                 Paragraph(f"{idx:02d}", style_celula_center),
-                Paragraph(f"<b>{b.numero_patrimonio or 'S/N'}</b>", style_celula_center),
+                Paragraph(f"<b>{tomb_str}</b>", style_celula_center),
                 Paragraph(f"<b>{b.descricao}</b>", style_celula),
                 Paragraph(marca_mod, style_celula),
                 Paragraph(nf_forn, style_celula),
@@ -2285,7 +2366,14 @@ def gerar_termo_remessa_lote_pdf():
     )
 
     nome_resp_assinatura = responsavel_destino or "___________________________________________________"
-    sub_resp_assinatura = cargo_destino or f"Responsável pelo Recebimento ({local_destino})"
+    partes_sub = []
+    if cpf_destino:
+        partes_sub.append(f"CPF: {cpf_destino}")
+    if cargo_destino:
+        partes_sub.append(cargo_destino)
+    else:
+        partes_sub.append(f"Responsável pelo Recebimento ({local_destino})")
+    sub_resp_assinatura = " | ".join(partes_sub)
 
     bloco_assinaturas = Table(
         [
@@ -2392,9 +2480,67 @@ def gerar_etiqueta_qr(id):
         return redirect(url_for('patrimonio.listar_itens'))
 
 
+@patrimonio_bp.route('/movimentacao/<int:mov_id>/editar-recebedor', methods=['POST'])
+@login_required
+@role_required('admin', 'Patrimonio', 'RH', 'Fiscal')
+def editar_recebedor_movimentacao(mov_id):
+    executar_migracao_patrimonio_segura()
+    mov = MovimentacaoPatrimonio.query.get_or_404(mov_id)
+    bem = mov.patrimonio
+
+    novo_nome = (request.form.get('responsavel_novo_nome') or '').strip()
+    novo_cpf = (request.form.get('responsavel_novo_cpf_doc') or '').strip()
+    novo_cargo = (request.form.get('responsavel_novo_cargo') or '').strip()
+    novo_motivo = (request.form.get('motivo_transferencia') or '').strip()
+    acao_termo = (request.form.get('acao_termo') or '').strip()
+
+    if not novo_nome:
+        flash("Informe o nome completo de quem está recebendo o bem.", "warning")
+        return redirect(url_for('patrimonio.detalhes_item', item_id=bem.id))
+
+    try:
+        mov.responsavel_novo_nome = novo_nome
+        mov.responsavel_novo_cpf_doc = novo_cpf or None
+        mov.responsavel_novo_cargo = novo_cargo or None
+        if novo_motivo:
+            mov.motivo_transferencia = novo_motivo
+
+        # Se esta for a movimentação mais recente do bem, sincroniza também a guarda atual do item
+        ultima_mov = (
+            MovimentacaoPatrimonio.query
+            .filter_by(patrimonio_id=bem.id)
+            .order_by(MovimentacaoPatrimonio.data_movimentacao.desc(), MovimentacaoPatrimonio.id.desc())
+            .first()
+        )
+        if ultima_mov and ultima_mov.id == mov.id:
+            bem.responsavel_nome = novo_nome
+            bem.responsavel_cargo = novo_cargo or None
+            if novo_cpf:
+                bem.responsavel_matricula = novo_cpf
+
+        db.session.commit()
+        registrar_log(
+            f"Recebedor da movimentação #{mov.id} (Bem ID #{bem.id} - {bem.descricao}) atualizado para: "
+            f"{novo_nome} | CPF: {novo_cpf or 'N/I'} | Função: {novo_cargo or 'N/I'}"
+        )
+        flash("Dados do recebedor (Nome, CPF e Função) atualizados com sucesso!", "success")
+
+        if acao_termo == 'imprimir':
+            return redirect(url_for('patrimonio.imprimir_termo_transferencia', mov_id=mov.id))
+        if acao_termo == 'pdf':
+            return redirect(url_for('patrimonio.gerar_termo_recebimento', mov_id=mov.id))
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Erro ao atualizar dados do recebedor: {str(e)}", "danger")
+
+    return redirect(url_for('patrimonio.detalhes_item', item_id=bem.id))
+
+
 @patrimonio_bp.route('/movimentacao/<int:mov_id>/termo')
 @login_required
 def gerar_termo_recebimento(mov_id):
+    executar_migracao_patrimonio_segura()
     mov = MovimentacaoPatrimonio.query.get_or_404(mov_id)
     bem = mov.patrimonio
 
@@ -2402,24 +2548,39 @@ def gerar_termo_recebimento(mov_id):
     p = canvas_lib.Canvas(buffer, pagesize=A4)
 
     p.setFont("Helvetica-Bold", 14)
-    p.drawCentredString(300, 800, "TERMO DE RESPONSABILIDADE E RECEBIMENTO")
+    p.drawCentredString(300, 800, "TERMO DE RESPONSABILIDADE E RECEBIMENTO DE BEM PATRIMONIAL")
     p.setFont("Helvetica", 10)
-    p.drawCentredString(300, 785, "PREFEITURA DE VALENÇA DO PIAUÍ")
+    p.drawCentredString(300, 784, "PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ")
 
-    p.setFont("Helvetica", 12)
-    p.drawString(50, 730, "DADOS DO BEM:")
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(50, 740, "1. IDENTIFICAÇÃO DO BEM E DA MOVIMENTAÇÃO:")
     p.setFont("Helvetica", 10)
-    p.drawString(70, 710, f"Data da Transferência: {mov.data_movimentacao.strftime('%d/%m/%Y') if mov.data_movimentacao else '-'}")
-    p.drawString(70, 695, f"Descrição: {bem.descricao}")
-    p.drawString(70, 680, f"Tombamento: {bem.numero_patrimonio or 'Pendente'} | Nº de Série / Chassi / Placa: {bem.numero_serie or '-'}")
-    p.drawString(70, 665, f"Origem: {mov.local_origem} ({mov.nome_origem_exibicao})")
-    p.drawString(70, 650, f"Destino: {mov.local_destino} ({mov.nome_destino_exibicao})")
+    p.drawString(65, 720, f"Data da Transferência: {mov.data_movimentacao.strftime('%d/%m/%Y às %H:%M') if mov.data_movimentacao else '-'}")
+    p.drawString(65, 704, f"Descrição do Bem: {bem.descricao}")
+    tomb_label = bem.numero_patrimonio or f"S/N (ID #{bem.id})"
+    p.drawString(65, 688, f"Tombamento: {tomb_label}   |   Nº de Série / Chassi / Placa: {bem.numero_serie or '-'}")
+    p.drawString(65, 672, f"Unidade / Setor de Origem: {mov.local_origem} (Resp.: {mov.nome_origem_exibicao})")
+    p.drawString(65, 656, f"Unidade / Setor de Destino: {mov.local_destino}")
 
-    p.line(50, 500, 250, 500)
-    p.drawString(80, 485, "Quem Entregou")
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(50, 625, "2. DADOS DO RECEBEDOR / NOVO DETENTOR DA GUARDA:")
+    p.setFont("Helvetica", 10)
+    p.drawString(65, 607, f"Nome Completo: {mov.nome_destino_exibicao}")
+    p.drawString(65, 591, f"CPF: {mov.cpf_destino_exibicao or 'Não informado'}   |   Cargo / Função: {mov.cargo_destino_exibicao or 'Não informado'}")
+    p.drawString(65, 575, f"Motivo / Observação: {mov.motivo_transferencia or 'Transferência interna'}")
 
-    p.line(350, 500, 550, 500)
-    p.drawString(380, 485, f"Quem Recebeu ({mov.nome_destino_exibicao})")
+    p.line(50, 460, 260, 460)
+    p.setFont("Helvetica-Bold", 9)
+    p.drawCentredString(155, 446, f"{mov.nome_origem_exibicao[:35]}")
+    p.setFont("Helvetica", 8)
+    p.drawCentredString(155, 434, f"Quem Entregou ({mov.local_origem[:30]})")
+
+    p.line(330, 460, 545, 460)
+    p.setFont("Helvetica-Bold", 9)
+    p.drawCentredString(437, 446, f"{mov.nome_destino_exibicao[:35]}")
+    p.setFont("Helvetica", 8)
+    sub_recebedor = f"CPF: {mov.cpf_destino_exibicao or '___.___.___-__'} | {mov.cargo_destino_exibicao or 'Recebedor'}"
+    p.drawCentredString(437, 434, sub_recebedor[:52])
 
     p.showPage()
     p.save()
@@ -2430,6 +2591,7 @@ def gerar_termo_recebimento(mov_id):
 @patrimonio_bp.route('/movimentacao/<int:mov_id>/imprimir')
 @login_required
 def imprimir_termo_transferencia(mov_id):
+    executar_migracao_patrimonio_segura()
     movimentacao = MovimentacaoPatrimonio.query.get_or_404(mov_id)
     return render_template('patrimonio/termo_recebimento.html', mov=movimentacao)
 

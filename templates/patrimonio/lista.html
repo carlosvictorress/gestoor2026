@@ -521,9 +521,10 @@
                                                 <table class="table table-sm table-hover align-middle mb-0 small">
                                                     <thead class="table-light">
                                                         <tr>
-                                                            <th>Tombamento</th>
+                                                            <th>Tombamento / ID</th>
+                                                            <th>Status de Alocação</th>
                                                             <th>Descrição do Bem</th>
-                                                            <th>Marca / Modelo</th>
+                                                            <th>Marca / Modelo / Série</th>
                                                             <th>Localização Atual</th>
                                                             <th>Responsável</th>
                                                             <th class="text-end">Valor Unit.</th>
@@ -532,13 +533,29 @@
                                                     </thead>
                                                     <tbody>
                                                         {% for bem_nf in nf.bens %}
-                                                        <tr>
+                                                        <tr class="{% if bem_nf.ja_transferido %}table-warning{% endif %}">
                                                             <td class="font-monospace fw-bold text-primary">
-                                                                {{ bem_nf.numero_patrimonio or 'S/N' }}
+                                                                {{ bem_nf.numero_patrimonio or ('S/N (#' ~ bem_nf.id ~ ')') }}
+                                                            </td>
+                                                            <td>
+                                                                {% if bem_nf.ja_transferido %}
+                                                                <span class="badge bg-warning text-dark border border-warning">
+                                                                    <i class="bi bi-lock-fill me-1"></i> Já Transferido ({{ bem_nf.qtd_transferencias }}x)
+                                                                </span>
+                                                                {% else %}
+                                                                <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                                    <i class="bi bi-check-circle-fill me-1"></i> Local Inicial
+                                                                </span>
+                                                                {% endif %}
                                                             </td>
                                                             <td class="fw-semibold">{{ bem_nf.descricao }}</td>
-                                                            <td>{{ bem_nf.marca or '-' }} / {{ bem_nf.modelo or '-' }}</td>
-                                                            <td>{{ bem_nf.localizacao }}</td>
+                                                            <td>
+                                                                {{ bem_nf.marca or '-' }} / {{ bem_nf.modelo or '-' }}
+                                                                {% if bem_nf.numero_serie %}
+                                                                    <small class="d-block font-monospace text-muted">Série: {{ bem_nf.numero_serie }}</small>
+                                                                {% endif %}
+                                                            </td>
+                                                            <td class="fw-semibold">{{ bem_nf.localizacao }}</td>
                                                             <td>{{ bem_nf.nome_responsavel_atual or 'Não informado' }}</td>
                                                             <td class="text-end fw-semibold">
                                                                 R$ {{ "%.2f"|format(bem_nf.valor_aquisicao or 0)|replace('.', ',') }}
@@ -655,8 +672,17 @@
                                     <div class="col">
                                         <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
                                             <span class="badge bg-dark font-monospace">
-                                                <i class="bi bi-upc-scan me-1"></i>{{ bem.numero_patrimonio or 'SEM TOMBAMENTO' }}
+                                                <i class="bi bi-upc-scan me-1"></i>{{ bem.numero_patrimonio or ('S/N (#' ~ bem.id ~ ')') }}
                                             </span>
+                                            {% if bem.ja_transferido %}
+                                                <span class="badge bg-warning text-dark border border-warning">
+                                                    <i class="bi bi-lock-fill me-1"></i>Já Transferido ({{ bem.qtd_transferencias }}x)
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                    <i class="bi bi-check-circle-fill me-1"></i>Local Inicial
+                                                </span>
+                                            {% endif %}
                                             <h5 class="fw-bold mb-0 text-dark">{{ bem.descricao }}</h5>
                                             {% if bem.categoria %}
                                                 <span class="badge bg-light text-secondary border">{{ bem.categoria }}</span>
@@ -1092,23 +1118,25 @@
                     </div>
 
                     <!-- Lista limpa de bens agrupados com campo de quantidade -->
-                    <div class="border rounded-3 mb-4" style="max-height: 240px; overflow-y: auto;">
+                    <div class="border rounded-3 mb-4" style="max-height: 255px; overflow-y: auto;">
                         <table class="table table-sm table-hover align-middle mb-0 small">
                             <thead class="table-light sticky-top">
                                 <tr>
-                                    <th class="ps-3">Bem / Local Atual</th>
-                                    <th class="text-center" style="width: 100px;">Disponível</th>
-                                    <th class="text-center pe-3" style="width: 175px;">Qtd. a Enviar</th>
+                                    <th class="ps-3">Bem / Local Atual / Status</th>
+                                    <th class="text-center" style="width: 100px;">Qtd. no Local</th>
+                                    <th class="text-center pe-3" style="width: 195px;">Qtd. a Enviar</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for lote in lotes_transferencia %}
                                 {% set qtd_sem_serie = lote.itens|selectattr("serie", "equalto", "")|list|length %}
-                                <tr class="linha-lote-transf"
+                                <tr class="linha-lote-transf {% if lote.ja_transferido %}table-warning{% endif %}"
                                     data-codigo="{{ lote.codigo_lote }}"
                                     data-descricao="{{ lote.descricao }}"
                                     data-local="{{ lote.local_atual|lower }}"
+                                    data-local-original="{{ lote.local_atual }}"
                                     data-secretaria="{{ lote.secretaria_id or '' }}"
+                                    data-ja-transferido="{{ '1' if lote.ja_transferido else '0' }}"
                                     data-busca="{{ (lote.descricao ~ ' ' ~ lote.fornecedor ~ ' ' ~ lote.nota_fiscal ~ ' ' ~ lote.local_atual)|lower }}"
                                     data-max="{{ lote.qtd_disponivel }}"
                                     data-valor="{{ lote.valor_unitario }}"
@@ -1117,6 +1145,15 @@
                                     <td class="ps-3 py-2">
                                         <div class="fw-bold text-dark d-flex align-items-center flex-wrap gap-1">
                                             <span>{{ lote.descricao }}</span>
+                                            {% if lote.ja_transferido %}
+                                                <span class="badge bg-warning text-dark border border-warning rounded-pill" style="font-size: 0.65rem;">
+                                                    <i class="bi bi-lock-fill me-1"></i>JÁ TRANSFERIDO
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill" style="font-size: 0.65rem;">
+                                                    <i class="bi bi-check-circle-fill me-1"></i>Local Inicial
+                                                </span>
+                                            {% endif %}
                                             {% if qtd_sem_serie > 0 %}
                                                 <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill"
                                                       style="font-size: 0.65rem;"
@@ -1126,16 +1163,43 @@
                                             {% endif %}
                                         </div>
                                         <div class="text-muted" style="font-size: 0.74rem;">
-                                            <i class="bi bi-geo-alt-fill text-danger"></i> <strong>Origem:</strong> {{ lote.local_atual }}
+                                            <i class="bi bi-geo-alt-fill {% if lote.ja_transferido %}text-warning-emphasis{% else %}text-danger{% endif %}"></i>
+                                            <strong>{% if lote.ja_transferido %}Alocado em:{% else %}Origem:{% endif %}</strong> {{ lote.local_atual }}
                                             <span class="mx-1">•</span> NF: {{ lote.nota_fiscal }}
                                         </div>
                                     </td>
                                     <td class="text-center">
-                                        <span class="badge bg-secondary-subtle text-dark border rounded-pill px-2 py-1">
+                                        <span class="badge {% if lote.ja_transferido %}bg-warning text-dark{% else %}bg-secondary-subtle text-dark{% endif %} border rounded-pill px-2 py-1">
                                             {{ lote.qtd_disponivel }} unid.
                                         </span>
                                     </td>
                                     <td class="pe-3">
+                                        {% if lote.ja_transferido %}
+                                        <div id="box_bloqueado_{{ lote.codigo_lote }}" class="text-center">
+                                            <button type="button"
+                                                    class="btn btn-xs btn-sm btn-warning text-dark fw-bold rounded-pill py-1 px-2 w-100 border border-dark-subtle"
+                                                    onclick="desbloquearLoteJaTransferido('{{ lote.codigo_lote }}')"
+                                                    title="Este lote já foi transferido. Clique para desbloquear caso queira transferir deste setor para outro (exigirá senha).">
+                                                <i class="bi bi-unlock-fill me-1"></i> Re-transferir (Com Senha)
+                                            </button>
+                                        </div>
+                                        <div id="box_input_{{ lote.codigo_lote }}" class="input-group input-group-sm d-none">
+                                            <input type="number"
+                                                   min="0"
+                                                   max="{{ lote.qtd_disponivel }}"
+                                                   value="0"
+                                                   id="input_qtd_{{ lote.codigo_lote }}"
+                                                   class="form-control text-center fw-bold input-qtd-lote border-warning"
+                                                   data-codigo="{{ lote.codigo_lote }}"
+                                                   data-max="{{ lote.qtd_disponivel }}"
+                                                   oninput="aplicarQuantidadeLote('{{ lote.codigo_lote }}', this.value)">
+                                            <button type="button"
+                                                    class="btn btn-warning text-dark fw-semibold"
+                                                    onclick="definirTotalLote('{{ lote.codigo_lote }}', {{ lote.qtd_disponivel }})">
+                                                Tudo
+                                            </button>
+                                        </div>
+                                        {% else %}
                                         <div class="input-group input-group-sm">
                                             <input type="number"
                                                    min="0"
@@ -1152,6 +1216,7 @@
                                                 Tudo
                                             </button>
                                         </div>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% else %}
@@ -1163,6 +1228,35 @@
                                 {% endfor %}
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- PAINEL AUTOMÁTICO DE SENHA QUANDO SELECIONAR BEM JÁ TRANSFERIDO -->
+                    <div id="painelSenhaReTransferenciaLote" class="d-none mb-4 p-3 rounded-3 border border-danger" style="background-color: #fff5f5;">
+                        <div class="d-flex align-items-center gap-2 mb-1 text-danger">
+                            <i class="bi bi-shield-lock-fill fs-5"></i>
+                            <div class="small fw-bold">
+                                Confirmação de Segurança: Re-transferência de Bem(ns) Já Alocado(s) (<span id="lblQtdJaTransferidosLote">0</span> unid.)
+                            </div>
+                        </div>
+                        <p class="small text-muted mb-2">
+                            Você selecionou bem(ns) que <strong>já haviam sido transferidos anteriormente</strong> para um setor. Para confirmar a transferência deles para um novo local e evitar duplicidade acidental, digite a <strong>sua senha de usuário</strong>:
+                        </p>
+                        <div class="row g-2 align-items-center">
+                            <div class="col-md-6">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white"><i class="bi bi-key-fill text-danger"></i></span>
+                                    <input type="password"
+                                           name="senha_confirmacao_lote"
+                                           id="inputSenhaConfirmacaoLote"
+                                           class="form-control"
+                                           autocomplete="current-password"
+                                           placeholder="Digite sua senha de login para confirmar...">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-danger fw-semibold" id="resumoLocaisJaTransferidosLote"></small>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- PAINEL AUTOMÁTICO: EXIGÊNCIA DE Nº DE SÉRIE / CHASSI / PLACA ANTES DA TRANSFERÊNCIA -->
@@ -1294,7 +1388,7 @@
                                 </div>
                             </div>
 
-                            <!-- Data da Transferência, Responsável, Observação e Opção de Valor no PDF -->
+                            <!-- Data da Transferência, Responsável, CPF, Cargo/Função, Observação e Opção de Valor no PDF -->
                             <div class="col-md-3">
                                 <label class="form-label small fw-bold text-dark mb-1">
                                     Data da Transferência <span class="text-danger">*</span>
@@ -1308,7 +1402,7 @@
 
                             <div class="col-md-3">
                                 <label class="form-label small fw-bold text-dark mb-1">
-                                    Responsável pelo Recebimento
+                                    Nome do Recebedor
                                 </label>
                                 <input type="text"
                                        name="responsavel_novo_nome"
@@ -1319,16 +1413,38 @@
 
                             <div class="col-md-3">
                                 <label class="form-label small fw-bold text-dark mb-1">
+                                    CPF do Recebedor
+                                </label>
+                                <input type="text"
+                                       name="responsavel_novo_cpf_doc"
+                                       id="inputCpfDestinoLote"
+                                       class="form-control form-control-sm"
+                                       placeholder="000.000.000-00">
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-dark mb-1">
+                                    Cargo / Função do Recebedor
+                                </label>
+                                <input type="text"
+                                       name="responsavel_novo_cargo"
+                                       id="inputCargoDestinoLote"
+                                       class="form-control form-control-sm"
+                                       placeholder="Ex: Diretor(a), Coordenador(a)...">
+                            </div>
+
+                            <div class="col-md-8">
+                                <label class="form-label small fw-bold text-dark mb-1">
                                     Motivo / Observação (Opcional)
                                 </label>
                                 <input type="text"
                                        name="motivo_transferencia"
                                        id="inputMotivoDestinoLote"
                                        class="form-control form-control-sm"
-                                       placeholder="Ex: Envio para a escola...">
+                                       placeholder="Ex: Remessa de equipamentos para a unidade...">
                             </div>
 
-                            <div class="col-md-3">
+                            <div class="col-md-4">
                                 <label class="form-label small fw-bold text-dark mb-1">
                                     Coluna Valor Unit. (R$) no PDF?
                                 </label>
@@ -1433,6 +1549,19 @@
 </div>
 
 <script>
+    function desbloquearLoteJaTransferido(codigoLote) {
+        const boxBloq = document.getElementById('box_bloqueado_' + codigoLote);
+        const boxInp = document.getElementById('box_input_' + codigoLote);
+        const inpQtd = document.getElementById('input_qtd_' + codigoLote);
+        if (boxBloq) boxBloq.classList.add('d-none');
+        if (boxInp) boxInp.classList.remove('d-none');
+        if (inpQtd) {
+            inpQtd.value = 1;
+            aplicarQuantidadeLote(codigoLote, 1);
+            inpQtd.focus();
+        }
+    }
+
     function aplicarQuantidadeLote(codigoLote, valorDigitado) {
         const inputQtd = document.getElementById('input_qtd_' + codigoLote);
         const maxDisp = parseInt(inputQtd ? inputQtd.dataset.max : '0', 10) || 0;
@@ -1555,6 +1684,8 @@
         });
 
         let qtdTotal = 0;
+        let qtdJaTransferidos = 0;
+        let locaisJaTransferidosSet = new Set();
         let somaValor = 0.0;
         const containerIds = document.getElementById('containerInputsIdsTransferencia');
         let htmlInputs = '';
@@ -1563,6 +1694,8 @@
         document.querySelectorAll('.linha-lote-transf').forEach(tr => {
             const codigo = tr.dataset.codigo;
             const descricaoLote = tr.dataset.descricao || 'Bem Patrimonial';
+            const jaTransfLote = (tr.dataset.jaTransferido === '1');
+            const localOrigLote = tr.dataset.localOriginal || tr.dataset.local || '';
             const inputQtd = document.getElementById('input_qtd_' + codigo);
             const qtd = parseInt(inputQtd ? inputQtd.value : '0', 10) || 0;
             if (qtd > 0) {
@@ -1577,6 +1710,10 @@
                     const selecionados = itensLista.slice(0, qtd);
                     qtdTotal += selecionados.length;
                     somaValor += selecionados.length * valorUnit;
+                    if (jaTransfLote) {
+                        qtdJaTransferidos += selecionados.length;
+                        if (localOrigLote) locaisJaTransferidosSet.add(localOrigLote);
+                    }
                     selecionados.forEach(itemObj => {
                         htmlInputs += `<input type="hidden" name="patrimonio_ids[]" value="${itemObj.id}">`;
                         const serieOriginal = String(itemObj.serie || '').trim();
@@ -1598,6 +1735,10 @@
                     const selecionadosIds = idsLista.slice(0, qtd);
                     qtdTotal += selecionadosIds.length;
                     somaValor += selecionadosIds.length * valorUnit;
+                    if (jaTransfLote) {
+                        qtdJaTransferidos += selecionadosIds.length;
+                        if (localOrigLote) locaisJaTransferidosSet.add(localOrigLote);
+                    }
                     selecionadosIds.forEach(idItem => {
                         htmlInputs += `<input type="hidden" name="patrimonio_ids[]" value="${idItem}">`;
                     });
@@ -1606,6 +1747,25 @@
         });
 
         if (containerIds) containerIds.innerHTML = htmlInputs;
+
+        // Painel de senha caso haja bem já transferido selecionado
+        const painelSenha = document.getElementById('painelSenhaReTransferenciaLote');
+        const lblQtdJaTransf = document.getElementById('lblQtdJaTransferidosLote');
+        const resumoLocaisJaTransf = document.getElementById('resumoLocaisJaTransferidosLote');
+        const inputSenhaLote = document.getElementById('inputSenhaConfirmacaoLote');
+        if (painelSenha) {
+            if (qtdJaTransferidos > 0) {
+                painelSenha.classList.remove('d-none');
+                if (lblQtdJaTransf) lblQtdJaTransf.textContent = qtdJaTransferidos;
+                if (resumoLocaisJaTransf) {
+                    const listaLoc = Array.from(locaisJaTransferidosSet).join(', ');
+                    resumoLocaisJaTransf.textContent = listaLoc ? `Saindo de: ${listaLoc}` : '';
+                }
+            } else {
+                painelSenha.classList.add('d-none');
+                if (inputSenhaLote) inputSenhaLote.classList.remove('is-invalid');
+            }
+        }
 
         const painelSeries = document.getElementById('painelSeriesPendentesLote');
         const tbodySeries = document.getElementById('tbodyCamposSerieLote');
@@ -1874,6 +2034,22 @@
         if (qtdMarcados === 0) {
             alert('Digite a quantidade de bens que deseja enviar.');
             return;
+        }
+
+        // Verifica se há bens já transferidos selecionados e exige senha do usuário
+        const painelSenha = document.getElementById('painelSenhaReTransferenciaLote');
+        const inputSenhaLote = document.getElementById('inputSenhaConfirmacaoLote');
+        if (painelSenha && !painelSenha.classList.contains('d-none')) {
+            if (!inputSenhaLote || !inputSenhaLote.value.trim()) {
+                if (inputSenhaLote) {
+                    inputSenhaLote.classList.add('is-invalid');
+                    painelSenha.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    inputSenhaLote.focus();
+                }
+                alert('Atenção: Você selecionou bem(ns) que já foram transferidos anteriormente.\n\nPor segurança, digite a sua senha de usuário para confirmar a nova transferência.');
+                return;
+            }
+            inputSenhaLote.classList.remove('is-invalid');
         }
 
         // Verifica se todos os bens sem Nº de Série / Chassi / Placa foram preenchidos antes de transferir

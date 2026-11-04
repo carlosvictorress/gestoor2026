@@ -14,51 +14,13 @@
         .assinaturas { margin-top: 80px; }
         .linha-assinatura { border-top: 1px solid black; text-align: center; padding-top: 5px; width: 45%; }
         @media print {
-            .no-print { display: none; }
-            .termo-container { border: none; }
+            .no-print { display: none !important; }
+            .termo-container { border: none; padding-top: 0; }
         }
     </style>
 </head>
 <body onload="window.print()">
     <div class="termo-container">
-        <div class="no-print mb-3 p-3 bg-light border rounded d-flex justify-content-between align-items-center flex-wrap gap-2" style="font-family: system-ui, -apple-system, sans-serif;">
-            <div>
-                <strong class="text-dark">Opções do Termo (#{{ mov.id }}):</strong>
-                <span class="text-muted small ms-1">Você pode imprimir, gerar PDF ou corrigir os dados do recebedor antes de imprimir.</span>
-            </div>
-            <div class="d-flex gap-2">
-                <button type="button" class="btn btn-sm btn-warning fw-bold" onclick="document.getElementById('boxEditarRecebedorTermo').classList.toggle('d-none')">
-                    ✏️ Alterar Recebedor (Nome / CPF / Função)
-                </button>
-                <a href="{{ url_for('patrimonio.gerar_termo_recebimento', mov_id=mov.id) }}" class="btn btn-sm btn-outline-danger fw-bold">
-                    📄 Baixar PDF
-                </a>
-                <button type="button" onclick="window.print()" class="btn btn-sm btn-primary fw-bold">
-                    🖨️ Imprimir
-                </button>
-            </div>
-            <div id="boxEditarRecebedorTermo" class="w-100 mt-2 pt-2 border-top d-none">
-                <form action="{{ url_for('patrimonio.editar_recebedor_movimentacao', mov_id=mov.id) }}" method="POST" class="row g-2 align-items-end">
-                    <input type="hidden" name="acao_termo" value="imprimir">
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold mb-1">Nome de Quem Recebeu *</label>
-                        <input type="text" name="responsavel_novo_nome" class="form-control form-control-sm" value="{{ mov.nome_destino_exibicao if mov.nome_destino_exibicao != 'N/A' else '' }}" required>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold mb-1">CPF do Recebedor</label>
-                        <input type="text" name="responsavel_novo_cpf_doc" class="form-control form-control-sm" value="{{ mov.cpf_destino_exibicao }}" placeholder="000.000.000-00">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold mb-1">Cargo / Função</label>
-                        <input type="text" name="responsavel_novo_cargo" class="form-control form-control-sm" value="{{ mov.cargo_destino_exibicao }}" placeholder="Ex: Diretor(a), Coordenador(a)">
-                    </div>
-                    <div class="col-md-2 d-grid">
-                        <button type="submit" class="btn btn-sm btn-success fw-bold">Salvar e Atualizar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
         <div class="timbre">
             <img src="{{ url_for('static', filename='logo1.png') }}" alt="Brasão Oficial" style="max-height: 80px; width: auto;" onerror="this.src='{{ url_for('static', filename='timbre.jpg') }}'">
             <h5 class="mt-2 mb-0 fw-bold">ESTADO DO PIAUÍ</h5>

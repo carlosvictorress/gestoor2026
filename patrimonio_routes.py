@@ -2720,9 +2720,8 @@ def listar_itens_baixados():
     executar_migracao_patrimonio_segura()
     pasta_aberta_param = (request.args.get('pasta') or '').strip()
 
-    # 1. Carrega todas as escolas cadastradas no sistema (Tabela Escola)
+    # 1. Carrega todas as escolas cadastradas na tabela Escola
     escolas_db = Escola.query.order_by(Escola.nome).all()
-    locais_db = LocalPatrimonio.query.filter_by(ativo=True).order_by(LocalPatrimonio.nome).all()
 
     pastas_escolas_map = {}
     ordem_chaves_escolas = []
@@ -2750,42 +2749,23 @@ def listar_itens_baixados():
             }
             ordem_chaves_escolas.append(chave_norm)
 
-    # Também inclui locais do patrimônio que sejam Unidades Escolares / Creches caso não estejam na tabela Escola
-    termos_escolares = ('escola', 'creche', 'u.e', 'u. e', 'unidade escolar', 'cemei', 'colegio', 'ginásio', 'ginasio', 'pré-escola', 'pre-escola', 'infantil')
-    for loc in locais_db:
-        nome_candidato = (loc.predio_unidade or loc.nome or '').strip()
-        if not nome_candidato:
-            continue
-        norm_cand = _normalizar_nome_pasta(nome_candidato)
-        if any(t in norm_cand for t in termos_escolares):
-            # Verifica se já não é sub-sala de uma escola já listada
-            ja_coberto = False
-            for ch_existente in ordem_chaves_escolas:
-                if ch_existente in norm_cand or norm_cand in ch_existente:
-                    ja_coberto = True
-                    break
-            if not ja_coberto and norm_cand not in pastas_escolas_map:
-                pastas_escolas_map[norm_cand] = {
-                    'codigo': f"loc_esc_{loc.id}",
-                    'chave_norm': norm_cand,
-                    'nome': nome_candidato,
-                    'tipo': 'Escola',
-                    'zona': '',
-                    'inep': '',
-                    'diretor': loc.responsavel_setor or '',
-                    'endereco': loc.endereco or '',
-                    'status_escola': 'Ativa',
-                    'bens': [],
-                    'qtd_bens': 0,
-                    'valor_total': 0.0,
-                }
-                ordem_chaves_escolas.append(norm_cand)
-
     # 2. Carrega todos os bens baixados
     itens = Patrimonio.query.filter_by(status='Baixado').order_by(Patrimonio.id.desc()).all()
 
-    # Mapa para outros setores/locais administrativos que possuam bens baixados
-    pastas_outros_map = {}
+    pasta_outros = {
+        'codigo': 'outros_setores',
+        'chave_norm': 'outros_setores',
+        'nome': 'Secretaria / Sede / Outros Setores',
+        'tipo': 'Setor',
+        'zona': '',
+        'inep': '',
+        'diretor': 'Administração / Depósito',
+        'endereco': '',
+        'status_escola': 'Ativa',
+        'bens': [],
+        'qtd_bens': 0,
+        'valor_total': 0.0,
+    }
 
     # Ordena chaves de escolas da mais longa para a mais curta para casar nomes específicos primeiro
     chaves_ordenadas_match = sorted(ordem_chaves_escolas, key=len, reverse=True)
@@ -2797,13 +2777,11 @@ def listar_itens_baixados():
         norm_predio = _normalizar_nome_pasta(predio_item)
 
         chave_escola_encontrada = None
-        # 1º tentativa: igualdade direta
         if norm_loc in pastas_escolas_map:
             chave_escola_encontrada = norm_loc
         elif norm_predio and norm_predio in pastas_escolas_map:
             chave_escola_encontrada = norm_predio
         else:
-            # 2º tentativa: nome da escola contido na localização do bem (ex: "ESCOLA X - SALA 02")
             for ch_esc in chaves_ordenadas_match:
                 if ch_esc and (ch_esc in norm_loc or (norm_loc and len(norm_loc) >= 5 and norm_loc in ch_esc)):
                     chave_escola_encontrada = ch_esc
@@ -2819,32 +2797,15 @@ def listar_itens_baixados():
             pasta_alvo['qtd_bens'] += 1
             pasta_alvo['valor_total'] += valor_bem
         else:
-            nome_setor = loc_item or 'Sem Local Informado (Depósito / Sede)'
-            norm_setor = _normalizar_nome_pasta(nome_setor) or 'sem_local'
-            if norm_setor not in pastas_outros_map:
-                pastas_outros_map[norm_setor] = {
-                    'codigo': f"setor_{abs(hash(norm_setor)) % 1000000}",
-                    'chave_norm': norm_setor,
-                    'nome': nome_setor,
-                    'tipo': 'Setor / Unidade',
-                    'zona': '',
-                    'inep': '',
-                    'diretor': item.nome_responsavel_atual or '',
-                    'endereco': '',
-                    'status_escola': 'Ativa',
-                    'bens': [],
-                    'qtd_bens': 0,
-                    'valor_total': 0.0,
-                }
-            pastas_outros_map[norm_setor]['bens'].append(item)
-            pastas_outros_map[norm_setor]['qtd_bens'] += 1
-            pastas_outros_map[norm_setor]['valor_total'] += valor_bem
+            pasta_outros['bens'].append(item)
+            pasta_outros['qtd_bens'] += 1
+            pasta_outros['valor_total'] += valor_bem
 
-    # Monta lista final de pastas de escolas (colocando primeiro as que têm bens baixados, depois alfabético)
+    # Ordena pastas: primeiro as escolas com bens baixados, depois em ordem alfabética
     pastas_escolas = [pastas_escolas_map[ch] for ch in ordem_chaves_escolas]
     pastas_escolas.sort(key=lambda p: (0 if p['qtd_bens'] > 0 else 1, p['nome'].lower()))
 
-    pastas_outros = sorted(pastas_outros_map.values(), key=lambda p: (-p['qtd_bens'], p['nome'].lower()))
+    pastas_outros = [pasta_outros] if pasta_outros['qtd_bens'] > 0 else []
     todas_pastas = pastas_escolas + pastas_outros
 
     # Verifica se alguma pasta foi solicitada via query string (?pasta=...)
@@ -2852,14 +2813,14 @@ def listar_itens_baixados():
     if pasta_aberta_param:
         norm_param = _normalizar_nome_pasta(pasta_aberta_param)
         for p in todas_pastas:
-            if p['codigo'] == pasta_aberta_param or p['chave_norm'] == norm_param or norm_param in p['chave_norm']:
+            if p['codigo'] == pasta_aberta_param or p['chave_norm'] == norm_param or (norm_param and norm_param in p['chave_norm']):
                 codigo_pasta_inicial = p['codigo']
                 break
 
     kpis_baixa = {
         'total_escolas': len(pastas_escolas),
         'escolas_com_baixa': sum(1 for p in pastas_escolas if p['qtd_bens'] > 0),
-        'outros_setores_com_baixa': len(pastas_outros),
+        'outros_setores_com_baixa': pasta_outros['qtd_bens'],
         'total_bens_baixados': len(itens),
         'valor_total_baixado': sum(float(i.valor_aquisicao or 0.0) for i in itens),
     }

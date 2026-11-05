@@ -1742,6 +1742,10 @@ def transferir_item(item_id):
     data_transf_date = _parse_data(request.form.get('data_transferencia'))
     dt_mov = datetime.combine(data_transf_date, datetime.now().time()) if data_transf_date else datetime.now()
 
+    if item.status == 'Baixado':
+        flash('Este bem encontra-se BAIXADO / INATIVO e não pode ser transferido.', 'danger')
+        return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
+
     if not novo_local:
         flash('O novo local é obrigatório para a transferência.', 'warning')
         return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
@@ -2614,8 +2618,13 @@ def dar_baixa_item(item_id):
         return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
 
     try:
+        local_origem_baixa = item.localizacao
+        resp_anterior_nome = item.nome_responsavel_atual
+        resp_anterior_cargo = item.responsavel_cargo
+
         item.status = "Baixado"
         item.situacao_uso = "Inservível / Baixado"
+        item.estado_conservacao = "Inservível"
 
         if escola_pasta_baixa:
             item.localizacao = escola_pasta_baixa
@@ -2632,6 +2641,20 @@ def dar_baixa_item(item_id):
             item.observacoes = f"{item.observacoes}\n\n{texto_baixa}"
         else:
             item.observacoes = texto_baixa
+
+        mov_baixa = MovimentacaoPatrimonio(
+            patrimonio_id=item.id,
+            data_movimentacao=datetime.now(),
+            local_origem=local_origem_baixa,
+            responsavel_anterior_nome=resp_anterior_nome,
+            responsavel_anterior_cargo=resp_anterior_cargo,
+            local_destino=f"BAIXADO - Pasta: {item.localizacao}",
+            responsavel_novo_nome=recebedor,
+            responsavel_novo_cargo="Baixa Patrimonial / Arquivo",
+            motivo_transferencia=f"[BAIXA PATRIMONIAL] {motivo_baixa}",
+            usuario_registro=session.get('username') or getattr(current_user, 'username', 'Sistema')
+        )
+        db.session.add(mov_baixa)
 
         db.session.commit()
         registrar_log(
@@ -2825,6 +2848,15 @@ def listar_itens_baixados():
         'valor_total_baixado': sum(float(i.valor_aquisicao or 0.0) for i in itens),
     }
 
+    # Bens ativos disponíveis para serem selecionados e baixados em lote dentro da pasta da escola
+    bens_ativos_disponiveis = Patrimonio.query.filter(
+        Patrimonio.status != 'Baixado'
+    ).order_by(Patrimonio.descricao, Patrimonio.id.desc()).all()
+
+    locais_ativos_unicos = sorted({
+        (b.localizacao or '').strip() for b in bens_ativos_disponiveis if (b.localizacao or '').strip()
+    })
+
     return render_template(
         'patrimonio/itens_baixados.html',
         itens=itens,
@@ -2832,5 +2864,197 @@ def listar_itens_baixados():
         pastas_outros=pastas_outros,
         todas_pastas=todas_pastas,
         kpis_baixa=kpis_baixa,
-        codigo_pasta_inicial=codigo_pasta_inicial
+        codigo_pasta_inicial=codigo_pasta_inicial,
+        bens_ativos_disponiveis=bens_ativos_disponiveis,
+        locais_ativos_unicos=locais_ativos_unicos
     )
+
+
+@patrimonio_bp.route('/itens-baixados/incorporar-escola', methods=['POST'])
+@login_required
+@role_required('admin', 'Patrimonio', 'Fiscal')
+def incorporar_bens_baixados_escola():
+    """
+    Permite, de dentro da pasta de uma escola em 'Bens Baixados':
+    1) Escolher 1 ou mais bens existentes no sistema para dar baixa e arquivar na pasta da escola;
+    2) Incorporar diretamente múltiplos bens antigos já baixados/inativos na pasta da escola.
+    Todos os bens ficam automaticamente INATIVOS (status='Baixado', situacao_uso='Inservível / Baixado', estado_conservacao='Inservível')
+    e com histórico de auditoria completo.
+    """
+    executar_migracao_patrimonio_segura()
+
+    modo = (request.form.get('modo_incorporacao') or 'selecionar_existentes').strip()
+    escola_nome = (request.form.get('escola_nome') or '').strip()
+    codigo_pasta = (request.form.get('codigo_pasta') or '').strip()
+    motivo_baixa = (request.form.get('motivo_baixa') or '').strip()
+    recebedor = (request.form.get('recebedor') or session.get('username') or getattr(current_user, 'username', 'Sistema')).strip()
+    data_baixa_date = _parse_data(request.form.get('data_baixa'))
+    dt_baixa = datetime.combine(data_baixa_date, datetime.now().time()) if data_baixa_date else datetime.now()
+    data_baixa_str = dt_baixa.strftime('%d/%m/%Y')
+    usuario_op = session.get('username') or getattr(current_user, 'username', 'Sistema')
+
+    if not escola_nome:
+        flash('Unidade escolar de destino não informada.', 'warning')
+        return redirect(url_for('patrimonio.listar_itens_baixados'))
+
+    if not motivo_baixa:
+        flash('Informe o motivo / justificativa da baixa para registro de auditoria.', 'warning')
+        return redirect(url_for('patrimonio.listar_itens_baixados', pasta=codigo_pasta or escola_nome))
+
+    loc_obj = LocalPatrimonio.query.filter(
+        func.lower(LocalPatrimonio.nome) == escola_nome.lower()
+    ).first()
+    local_id_escola = loc_obj.id if loc_obj else None
+
+    try:
+        total_processados = 0
+
+        if modo == 'selecionar_existentes':
+            ids_raw = request.form.getlist('patrimonio_ids[]') or request.form.getlist('patrimonio_ids')
+            ids_escolhidos = [int(i) for i in ids_raw if str(i).isdigit()]
+
+            if not ids_escolhidos:
+                flash('Selecione pelo menos 1 bem da lista para dar baixa nesta escola.', 'warning')
+                return redirect(url_for('patrimonio.listar_itens_baixados', pasta=codigo_pasta or escola_nome))
+
+            bens_para_baixar = Patrimonio.query.filter(Patrimonio.id.in_(ids_escolhidos)).all()
+            for item in bens_para_baixar:
+                local_origem_ant = item.localizacao or 'Acervo Geral'
+                resp_ant_nome = item.nome_responsavel_atual
+                resp_ant_cargo = item.responsavel_cargo
+
+                # Inativa em todos os campos
+                item.status = 'Baixado'
+                item.situacao_uso = 'Inservível / Baixado'
+                item.estado_conservacao = 'Inservível'
+                item.localizacao = escola_nome
+                if local_id_escola:
+                    item.local_id = local_id_escola
+
+                texto_obs_baixa = (
+                    f"BAIXA REALIZADA EM {data_baixa_str} - Pasta da Escola: {escola_nome} "
+                    f"(Origem: {local_origem_ant}) - Motivo: {motivo_baixa} | Autorizador: {recebedor}"
+                )
+                if item.observacoes:
+                    item.observacoes = f"{item.observacoes}\n\n{texto_obs_baixa}"
+                else:
+                    item.observacoes = texto_obs_baixa
+
+                mov_b = MovimentacaoPatrimonio(
+                    patrimonio_id=item.id,
+                    data_movimentacao=dt_baixa,
+                    local_origem=local_origem_ant,
+                    responsavel_anterior_nome=resp_ant_nome,
+                    responsavel_anterior_cargo=resp_ant_cargo,
+                    local_destino=f"BAIXADO - Pasta: {escola_nome}",
+                    responsavel_novo_nome=recebedor,
+                    responsavel_novo_cargo="Baixa Patrimonial / Arquivo",
+                    motivo_transferencia=f"[BAIXA EM LOTE NA PASTA DA ESCOLA] {motivo_baixa}",
+                    usuario_registro=usuario_op
+                )
+                db.session.add(mov_b)
+                total_processados += 1
+
+            db.session.commit()
+            registrar_log(
+                f"Baixou e vinculou {total_processados} bem(ns) existente(s) na pasta da escola '{escola_nome}'. Motivo: {motivo_baixa}"
+            )
+            flash(
+                f"Sucesso! {total_processados} bem(ns) foram baixados, inativados em todo o sistema e arquivados na pasta de '{escola_nome}'.",
+                "success"
+            )
+
+        else:
+            # modo == 'cadastrar_antigos': Incorpora diretamente 1 ou mais bens antigos já baixados/inativos
+            descricoes = request.form.getlist('descricao_antigo[]')
+            categorias = request.form.getlist('categoria_antigo[]')
+            quantidades = request.form.getlist('qtd_antigo[]')
+            tombamentos = request.form.getlist('tombamento_antigo[]')
+            marcas = request.form.getlist('marca_antigo[]')
+            series = request.form.getlist('serie_antigo[]')
+            valores = request.form.getlist('valor_antigo[]')
+
+            for idx, desc_raw in enumerate(descricoes):
+                desc = (desc_raw or '').strip()
+                if not desc:
+                    continue
+
+                cat = (categorias[idx] if idx < len(categorias) else 'Mobiliário').strip() or 'Mobiliário'
+                qtd_raw = quantidades[idx] if idx < len(quantidades) else '1'
+                try:
+                    qtd = max(1, min(500, int(qtd_raw)))
+                except ValueError:
+                    qtd = 1
+
+                tomb_base = (tombamentos[idx] if idx < len(tombamentos) else '').strip() or None
+                marca_str = (marcas[idx] if idx < len(marcas) else '').strip() or None
+                serie_str = (series[idx] if idx < len(series) else '').strip() or None
+                val_unit = _parse_moeda(valores[idx] if idx < len(valores) else '0')
+
+                for u in range(qtd):
+                    tomb_unid = _incrementar_tombamento(tomb_base, u) if tomb_base else None
+                    if tomb_unid:
+                        conflito = Patrimonio.query.filter_by(numero_patrimonio=tomb_unid).first()
+                        if conflito:
+                            tomb_unid = None
+
+                    obs_antigo = (
+                        f"INCORPORAÇÃO DE BEM ANTIGO JÁ BAIXADO EM {data_baixa_str} - "
+                        f"Unidade Escolar: {escola_nome} - Motivo/Laudo: {motivo_baixa} | Responsável: {recebedor}"
+                    )
+
+                    novo_baixado = Patrimonio(
+                        numero_patrimonio=tomb_unid,
+                        descricao=desc,
+                        categoria=cat,
+                        marca=marca_str,
+                        modelo=None,
+                        numero_serie=serie_str if (qtd == 1 or not serie_str) else f"{serie_str}-{u+1}",
+                        especificacao_tecnica=motivo_baixa,
+                        valor_aquisicao=val_unit,
+                        data_aquisicao=data_baixa_date or date.today(),
+                        estado_conservacao='Inservível',
+                        situacao_uso='Inservível / Baixado',
+                        status='Baixado',
+                        localizacao=escola_nome,
+                        local_id=local_id_escola,
+                        observacoes=obs_antigo,
+                        responsavel_nome=recebedor,
+                        responsavel_cargo='Arquivo de Bens Baixados',
+                        forma_aquisicao='Acervo Antigo / Baixa na Implantação',
+                    )
+                    db.session.add(novo_baixado)
+                    db.session.flush()
+
+                    mov_antigo = MovimentacaoPatrimonio(
+                        patrimonio_id=novo_baixado.id,
+                        data_movimentacao=dt_baixa,
+                        local_origem=f"Acervo Antigo ({escola_nome})",
+                        responsavel_anterior_nome="Inventário de Implantação",
+                        local_destino=f"BAIXADO - Pasta: {escola_nome}",
+                        responsavel_novo_nome=recebedor,
+                        responsavel_novo_cargo="Baixa Patrimonial / Arquivo",
+                        motivo_transferencia=f"[INCORPORAÇÃO DE BEM ANTIGO BAIXADO] {motivo_baixa}",
+                        usuario_registro=usuario_op
+                    )
+                    db.session.add(mov_antigo)
+                    total_processados += 1
+
+            if total_processados == 0:
+                flash('Informe a descrição de pelo menos 1 bem antigo para incorporar na pasta.', 'warning')
+                return redirect(url_for('patrimonio.listar_itens_baixados', pasta=codigo_pasta or escola_nome))
+
+            db.session.commit()
+            registrar_log(
+                f"Incorporou {total_processados} bem(ns) antigo(s) diretamente como BAIXADOS na pasta da escola '{escola_nome}'. Motivo: {motivo_baixa}"
+            )
+            flash(
+                f"Sucesso! {total_processados} bem(ns) antigo(s) foram incorporados diretamente como Baixados/Inativos na pasta de '{escola_nome}'.",
+                "success"
+            )
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Erro ao incorporar bens baixados na pasta da escola: {str(e)}", "danger")
+
+    return redirect(url_for('patrimonio.listar_itens_baixados', pasta=codigo_pasta or escola_nome))

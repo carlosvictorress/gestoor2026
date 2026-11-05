@@ -112,6 +112,13 @@
   .folder-card.has-items .folder-footer {
     border-top-color: #fef3c7;
   }
+
+  .linha-selecao-baixa {
+    cursor: pointer;
+  }
+  .linha-selecao-baixa.selecionada {
+    background-color: #fff3cd !important;
+  }
 </style>
 
 <div class="container mt-4 mb-5">
@@ -123,7 +130,7 @@
         <i class="bi bi-folder2-open text-warning me-2"></i>Bens Baixados por Escola
       </h1>
       <p class="text-muted small mb-0">
-        Clique na pasta de uma escola para abrir e consultar os bens baixados daquela unidade
+        Abra a pasta de uma escola para consultar ou incorporar múltiplos bens baixados/inativos naquela unidade
       </p>
     </div>
     <div class="d-flex gap-2">
@@ -301,6 +308,7 @@
               <th class="ps-3">Tombamento</th>
               <th>Descrição</th>
               <th>Pasta da Escola</th>
+              <th>Status</th>
               <th>Valor Aquisição</th>
               <th class="text-end pe-3">Ações</th>
             </tr>
@@ -321,6 +329,9 @@
                        class="badge bg-warning text-dark text-decoration-none">
                       <i class="bi bi-folder-fill me-1"></i> {{ pasta.nome }}
                     </a>
+                  </td>
+                  <td>
+                    <span class="badge bg-danger"><i class="bi bi-slash-circle-fill me-1"></i> Baixado / Inativo</span>
                   </td>
                   <td class="small">R$ {{ "%.2f"|format(bem.valor_aquisicao or 0.0)|replace('.', ',') }}</td>
                   <td class="text-end pe-3">
@@ -358,13 +369,13 @@
               </a>
               <div>
                 <div class="text-muted small">
-                  <i class="bi bi-folder2-open text-warning me-1"></i> Pasta da Unidade Escolar
+                  <i class="bi bi-folder2-open text-warning me-1"></i> Pasta de Bens Baixados da Unidade
                 </div>
                 <h4 class="fw-bold mb-0 text-dark">{{ pasta.nome }}</h4>
               </div>
             </div>
 
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex flex-wrap align-items-center gap-2">
               <span class="badge bg-danger fs-6 px-3 py-2">
                 {{ pasta.qtd_bens }} {{ 'bem baixado' if pasta.qtd_bens == 1 else 'bens baixados' }}
               </span>
@@ -373,6 +384,13 @@
                   Total: R$ {{ "%.2f"|format(pasta.valor_total)|replace('.', ',') }}
                 </span>
               {% endif %}
+              <button type="button"
+                      class="btn btn-danger fw-bold shadow-sm"
+                      data-codigo="{{ pasta.codigo }}"
+                      data-escola="{{ pasta.nome | e }}"
+                      onclick="abrirModalIncorporarNaEscola(this)">
+                <i class="bi bi-plus-circle-fill me-1"></i> Escolher / Incorporar Bens Baixados nesta Escola
+              </button>
             </div>
           </div>
         </div>
@@ -382,7 +400,7 @@
           <div class="card border-0 shadow-sm">
             <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
               <span class="fw-bold text-secondary">
-                <i class="bi bi-list-ul me-1"></i> Relação de Bens Baixados nesta Escola
+                <i class="bi bi-list-ul me-1"></i> Relação de Bens Baixados / Inativos nesta Escola
               </span>
               <div style="min-width: 260px;">
                 <input type="text" class="form-control form-control-sm"
@@ -399,8 +417,9 @@
                     <th>Descrição do Bem</th>
                     <th>Categoria</th>
                     <th>Nº de Série / Placa</th>
+                    <th>Situação</th>
                     <th>Valor Aquisição</th>
-                    <th class="text-end pe-3">Ações</th>
+                    <th class="text-end pe-3">Ações Auditáveis</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -408,7 +427,7 @@
                     <tr class="linha-bem-pasta-{{ pasta.codigo }}"
                         data-busca="{{ ((item.numero_patrimonio or '') ~ ' ' ~ (item.descricao or '') ~ ' ' ~ (item.categoria or '') ~ ' ' ~ (item.marca or '') ~ ' ' ~ (item.modelo or '') ~ ' ' ~ (item.numero_serie or '')) | lower | e }}">
                       <td class="ps-3">
-                        <span class="fw-bold text-danger">{{ item.numero_patrimonio or ('S/N (#' ~ item.id ~ ')') }}</span>
+                        <span class="fw-bold text-danger font-monospace">{{ item.numero_patrimonio or ('S/N (#' ~ item.id ~ ')') }}</span>
                       </td>
                       <td>
                         <div class="fw-semibold text-dark">{{ item.descricao }}</div>
@@ -424,8 +443,13 @@
                       <td>
                         <span class="badge bg-secondary">{{ item.categoria or 'Geral' }}</span>
                       </td>
-                      <td class="small">
+                      <td class="small font-monospace">
                         {{ item.numero_serie or '-' }}
+                      </td>
+                      <td>
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                          <i class="bi bi-slash-circle-fill me-1"></i> Inativo / Baixado
+                        </span>
                       </td>
                       <td class="small">
                         {% if item.valor_aquisicao %}
@@ -437,17 +461,13 @@
                       <td class="text-end pe-3">
                         <div class="btn-group btn-group-sm">
                           <a href="{{ url_for('patrimonio.detalhes_item', item_id=item.id) }}"
-                             class="btn btn-outline-primary" title="Ver Histórico e Detalhes">
-                            <i class="bi bi-eye"></i> Detalhes
+                             class="btn btn-outline-primary" title="Ver Histórico e Ficha Auditável">
+                            <i class="bi bi-eye"></i> Ficha
                           </a>
                           <a href="{{ url_for('patrimonio.termo_baixa', item_id=item.id) }}"
                              target="_blank"
                              class="btn btn-outline-danger" title="Imprimir Termo de Baixa (PDF)">
                             <i class="bi bi-file-earmark-pdf"></i> Termo
-                          </a>
-                          <a href="{{ url_for('patrimonio.editar_item', item_id=item.id) }}"
-                             class="btn btn-outline-secondary" title="Editar Bem">
-                            <i class="bi bi-pencil"></i>
                           </a>
                         </div>
                       </td>
@@ -462,14 +482,23 @@
             <div class="card-body text-center py-5">
               <i class="bi bi-folder2-open display-4 text-muted d-block mb-3"></i>
               <h5 class="fw-bold text-secondary">Pasta Vazia</h5>
-              <p class="text-muted mb-3">
-                A unidade <strong>{{ pasta.nome }}</strong> não possui nenhum bem baixado até o momento.
+              <p class="text-muted mb-4">
+                A unidade <strong>{{ pasta.nome }}</strong> ainda não possui bens baixados arquivados nesta pasta.
               </p>
-              <a href="{{ url_for('patrimonio.listar_itens_baixados') }}"
-                 onclick="return voltarParaGradePastas();"
-                 class="btn btn-primary">
-                <i class="bi bi-arrow-left me-1"></i> Voltar para Todas as Pastas
-              </a>
+              <div class="d-flex justify-content-center flex-wrap gap-2">
+                <button type="button"
+                        class="btn btn-danger fw-bold px-4 shadow-sm"
+                        data-codigo="{{ pasta.codigo }}"
+                        data-escola="{{ pasta.nome | e }}"
+                        onclick="abrirModalIncorporarNaEscola(this)">
+                  <i class="bi bi-plus-circle-fill me-1"></i> Escolher / Incorporar Bens Baixados nesta Escola
+                </button>
+                <a href="{{ url_for('patrimonio.listar_itens_baixados') }}"
+                   onclick="return voltarParaGradePastas();"
+                   class="btn btn-outline-secondary px-4">
+                  <i class="bi bi-arrow-left me-1"></i> Voltar para Todas as Pastas
+                </a>
+              </div>
             </div>
           </div>
         {% endif %}
@@ -479,6 +508,256 @@
 
   </div>
 
+</div>
+
+<!-- ======================================================================= -->
+<!-- MODAL: ESCOLHER / INCORPORAR MÚLTIPLOS BENS BAIXADOS NA PASTA DA ESCOLA -->
+<!-- ======================================================================= -->
+<div class="modal fade" id="modalIncorporarBaixadosEscola" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+      <div class="modal-header bg-dark text-white border-0 py-3 px-4">
+        <div>
+          <span class="badge bg-warning text-dark fw-bold mb-1">
+            <i class="bi bi-folder-fill me-1"></i> Pasta de Destino: <span id="lblNomeEscolaModalBaixa">-</span>
+          </span>
+          <h5 class="modal-title fw-bold mb-0">
+            <i class="bi bi-archive-fill text-danger me-2"></i> Escolher e Incorporar Bens Baixados (Inativação Automática)
+          </h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+
+      <div class="modal-body p-4" style="max-height: 76vh; overflow-y: auto;">
+        <form method="POST" action="{{ url_for('patrimonio.incorporar_bens_baixados_escola') }}" id="formIncorporarBaixadosEscola">
+          <input type="hidden" name="escola_nome" id="inputEscolaNomeBaixaLote" value="">
+          <input type="hidden" name="codigo_pasta" id="inputCodigoPastaBaixaLote" value="">
+          <input type="hidden" name="modo_incorporacao" id="inputModoIncorporacaoBaixa" value="selecionar_existentes">
+
+          <!-- Seletor de Modo (2 Abas) -->
+          <div class="btn-group w-100 mb-3 shadow-sm" role="group">
+            <button type="button"
+                    id="btnModoExistentes"
+                    class="btn btn-dark fw-bold py-2"
+                    onclick="alternarModoIncorporacaoBaixa('selecionar_existentes')">
+              <i class="bi bi-check2-square me-1 text-warning"></i>
+              1. Escolher Bens Já Cadastrados no Sistema (Múltiplos Itens)
+            </button>
+            <button type="button"
+                    id="btnModoAntigos"
+                    class="btn btn-outline-dark fw-bold py-2"
+                    onclick="alternarModoIncorporacaoBaixa('cadastrar_antigos')">
+              <i class="bi bi-plus-circle-dotted me-1 text-danger"></i>
+              2. Incorporar Bens Antigos Direto como Baixados (Implantação / Legado)
+            </button>
+          </div>
+
+          <div class="alert alert-warning py-2 px-3 small mb-3 border border-warning-subtle d-flex align-items-center gap-2">
+            <i class="bi bi-shield-lock-fill text-danger fs-5"></i>
+            <div>
+              <strong>Inativação e Rastreabilidade Automática:</strong> Todos os itens selecionados ou incorporados abaixo ficarão automaticamente <strong>INATIVOS / BAIXADOS em todos os campos do sistema</strong> e arquivados na pasta de <strong id="lblEscolaAlertaBaixa">-</strong> com registro no histórico de auditoria.
+            </div>
+          </div>
+
+          <!-- =============================================================== -->
+          <!-- MODO 1: ESCOLHER MÚLTIPLOS BENS JÁ CADASTRADOS NO SISTEMA       -->
+          <!-- =============================================================== -->
+          <div id="painelModoSelecionarExistentes">
+            <div class="row g-2 align-items-center mb-2">
+              <div class="col-md-5">
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                  <input type="text"
+                         id="inputBuscaBensAtivosModal"
+                         class="form-control"
+                         placeholder="Buscar por descrição, nº tombamento, NF ou série..."
+                         oninput="filtrarTabelaBensAtivosModal()">
+                </div>
+              </div>
+              <div class="col-md-4">
+                <select id="selectFiltroLocalAtivosModal" class="form-select form-select-sm" onchange="filtrarTabelaBensAtivosModal()">
+                  <option value="">📍 Todos os Locais Atuais ({{ bens_ativos_disponiveis|length if bens_ativos_disponiveis is defined else 0 }} bens ativos)</option>
+                  {% if locais_ativos_unicos is defined %}
+                    {% for loc_at in locais_ativos_unicos %}
+                      <option value="{{ loc_at | lower | e }}">{{ loc_at }}</option>
+                    {% endfor %}
+                  {% endif %}
+                </select>
+              </div>
+              <div class="col-md-3 d-flex justify-content-end gap-1">
+                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" onclick="marcarTodosVisiveisModalBaixa(true)">
+                  Marcar Visíveis
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="marcarTodosVisiveisModalBaixa(false)">
+                  Limpar
+                </button>
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+              <small class="text-muted">
+                Clique nos itens abaixo para marcar <strong>1 ou mais bens</strong> que deseja dar baixa para esta escola:
+              </small>
+              <span class="badge bg-danger px-3 py-1" id="badgeContadorSelecionadosBaixa">
+                0 item(ns) selecionado(s)
+              </span>
+            </div>
+
+            <div class="border rounded-3 bg-white mb-3" style="max-height: 270px; overflow-y: auto;">
+              <table class="table table-sm table-hover align-middle mb-0 small">
+                <thead class="table-light sticky-top">
+                  <tr>
+                    <th class="ps-3" style="width: 42px;">Sel.</th>
+                    <th style="width: 120px;">Tombamento</th>
+                    <th>Descrição do Bem</th>
+                    <th>Localização Atual</th>
+                    <th>NF / Série</th>
+                    <th class="text-end pe-3">Valor (R$)</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyBensAtivosParaBaixa">
+                  {% if bens_ativos_disponiveis is defined and bens_ativos_disponiveis %}
+                    {% for b_at in bens_ativos_disponiveis %}
+                      <tr class="linha-selecao-baixa"
+                          data-local="{{ (b_at.localizacao or '') | lower | e }}"
+                          data-busca="{{ ((b_at.numero_patrimonio or '') ~ ' ' ~ (b_at.descricao or '') ~ ' ' ~ (b_at.localizacao or '') ~ ' ' ~ (b_at.numero_nota_fiscal or '') ~ ' ' ~ (b_at.numero_serie or '') ~ ' ' ~ (b_at.marca or '')) | lower | e }}"
+                          onclick="toggleLinhaBemBaixa(this, event)">
+                        <td class="ps-3">
+                          <input type="checkbox"
+                                 class="form-check-input chk-bem-baixa-lote"
+                                 name="patrimonio_ids[]"
+                                 value="{{ b_at.id }}"
+                                 onclick="event.stopPropagation(); atualizarContadorSelecionadosBaixa();">
+                        </td>
+                        <td class="font-monospace fw-bold text-primary">
+                          {{ b_at.numero_patrimonio or ('S/N (#' ~ b_at.id ~ ')') }}
+                        </td>
+                        <td>
+                          <div class="fw-bold text-dark">{{ b_at.descricao }}</div>
+                          <small class="text-muted">{{ b_at.categoria or 'Geral' }}</small>
+                        </td>
+                        <td>
+                          <span class="badge bg-light text-dark border">{{ b_at.localizacao or 'Não informado' }}</span>
+                        </td>
+                        <td class="text-muted">
+                          {% if b_at.numero_nota_fiscal %}NF: {{ b_at.numero_nota_fiscal }}{% else %}-{% endif %}
+                          {% if b_at.numero_serie %}<br><span class="font-monospace">Série: {{ b_at.numero_serie }}</span>{% endif %}
+                        </td>
+                        <td class="text-end pe-3 fw-semibold">
+                          R$ {{ "%.2f"|format(b_at.valor_aquisicao or 0.0)|replace('.', ',') }}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  {% else %}
+                    <tr>
+                      <td colspan="6" class="text-center py-4 text-muted">
+                        Nenhum bem ativo disponível no acervo. Utilize a Aba 2 acima para cadastrar bens antigos diretamente como baixados.
+                      </td>
+                    </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- =============================================================== -->
+          <!-- MODO 2: INCORPORAR BENS ANTIGOS DIRETO COMO BAIXADOS (LOTE)     -->
+          <!-- =============================================================== -->
+          <div id="painelModoCadastrarAntigos" class="d-none">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="small text-muted">
+                Informe abaixo <strong>1 ou mais bens antigos</strong> desta escola que já estão baixados/inservíveis para registro histórico:
+              </span>
+              <button type="button" class="btn btn-sm btn-success fw-bold" onclick="adicionarLinhaBemAntigoBaixado()">
+                <i class="bi bi-plus-lg me-1"></i> Adicionar Mais um Item
+              </button>
+            </div>
+
+            <div class="table-responsive border rounded-3 bg-white mb-3" style="max-height: 270px; overflow-y: auto;">
+              <table class="table table-sm align-middle mb-0 small">
+                <thead class="table-light sticky-top">
+                  <tr>
+                    <th class="ps-2">Descrição do Bem Antigo *</th>
+                    <th style="width: 145px;">Categoria</th>
+                    <th style="width: 85px;">Qtd. *</th>
+                    <th style="width: 130px;">Tombamento (Opc.)</th>
+                    <th style="width: 140px;">Marca / Série (Opc.)</th>
+                    <th style="width: 115px;">Valor Unit. (Opc.)</th>
+                    <th class="text-center" style="width: 45px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyLinhasBensAntigos">
+                  <tr class="linha-item-antigo">
+                    <td class="ps-2">
+                      <input type="text" name="descricao_antigo[]" class="form-control form-control-sm input-desc-antigo"
+                             placeholder="Ex: Carteira Escolar Antiga, Computador..." >
+                    </td>
+                    <td>
+                      <select name="categoria_antigo[]" class="form-select form-select-sm">
+                        <option value="Mobiliário">Mobiliário</option>
+                        <option value="Informática">Informática</option>
+                        <option value="Eletrodomésticos">Eletrodomésticos</option>
+                        <option value="Equipamentos">Equipamentos</option>
+                        <option value="Veículos">Veículos</option>
+                        <option value="Outros">Outros</option>
+                      </select>
+                    </td>
+                    <td>
+                      <input type="number" name="qtd_antigo[]" class="form-control form-control-sm text-center fw-bold" value="1" min="1" max="500">
+                    </td>
+                    <td>
+                      <input type="text" name="tombamento_antigo[]" class="form-control form-control-sm font-monospace" placeholder="S/N">
+                    </td>
+                    <td>
+                      <input type="text" name="serie_antigo[]" class="form-control form-control-sm" placeholder="Marca ou Série">
+                    </td>
+                    <td>
+                      <input type="text" name="valor_antigo[]" class="form-control form-control-sm" placeholder="0,00">
+                    </td>
+                    <td class="text-center">
+                      <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="removerLinhaBemAntigo(this)" title="Remover linha">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- =============================================================== -->
+          <!-- DADOS DE AUDITORIA DA BAIXA (COMUM AOS 2 MODOS)                 -->
+          <!-- =============================================================== -->
+          <div class="p-3 bg-light rounded-3 border">
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-dark mb-1">Data da Baixa *</label>
+                <input type="date" name="data_baixa" id="inputDataBaixaModalEscola" class="form-control form-control-sm" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-dark mb-1">Responsável / Autorizador *</label>
+                <input type="text" name="recebedor" class="form-control form-control-sm"
+                       value="{{ current_user.username if current_user else '' }}" required
+                       placeholder="Nome de quem conferiu/autorizou a baixa...">
+              </div>
+              <div class="col-md-5">
+                <label class="form-label small fw-bold text-dark mb-1">Motivo / Parecer da Comissão de Baixa *</label>
+                <input type="text" name="motivo_baixa" class="form-control form-control-sm" required
+                       placeholder="Ex: Bens inservíveis/antigos conforme vistoria na escola...">
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-end gap-2 mt-3">
+            <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-danger fw-bold px-4 shadow-sm">
+              <i class="bi bi-check2-circle me-1"></i> Confirmar Baixa e Inativar Bens na Pasta da Escola
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -586,7 +865,6 @@
       aviso.classList.toggle('d-none', pastasVisiveis > 0);
     }
 
-    // Pesquisa direta por bens baixados quando digitar pelo menos 2 caracteres
     const painelBens = document.getElementById('painelResultadosBens');
     const contadorBens = document.getElementById('contadorBensEncontrados');
     if (painelBens) {
@@ -628,6 +906,157 @@
         tr.classList.add('d-none');
       }
     });
+  }
+
+  /* ===================================================================== */
+  /* FUNÇÕES DO MODAL DE ESCOLHER / INCORPORAR BENS BAIXADOS NA ESCOLA     */
+  /* ===================================================================== */
+  function abrirModalIncorporarNaEscola(btnEl) {
+    const codigoPasta = btnEl.getAttribute('data-codigo') || '';
+    const nomeEscola = btnEl.getAttribute('data-escola') || '';
+
+    document.getElementById('inputEscolaNomeBaixaLote').value = nomeEscola;
+    document.getElementById('inputCodigoPastaBaixaLote').value = codigoPasta;
+    document.getElementById('lblNomeEscolaModalBaixa').textContent = nomeEscola;
+    document.getElementById('lblEscolaAlertaBaixa').textContent = nomeEscola;
+
+    const inputData = document.getElementById('inputDataBaixaModalEscola');
+    if (inputData && !inputData.value) {
+      const hoje = new Date();
+      const ano = hoje.getFullYear();
+      const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+      const dia = String(hoje.getDate()).padStart(2, '0');
+      inputData.value = ano + '-' + mes + '-' + dia;
+    }
+
+    const modalEl = document.getElementById('modalIncorporarBaixadosEscola');
+    if (modalEl && window.bootstrap) {
+      const modalObj = bootstrap.Modal.getOrCreateInstance(modalEl);
+      modalObj.show();
+    }
+  }
+
+  function alternarModoIncorporacaoBaixa(modo) {
+    document.getElementById('inputModoIncorporacaoBaixa').value = modo;
+    const painelExistentes = document.getElementById('painelModoSelecionarExistentes');
+    const painelAntigos = document.getElementById('painelModoCadastrarAntigos');
+    const btnExistentes = document.getElementById('btnModoExistentes');
+    const btnAntigos = document.getElementById('btnModoAntigos');
+
+    if (modo === 'cadastrar_antigos') {
+      painelExistentes.classList.add('d-none');
+      painelAntigos.classList.remove('d-none');
+      btnAntigos.className = 'btn btn-dark fw-bold py-2';
+      btnExistentes.className = 'btn btn-outline-dark fw-bold py-2';
+    } else {
+      painelAntigos.classList.add('d-none');
+      painelExistentes.classList.remove('d-none');
+      btnExistentes.className = 'btn btn-dark fw-bold py-2';
+      btnAntigos.className = 'btn btn-outline-dark fw-bold py-2';
+    }
+  }
+
+  function toggleLinhaBemBaixa(trEl, evt) {
+    const chk = trEl.querySelector('.chk-bem-baixa-lote');
+    if (!chk) return;
+    if (evt && evt.target === chk) return;
+    chk.checked = !chk.checked;
+    trEl.classList.toggle('selecionada', chk.checked);
+    atualizarContadorSelecionadosBaixa();
+  }
+
+  function atualizarContadorSelecionadosBaixa() {
+    let total = 0;
+    document.querySelectorAll('.chk-bem-baixa-lote').forEach(function(chk) {
+      const tr = chk.closest('tr');
+      if (tr) {
+        tr.classList.toggle('selecionada', chk.checked);
+      }
+      if (chk.checked) total++;
+    });
+    const badge = document.getElementById('badgeContadorSelecionadosBaixa');
+    if (badge) {
+      badge.textContent = total + ' item(ns) selecionado(s)';
+    }
+  }
+
+  function filtrarTabelaBensAtivosModal() {
+    const termo = (document.getElementById('inputBuscaBensAtivosModal').value || '').trim().toLowerCase();
+    const localFiltro = (document.getElementById('selectFiltroLocalAtivosModal').value || '').trim().toLowerCase();
+
+    document.querySelectorAll('#tbodyBensAtivosParaBaixa .linha-selecao-baixa').forEach(function(tr) {
+      const busca = tr.getAttribute('data-busca') || '';
+      const loc = tr.getAttribute('data-local') || '';
+      const okTermo = (termo === '') || busca.includes(termo);
+      const okLocal = (localFiltro === '') || (loc === localFiltro);
+      tr.classList.toggle('d-none', !(okTermo && okLocal));
+    });
+  }
+
+  function marcarTodosVisiveisModalBaixa(marcar) {
+    document.querySelectorAll('#tbodyBensAtivosParaBaixa .linha-selecao-baixa').forEach(function(tr) {
+      if (!marcar || !tr.classList.contains('d-none')) {
+        const chk = tr.querySelector('.chk-bem-baixa-lote');
+        if (chk) chk.checked = marcar;
+      }
+    });
+    atualizarContadorSelecionadosBaixa();
+  }
+
+  function adicionarLinhaBemAntigoBaixado() {
+    const tbody = document.getElementById('tbodyLinhasBensAntigos');
+    if (!tbody) return;
+    const novaTr = document.createElement('tr');
+    novaTr.className = 'linha-item-antigo';
+    novaTr.innerHTML =
+      '<td class="ps-2">' +
+        '<input type="text" name="descricao_antigo[]" class="form-control form-control-sm input-desc-antigo" placeholder="Ex: Carteira Escolar Antiga, Computador...">' +
+      '</td>' +
+      '<td>' +
+        '<select name="categoria_antigo[]" class="form-select form-select-sm">' +
+          '<option value="Mobiliário">Mobiliário</option>' +
+          '<option value="Informática">Informática</option>' +
+          '<option value="Eletrodomésticos">Eletrodomésticos</option>' +
+          '<option value="Equipamentos">Equipamentos</option>' +
+          '<option value="Veículos">Veículos</option>' +
+          '<option value="Outros">Outros</option>' +
+        '</select>' +
+      '</td>' +
+      '<td>' +
+        '<input type="number" name="qtd_antigo[]" class="form-control form-control-sm text-center fw-bold" value="1" min="1" max="500">' +
+      '</td>' +
+      '<td>' +
+        '<input type="text" name="tombamento_antigo[]" class="form-control form-control-sm font-monospace" placeholder="S/N">' +
+      '</td>' +
+      '<td>' +
+        '<input type="text" name="serie_antigo[]" class="form-control form-control-sm" placeholder="Marca ou Série">' +
+      '</td>' +
+      '<td>' +
+        '<input type="text" name="valor_antigo[]" class="form-control form-control-sm" placeholder="0,00">' +
+      '</td>' +
+      '<td class="text-center">' +
+        '<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="removerLinhaBemAntigo(this)" title="Remover linha">' +
+          '<i class="bi bi-trash"></i>' +
+        '</button>' +
+      '</td>';
+    tbody.appendChild(novaTr);
+    const inputDesc = novaTr.querySelector('.input-desc-antigo');
+    if (inputDesc) inputDesc.focus();
+  }
+
+  function removerLinhaBemAntigo(btnEl) {
+    const tbody = document.getElementById('tbodyLinhasBensAntigos');
+    if (!tbody) return;
+    const linhas = tbody.querySelectorAll('.linha-item-antigo');
+    if (linhas.length <= 1) {
+      linhas[0].querySelectorAll('input').forEach(function(inp) {
+        if (inp.type === 'number') inp.value = '1';
+        else inp.value = '';
+      });
+      return;
+    }
+    const tr = btnEl.closest('tr');
+    if (tr) tr.remove();
   }
 </script>
 {% endblock %}

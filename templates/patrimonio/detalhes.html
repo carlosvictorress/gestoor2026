@@ -70,7 +70,11 @@
                 <span class="badge bg-dark font-monospace">
                     Tombamento: {{ item.numero_patrimonio or ('S/N (#' ~ item.id ~ ')') }}
                 </span>
-                {% if item.ja_transferido %}
+                {% if item.status == 'Baixado' %}
+                <span class="badge bg-danger rounded-pill px-3">
+                    <i class="bi bi-slash-circle-fill me-1"></i> BAIXADO / INATIVO • Pasta: {{ item.localizacao }}
+                </span>
+                {% elif item.ja_transferido %}
                 <span class="badge bg-warning text-dark border border-warning rounded-pill px-3">
                     <i class="bi bi-lock-fill me-1"></i> Já Transferido ({{ item.qtd_transferencias }}x) • Alocado em: {{ item.localizacao }}
                 </span>
@@ -81,19 +85,30 @@
                 {% endif %}
             </div>
             <h2 class="fw-bold text-dark mb-0">
-                <i class="bi bi-box-seam-fill text-primary me-1"></i> {{ item.descricao }}
+                <i class="bi bi-box-seam-fill {% if item.status == 'Baixado' %}text-danger{% else %}text-primary{% endif %} me-1"></i> {{ item.descricao }}
             </h2>
         </div>
         <div class="d-flex flex-wrap gap-2">
+            {% if item.status == 'Baixado' %}
+            <a href="{{ url_for('patrimonio.listar_itens_baixados', pasta=item.localizacao) }}" class="btn btn-warning text-dark fw-semibold btn-rounded">
+                <i class="bi bi-folder2-open me-1"></i> Voltar para Pasta da Escola
+            </a>
+            {% endif %}
             <a href="{{ url_for('patrimonio.listar_itens') }}" class="btn btn-outline-secondary btn-rounded">
                 <i class="bi bi-arrow-left me-1"></i> Voltar ao Inventário
             </a>
             <button onclick="window.print()" class="btn btn-outline-dark btn-rounded">
                 <i class="bi bi-printer me-1"></i> Imprimir Ficha
             </button>
+            {% if item.status != 'Baixado' %}
             <a href="{{ url_for('patrimonio.editar_item', item_id=item.id) }}" class="btn btn-primary btn-rounded shadow-sm fw-semibold">
                 <i class="bi bi-pencil-square me-1"></i> Editar Registro
             </a>
+            {% else %}
+            <span class="btn btn-secondary btn-rounded disabled opacity-75">
+                <i class="bi bi-lock-fill me-1"></i> Registro Inativo (Baixado)
+            </span>
+            {% endif %}
         </div>
     </div>
 
@@ -304,12 +319,16 @@
                                 </thead>
                                 <tbody>
                                     {% for outro in itens_mesma_nf %}
-                                    <tr class="{% if outro.ja_transferido %}table-warning{% endif %}">
+                                    <tr class="{% if outro.status == 'Baixado' %}table-secondary text-muted{% elif outro.ja_transferido %}table-warning{% endif %}">
                                         <td class="font-monospace fw-bold">
                                             {{ outro.numero_patrimonio or ('S/N (#' ~ outro.id ~ ')') }}
                                         </td>
                                         <td>
-                                            {% if outro.ja_transferido %}
+                                            {% if outro.status == 'Baixado' %}
+                                            <span class="badge bg-danger">
+                                                <i class="bi bi-slash-circle-fill me-1"></i> Baixado / Inativo
+                                            </span>
+                                            {% elif outro.ja_transferido %}
                                             <span class="badge bg-warning text-dark border border-warning-subtle">
                                                 <i class="bi bi-lock-fill me-1"></i> Já Transferido ({{ outro.qtd_transferencias }}x)
                                             </span>
@@ -451,19 +470,24 @@
 
         <!-- COLUNA LATERAL DIREITA: LOCALIZAÇÃO ATUAL, GUARDA E AÇÕES -->
         <div class="col-lg-4">
-            <div class="card detail-card shadow-sm border-top {% if item.ja_transferido %}border-warning{% else %}border-primary{% endif %} border-5 mb-4">
+            <div class="card detail-card shadow-sm border-top {% if item.status == 'Baixado' %}border-danger{% elif item.ja_transferido %}border-warning{% else %}border-primary{% endif %} border-5 mb-4">
                 <div class="card-body p-4">
                     <div class="text-center mb-3">
-                        <div class="{% if item.ja_transferido %}bg-warning bg-opacity-25{% else %}bg-primary bg-opacity-10{% endif %} p-3 rounded-circle d-inline-block mb-2">
-                            <i class="bi {% if item.ja_transferido %}bi-shield-lock-fill text-warning-emphasis{% else %}bi-geo-alt-fill text-primary{% endif %} fs-2"></i>
+                        <div class="{% if item.status == 'Baixado' %}bg-danger bg-opacity-10{% elif item.ja_transferido %}bg-warning bg-opacity-25{% else %}bg-primary bg-opacity-10{% endif %} p-3 rounded-circle d-inline-block mb-2">
+                            <i class="bi {% if item.status == 'Baixado' %}bi-slash-circle-fill text-danger{% elif item.ja_transferido %}bi-shield-lock-fill text-warning-emphasis{% else %}bi-geo-alt-fill text-primary{% endif %} fs-2"></i>
                         </div>
                         <h5 class="fw-bold mb-1">Alocação e Guarda Atual</h5>
-                        <span class="badge rounded-pill {% if item.status == 'Ativo' %}bg-success{% elif item.status == 'Manutenção' %}bg-warning text-dark{% else %}bg-secondary{% endif %} px-3">
+                        <span class="badge rounded-pill {% if item.status == 'Ativo' %}bg-success{% elif item.status == 'Manutenção' %}bg-warning text-dark{% elif item.status == 'Baixado' %}bg-danger{% else %}bg-secondary{% endif %} px-3">
                             {{ item.status }} • {{ item.situacao_uso or 'Em uso' }}
                         </span>
                     </div>
 
-                    {% if item.ja_transferido %}
+                    {% if item.status == 'Baixado' %}
+                    <div class="alert alert-danger py-2 px-3 small mb-3 border border-danger-subtle" style="border-radius: 12px;">
+                        <div class="fw-bold"><i class="bi bi-slash-circle-fill me-1"></i> Bem Baixado / Inativo em Todos os Campos</div>
+                        <div class="text-muted">Este bem encontra-se arquivado na pasta <strong>{{ item.localizacao }}</strong> e está bloqueado para movimentações ou edições ativas.</div>
+                    </div>
+                    {% elif item.ja_transferido %}
                     <div class="alert alert-warning py-2 px-3 small mb-3 border border-warning" style="border-radius: 12px;">
                         <div class="fw-bold text-dark"><i class="bi bi-lock-fill me-1"></i> Bem Já Transferido ({{ item.qtd_transferencias }}x)</div>
                         <div class="text-muted">Este bem já saiu do local de origem. Uma nova transferência exigirá confirmação com a sua senha.</div>
@@ -481,8 +505,8 @@
                             <div class="fw-bold text-dark">{{ item.secretaria.nome if item.secretaria else 'Não vinculada' }}</div>
                         </div>
                         <div class="mb-2">
-                            <small class="info-label d-block">Local onde se encontra o Bem</small>
-                            <div class="fw-bold text-primary fs-6">{{ item.localizacao }}</div>
+                            <small class="info-label d-block">{% if item.status == 'Baixado' %}Pasta da Escola / Unidade (Arquivo de Baixa){% else %}Local onde se encontra o Bem{% endif %}</small>
+                            <div class="fw-bold {% if item.status == 'Baixado' %}text-danger{% else %}text-primary{% endif %} fs-6">{{ item.localizacao }}</div>
                         </div>
                         <div>
                             <small class="info-label d-block">Responsável pela Guarda do Bem</small>
@@ -499,7 +523,11 @@
                         </div>
                     </div>
 
-                    {% if item.ja_transferido %}
+                    {% if item.status == 'Baixado' %}
+                    <button class="btn btn-secondary btn-lg w-100 btn-rounded no-print fw-bold disabled" disabled>
+                        <i class="bi bi-slash-circle me-1"></i> Transferência Bloqueada (Bem Baixado)
+                    </button>
+                    {% elif item.ja_transferido %}
                     <button class="btn btn-warning text-dark btn-lg w-100 btn-rounded shadow-sm no-print fw-bold border border-warning-subtle" data-bs-toggle="modal" data-bs-target="#transferModal">
                         <i class="bi bi-shield-lock-fill me-1"></i> Re-transferir de Setor (Com Senha)
                     </button>
@@ -518,12 +546,21 @@
                         <a href="{{ url_for('patrimonio.gerar_etiqueta_qr', id=item.id) }}" target="_blank" class="btn btn-outline-dark btn-rounded">
                             <i class="bi bi-qr-code me-1"></i> Imprimir Etiqueta QR Code
                         </a>
+                        {% if item.status == 'Baixado' %}
+                        <a href="{{ url_for('patrimonio.termo_baixa', item_id=item.id) }}" target="_blank" class="btn btn-danger btn-rounded fw-semibold">
+                            <i class="bi bi-file-earmark-pdf me-1"></i> Imprimir Termo de Baixa (PDF)
+                        </a>
+                        <a href="{{ url_for('patrimonio.listar_itens_baixados', pasta=item.localizacao) }}" class="btn btn-outline-warning text-dark btn-rounded fw-semibold">
+                            <i class="bi bi-folder2-open me-1"></i> Ver na Pasta da Escola
+                        </a>
+                        {% else %}
                         <a href="{{ url_for('patrimonio.editar_item', item_id=item.id) }}" class="btn btn-outline-primary btn-rounded">
                             <i class="bi bi-pencil-square me-1"></i> Editar Dados / Nota Fiscal
                         </a>
                         <button class="btn btn-outline-warning btn-rounded text-dark" data-bs-toggle="modal" data-bs-target="#baixaModal">
                             <i class="bi bi-arrow-down-circle me-1"></i> Dar Baixa no Bem
                         </button>
+                        {% endif %}
                         {% if session.role == 'admin' %}
                         <button class="btn btn-outline-danger btn-rounded" data-bs-toggle="modal" data-bs-target="#excluirModal">
                             <i class="bi bi-trash me-1"></i> Excluir Registro

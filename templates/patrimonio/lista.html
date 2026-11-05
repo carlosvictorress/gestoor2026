@@ -533,12 +533,16 @@
                                                     </thead>
                                                     <tbody>
                                                         {% for bem_nf in nf.bens %}
-                                                        <tr class="{% if bem_nf.ja_transferido %}table-warning{% endif %}">
-                                                            <td class="font-monospace fw-bold text-primary">
+                                                        <tr class="{% if bem_nf.status == 'Baixado' %}table-secondary text-muted{% elif bem_nf.ja_transferido %}table-warning{% endif %}">
+                                                            <td class="font-monospace fw-bold {% if bem_nf.status == 'Baixado' %}text-danger{% else %}text-primary{% endif %}">
                                                                 {{ bem_nf.numero_patrimonio or ('S/N (#' ~ bem_nf.id ~ ')') }}
                                                             </td>
                                                             <td>
-                                                                {% if bem_nf.ja_transferido %}
+                                                                {% if bem_nf.status == 'Baixado' %}
+                                                                <span class="badge bg-danger">
+                                                                    <i class="bi bi-slash-circle-fill me-1"></i> Baixado / Inativo
+                                                                </span>
+                                                                {% elif bem_nf.ja_transferido %}
                                                                 <span class="badge bg-warning text-dark border border-warning">
                                                                     <i class="bi bi-lock-fill me-1"></i> Já Transferido ({{ bem_nf.qtd_transferencias }}x)
                                                                 </span>
@@ -674,7 +678,11 @@
                                             <span class="badge bg-dark font-monospace">
                                                 <i class="bi bi-upc-scan me-1"></i>{{ bem.numero_patrimonio or ('S/N (#' ~ bem.id ~ ')') }}
                                             </span>
-                                            {% if bem.ja_transferido %}
+                                            {% if bem.status == 'Baixado' %}
+                                                <span class="badge bg-danger">
+                                                    <i class="bi bi-slash-circle-fill me-1"></i>Baixado / Inativo ({{ bem.localizacao }})
+                                                </span>
+                                            {% elif bem.ja_transferido %}
                                                 <span class="badge bg-warning text-dark border border-warning">
                                                     <i class="bi bi-lock-fill me-1"></i>Já Transferido ({{ bem.qtd_transferencias }}x)
                                                 </span>
@@ -742,12 +750,14 @@
                                                class="btn btn-outline-secondary btn-sm rounded-circle" title="Imprimir Etiqueta QR Code">
                                                 <i class="bi bi-qr-code"></i>
                                             </a>
+                                            {% if bem.status != 'Baixado' %}
                                             <a href="{{ url_for('patrimonio.editar_item', item_id=bem.id) }}"
                                                class="btn btn-outline-primary btn-sm rounded-circle" title="Editar Bem">
                                                 <i class="bi bi-pencil"></i>
                                             </a>
+                                            {% endif %}
                                             <a href="{{ url_for('patrimonio.detalhes_item', item_id=bem.id) }}"
-                                               class="btn btn-primary btn-sm btn-rounded fw-semibold">
+                                               class="btn {% if bem.status == 'Baixado' %}btn-outline-danger{% else %}btn-primary{% endif %} btn-sm btn-rounded fw-semibold">
                                                 Ficha Completa
                                             </a>
                                         </div>

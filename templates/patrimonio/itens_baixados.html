@@ -3,9 +3,10 @@
 {% block title %}Bens Baixados por Escola - Patrimônio{% endblock %}
 
 {% block content %}
+{% set lista_pastas = todas_pastas if todas_pastas is defined else pastas_escolas %}
 {% set ns = namespace(pasta_ativa=None) %}
 {% if codigo_pasta_inicial %}
-  {% for p in pastas_escolas %}
+  {% for p in lista_pastas %}
     {% if p.codigo == codigo_pasta_inicial %}
       {% set ns.pasta_ativa = p %}
     {% endif %}
@@ -16,7 +17,7 @@
   /* Visual de Pastas Organizado e Uniforme */
   .folder-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
     gap: 1rem;
   }
 
@@ -33,7 +34,7 @@
     transition: all 0.18s ease-in-out;
     cursor: pointer;
     position: relative;
-    min-height: 138px;
+    min-height: 142px;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
   }
 
@@ -56,7 +57,7 @@
   .folder-card.empty-folder {
     background: #f8fafc;
     border-color: #e2e8f0;
-    opacity: 0.85;
+    opacity: 0.88;
   }
 
   .folder-card.empty-folder:hover {
@@ -126,7 +127,7 @@
       </p>
     </div>
     <div class="d-flex gap-2">
-      <a href="{{ url_for('patrimonio.listar_bens') }}" class="btn btn-outline-secondary">
+      <a href="{{ url_for('patrimonio.listar_itens') }}" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i> Voltar para Bens Ativos
       </a>
     </div>
@@ -142,7 +143,7 @@
           </div>
           <div>
             <div class="text-muted small fw-semibold text-uppercase">Pastas de Escolas</div>
-            <div class="fs-4 fw-bold text-dark">{{ total_escolas }}</div>
+            <div class="fs-4 fw-bold text-dark">{{ kpis_baixa.total_escolas }}</div>
           </div>
         </div>
       </div>
@@ -156,7 +157,10 @@
           </div>
           <div>
             <div class="text-muted small fw-semibold text-uppercase">Escolas com Baixas</div>
-            <div class="fs-4 fw-bold text-danger">{{ escolas_com_baixas }} <span class="fs-6 fw-normal text-muted">de {{ total_escolas }}</span></div>
+            <div class="fs-4 fw-bold text-danger">
+              {{ kpis_baixa.escolas_com_baixa }}
+              <span class="fs-6 fw-normal text-muted">de {{ kpis_baixa.total_escolas }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -170,7 +174,7 @@
           </div>
           <div>
             <div class="text-muted small fw-semibold text-uppercase">Total de Bens Baixados</div>
-            <div class="fs-4 fw-bold text-dark">{{ total_baixados }}</div>
+            <div class="fs-4 fw-bold text-dark">{{ kpis_baixa.total_bens_baixados }}</div>
           </div>
         </div>
       </div>
@@ -201,10 +205,10 @@
           </div>
           <div class="col-md-5 d-flex justify-content-md-end gap-2">
             <button type="button" id="btnFiltroTodas" class="btn btn-sm btn-dark fw-semibold px-3" onclick="filtrarAbaPastas('todas')">
-              <i class="bi bi-grid-fill me-1"></i> Todas as Escolas ({{ pastas_escolas|length }})
+              <i class="bi bi-grid-fill me-1"></i> Todas as Pastas ({{ lista_pastas|length }})
             </button>
             <button type="button" id="btnFiltroComBaixas" class="btn btn-sm btn-outline-secondary fw-semibold px-3" onclick="filtrarAbaPastas('com_baixas')">
-              <i class="bi bi-folder-check me-1"></i> Com Bens Baixados ({{ escolas_com_baixas }})
+              <i class="bi bi-folder-check me-1"></i> Com Bens Baixados ({{ kpis_baixa.escolas_com_baixa + (1 if kpis_baixa.outros_setores_com_baixa > 0 else 0) }})
             </button>
           </div>
         </div>
@@ -212,9 +216,9 @@
     </div>
 
     <!-- Grade de Pastas -->
-    {% if pastas_escolas %}
+    {% if lista_pastas %}
       <div class="folder-grid" id="gridCardsPastas">
-        {% for pasta in pastas_escolas %}
+        {% for pasta in lista_pastas %}
           <a href="{{ url_for('patrimonio.listar_itens_baixados', pasta=pasta.codigo) }}"
              class="folder-card {% if pasta.qtd_bens > 0 %}has-items{% else %}empty-folder{% endif %} item-pasta-escola"
              data-codigo="{{ pasta.codigo }}"
@@ -297,19 +301,19 @@
               <th class="ps-3">Tombamento</th>
               <th>Descrição</th>
               <th>Pasta da Escola</th>
-              <th>Data da Baixa</th>
+              <th>Valor Aquisição</th>
               <th class="text-end pe-3">Ações</th>
             </tr>
           </thead>
           <tbody>
-            {% for pasta in pastas_escolas %}
+            {% for pasta in lista_pastas %}
               {% for bem in pasta.bens %}
                 <tr class="linha-pesquisa-global d-none"
-                    data-termo="{{ (bem.numero_tombamento ~ ' ' ~ bem.descricao ~ ' ' ~ (bem.marca_modelo or '') ~ ' ' ~ (bem.numero_serie or '') ~ ' ' ~ pasta.nome) | lower | e }}">
-                  <td class="ps-3 fw-bold text-danger">{{ bem.numero_tombamento }}</td>
+                    data-termo="{{ ((bem.numero_patrimonio or '') ~ ' ' ~ (bem.descricao or '') ~ ' ' ~ (bem.marca or '') ~ ' ' ~ (bem.modelo or '') ~ ' ' ~ (bem.numero_serie or '') ~ ' ' ~ pasta.nome) | lower | e }}">
+                  <td class="ps-3 fw-bold text-danger">{{ bem.numero_patrimonio or ('S/N (#' ~ bem.id ~ ')') }}</td>
                   <td>
                     <div class="fw-semibold">{{ bem.descricao }}</div>
-                    <small class="text-muted">{{ bem.categoria }} {% if bem.marca_modelo %}• {{ bem.marca_modelo }}{% endif %}</small>
+                    <small class="text-muted">{{ bem.categoria or 'Geral' }} {% if bem.marca or bem.modelo %}• {{ bem.marca or '' }} {{ bem.modelo or '' }}{% endif %}</small>
                   </td>
                   <td>
                     <a href="{{ url_for('patrimonio.listar_itens_baixados', pasta=pasta.codigo) }}"
@@ -318,9 +322,9 @@
                       <i class="bi bi-folder-fill me-1"></i> {{ pasta.nome }}
                     </a>
                   </td>
-                  <td class="small">{{ bem.data_baixa.strftime('%d/%m/%Y') if bem.data_baixa else '-' }}</td>
+                  <td class="small">R$ {{ "%.2f"|format(bem.valor_aquisicao or 0.0)|replace('.', ',') }}</td>
                   <td class="text-end pe-3">
-                    <a href="{{ url_for('patrimonio.detalhes_bem', bem_id=bem.id) }}" class="btn btn-sm btn-outline-primary">
+                    <a href="{{ url_for('patrimonio.detalhes_item', item_id=bem.id) }}" class="btn btn-sm btn-outline-primary">
                       <i class="bi bi-eye"></i> Detalhes
                     </a>
                   </td>
@@ -339,7 +343,7 @@
   <!-- =================================================================== -->
   <div id="viewDentroDaPasta" class="{% if not ns.pasta_ativa %}d-none{% endif %}">
 
-    {% for pasta in pastas_escolas %}
+    {% for pasta in lista_pastas %}
       <div class="painel-conteudo-pasta {% if not ns.pasta_ativa or ns.pasta_ativa.codigo != pasta.codigo %}d-none{% endif %}"
            id="pasta_{{ pasta.codigo }}">
 
@@ -395,7 +399,6 @@
                     <th>Descrição do Bem</th>
                     <th>Categoria</th>
                     <th>Nº de Série / Placa</th>
-                    <th>Data da Baixa</th>
                     <th>Valor Aquisição</th>
                     <th class="text-end pe-3">Ações</th>
                   </tr>
@@ -403,14 +406,14 @@
                 <tbody>
                   {% for item in pasta.bens %}
                     <tr class="linha-bem-pasta-{{ pasta.codigo }}"
-                        data-busca="{{ (item.numero_tombamento ~ ' ' ~ item.descricao ~ ' ' ~ (item.categoria or '') ~ ' ' ~ (item.marca_modelo or '') ~ ' ' ~ (item.numero_serie or '')) | lower | e }}">
+                        data-busca="{{ ((item.numero_patrimonio or '') ~ ' ' ~ (item.descricao or '') ~ ' ' ~ (item.categoria or '') ~ ' ' ~ (item.marca or '') ~ ' ' ~ (item.modelo or '') ~ ' ' ~ (item.numero_serie or '')) | lower | e }}">
                       <td class="ps-3">
-                        <span class="fw-bold text-danger">{{ item.numero_tombamento }}</span>
+                        <span class="fw-bold text-danger">{{ item.numero_patrimonio or ('S/N (#' ~ item.id ~ ')') }}</span>
                       </td>
                       <td>
                         <div class="fw-semibold text-dark">{{ item.descricao }}</div>
-                        {% if item.marca_modelo %}
-                          <small class="text-muted">{{ item.marca_modelo }}</small>
+                        {% if item.marca or item.modelo %}
+                          <small class="text-muted">{{ item.marca or '' }} {{ item.modelo or '' }}</small>
                         {% endif %}
                         {% if item.observacoes %}
                           <div class="small text-secondary fst-italic text-truncate" style="max-width: 340px;" title="{{ item.observacoes }}">
@@ -419,17 +422,10 @@
                         {% endif %}
                       </td>
                       <td>
-                        <span class="badge bg-secondary">{{ item.categoria }}</span>
+                        <span class="badge bg-secondary">{{ item.categoria or 'Geral' }}</span>
                       </td>
                       <td class="small">
                         {{ item.numero_serie or '-' }}
-                      </td>
-                      <td class="small">
-                        {% if item.data_baixa %}
-                          <span class="text-danger fw-semibold">{{ item.data_baixa.strftime('%d/%m/%Y') }}</span>
-                        {% else %}
-                          <span class="text-muted">-</span>
-                        {% endif %}
                       </td>
                       <td class="small">
                         {% if item.valor_aquisicao %}
@@ -440,11 +436,16 @@
                       </td>
                       <td class="text-end pe-3">
                         <div class="btn-group btn-group-sm">
-                          <a href="{{ url_for('patrimonio.detalhes_bem', bem_id=item.id) }}"
+                          <a href="{{ url_for('patrimonio.detalhes_item', item_id=item.id) }}"
                              class="btn btn-outline-primary" title="Ver Histórico e Detalhes">
                             <i class="bi bi-eye"></i> Detalhes
                           </a>
-                          <a href="{{ url_for('patrimonio.editar_bem', bem_id=item.id) }}"
+                          <a href="{{ url_for('patrimonio.termo_baixa', item_id=item.id) }}"
+                             target="_blank"
+                             class="btn btn-outline-danger" title="Imprimir Termo de Baixa (PDF)">
+                            <i class="bi bi-file-earmark-pdf"></i> Termo
+                          </a>
+                          <a href="{{ url_for('patrimonio.editar_item', item_id=item.id) }}"
                              class="btn btn-outline-secondary" title="Editar Bem">
                             <i class="bi bi-pencil"></i>
                           </a>
@@ -489,7 +490,7 @@
     const painelAlvo = document.getElementById('pasta_' + codigo);
 
     if (!viewGrade || !viewPasta || !painelAlvo) {
-      return true; // Permite navegação normal pelo link href se algo faltar
+      return true;
     }
 
     document.querySelectorAll('.painel-conteudo-pasta').forEach(function(el) {

@@ -605,7 +605,7 @@ def listar_itens():
         })
 
     # Lista de locais de destino sugeridos (Locais Cadastrados + Escolas + Locais já usados)
-    escolas_ativas = Escola.query.filter_by(status='Ativa').order_by(Escola.nome).all()
+    escolas_ativas = Escola.query.order_by(Escola.nome).all()
     nomes_locais_set = set()
     locais_destino_sugestoes = []
 

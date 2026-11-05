@@ -621,7 +621,7 @@
                         </div>
                         <div class="col-md-7">
                             <label class="form-label fw-semibold">Secretaria de Destino (Opcional)</label>
-                            <select class="form-select" name="secretaria_destino_id">
+                            <select class="form-select" name="secretaria_destino_id" id="selectSecretariaDestinoIndividual">
                                 <option value="">-- Manter secretaria atual --</option>
                                 {% for sec in secretarias %}
                                     <option value="{{ sec.id }}" {{ 'selected' if item.secretaria_id == sec.id else '' }}>{{ sec.nome }}</option>
@@ -631,11 +631,58 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="local_destino" class="form-label fw-semibold">Novo Local de Destino*</label>
-                        <input type="text" class="form-control" name="local_destino" id="local_destino"
-                               list="listaLocaisTransferencia" required
-                               placeholder="Selecione da lista ou digite o novo local...">
+                        <label for="selectLocalDestinoIndividual" class="form-label fw-semibold mb-1">
+                            Novo Local de Destino (Escola ou Setor)*
+                        </label>
+                        <select class="form-select mb-2 border-primary-subtle fw-semibold"
+                                id="selectLocalDestinoIndividual"
+                                onchange="aoSelecionarEscolaOuLocalIndividual(this)">
+                            <option value="">-- Selecione uma Escola ou Local Cadastrado --</option>
+                            {% if escolas %}
+                            <optgroup label="🏫 Escolas Cadastradas ({{ escolas|length }})">
+                                {% for esc in escolas %}
+                                    <option value="{{ esc.nome }}"
+                                            data-responsavel="{{ esc.diretor_responsavel or (esc.diretor.nome if esc.diretor is defined and esc.diretor else '') }}"
+                                            data-cargo="Diretor(a) Escolar">
+                                        🏫 {{ esc.nome }}
+                                    </option>
+                                {% endfor %}
+                            </optgroup>
+                            {% endif %}
+                            {% if locais_db %}
+                            <optgroup label="📍 Locais e Setores Cadastrados ({{ locais_db|length }})">
+                                {% for loc in locais_db %}
+                                    <option value="{{ loc.nome }}"
+                                            data-secretaria="{{ loc.secretaria_id or '' }}"
+                                            data-responsavel="{{ loc.responsavel_setor or '' }}"
+                                            data-cargo="">
+                                        📍 {{ loc.nome }}
+                                    </option>
+                                {% endfor %}
+                            </optgroup>
+                            {% endif %}
+                            {% if locais_legados %}
+                            <optgroup label="📂 Outros Locais Já Utilizados">
+                                {% for loc_nome in locais_legados %}
+                                    <option value="{{ loc_nome }}">📂 {{ loc_nome }}</option>
+                                {% endfor %}
+                            </optgroup>
+                            {% endif %}
+                            <option value="__DIGITAR__">✏️ Outro local (digitar manualmente abaixo)...</option>
+                        </select>
+
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-light text-muted"><i class="bi bi-geo-alt-fill text-primary"></i></span>
+                            <input type="text" class="form-control fw-semibold" name="local_destino" id="local_destino"
+                                   list="listaLocaisTransferencia" required
+                                   placeholder="Escolha acima na lista ou digite aqui o local de destino...">
+                        </div>
                         <datalist id="listaLocaisTransferencia">
+                            {% if escolas %}
+                                {% for esc in escolas %}
+                                    <option value="{{ esc.nome }}">
+                                {% endfor %}
+                            {% endif %}
                             {% for loc in locais_db %}
                                 <option value="{{ loc.nome }}">
                             {% endfor %}
@@ -666,7 +713,7 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Cargo / Função do Recebedor</label>
-                            <input type="text" class="form-control" name="responsavel_novo_cargo"
+                            <input type="text" class="form-control" name="responsavel_novo_cargo" id="responsavel_novo_cargo"
                                    placeholder="Ex: Diretor(a), Coordenador(a)...">
                         </div>
                     </div>
@@ -847,6 +894,45 @@
 </div>
 
 <script>
+    function aoSelecionarEscolaOuLocalIndividual(selectEl) {
+        const inputLocal = document.getElementById('local_destino');
+        if (!selectEl || !inputLocal) return;
+
+        const valor = selectEl.value;
+        if (!valor) {
+            return;
+        }
+
+        if (valor === '__DIGITAR__') {
+            inputLocal.value = '';
+            inputLocal.focus();
+            return;
+        }
+
+        inputLocal.value = valor;
+
+        const opt = selectEl.options[selectEl.selectedIndex];
+        if (opt) {
+            const respPadrao = (opt.getAttribute('data-responsavel') || '').trim();
+            const cargoPadrao = (opt.getAttribute('data-cargo') || '').trim();
+            const secId = (opt.getAttribute('data-secretaria') || '').trim();
+
+            const inputResp = document.getElementById('responsavel_novo_nome');
+            const inputCargo = document.getElementById('responsavel_novo_cargo');
+            const selectSec = document.getElementById('selectSecretariaDestinoIndividual');
+
+            if (respPadrao && inputResp && !inputResp.value.trim()) {
+                inputResp.value = respPadrao;
+            }
+            if (cargoPadrao && inputCargo && !inputCargo.value.trim()) {
+                inputCargo.value = cargoPadrao;
+            }
+            if (secId && selectSec) {
+                selectSec.value = secId;
+            }
+        }
+    }
+
     function abrirModalEditarRecebedor(btn) {
         const form = document.getElementById('formEditarRecebedorMov');
         if (!form || !btn) return;

@@ -1342,35 +1342,38 @@
                                     Local de Destino (Unidade / Escola / Setor) <span class="text-danger">*</span>
                                 </label>
                                 <div class="input-group input-group-sm">
-                                    <select class="form-select" id="selectLocalCadastradoLote" onchange="aoSelecionarLocalDropdownLote(this)" style="max-width: 45%;">
-                                        <option value="">-- Escolher local --</option>
+                                    <select class="form-select" id="selectLocalCadastradoLote" onchange="aoSelecionarLocalDropdownLote(this)" style="max-width: 48%;">
+                                        <option value="">-- Escolher Escola ou Local --</option>
+                                        {% if escolas %}
+                                        <optgroup label="🏫 Escolas Cadastradas ({{ escolas|length }})">
+                                            {% for esc in escolas %}
+                                                <option value="{{ esc.nome }}"
+                                                        data-responsavel="{{ esc.diretor_responsavel or (esc.diretor.nome if esc.diretor is defined and esc.diretor else '') }}">
+                                                    🏫 {{ esc.nome }}
+                                                </option>
+                                            {% endfor %}
+                                        </optgroup>
+                                        {% endif %}
+
                                         {% if locais_db %}
-                                        <optgroup label="Locais Cadastrados" id="optgroupLocaisCadastradosLote">
+                                        <optgroup label="📍 Locais Cadastrados ({{ locais_db|length }})" id="optgroupLocaisCadastradosLote">
                                             {% for loc in locais_db %}
                                                 <option value="{{ loc.nome }}"
                                                         data-id="{{ loc.id }}"
                                                         data-secretaria="{{ loc.secretaria_id or '' }}"
                                                         data-responsavel="{{ loc.responsavel_setor or '' }}">
-                                                    {{ loc.nome }}
+                                                    📍 {{ loc.nome }}
                                                 </option>
                                             {% endfor %}
                                         </optgroup>
                                         {% else %}
-                                        <optgroup label="Locais Cadastrados" id="optgroupLocaisCadastradosLote"></optgroup>
-                                        {% endif %}
-
-                                        {% if escolas %}
-                                        <optgroup label="Unidades Escolares">
-                                            {% for esc in escolas %}
-                                                <option value="{{ esc.nome }}">{{ esc.nome }}</option>
-                                            {% endfor %}
-                                        </optgroup>
+                                        <optgroup label="📍 Locais Cadastrados" id="optgroupLocaisCadastradosLote"></optgroup>
                                         {% endif %}
 
                                         {% if locais_legados %}
-                                        <optgroup label="Outros Locais">
+                                        <optgroup label="📂 Outros Locais">
                                             {% for loc_nome in locais_legados %}
-                                                <option value="{{ loc_nome }}">{{ loc_nome }}</option>
+                                                <option value="{{ loc_nome }}">📂 {{ loc_nome }}</option>
                                             {% endfor %}
                                         </optgroup>
                                         {% endif %}

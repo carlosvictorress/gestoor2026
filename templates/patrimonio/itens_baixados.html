@@ -133,7 +133,14 @@
         Abra a pasta de uma escola para consultar ou incorporar múltiplos bens baixados/inativos naquela unidade
       </p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex flex-wrap gap-2">
+      <button type="button"
+              class="btn btn-danger fw-bold shadow-sm"
+              data-codigo="{{ ns.pasta_ativa.codigo if ns.pasta_ativa else '' }}"
+              data-escola="{{ (ns.pasta_ativa.nome if ns.pasta_ativa else '') | e }}"
+              onclick="abrirModalIncorporarNaEscola(this)">
+        <i class="bi bi-plus-circle-fill me-1"></i> Escolher / Incorporar Bens Baixados
+      </button>
       <a href="{{ url_for('patrimonio.listar_itens') }}" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i> Voltar para Bens Ativos
       </a>
@@ -530,9 +537,23 @@
 
       <div class="modal-body p-4" style="max-height: 76vh; overflow-y: auto;">
         <form method="POST" action="{{ url_for('patrimonio.incorporar_bens_baixados_escola') }}" id="formIncorporarBaixadosEscola">
-          <input type="hidden" name="escola_nome" id="inputEscolaNomeBaixaLote" value="">
           <input type="hidden" name="codigo_pasta" id="inputCodigoPastaBaixaLote" value="">
           <input type="hidden" name="modo_incorporacao" id="inputModoIncorporacaoBaixa" value="selecionar_existentes">
+
+          <!-- Seleção / Confirmação da Pasta da Escola de Destino -->
+          <div class="p-3 mb-3 rounded-3 border bg-light">
+            <label class="form-label small fw-bold text-dark mb-1">
+              <i class="bi bi-folder-fill text-warning me-1"></i> Pasta da Escola onde os Bens Baixados ficarão Arquivados *
+            </label>
+            <select name="escola_nome" id="inputEscolaNomeBaixaLote" class="form-select fw-bold border-warning" required onchange="aoMudarSelectEscolaModalBaixa(this)">
+              <option value="">-- Selecione a Pasta da Escola --</option>
+              {% for p_esc in lista_pastas %}
+                <option value="{{ p_esc.nome }}" data-codigo="{{ p_esc.codigo }}">
+                  📁 {{ p_esc.nome }} ({{ p_esc.qtd_bens }} baixado(s))
+                </option>
+              {% endfor %}
+            </select>
+          </div>
 
           <!-- Seletor de Modo (2 Abas) -->
           <div class="btn-group w-100 mb-3 shadow-sm" role="group">
@@ -912,13 +933,28 @@
   /* FUNÇÕES DO MODAL DE ESCOLHER / INCORPORAR BENS BAIXADOS NA ESCOLA     */
   /* ===================================================================== */
   function abrirModalIncorporarNaEscola(btnEl) {
-    const codigoPasta = btnEl.getAttribute('data-codigo') || '';
-    const nomeEscola = btnEl.getAttribute('data-escola') || '';
+    let codigoPasta = (btnEl && btnEl.getAttribute('data-codigo')) || '';
+    let nomeEscola = (btnEl && btnEl.getAttribute('data-escola')) || '';
 
-    document.getElementById('inputEscolaNomeBaixaLote').value = nomeEscola;
+    // Se o usuário já estiver com uma pasta aberta na tela, usa ela automaticamente
+    if (!nomeEscola) {
+      const painelAberto = document.querySelector('.painel-conteudo-pasta:not(.d-none)');
+      if (painelAberto) {
+        const btnInterno = painelAberto.querySelector('[data-escola]');
+        if (btnInterno) {
+          nomeEscola = btnInterno.getAttribute('data-escola') || '';
+          codigoPasta = btnInterno.getAttribute('data-codigo') || '';
+        }
+      }
+    }
+
+    const selectEscola = document.getElementById('inputEscolaNomeBaixaLote');
+    if (selectEscola) {
+      selectEscola.value = nomeEscola;
+    }
     document.getElementById('inputCodigoPastaBaixaLote').value = codigoPasta;
-    document.getElementById('lblNomeEscolaModalBaixa').textContent = nomeEscola;
-    document.getElementById('lblEscolaAlertaBaixa').textContent = nomeEscola;
+    document.getElementById('lblNomeEscolaModalBaixa').textContent = nomeEscola || 'Selecione a Escola abaixo';
+    document.getElementById('lblEscolaAlertaBaixa').textContent = nomeEscola || 'a escola selecionada';
 
     const inputData = document.getElementById('inputDataBaixaModalEscola');
     if (inputData && !inputData.value) {
@@ -934,6 +970,15 @@
       const modalObj = bootstrap.Modal.getOrCreateInstance(modalEl);
       modalObj.show();
     }
+  }
+
+  function aoMudarSelectEscolaModalBaixa(selectEl) {
+    const opt = selectEl.options[selectEl.selectedIndex];
+    const nomeEscola = selectEl.value || '';
+    const codigoPasta = opt ? (opt.getAttribute('data-codigo') || '') : '';
+    document.getElementById('inputCodigoPastaBaixaLote').value = codigoPasta;
+    document.getElementById('lblNomeEscolaModalBaixa').textContent = nomeEscola || 'Selecione a Escola';
+    document.getElementById('lblEscolaAlertaBaixa').textContent = nomeEscola || 'a escola selecionada';
   }
 
   function alternarModoIncorporacaoBaixa(modo) {

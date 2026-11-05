@@ -760,7 +760,7 @@
                         <div class="small">O item passará para o status <strong>Baixado</strong>. Esta ação é registrada para auditoria do Controle Interno.</div>
                     </div>
 
-                    <div class="bg-light p-3 rounded-3 border mb-4">
+                    <div class="bg-light p-3 rounded-3 border mb-3">
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <small class="info-label d-block mb-1">Responsável que Devolve</small>
@@ -769,6 +769,31 @@
                             <div class="col-md-6">
                                 <small class="info-label d-block mb-1">Recebedor (Autorizador)</small>
                                 <input type="text" name="recebedor" value="{{ current_user.username if current_user else '' }}" required class="form-control form-control-sm">
+                            </div>
+                            <div class="col-12 pt-2 border-top">
+                                <label class="form-label small fw-bold text-dark mb-1">
+                                    <i class="bi bi-folder-fill text-warning me-1"></i> Pasta da Escola / Unidade (Para arquivo em Bens Baixados)*
+                                </label>
+                                <input type="text"
+                                       name="escola_pasta_baixa"
+                                       class="form-control form-control-sm fw-semibold"
+                                       list="listaEscolasPastaBaixa"
+                                       value="{{ item.localizacao }}"
+                                       required
+                                       placeholder="Escolha a Escola ou mantenha o local atual...">
+                                <datalist id="listaEscolasPastaBaixa">
+                                    {% if escolas %}
+                                        {% for esc in escolas %}
+                                            <option value="{{ esc.nome }}">
+                                        {% endfor %}
+                                    {% endif %}
+                                    {% for loc in locais_db %}
+                                        <option value="{{ loc.nome }}">
+                                    {% endfor %}
+                                </datalist>
+                                <small class="text-muted" style="font-size: 0.72rem;">
+                                    O bem ficará guardado dentro da pasta desta Escola na tela de <strong>Bens Baixados</strong>.
+                                </small>
                             </div>
                         </div>
                     </div>

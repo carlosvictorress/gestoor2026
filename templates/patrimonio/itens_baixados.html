@@ -1,54 +1,617 @@
 {% extends 'base.html' %}
 
-{% block title %}Itens Baixados{% endblock %}
+{% block title %}Bens Baixados por Escola - Controle Patrimonial{% endblock %}
+
+{% block head_extra %}
+<style>
+    .kpi-baixa-card {
+        border-radius: 16px;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    .kpi-baixa-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+    }
+    .folder-card {
+        border-radius: 16px;
+        border: 1.5px solid #e2e8f0;
+        background: #ffffff;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .folder-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.09);
+        border-color: #f59e0b;
+    }
+    .folder-card.com-itens {
+        border-color: #fcd34d;
+        background: linear-gradient(180deg, #fffdf7 0%, #ffffff 100%);
+    }
+    .folder-card.com-itens::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 5px;
+        height: 100%;
+        background: #f59e0b;
+    }
+    .folder-icon-box {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.65rem;
+        flex-shrink: 0;
+    }
+    .folder-card.com-itens .folder-icon-box {
+        background: #fef3c7;
+        color: #d97706;
+    }
+    .folder-card.sem-itens .folder-icon-box {
+        background: #f1f5f9;
+        color: #94a3b8;
+    }
+    .btn-rounded {
+        border-radius: 50px;
+    }
+    .breadcrumb-folder {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 12px 18px;
+    }
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+        #viewGradePastas {
+            display: none !important;
+        }
+        #viewDentroDaPasta {
+            display: block !important;
+        }
+        .card {
+            border: 1px solid #ccc !important;
+            box-shadow: none !important;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+<div class="container-fluid px-3 px-md-4 mt-4 mb-5">
+    <!-- CABEÇALHO -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3 no-print">
         <div>
-            <h2 class="fw-bold text-dark mb-0"><i class="bi bi-archive-fill text-warning"></i> Itens Baixados</h2>
-            <p class="text-muted">Histórico de bens retirados do inventário ativo.</p>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3">
+                    <i class="bi bi-folder2-open me-1"></i> Arquivo Setorial de Baixas Patrimoniais
+                </span>
+            </div>
+            <h2 class="fw-bold text-dark mb-0">
+                <i class="bi bi-archive-fill text-warning me-2"></i> Bens Baixados por Escola
+            </h2>
+            <p class="text-muted small mb-0">
+                Selecione a pasta de uma Escola abaixo para consultar, imprimir ou gerenciar os bens baixados daquela unidade.
+            </p>
         </div>
-        <a href="{{ url_for('patrimonio.listar_itens') }}" class="btn btn-outline-secondary btn-rounded">
-            <i class="bi bi-arrow-left"></i> Voltar ao Inventário
-        </a>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ url_for('patrimonio.listar_itens') }}" class="btn btn-outline-secondary btn-rounded fw-semibold">
+                <i class="bi bi-arrow-left me-1"></i> Voltar ao Inventário Ativo
+            </a>
+        </div>
     </div>
 
-    <div class="card shadow-sm border-0" style="border-radius: 20px;">
-        <div class="table-responsive p-4">
-            <table class="table table-hover align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>Patrimônio</th>
-                        <th>Descrição</th>
-                        <th>Justificativa da Baixa</th>
-                        <th class="text-center">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in itens %}
-                    <tr>
-                        <td><span class="badge bg-secondary">{{ item.numero_patrimonio or 'S/N' }}</span></td>
-                        <td class="fw-bold">{{ item.descricao }}</td>
-                        <td>
-                            <div class="p-2 bg-light rounded small" style="border-left: 4px solid #ffc107;">
-                                {{ item.observacoes or 'Nenhuma justificativa detalhada.' }}
+    <!-- KPIS DE RESUMO -->
+    <div class="row g-3 mb-4 no-print">
+        <div class="col-6 col-lg-3">
+            <div class="kpi-baixa-card p-3 h-100 d-flex align-items-center gap-3">
+                <div class="bg-primary bg-opacity-10 text-primary rounded-3 p-3 fs-4">
+                    <i class="bi bi-building"></i>
+                </div>
+                <div>
+                    <small class="text-muted text-uppercase fw-bold d-block" style="font-size: 0.7rem;">Escolas Cadastradas</small>
+                    <span class="fs-4 fw-bold text-dark">{{ kpis_baixa.total_escolas }}</span>
+                    <small class="text-muted d-block" style="font-size: 0.72rem;">pastas de unidades escolares</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="kpi-baixa-card p-3 h-100 d-flex align-items-center gap-3">
+                <div class="bg-warning bg-opacity-15 text-warning-emphasis rounded-3 p-3 fs-4">
+                    <i class="bi bi-folder-fill"></i>
+                </div>
+                <div>
+                    <small class="text-muted text-uppercase fw-bold d-block" style="font-size: 0.7rem;">Escolas com Bens Baixados</small>
+                    <span class="fs-4 fw-bold text-dark">{{ kpis_baixa.escolas_com_baixa }}</span>
+                    <small class="text-muted d-block" style="font-size: 0.72rem;">unidades com baixas registradas</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="kpi-baixa-card p-3 h-100 d-flex align-items-center gap-3">
+                <div class="bg-danger bg-opacity-10 text-danger rounded-3 p-3 fs-4">
+                    <i class="bi bi-box-arrow-down"></i>
+                </div>
+                <div>
+                    <small class="text-muted text-uppercase fw-bold d-block" style="font-size: 0.7rem;">Total de Bens Baixados</small>
+                    <span class="fs-4 fw-bold text-danger">{{ kpis_baixa.total_bens_baixados }}</span>
+                    <small class="text-muted d-block" style="font-size: 0.72rem;">retirados do inventário ativo</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="kpi-baixa-card p-3 h-100 d-flex align-items-center gap-3">
+                <div class="bg-success bg-opacity-10 text-success rounded-3 p-3 fs-4">
+                    <i class="bi bi-cash-stack"></i>
+                </div>
+                <div>
+                    <small class="text-muted text-uppercase fw-bold d-block" style="font-size: 0.7rem;">Valor Contábil Baixado</small>
+                    <span class="fs-5 fw-bold text-success">R$ {{ "%.2f"|format(kpis_baixa.valor_total_baixado or 0)|replace('.', ',') }}</span>
+                    <small class="text-muted d-block" style="font-size: 0.72rem;">soma histórica de aquisição</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- VISÃO 1: EXPLORADOR DE PASTAS (TODAS AS ESCOLAS CADASTRADAS)              -->
+    <!-- ========================================================================= -->
+    <div id="viewGradePastas">
+        <!-- Barra de Busca e Filtro de Pastas -->
+        <div class="card border-0 shadow-sm mb-4 no-print" style="border-radius: 16px;">
+            <div class="card-body p-3">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text"
+                                   id="inputBuscaPastasEscola"
+                                   class="form-control border-start-0"
+                                   placeholder="Buscar pasta pelo nome da Escola, INEP, Diretor ou nome do bem baixado..."
+                                   oninput="filtrarPastasEscolas()">
+                        </div>
+                    </div>
+                    <div class="col-md-6 d-flex flex-wrap justify-content-md-end gap-2">
+                        <button type="button"
+                                class="btn btn-sm btn-dark btn-rounded px-3 fw-semibold btn-filtro-pasta active"
+                                id="btnFiltroTodas"
+                                onclick="definirFiltroTipoPasta('todas')">
+                            <i class="bi bi-grid-fill me-1"></i> Todas as Escolas ({{ pastas_escolas|length }})
+                        </button>
+                        <button type="button"
+                                class="btn btn-sm btn-outline-warning text-dark btn-rounded px-3 fw-semibold btn-filtro-pasta"
+                                id="btnFiltroComBaixa"
+                                onclick="definirFiltroTipoPasta('com_baixa')">
+                            <i class="bi bi-folder-check me-1"></i> Apenas com Bens Baixados ({{ kpis_baixa.escolas_com_baixa + kpis_baixa.outros_setores_com_baixa }})
+                        </button>
+                        {% if pastas_outros %}
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary btn-rounded px-3 fw-semibold btn-filtro-pasta"
+                                id="btnFiltroOutros"
+                                onclick="definirFiltroTipoPasta('outros')">
+                            <i class="bi bi-building-gear me-1"></i> Outros Setores ({{ pastas_outros|length }})
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEÇÃO 1: PASTAS DAS ESCOLAS CADASTRADAS -->
+        <div id="secaoPastasEscolas">
+            <div class="d-flex justify-content-between align-items-center mb-3 px-1">
+                <h5 class="fw-bold text-dark mb-0">
+                    <i class="bi bi-folder2-open text-warning me-2"></i> Pastas das Escolas Cadastradas
+                </h5>
+                <small class="text-muted">Clique em uma pasta para abrir os bens baixados da escola</small>
+            </div>
+
+            {% if pastas_escolas %}
+            <div class="row g-3 mb-4" id="gridPastasEscolas">
+                {% for pasta in pastas_escolas %}
+                {% set nomes_bens_busca = pasta.bens | map(attribute='descricao') | join(' ') %}
+                {% set tombs_bens_busca = pasta.bens | map(attribute='numero_patrimonio') | select | join(' ') %}
+                <div class="col-12 col-sm-6 col-lg-4 col-xl-3 item-pasta-card"
+                     data-tipo="escola"
+                     data-qtd="{{ pasta.qtd_bens }}"
+                     data-busca="{{ (pasta.nome ~ ' ' ~ pasta.inep ~ ' ' ~ pasta.zona ~ ' ' ~ pasta.diretor ~ ' ' ~ nomes_bens_busca ~ ' ' ~ tombs_bens_busca)|lower }}">
+                    <div class="folder-card h-100 p-3 {% if pasta.qtd_bens > 0 %}com-itens{% else %}sem-itens{% endif %}"
+                         onclick="abrirPastaEscola('{{ pasta.codigo }}')">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="folder-icon-box">
+                                <i class="bi {% if pasta.qtd_bens > 0 %}bi-folder-fill{% else %}bi-folder{% endif %}"></i>
                             </div>
-                        </td>
-                        <td class="text-center">
-                            <a href="{{ url_for('patrimonio.detalhes_item', item_id=item.id) }}" class="btn btn-sm btn-light btn-rounded">
-                                <i class="bi bi-eye"></i> Detalhes
-                            </a>
-                        </td>
-                    </tr>
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="d-flex justify-content-between align-items-start gap-1 mb-1">
+                                    <span class="badge rounded-pill {% if pasta.qtd_bens > 0 %}bg-warning text-dark fw-bold{% else %}bg-light text-secondary border{% endif %}">
+                                        {{ pasta.qtd_bens }} {{ 'bem baixado' if pasta.qtd_bens == 1 else 'bens baixados' }}
+                                    </span>
+                                    {% if pasta.zona %}
+                                    <span class="badge bg-light text-muted border" style="font-size: 0.65rem;">{{ pasta.zona }}</span>
+                                    {% endif %}
+                                </div>
+                                <h6 class="fw-bold text-dark mb-1 text-truncate" title="{{ pasta.nome }}">
+                                    {{ pasta.nome }}
+                                </h6>
+                                <div class="small text-muted text-truncate">
+                                    {% if pasta.diretor %}
+                                        <i class="bi bi-person-badge me-1"></i>{{ pasta.diretor }}
+                                    {% elif pasta.inep %}
+                                        <i class="bi bi-hash me-1"></i>INEP: {{ pasta.inep }}
+                                    {% else %}
+                                        <i class="bi bi-building me-1"></i>Unidade Escolar
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3 pt-2 border-top d-flex justify-content-between align-items-center small">
+                            <span class="text-muted">
+                                {% if pasta.qtd_bens > 0 %}
+                                    Total: <strong class="text-dark">R$ {{ "%.2f"|format(pasta.valor_total or 0)|replace('.', ',') }}</strong>
+                                {% else %}
+                                     Pasta vazia
+                                {% endif %}
+                            </span>
+                            <span class="fw-semibold {% if pasta.qtd_bens > 0 %}text-warning-emphasis{% else %}text-primary{% endif %}">
+                                Abrir Pasta <i class="bi bi-chevron-right"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-light border text-center py-4 mb-4">
+                Nenhuma escola cadastrada encontrada.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- SEÇÃO 2: PASTAS DE OUTROS SETORES / SEDE (SE HOUVER BENS BAIXADOS FORA DE ESCOLAS) -->
+        {% if pastas_outros %}
+        <div id="secaoPastasOutros" class="mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-3 px-1">
+                <div>
+                    <h5 class="fw-bold text-dark mb-0">
+                        <i class="bi bi-building-gear text-secondary me-2"></i> Pastas de Outros Setores / Sede / Depósito
+                    </h5>
+                    <small class="text-muted">
+                        Bens baixados que estavam alocados em setores administrativos ou no depósito (você pode movê-los para a pasta de qualquer escola ao abrir).
+                    </small>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                {% for pasta in pastas_outros %}
+                {% set nomes_bens_busca = pasta.bens | map(attribute='descricao') | join(' ') %}
+                <div class="col-12 col-sm-6 col-lg-4 col-xl-3 item-pasta-card"
+                     data-tipo="outros"
+                     data-qtd="{{ pasta.qtd_bens }}"
+                     data-busca="{{ (pasta.nome ~ ' ' ~ nomes_bens_busca)|lower }}">
+                    <div class="folder-card com-itens h-100 p-3"
+                         onclick="abrirPastaEscola('{{ pasta.codigo }}')">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="folder-icon-box" style="background: #e0f2fe; color: #0284c7;">
+                                <i class="bi bi-folder-symlink-fill"></i>
+                            </div>
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="d-flex justify-content-between align-items-start gap-1 mb-1">
+                                    <span class="badge rounded-pill bg-info-subtle text-info-emphasis border border-info-subtle fw-bold">
+                                        {{ pasta.qtd_bens }} {{ 'bem baixado' if pasta.qtd_bens == 1 else 'bens baixados' }}
+                                    </span>
+                                    <span class="badge bg-light text-secondary border" style="font-size: 0.65rem;">Setor</span>
+                                </div>
+                                <h6 class="fw-bold text-dark mb-1 text-truncate" title="{{ pasta.nome }}">
+                                    {{ pasta.nome }}
+                                </h6>
+                                <div class="small text-muted text-truncate">
+                                    <i class="bi bi-geo-alt me-1"></i>Setor / Local Administrativo
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3 pt-2 border-top d-flex justify-content-between align-items-center small">
+                            <span class="text-muted">
+                                Total: <strong class="text-dark">R$ {{ "%.2f"|format(pasta.valor_total or 0)|replace('.', ',') }}</strong>
+                            </span>
+                            <span class="fw-semibold text-primary">
+                                Abrir Pasta <i class="bi bi-chevron-right"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- VISÃO 2: CONTEÚDO INTERNO DE CADA PASTA DE ESCOLA                         -->
+    <!-- ========================================================================= -->
+    <div id="viewDentroDaPasta" class="d-none">
+        {% for pasta in todas_pastas %}
+        <div class="painel-conteudo-pasta d-none" id="conteudo_{{ pasta.codigo }}" data-nome-escola="{{ pasta.nome }}">
+            <!-- Barra de Navegação (Breadcrumb da Pasta) -->
+            <div class="breadcrumb-folder d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4 no-print">
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    <button type="button" class="btn btn-sm btn-dark btn-rounded px-3 fw-semibold" onclick="voltarParaGradePastas()">
+                        <i class="bi bi-arrow-left me-1"></i> Todas as Pastas
+                    </button>
+                    <span class="text-muted">/</span>
+                    <span class="fw-bold text-dark fs-5">
+                        <i class="bi bi-folder2-open text-warning me-1"></i> {{ pasta.nome }}
+                    </span>
+                    <span class="badge bg-warning text-dark rounded-pill px-3">
+                        {{ pasta.qtd_bens }} {{ 'bem baixado' if pasta.qtd_bens == 1 else 'bens baixados' }}
+                    </span>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    {% if pasta.qtd_bens > 0 %}
+                    <button type="button" class="btn btn-sm btn-outline-dark btn-rounded fw-semibold" onclick="window.print()">
+                        <i class="bi bi-printer me-1"></i> Imprimir Relação desta Escola
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Cabeçalho Exclusivo para Impressão da Relação da Escola -->
+            <div class="d-none d-print-block text-center mb-4 pb-2 border-bottom">
+                <h5 class="fw-bold mb-0">PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ</h5>
+                <h6 class="text-muted mb-2">COORDENADORIA DE CONTROLE PATRIMONIAL — RELAÇÃO DE BENS BAIXADOS POR UNIDADE</h6>
+                <div class="fw-bold fs-6 mt-2">
+                    UNIDADE / ESCOLA: {{ pasta.nome }} ({{ pasta.qtd_bens }} bem(ns) baixado(s))
+                </div>
+            </div>
+
+            <!-- Card com a Tabela de Bens Baixados desta Escola -->
+            <div class="card border-0 shadow-sm" style="border-radius: 18px;">
+                <div class="card-header bg-light border-bottom py-3 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2" style="border-top-left-radius: 18px; border-top-right-radius: 18px;">
+                    <div>
+                        <h6 class="fw-bold mb-0 text-dark">
+                            <i class="bi bi-box-seam text-warning-emphasis me-2"></i>
+                            Bens Baixados Arquivados em: <span class="text-primary">{{ pasta.nome }}</span>
+                        </h6>
+                        {% if pasta.diretor or pasta.inep or pasta.endereco %}
+                        <small class="text-muted">
+                            {% if pasta.inep %}INEP: {{ pasta.inep }} • {% endif %}
+                            {% if pasta.diretor %}Direção/Resp.: {{ pasta.diretor }} • {% endif %}
+                            {% if pasta.endereco %}{{ pasta.endereco }}{% endif %}
+                        </small>
+                        {% endif %}
+                    </div>
+                    <div class="fw-bold text-success small">
+                        Valor Total na Pasta: R$ {{ "%.2f"|format(pasta.valor_total or 0)|replace('.', ',') }}
+                    </div>
+                </div>
+
+                <div class="card-body p-0">
+                    {% if pasta.bens %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-4" style="width: 140px;">Tombamento / ID</th>
+                                    <th>Descrição do Bem / Marca / Série</th>
+                                    <th>Justificativa e Histórico da Baixa</th>
+                                    <th class="text-end" style="width: 130px;">Valor Aq.</th>
+                                    <th class="text-end pe-4 no-print" style="width: 240px;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in pasta.bens %}
+                                <tr>
+                                    <td class="ps-4">
+                                        <span class="badge bg-dark font-monospace">
+                                            {{ item.numero_patrimonio or ('S/N (#' ~ item.id ~ ')') }}
+                                        </span>
+                                        {% if item.numero_nota_fiscal %}
+                                        <small class="d-block text-muted mt-1">NF: {{ item.numero_nota_fiscal }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-dark">{{ item.descricao }}</div>
+                                        <small class="text-muted d-block">
+                                            Marca/Mod: {{ item.marca or '-' }} / {{ item.modelo or '-' }}
+                                            {% if item.numero_serie %}
+                                                • <strong class="font-monospace">Série: {{ item.numero_serie }}</strong>
+                                            {% endif %}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <div class="p-2 bg-light rounded small" style="border-left: 4px solid #f59e0b; white-space: pre-line;">{{ item.observacoes or 'Nenhuma justificativa detalhada.' }}</div>
+                                    </td>
+                                    <td class="text-end fw-semibold text-dark">
+                                        R$ {{ "%.2f"|format(item.valor_aquisicao or 0)|replace('.', ',') }}
+                                    </td>
+                                    <td class="text-end pe-4 no-print">
+                                        <div class="d-flex justify-content-end flex-wrap gap-1">
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-warning text-dark btn-rounded"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#modalMoverPastaBaixa"
+                                                    data-item-url="{{ url_for('patrimonio.mover_pasta_item_baixado', item_id=item.id) }}"
+                                                    data-item-desc="{{ item.descricao }} ({{ item.numero_patrimonio or ('S/N #' ~ item.id) }})"
+                                                    data-item-pasta="{{ pasta.nome }}"
+                                                    onclick="prepararModalMoverPasta(this)"
+                                                    title="Mover este bem baixado para a pasta de outra escola">
+                                                <i class="bi bi-folder-symlink"></i> Pasta
+                                            </button>
+                                            <a href="{{ url_for('patrimonio.termo_baixa', item_id=item.id) }}"
+                                               target="_blank"
+                                               class="btn btn-sm btn-outline-danger btn-rounded"
+                                               title="Imprimir Termo de Baixa Individual">
+                                                <i class="bi bi-printer"></i> Termo
+                                            </a>
+                                            <a href="{{ url_for('patrimonio.detalhes_item', item_id=item.id) }}"
+                                               class="btn btn-sm btn-primary btn-rounded">
+                                                <i class="bi bi-eye"></i> Ficha
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                     {% else %}
-                    <tr>
-                        <td colspan="4" class="text-center py-5 text-muted">Nenhum item baixado encontrado.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    <div class="text-center py-5">
+                        <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
+                            <i class="bi bi-folder2-open text-muted fs-1"></i>
+                        </div>
+                        <h6 class="fw-bold text-dark mb-1">Nenhum bem baixado nesta Escola</h6>
+                        <p class="text-muted small mb-3">
+                            A pasta de <strong>{{ pasta.nome }}</strong> ainda não possui nenhum bem patrimonial baixado.
+                        </p>
+                        <button type="button" class="btn btn-sm btn-outline-secondary btn-rounded px-4" onclick="voltarParaGradePastas()">
+                            <i class="bi bi-arrow-left me-1"></i> Voltar para as Pastas das Escolas
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- MODAL PARA MOVER UM BEM BAIXADO PARA A PASTA DE OUTRA ESCOLA -->
+<div class="modal fade no-print" id="modalMoverPastaBaixa" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow" style="border-radius: 18px;">
+            <div class="modal-header border-0 pt-4 px-4">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-folder-symlink-fill text-warning me-2"></i>Mover Bem para Pasta de Escola
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="formMoverPastaBaixa">
+                <div class="modal-body p-4">
+                    <div class="alert alert-light border small mb-3">
+                        <strong>Bem selecionado:</strong> <span id="lblItemMoverPasta" class="text-primary fw-bold"></span>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small">Escolha a Pasta da Escola de Destino *</label>
+                        <select name="nova_pasta_escola" id="selectNovaPastaEscola" class="form-select" required>
+                            <option value="">-- Selecione a Escola --</option>
+                            <optgroup label="Pastas das Escolas Cadastradas">
+                                {% for p_esc in pastas_escolas %}
+                                    <option value="{{ p_esc.nome }}">📁 {{ p_esc.nome }}</option>
+                                {% endfor %}
+                            </optgroup>
+                            {% if pastas_outros %}
+                            <optgroup label="Outros Setores / Unidades">
+                                {% for p_out in pastas_outros %}
+                                    <option value="{{ p_out.nome }}">🏢 {{ p_out.nome }}</option>
+                                {% endfor %}
+                            </optgroup>
+                            {% endif %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pb-4 px-4">
+                    <button type="button" class="btn btn-light btn-rounded px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning text-dark fw-bold btn-rounded px-4">
+                        <i class="bi bi-check2-circle me-1"></i> Salvar na Pasta
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
+
+<script>
+    let filtroTipoPastaAtual = 'todas';
+
+    function abrirPastaEscola(codigoPasta) {
+        const viewGrade = document.getElementById('viewGradePastas');
+        const viewDentro = document.getElementById('viewDentroDaPasta');
+        const todosPaineis = document.querySelectorAll('.painel-conteudo-pasta');
+        const painelAlvo = document.getElementById('conteudo_' + codigoPasta);
+
+        if (!painelAlvo) return;
+
+        todosPaineis.forEach(p => p.classList.add('d-none'));
+        painelAlvo.classList.remove('d-none');
+
+        if (viewGrade) viewGrade.classList.add('d-none');
+        if (viewDentro) viewDentro.classList.remove('d-none');
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function voltarParaGradePastas() {
+        const viewGrade = document.getElementById('viewGradePastas');
+        const viewDentro = document.getElementById('viewDentroDaPasta');
+        document.querySelectorAll('.painel-conteudo-pasta').forEach(p => p.classList.add('d-none'));
+
+        if (viewDentro) viewDentro.classList.add('d-none');
+        if (viewGrade) viewGrade.classList.remove('d-none');
+    }
+
+    function definirFiltroTipoPasta(tipo) {
+        filtroTipoPastaAtual = tipo;
+        document.querySelectorAll('.btn-filtro-pasta').forEach(b => b.classList.remove('active', 'btn-dark', 'text-white'));
+        const mapaBtn = {
+            'todas': 'btnFiltroTodas',
+            'com_baixa': 'btnFiltroComBaixa',
+            'outros': 'btnFiltroOutros'
+        };
+        const btnAtivo = document.getElementById(mapaBtn[tipo]);
+        if (btnAtivo) {
+            btnAtivo.classList.add('active');
+        }
+        filtrarPastasEscolas();
+    }
+
+    function filtrarPastasEscolas() {
+        const termo = (document.getElementById('inputBuscaPastasEscola').value || '').trim().toLowerCase();
+        const cards = document.querySelectorAll('.item-pasta-card');
+
+        cards.forEach(card => {
+            const tipoCard = card.getAttribute('data-tipo');
+            const qtdCard = parseInt(card.getAttribute('data-qtd') || '0', 10);
+            const buscaCard = card.getAttribute('data-busca') || '';
+
+            let passaTipo = true;
+            if (filtroTipoPastaAtual === 'com_baixa') {
+                passaTipo = (qtdCard > 0);
+            } else if (filtroTipoPastaAtual === 'outros') {
+                passaTipo = (tipoCard === 'outros');
+            }
+
+            const passaTexto = !termo || buscaCard.includes(termo);
+
+            if (passaTipo && passaTexto) {
+                card.classList.remove('d-none');
+            } else {
+                card.classList.add('d-none');
+            }
+        });
+    }
+
+    function prepararModalMoverPasta(btn) {
+        const form = document.getElementById('formMoverPastaBaixa');
+        const lbl = document.getElementById('lblItemMoverPasta');
+        const select = document.getElementById('selectNovaPastaEscola');
+        if (form) form.action = btn.getAttribute('data-item-url') || '';
+        if (lbl) lbl.textContent = btn.getAttribute('data-item-desc') || '';
+        if (select) select.value = btn.getAttribute('data-item-pasta') || '';
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const pastaInicial = {{ codigo_pasta_inicial|tojson if codigo_pasta_inicial else '""' }};
+        if (pastaInicial) {
+            abrirPastaEscola(pastaInicial);
+        }
+    });
+</script>
 {% endblock %}

@@ -1687,6 +1687,7 @@ def detalhes_item(item_id):
     item = Patrimonio.query.get_or_404(item_id)
     servidores = Servidor.query.order_by(Servidor.nome).all()
     secretarias = Secretaria.query.order_by(Secretaria.nome).all()
+    escolas = Escola.query.order_by(Escola.nome).all()
     locais_db, locais_legados = _obter_locais_disponiveis()
     movimentacoes = MovimentacaoPatrimonio.query.filter_by(patrimonio_id=item_id).order_by(
         MovimentacaoPatrimonio.data_movimentacao.desc()
@@ -1710,6 +1711,7 @@ def detalhes_item(item_id):
         item=item,
         servidores=servidores,
         secretarias=secretarias,
+        escolas=escolas,
         locais_db=locais_db,
         locais_legados=locais_legados,
         movimentacoes=movimentacoes,
@@ -2604,6 +2606,7 @@ def dar_baixa_item(item_id):
 
     motivo_baixa = request.form.get('motivo_baixa')
     recebedor = request.form.get('recebedor', 'Não informado')
+    escola_pasta_baixa = (request.form.get('escola_pasta_baixa') or '').strip()
     imprimir_termo = request.form.get('imprimir_termo')
 
     if not motivo_baixa:
@@ -2614,8 +2617,16 @@ def dar_baixa_item(item_id):
         item.status = "Baixado"
         item.situacao_uso = "Inservível / Baixado"
 
+        if escola_pasta_baixa:
+            item.localizacao = escola_pasta_baixa
+            loc_obj = LocalPatrimonio.query.filter(
+                func.lower(LocalPatrimonio.nome) == escola_pasta_baixa.lower()
+            ).first()
+            if loc_obj:
+                item.local_id = loc_obj.id
+
         data_atual = datetime.now().strftime('%d/%m/%Y')
-        texto_baixa = f"BAIXA REALIZADA EM {data_atual} - Motivo: {motivo_baixa} | Recebedor: {recebedor}"
+        texto_baixa = f"BAIXA REALIZADA EM {data_atual} - Local/Escola: {item.localizacao} - Motivo: {motivo_baixa} | Recebedor: {recebedor}"
 
         if item.observacoes:
             item.observacoes = f"{item.observacoes}\n\n{texto_baixa}"
@@ -2623,9 +2634,12 @@ def dar_baixa_item(item_id):
             item.observacoes = texto_baixa
 
         db.session.commit()
-        registrar_log(f"Baixa efetuada - Item: {item.descricao} (Pat: {item.numero_patrimonio or 'S/N'}) - Recebedor: {recebedor}")
+        registrar_log(
+            f"Baixa efetuada - Item: {item.descricao} (Pat: {item.numero_patrimonio or 'S/N'}) "
+            f"- Pasta/Escola: {item.localizacao} - Recebedor: {recebedor}"
+        )
 
-        flash("Baixa do patrimônio realizada com sucesso!", "success")
+        flash(f"Baixa do patrimônio realizada com sucesso e arquivada na pasta '{item.localizacao}'!", "success")
 
         if imprimir_termo == 'sim':
             return redirect(url_for('patrimonio.termo_baixa', item_id=item.id))
@@ -2636,6 +2650,37 @@ def dar_baixa_item(item_id):
         db.session.rollback()
         flash(f"Erro ao processar a baixa: {str(e)}", "danger")
         return redirect(url_for('patrimonio.detalhes_item', item_id=item_id))
+
+
+@patrimonio_bp.route('/item/<int:item_id>/mover-pasta-baixa', methods=['POST'])
+@login_required
+@role_required('admin', 'Patrimonio', 'Fiscal')
+def mover_pasta_item_baixado(item_id):
+    executar_migracao_patrimonio_segura()
+    item = Patrimonio.query.get_or_404(item_id)
+    nova_pasta = (request.form.get('nova_pasta_escola') or '').strip()
+
+    if not nova_pasta:
+        flash("Selecione a pasta da escola de destino.", "warning")
+        return redirect(url_for('patrimonio.listar_itens_baixados'))
+
+    try:
+        pasta_anterior = item.localizacao
+        item.localizacao = nova_pasta
+        loc_obj = LocalPatrimonio.query.filter(
+            func.lower(LocalPatrimonio.nome) == nova_pasta.lower()
+        ).first()
+        item.local_id = loc_obj.id if loc_obj else None
+        db.session.commit()
+        registrar_log(
+            f"Bem baixado #{item.id} ({item.descricao}) movido da pasta '{pasta_anterior}' para a pasta '{nova_pasta}'."
+        )
+        flash(f"Bem '{item.descricao}' movido para a pasta '{nova_pasta}' com sucesso!", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Erro ao mover item de pasta: {str(e)}", "danger")
+
+    return redirect(url_for('patrimonio.listar_itens_baixados', pasta=nova_pasta))
 
 
 @patrimonio_bp.route('/item/excluir/<int:item_id>', methods=['POST'])
@@ -2659,10 +2704,172 @@ def excluir_item_patrimonio(item_id):
     return redirect(url_for('patrimonio.listar_itens'))
 
 
+def _normalizar_nome_pasta(texto):
+    import unicodedata
+    if not texto:
+        return ""
+    s = unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('ASCII')
+    s = re.sub(r'\s+', ' ', s).strip().lower()
+    return s
+
+
 @patrimonio_bp.route('/itens-baixados')
 @login_required
 @role_required('admin', 'Patrimonio', 'Fiscal')
 def listar_itens_baixados():
     executar_migracao_patrimonio_segura()
-    itens = Patrimonio.query.filter_by(status='Baixado').order_by(Patrimonio.descricao).all()
-    return render_template('patrimonio/itens_baixados.html', itens=itens)
+    pasta_aberta_param = (request.args.get('pasta') or '').strip()
+
+    # 1. Carrega todas as escolas cadastradas no sistema (Tabela Escola)
+    escolas_db = Escola.query.order_by(Escola.nome).all()
+    locais_db = LocalPatrimonio.query.filter_by(ativo=True).order_by(LocalPatrimonio.nome).all()
+
+    pastas_escolas_map = {}
+    ordem_chaves_escolas = []
+
+    for esc in escolas_db:
+        nome_esc = (esc.nome or '').strip()
+        if not nome_esc:
+            continue
+        chave_norm = _normalizar_nome_pasta(nome_esc)
+        if chave_norm not in pastas_escolas_map:
+            diretor_nome = esc.diretor_responsavel or (esc.diretor.nome if getattr(esc, 'diretor', None) else '') or ''
+            pastas_escolas_map[chave_norm] = {
+                'codigo': f"escola_{esc.id}",
+                'chave_norm': chave_norm,
+                'nome': nome_esc,
+                'tipo': 'Escola',
+                'zona': esc.zona or '',
+                'inep': esc.codigo_inep or '',
+                'diretor': diretor_nome,
+                'endereco': esc.endereco or '',
+                'status_escola': esc.status or 'Ativa',
+                'bens': [],
+                'qtd_bens': 0,
+                'valor_total': 0.0,
+            }
+            ordem_chaves_escolas.append(chave_norm)
+
+    # Também inclui locais do patrimônio que sejam Unidades Escolares / Creches caso não estejam na tabela Escola
+    termos_escolares = ('escola', 'creche', 'u.e', 'u. e', 'unidade escolar', 'cemei', 'colegio', 'ginásio', 'ginasio', 'pré-escola', 'pre-escola', 'infantil')
+    for loc in locais_db:
+        nome_candidato = (loc.predio_unidade or loc.nome or '').strip()
+        if not nome_candidato:
+            continue
+        norm_cand = _normalizar_nome_pasta(nome_candidato)
+        if any(t in norm_cand for t in termos_escolares):
+            # Verifica se já não é sub-sala de uma escola já listada
+            ja_coberto = False
+            for ch_existente in ordem_chaves_escolas:
+                if ch_existente in norm_cand or norm_cand in ch_existente:
+                    ja_coberto = True
+                    break
+            if not ja_coberto and norm_cand not in pastas_escolas_map:
+                pastas_escolas_map[norm_cand] = {
+                    'codigo': f"loc_esc_{loc.id}",
+                    'chave_norm': norm_cand,
+                    'nome': nome_candidato,
+                    'tipo': 'Escola',
+                    'zona': '',
+                    'inep': '',
+                    'diretor': loc.responsavel_setor or '',
+                    'endereco': loc.endereco or '',
+                    'status_escola': 'Ativa',
+                    'bens': [],
+                    'qtd_bens': 0,
+                    'valor_total': 0.0,
+                }
+                ordem_chaves_escolas.append(norm_cand)
+
+    # 2. Carrega todos os bens baixados
+    itens = Patrimonio.query.filter_by(status='Baixado').order_by(Patrimonio.id.desc()).all()
+
+    # Mapa para outros setores/locais administrativos que possuam bens baixados
+    pastas_outros_map = {}
+
+    # Ordena chaves de escolas da mais longa para a mais curta para casar nomes específicos primeiro
+    chaves_ordenadas_match = sorted(ordem_chaves_escolas, key=len, reverse=True)
+
+    for item in itens:
+        loc_item = (item.localizacao or '').strip()
+        predio_item = (item.local_rel.predio_unidade or '').strip() if item.local_rel else ''
+        norm_loc = _normalizar_nome_pasta(loc_item)
+        norm_predio = _normalizar_nome_pasta(predio_item)
+
+        chave_escola_encontrada = None
+        # 1º tentativa: igualdade direta
+        if norm_loc in pastas_escolas_map:
+            chave_escola_encontrada = norm_loc
+        elif norm_predio and norm_predio in pastas_escolas_map:
+            chave_escola_encontrada = norm_predio
+        else:
+            # 2º tentativa: nome da escola contido na localização do bem (ex: "ESCOLA X - SALA 02")
+            for ch_esc in chaves_ordenadas_match:
+                if ch_esc and (ch_esc in norm_loc or (norm_loc and len(norm_loc) >= 5 and norm_loc in ch_esc)):
+                    chave_escola_encontrada = ch_esc
+                    break
+                if ch_esc and norm_predio and (ch_esc in norm_predio or (len(norm_predio) >= 5 and norm_predio in ch_esc)):
+                    chave_escola_encontrada = ch_esc
+                    break
+
+        valor_bem = float(item.valor_aquisicao or 0.0)
+        if chave_escola_encontrada:
+            pasta_alvo = pastas_escolas_map[chave_escola_encontrada]
+            pasta_alvo['bens'].append(item)
+            pasta_alvo['qtd_bens'] += 1
+            pasta_alvo['valor_total'] += valor_bem
+        else:
+            nome_setor = loc_item or 'Sem Local Informado (Depósito / Sede)'
+            norm_setor = _normalizar_nome_pasta(nome_setor) or 'sem_local'
+            if norm_setor not in pastas_outros_map:
+                pastas_outros_map[norm_setor] = {
+                    'codigo': f"setor_{abs(hash(norm_setor)) % 1000000}",
+                    'chave_norm': norm_setor,
+                    'nome': nome_setor,
+                    'tipo': 'Setor / Unidade',
+                    'zona': '',
+                    'inep': '',
+                    'diretor': item.nome_responsavel_atual or '',
+                    'endereco': '',
+                    'status_escola': 'Ativa',
+                    'bens': [],
+                    'qtd_bens': 0,
+                    'valor_total': 0.0,
+                }
+            pastas_outros_map[norm_setor]['bens'].append(item)
+            pastas_outros_map[norm_setor]['qtd_bens'] += 1
+            pastas_outros_map[norm_setor]['valor_total'] += valor_bem
+
+    # Monta lista final de pastas de escolas (colocando primeiro as que têm bens baixados, depois alfabético)
+    pastas_escolas = [pastas_escolas_map[ch] for ch in ordem_chaves_escolas]
+    pastas_escolas.sort(key=lambda p: (0 if p['qtd_bens'] > 0 else 1, p['nome'].lower()))
+
+    pastas_outros = sorted(pastas_outros_map.values(), key=lambda p: (-p['qtd_bens'], p['nome'].lower()))
+    todas_pastas = pastas_escolas + pastas_outros
+
+    # Verifica se alguma pasta foi solicitada via query string (?pasta=...)
+    codigo_pasta_inicial = ''
+    if pasta_aberta_param:
+        norm_param = _normalizar_nome_pasta(pasta_aberta_param)
+        for p in todas_pastas:
+            if p['codigo'] == pasta_aberta_param or p['chave_norm'] == norm_param or norm_param in p['chave_norm']:
+                codigo_pasta_inicial = p['codigo']
+                break
+
+    kpis_baixa = {
+        'total_escolas': len(pastas_escolas),
+        'escolas_com_baixa': sum(1 for p in pastas_escolas if p['qtd_bens'] > 0),
+        'outros_setores_com_baixa': len(pastas_outros),
+        'total_bens_baixados': len(itens),
+        'valor_total_baixado': sum(float(i.valor_aquisicao or 0.0) for i in itens),
+    }
+
+    return render_template(
+        'patrimonio/itens_baixados.html',
+        itens=itens,
+        pastas_escolas=pastas_escolas,
+        pastas_outros=pastas_outros,
+        todas_pastas=todas_pastas,
+        kpis_baixa=kpis_baixa,
+        codigo_pasta_inicial=codigo_pasta_inicial
+    )

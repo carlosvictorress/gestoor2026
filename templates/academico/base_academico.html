@@ -12,6 +12,16 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
+    <script>
+        (function () {
+            try {
+                if (localStorage.getItem('gestor360_sidebar_collapsed') === '1') {
+                    document.documentElement.classList.add('sidebar-collapsed');
+                }
+            } catch (e) {}
+        })();
+    </script>
+
     <style>
         :root {
             --sige-primary: #0f5132;
@@ -19,7 +29,17 @@
             --sige-accent: #198754;
             --sige-bg: #f4f6f8;
             --sige-card-bg: #ffffff;
-            --sige-sidebar-width: 260px;
+            --sige-sidebar-expanded-width: 260px;
+            --sige-sidebar-collapsed-width: 82px;
+            --sige-sidebar-width: var(--sige-sidebar-expanded-width);
+            --sige-transition: cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        @media (min-width: 992px) {
+            html.sidebar-collapsed,
+            body.sidebar-collapsed {
+                --sige-sidebar-width: var(--sige-sidebar-collapsed-width);
+            }
         }
 
         body {
@@ -42,6 +62,7 @@
             box-shadow: 4px 0 15px rgba(0,0,0,0.1);
             display: flex;
             flex-direction: column;
+            transition: width 0.3s var(--sige-transition), transform 0.3s var(--sige-transition);
         }
 
         .sige-brand {
@@ -50,11 +71,14 @@
             display: flex;
             align-items: center;
             gap: 0.75rem;
+            position: relative;
+            transition: padding 0.3s var(--sige-transition);
         }
 
         .sige-brand-logo {
             width: 42px;
             height: 42px;
+            min-width: 42px;
             background: rgba(255,255,255,0.15);
             border-radius: 10px;
             display: flex;
@@ -64,10 +88,47 @@
             color: #52b788;
         }
 
+        .sige-brand-text {
+            overflow: hidden;
+            white-space: nowrap;
+            transition: opacity 0.2s ease, max-width 0.25s ease;
+        }
+
+        .sige-collapse-btn {
+            position: absolute;
+            top: 50%;
+            right: -14px;
+            transform: translateY(-50%);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--sige-accent);
+            color: #fff;
+            border: 2px solid rgba(255,255,255,0.25);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1060;
+            transition: all 0.25s ease;
+        }
+
+        .sige-collapse-btn:hover {
+            background: #20a766;
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .sige-collapse-btn i {
+            font-size: 0.8rem;
+            transition: transform 0.3s var(--sige-transition);
+        }
+
         .sige-nav {
             padding: 1rem 0.75rem;
             flex-grow: 1;
             overflow-y: auto;
+            overflow-x: hidden;
         }
 
         .sige-nav-header {
@@ -77,6 +138,8 @@
             letter-spacing: 1px;
             color: rgba(255,255,255,0.45);
             margin: 1.2rem 0.75rem 0.4rem;
+            white-space: nowrap;
+            transition: opacity 0.2s ease;
         }
 
         .sige-nav-link {
@@ -86,10 +149,12 @@
             padding: 0.65rem 0.9rem;
             color: rgba(255,255,255,0.85);
             text-decoration: none;
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 0.92rem;
             font-weight: 500;
             transition: all 0.2s ease;
+            white-space: nowrap;
+            margin-bottom: 0.2rem;
         }
 
         .sige-nav-link:hover, .sige-nav-link.active {
@@ -101,6 +166,8 @@
         .sige-nav-link i {
             font-size: 1.15rem;
             opacity: 0.9;
+            min-width: 22px;
+            text-align: center;
         }
 
         .sige-main-wrapper {
@@ -108,6 +175,7 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            transition: margin-left 0.3s var(--sige-transition);
         }
 
         .sige-topbar {
@@ -123,6 +191,24 @@
             z-index: 1030;
         }
 
+        .btn-sige-topbar-toggle {
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
+            border: 1px solid #dee2e6;
+            background: #f8f9fa;
+            color: var(--sige-primary);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .btn-sige-topbar-toggle:hover {
+            background: #e9f5ee;
+            border-color: var(--sige-accent);
+        }
+
         .sige-content {
             padding: 2rem;
             flex-grow: 1;
@@ -134,64 +220,152 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.03);
             background: var(--sige-card-bg);
         }
+
+        /* Estado Recolhido Desktop */
+        @media (min-width: 992px) {
+            html.sidebar-collapsed .sige-brand,
+            body.sidebar-collapsed .sige-brand {
+                justify-content: center;
+                padding: 1.25rem 0.5rem;
+            }
+
+            html.sidebar-collapsed .sige-brand-text,
+            body.sidebar-collapsed .sige-brand-text,
+            html.sidebar-collapsed .sige-nav-text,
+            body.sidebar-collapsed .sige-nav-text {
+                display: none !important;
+            }
+
+            html.sidebar-collapsed .sige-nav-header,
+            body.sidebar-collapsed .sige-nav-header {
+                font-size: 0;
+                height: 1px;
+                background: rgba(255,255,255,0.12);
+                margin: 0.75rem 0.5rem;
+            }
+
+            html.sidebar-collapsed .sige-nav-link,
+            body.sidebar-collapsed .sige-nav-link {
+                justify-content: center;
+                padding: 0.75rem 0;
+            }
+
+            html.sidebar-collapsed .sige-nav-link:hover,
+            body.sidebar-collapsed .sige-nav-link:hover,
+            html.sidebar-collapsed .sige-nav-link.active,
+            body.sidebar-collapsed .sige-nav-link.active {
+                transform: scale(1.05);
+            }
+
+            html.sidebar-collapsed .sige-collapse-btn i,
+            body.sidebar-collapsed .sige-collapse-btn i {
+                transform: rotate(180deg);
+            }
+        }
+
+        /* Responsivo Mobile */
+        @media (max-width: 991.98px) {
+            .sige-sidebar {
+                width: 260px;
+                transform: translateX(-100%);
+            }
+            body.sige-mobile-open .sige-sidebar {
+                transform: translateX(0);
+            }
+            .sige-main-wrapper {
+                margin-left: 0 !important;
+            }
+            .sige-collapse-btn {
+                display: none !important;
+            }
+            .sige-topbar {
+                padding: 0 1rem;
+            }
+        }
+
+        /* Tooltip Flutuante SIGE */
+        #sige-floating-tooltip {
+            position: fixed;
+            z-index: 2100;
+            background: rgba(10, 54, 34, 0.96);
+            color: #fff;
+            padding: 0.45rem 0.85rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.15s ease;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+            white-space: nowrap;
+        }
+        #sige-floating-tooltip.show {
+            opacity: 1;
+            visibility: visible;
+        }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
+    <div id="sige-floating-tooltip"></div>
 
     <!-- Sidebar Exclusiva SIGE 360 -->
-    <aside class="sige-sidebar">
+    <aside class="sige-sidebar" id="sigeSidebar">
         <div class="sige-brand">
             <div class="sige-brand-logo">
                 <i class="bi bi-mortarboard-fill"></i>
             </div>
-            <div>
+            <div class="sige-brand-text">
                 <h6 class="mb-0 fw-bold text-white fs-6">SIGE 360</h6>
                 <small class="text-white-50" style="font-size: 0.72rem;">Gestão Escolar & Pedagógica</small>
             </div>
+            <button type="button" class="sige-collapse-btn" onclick="toggleSigeSidebarCollapse()" title="Recolher / Expandir Menu">
+                <i class="bi bi-chevron-left"></i>
+            </button>
         </div>
 
         <nav class="sige-nav">
             <div class="sige-nav-header">Visão Geral</div>
-            <a href="{{ url_for('academico.dashboard') }}" class="sige-nav-link {% if request.endpoint == 'academico.dashboard' %}active{% endif %}">
-                <i class="bi bi-speedometer2"></i> Dashboard
+            <a href="{{ url_for('academico.dashboard') }}" class="sige-nav-link {% if request.endpoint == 'academico.dashboard' %}active{% endif %}" data-tooltip="Dashboard">
+                <i class="bi bi-speedometer2"></i> <span class="sige-nav-text">Dashboard</span>
             </a>
 
             <div class="sige-nav-header">Gestão Acadêmica</div>
-            <a href="{{ url_for('academico.gerenciar_alunos') }}" class="sige-nav-link {% if 'aluno' in request.endpoint %}active{% endif %}">
-                <i class="bi bi-people-fill"></i> Alunos & Matrículas
+            <a href="{{ url_for('academico.gerenciar_alunos') }}" class="sige-nav-link {% if 'aluno' in request.endpoint %}active{% endif %}" data-tooltip="Alunos & Matrículas">
+                <i class="bi bi-people-fill"></i> <span class="sige-nav-text">Alunos & Matrículas</span>
             </a>
-            <a href="{{ url_for('academico.gerenciar_turmas') }}" class="sige-nav-link {% if 'turma' in request.endpoint %}active{% endif %}">
-                <i class="bi bi-building"></i> Turmas & Ensalamento
+            <a href="{{ url_for('academico.gerenciar_turmas') }}" class="sige-nav-link {% if 'turma' in request.endpoint %}active{% endif %}" data-tooltip="Turmas & Ensalamento">
+                <i class="bi bi-building"></i> <span class="sige-nav-text">Turmas & Ensalamento</span>
             </a>
-            <a href="{{ url_for('academico.gerenciar_disciplinas') }}" class="sige-nav-link {% if 'disciplina' in request.endpoint %}active{% endif %}">
-                <i class="bi bi-journal-bookmark-fill"></i> Disciplinas (Matriz)
+            <a href="{{ url_for('academico.gerenciar_disciplinas') }}" class="sige-nav-link {% if 'disciplina' in request.endpoint %}active{% endif %}" data-tooltip="Disciplinas (Matriz)">
+                <i class="bi bi-journal-bookmark-fill"></i> <span class="sige-nav-text">Disciplinas (Matriz)</span>
             </a>
-            <a href="{{ url_for('academico.gerenciar_professores') }}" class="sige-nav-link {% if 'professor' in request.endpoint %}active{% endif %}">
-                <i class="bi bi-person-badge-fill"></i> Corpo Docente
+            <a href="{{ url_for('academico.gerenciar_professores') }}" class="sige-nav-link {% if 'professor' in request.endpoint %}active{% endif %}" data-tooltip="Corpo Docente">
+                <i class="bi bi-person-badge-fill"></i> <span class="sige-nav-text">Corpo Docente</span>
             </a>
 
             <div class="sige-nav-header">Rotinas Escolares</div>
-            <a href="{{ url_for('academico.gerenciar_calendario') }}" class="sige-nav-link {% if 'calendario' in request.endpoint %}active{% endif %}">
-                <i class="bi bi-calendar-event-fill"></i> Calendário Letivo
+            <a href="{{ url_for('academico.gerenciar_calendario') }}" class="sige-nav-link {% if 'calendario' in request.endpoint %}active{% endif %}" data-tooltip="Calendário Letivo">
+                <i class="bi bi-calendar-event-fill"></i> <span class="sige-nav-text">Calendário Letivo</span>
             </a>
-            <a href="{{ url_for('academico.controle_evasao') }}" class="sige-nav-link {% if 'evasao' in request.endpoint %}active{% endif %}">
-                <i class="bi bi-shield-exclamation"></i> Busca Ativa / Evasão
+            <a href="{{ url_for('academico.controle_evasao') }}" class="sige-nav-link {% if 'evasao' in request.endpoint %}active{% endif %}" data-tooltip="Busca Ativa / Evasão">
+                <i class="bi bi-shield-exclamation"></i> <span class="sige-nav-text">Busca Ativa / Evasão</span>
             </a>
-            <a href="{{ url_for('academico.diario_classe') }}" class="sige-nav-link {% if 'diario' in request.endpoint %}active{% endif %}">
-                <i class="bi bi-calendar-check-fill"></i> Diário de Classe
+            <a href="{{ url_for('academico.diario_classe') }}" class="sige-nav-link {% if 'diario' in request.endpoint %}active{% endif %}" data-tooltip="Diário de Classe">
+                <i class="bi bi-calendar-check-fill"></i> <span class="sige-nav-text">Diário de Classe</span>
             </a>
-            <a href="{{ url_for('academico.lancar_notas') }}" class="sige-nav-link {% if 'nota' in request.endpoint %}active{% endif %}">
-                <i class="bi bi-pencil-square"></i> Boletins & Notas
+            <a href="{{ url_for('academico.lancar_notas') }}" class="sige-nav-link {% if 'nota' in request.endpoint %}active{% endif %}" data-tooltip="Boletins & Notas">
+                <i class="bi bi-pencil-square"></i> <span class="sige-nav-text">Boletins & Notas</span>
             </a>
-            <a href="{{ url_for('academico.auditoria_educacenso') }}" class="sige-nav-link {% if 'educacenso' in request.endpoint %}active{% endif %}">
-                <i class="bi bi-shield-check"></i> Audit. Educacenso
+            <a href="{{ url_for('academico.auditoria_educacenso') }}" class="sige-nav-link {% if 'educacenso' in request.endpoint %}active{% endif %}" data-tooltip="Auditoria Educacenso">
+                <i class="bi bi-shield-check"></i> <span class="sige-nav-text">Audit. Educacenso</span>
             </a>
         </nav>
 
         <div class="p-3 border-top border-white-10">
-            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-light w-100 btn-sm d-flex align-items-center justify-content-center gap-2" style="border-color: rgba(255,255,255,0.25);">
-                <i class="bi bi-house-door"></i> Voltar ao Gestor 360
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-light w-100 btn-sm d-flex align-items-center justify-content-center gap-2" style="border-color: rgba(255,255,255,0.25);" data-tooltip="Voltar ao Gestor 360">
+                <i class="bi bi-house-door"></i> <span class="sige-nav-text">Voltar ao Gestor 360</span>
             </a>
         </div>
     </aside>
@@ -200,6 +374,9 @@
     <div class="sige-main-wrapper">
         <header class="sige-topbar">
             <div class="d-flex align-items-center gap-3">
+                <button type="button" class="btn-sige-topbar-toggle" onclick="toggleSigeSidebarCollapse()" title="Alternar Menu Lateral">
+                    <i class="bi bi-layout-sidebar-inset"></i>
+                </button>
                 <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill fw-semibold">
                     <i class="bi bi-bank me-1"></i> Secretaria de Educação
                 </span>
@@ -239,6 +416,45 @@
 
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function toggleSigeSidebarCollapse() {
+            if (window.innerWidth < 992) {
+                document.body.classList.toggle('sige-mobile-open');
+                return;
+            }
+            const isCollapsed = !document.documentElement.classList.contains('sidebar-collapsed');
+            document.documentElement.classList.toggle('sidebar-collapsed', isCollapsed);
+            document.body.classList.toggle('sidebar-collapsed', isCollapsed);
+            try {
+                localStorage.setItem('gestor360_sidebar_collapsed', isCollapsed ? '1' : '0');
+            } catch (e) {}
+            setTimeout(() => {
+                window.dispatchEvent(new Event('resize'));
+            }, 320);
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (document.documentElement.classList.contains('sidebar-collapsed')) {
+                document.body.classList.add('sidebar-collapsed');
+            }
+            const tooltip = document.getElementById('sige-floating-tooltip');
+            document.querySelectorAll('#sigeSidebar [data-tooltip]').forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    if (window.innerWidth >= 992 && document.documentElement.classList.contains('sidebar-collapsed') && tooltip) {
+                        const rect = el.getBoundingClientRect();
+                        tooltip.textContent = el.getAttribute('data-tooltip');
+                        tooltip.style.top = (rect.top + rect.height / 2) + 'px';
+                        tooltip.style.left = (rect.right + 12) + 'px';
+                        tooltip.style.transform = 'translateY(-50%)';
+                        tooltip.classList.add('show');
+                    }
+                });
+                el.addEventListener('mouseleave', () => {
+                    if (tooltip) tooltip.classList.remove('show');
+                });
+            });
+        });
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

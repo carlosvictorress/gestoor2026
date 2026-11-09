@@ -163,6 +163,25 @@ def executar_migracao_patrimonio_segura():
             except Exception:
                 pass
 
+    colunas_escola = [
+        ("zona", "VARCHAR(50)"),
+        ("latitude", "FLOAT"),
+        ("longitude", "FLOAT"),
+        ("diretor_responsavel", "VARCHAR(150)"),
+        ("secretaria_id", "INTEGER"),
+        ("status", "VARCHAR(20) DEFAULT 'Ativa'"),
+    ]
+    for col_nome, col_tipo in colunas_escola:
+        try:
+            with db.engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE escola ADD COLUMN IF NOT EXISTS {col_nome} {col_tipo};"))
+        except Exception:
+            try:
+                with db.engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE escola ADD COLUMN {col_nome} {col_tipo};"))
+            except Exception:
+                pass
+
     _schema_patrimonio_verificado = True
 
 
@@ -312,9 +331,15 @@ def listar_itens():
     todos_itens_filtrados = query.order_by(Patrimonio.id.desc()).all()
 
     # KPIs globais sobre o conjunto filtrado
+    bens_ativos_f = [b for b in todos_itens_filtrados if b.status != 'Baixado']
+    bens_baixados_f = [b for b in todos_itens_filtrados if b.status == 'Baixado']
     kpis = {
         'total_bens': len(todos_itens_filtrados),
+        'total_ativos': len(bens_ativos_f),
+        'total_baixados': len(bens_baixados_f),
         'valor_acervo': sum((b.valor_aquisicao or 0.0) for b in todos_itens_filtrados),
+        'valor_ativos': sum((b.valor_aquisicao or 0.0) for b in bens_ativos_f),
+        'valor_baixados': sum((b.valor_aquisicao or 0.0) for b in bens_baixados_f),
         'total_locais': len({b.localizacao for b in todos_itens_filtrados if b.localizacao}),
         'total_com_nf': sum(1 for b in todos_itens_filtrados if b.numero_nota_fiscal),
     }
@@ -641,6 +666,36 @@ def listar_itens():
                 'secretaria_id': '',
             })
 
+    # Dados auxiliares para a Central de Emissão de PDFs Governamentais no Dashboard
+    todos_bens_banco = Patrimonio.query.order_by(Patrimonio.id.desc()).all()
+    categorias_padrao_lista = [
+        'Equipamentos de Informática / TI',
+        'Mobiliário em Geral',
+        'Eletrodomésticos e Refrigeração',
+        'Máquinas, Motores e Aparelhos',
+        'Veículos e Frota',
+        'Equipamentos Educacionais / Pedagógicos',
+        'Equipamentos de Saúde / Laboratório',
+        'Aparelhos de Som, Imagem e Comunicação',
+        'Mobiliário',
+        'Informática',
+        'Eletrodomésticos',
+        'Equipamentos',
+        'Veículos',
+        'Outros Bens Permanentes',
+    ]
+    cats_banco = {(b.categoria or '').strip() for b in todos_bens_banco if (b.categoria or '').strip()}
+    categorias_disponiveis = sorted(cats_banco.union(categorias_padrao_lista))
+
+    fornecedores_disponiveis = sorted({
+        ((b.fornecedor_nome or '').strip() or (b.nota_fiscal_rel.fornecedor_nome.strip() if b.nota_fiscal_rel and b.nota_fiscal_rel.fornecedor_nome else ''))
+        for b in todos_bens_banco
+        if ((b.fornecedor_nome or '').strip() or (b.nota_fiscal_rel.fornecedor_nome.strip() if b.nota_fiscal_rel and b.nota_fiscal_rel.fornecedor_nome else ''))
+    })
+
+    dados_mapeamento_esc = _agrupar_bens_por_escola_e_setor(todos_bens_banco, escolas_ativas)
+    pastas_escolas_resumo = dados_mapeamento_esc['todas_unidades']
+
     return render_template(
         'patrimonio/lista.html',
         itens=itens_paginados,
@@ -648,6 +703,9 @@ def listar_itens():
         locais_inventario=locais_inventario,
         lotes_transferencia=lotes_transferencia,
         locais_destino_sugestoes=locais_destino_sugestoes,
+        categorias_disponiveis=categorias_disponiveis,
+        fornecedores_disponiveis=fornecedores_disponiveis,
+        pastas_escolas_resumo=pastas_escolas_resumo,
         ultima_remessa=session.get('ultima_remessa_patrimonio'),
         kpis=kpis,
         aba_ativa=aba_ativa,
@@ -2736,6 +2794,147 @@ def _normalizar_nome_pasta(texto):
     return s
 
 
+def _fmt_moeda_br(valor, prefixo=True):
+    """Formata float no padrão monetário brasileiro (ex: R$ 1.250,50 ou 1.250,50)."""
+    val = float(valor or 0.0)
+    num_fmt = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"R$ {num_fmt}" if prefixo else num_fmt
+
+
+def _esc_pdf(texto):
+    """Escapa caracteres especiais HTML/XML para uso seguro em Paragraph do ReportLab."""
+    from xml.sax.saxutils import escape
+    if texto is None:
+        return ""
+    return escape(str(texto))
+
+
+def _agrupar_bens_por_escola_e_setor(bens_lista, escolas_db=None):
+    """
+    Agrupa uma lista de objetos Patrimonio (Ativos e/ou Baixados) nas respectivas Escolas
+    cadastradas na tabela Escola, e aloca os demais em 'Secretaria / Sede / Outros Setores'.
+    Retorna dicionário estruturado para o Dashboard e para os Relatórios PDF Governamentais.
+    """
+    if escolas_db is None:
+        escolas_db = Escola.query.order_by(Escola.nome).all()
+
+    pastas_escolas_map = {}
+    ordem_chaves_escolas = []
+
+    for esc in escolas_db:
+        nome_esc = (esc.nome or '').strip()
+        if not nome_esc:
+            continue
+        chave_norm = _normalizar_nome_pasta(nome_esc)
+        if chave_norm not in pastas_escolas_map:
+            diretor_nome = esc.diretor_responsavel or (esc.diretor.nome if getattr(esc, 'diretor', None) else '') or ''
+            pastas_escolas_map[chave_norm] = {
+                'codigo': f"escola_{esc.id}",
+                'chave_norm': chave_norm,
+                'nome': nome_esc,
+                'tipo': 'Escola',
+                'zona': esc.zona or '',
+                'inep': esc.codigo_inep or '',
+                'diretor': diretor_nome,
+                'endereco': esc.endereco or '',
+                'status_escola': esc.status or 'Ativa',
+                'bens_todos': [],
+                'bens_ativos': [],
+                'bens_baixados': [],
+                'qtd_total': 0,
+                'qtd_ativos': 0,
+                'qtd_baixados': 0,
+                'valor_total': 0.0,
+                'valor_ativos': 0.0,
+                'valor_baixados': 0.0,
+            }
+            ordem_chaves_escolas.append(chave_norm)
+
+    pasta_outros = {
+        'codigo': 'outros_setores',
+        'chave_norm': 'outros_setores',
+        'nome': 'Secretaria / Sede / Outros Setores Administrativos',
+        'tipo': 'Setor Administrativo',
+        'zona': 'Urbana',
+        'inep': '-',
+        'diretor': 'Administração Central / SEMED / Depósito',
+        'endereco': '',
+        'status_escola': 'Ativa',
+        'bens_todos': [],
+        'bens_ativos': [],
+        'bens_baixados': [],
+        'qtd_total': 0,
+        'qtd_ativos': 0,
+        'qtd_baixados': 0,
+        'valor_total': 0.0,
+        'valor_ativos': 0.0,
+        'valor_baixados': 0.0,
+    }
+
+    chaves_ordenadas_match = sorted(ordem_chaves_escolas, key=len, reverse=True)
+    mapa_bem_unidade = {}
+
+    for item in bens_lista:
+        loc_item = (item.localizacao or '').strip()
+        predio_item = (item.local_rel.predio_unidade or '').strip() if item.local_rel else ''
+        norm_loc = _normalizar_nome_pasta(loc_item)
+        norm_predio = _normalizar_nome_pasta(predio_item)
+
+        chave_escola_encontrada = None
+        if norm_loc in pastas_escolas_map:
+            chave_escola_encontrada = norm_loc
+        elif norm_predio and norm_predio in pastas_escolas_map:
+            chave_escola_encontrada = norm_predio
+        else:
+            for ch_esc in chaves_ordenadas_match:
+                if ch_esc and (ch_esc in norm_loc or (norm_loc and len(norm_loc) >= 5 and norm_loc in ch_esc)):
+                    chave_escola_encontrada = ch_esc
+                    break
+                if ch_esc and norm_predio and (ch_esc in norm_predio or (len(norm_predio) >= 5 and norm_predio in ch_esc)):
+                    chave_escola_encontrada = ch_esc
+                    break
+
+        valor_bem = float(item.valor_aquisicao or 0.0)
+        eh_baixado = (item.status == 'Baixado')
+
+        pasta_alvo = pastas_escolas_map[chave_escola_encontrada] if chave_escola_encontrada else pasta_outros
+        pasta_alvo['bens_todos'].append(item)
+        pasta_alvo['qtd_total'] += 1
+        pasta_alvo['valor_total'] += valor_bem
+
+        if eh_baixado:
+            pasta_alvo['bens_baixados'].append(item)
+            pasta_alvo['qtd_baixados'] += 1
+            pasta_alvo['valor_baixados'] += valor_bem
+        else:
+            pasta_alvo['bens_ativos'].append(item)
+            pasta_alvo['qtd_ativos'] += 1
+            pasta_alvo['valor_ativos'] += valor_bem
+
+        mapa_bem_unidade[item.id] = {
+            'codigo': pasta_alvo['codigo'],
+            'nome_unidade': pasta_alvo['nome'],
+            'tipo': pasta_alvo['tipo'],
+            'eh_escola': bool(chave_escola_encontrada),
+            'diretor': pasta_alvo['diretor'],
+            'inep': pasta_alvo['inep'],
+        }
+
+    pastas_escolas = [pastas_escolas_map[ch] for ch in ordem_chaves_escolas]
+    pastas_escolas.sort(key=lambda p: (0 if p['qtd_total'] > 0 else 1, p['nome'].lower()))
+
+    todas_unidades = list(pastas_escolas)
+    if pasta_outros['qtd_total'] > 0:
+        todas_unidades.append(pasta_outros)
+
+    return {
+        'pastas_escolas': pastas_escolas,
+        'pasta_outros': pasta_outros,
+        'todas_unidades': todas_unidades,
+        'mapa_bem_unidade': mapa_bem_unidade,
+    }
+
+
 @patrimonio_bp.route('/itens-baixados')
 @login_required
 @role_required('admin', 'Patrimonio', 'Fiscal')
@@ -3058,3 +3257,1771 @@ def incorporar_bens_baixados_escola():
         flash(f"Erro ao incorporar bens baixados na pasta da escola: {str(e)}", "danger")
 
     return redirect(url_for('patrimonio.listar_itens_baixados', pasta=codigo_pasta or escola_nome))
+
+
+# =============================================================================
+# UTILITÁRIOS COMUNS DE ESTILO E CABEÇALHO/RODAPÉ PADRÃO GOVERNAMENTAL (PDF)
+# =============================================================================
+def _obter_estilos_pdf_gov():
+    styles = getSampleStyleSheet()
+    cor_gov_azul = colors.HexColor("#0f2942")
+    cor_gov_secundaria = colors.HexColor("#1e4e79")
+    cor_cinza_claro = colors.HexColor("#f1f5f9")
+    cor_borda = colors.HexColor("#cbd5e1")
+    cor_verde_ativo = colors.HexColor("#15803d")
+    cor_vermelho_baixa = colors.HexColor("#b91c1c")
+
+    return {
+        'cor_gov_azul': cor_gov_azul,
+        'cor_gov_secundaria': cor_gov_secundaria,
+        'cor_cinza_claro': cor_cinza_claro,
+        'cor_borda': cor_borda,
+        'cor_verde_ativo': cor_verde_ativo,
+        'cor_vermelho_baixa': cor_vermelho_baixa,
+        'titulo_doc': ParagraphStyle(
+            'GovTituloDoc',
+            parent=styles['Heading1'],
+            fontName='Helvetica-Bold',
+            fontSize=11.5,
+            leading=14.5,
+            textColor=cor_gov_azul,
+            alignment=TA_CENTER,
+            spaceAfter=2
+        ),
+        'subtitulo_doc': ParagraphStyle(
+            'GovSubtituloDoc',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=7.8,
+            leading=10,
+            textColor=colors.HexColor("#475569"),
+            alignment=TA_CENTER,
+            spaceAfter=9
+        ),
+        'secao_barra': ParagraphStyle(
+            'GovSecaoBarra',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=8.5,
+            leading=11,
+            textColor=colors.white,
+            alignment=TA_LEFT
+        ),
+        'subsecao_barra': ParagraphStyle(
+            'GovSubsecaoBarra',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=8,
+            leading=10.5,
+            textColor=cor_gov_azul,
+            alignment=TA_LEFT
+        ),
+        'celula': ParagraphStyle(
+            'GovCelula',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=7,
+            leading=9,
+            textColor=colors.HexColor("#1e293b")
+        ),
+        'celula_bold': ParagraphStyle(
+            'GovCelulaBold',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=7,
+            leading=9,
+            textColor=colors.HexColor("#0f172a")
+        ),
+        'celula_center': ParagraphStyle(
+            'GovCelulaCenter',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=7,
+            leading=9,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor("#1e293b")
+        ),
+        'celula_right': ParagraphStyle(
+            'GovCelulaRight',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=7,
+            leading=9,
+            alignment=TA_RIGHT,
+            textColor=colors.HexColor("#1e293b")
+        ),
+        'header_tabela': ParagraphStyle(
+            'GovHeaderTabela',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=7,
+            leading=9,
+            textColor=colors.white,
+            alignment=TA_CENTER
+        ),
+        'termo': ParagraphStyle(
+            'GovTermoJuridico',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=7.8,
+            leading=11,
+            alignment=TA_JUSTIFY,
+            textColor=colors.HexColor("#1e293b")
+        ),
+    }
+
+
+def _criar_callback_cabecalho_rodape_gov(page_width, page_height, secretaria_nome, protocolo, subtitulo_rodape, qr_texto):
+    cor_gov_azul = colors.HexColor("#0f2942")
+    cor_borda = colors.HexColor("#cbd5e1")
+    data_emissao_str = obter_data_hora_br_str()
+    usuario_emissor = session.get('username') or getattr(current_user, 'username', 'Controle Interno')
+
+    qr = qrcode.make(qr_texto)
+    qr_buffer = BytesIO()
+    qr.save(qr_buffer, format='PNG')
+    qr_buffer.seek(0)
+    qr_reader = ImageReader(qr_buffer)
+
+    def _desenhar(canvas, doc_obj):
+        canvas.saveState()
+        basedir = current_app.root_path
+        logo_path = os.path.join(basedir, 'static', 'logo1.png')
+        timbre_path = os.path.join(basedir, 'static', 'timbre.jpg')
+
+        # Faixa superior institucional
+        canvas.setFillColor(cor_gov_azul)
+        canvas.rect(1.2 * cm, page_height - 1.0 * cm, page_width - 2.4 * cm, 0.15 * cm, fill=1, stroke=0)
+
+        if os.path.exists(logo_path):
+            try:
+                canvas.drawImage(logo_path, 1.3 * cm, page_height - 3.0 * cm, width=1.8 * cm, height=1.8 * cm, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
+        elif os.path.exists(timbre_path):
+            try:
+                canvas.drawImage(timbre_path, 1.3 * cm, page_height - 2.9 * cm, width=3.5 * cm, height=1.6 * cm, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
+
+        canvas.setFillColor(cor_gov_azul)
+        canvas.setFont("Helvetica-Bold", 10.5)
+        canvas.drawCentredString(page_width / 2.0, page_height - 1.55 * cm, "ESTADO DO PIAUÍ — PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ")
+
+        canvas.setFont("Helvetica-Bold", 8.5)
+        canvas.drawCentredString(page_width / 2.0, page_height - 1.95 * cm, (secretaria_nome or "SECRETARIA MUNICIPAL DE EDUCAÇÃO / ADMINISTRAÇÃO").upper())
+
+        canvas.setFillColor(colors.HexColor("#334155"))
+        canvas.setFont("Helvetica", 7.3)
+        canvas.drawCentredString(
+            page_width / 2.0,
+            page_height - 2.33 * cm,
+            "COORDENADORIA DE CONTROLE PATRIMONIAL, ALMOXARIFADO E CONTROLE INTERNO AUDITÁVEL (PADRÃO TCE / MCASP)"
+        )
+        canvas.drawCentredString(
+            page_width / 2.0,
+            page_height - 2.68 * cm,
+            "CNPJ: 06.095.146/0001-44 • Rua Epaminondas Nogueira, nº 1425, Centro - Valença do Piauí/PI"
+        )
+
+        try:
+            canvas.drawImage(qr_reader, page_width - 3.1 * cm, page_height - 3.0 * cm, width=1.8 * cm, height=1.8 * cm)
+        except Exception:
+            pass
+
+        canvas.setStrokeColor(colors.HexColor("#198754"))
+        canvas.setLineWidth(1.5)
+        canvas.line(1.2 * cm, page_height - 3.1 * cm, page_width - 1.2 * cm, page_height - 3.1 * cm)
+
+        # Rodapé
+        canvas.setStrokeColor(cor_borda)
+        canvas.setLineWidth(0.7)
+        canvas.line(1.2 * cm, 1.35 * cm, page_width - 1.2 * cm, 1.35 * cm)
+
+        canvas.setFillColor(colors.HexColor("#475569"))
+        canvas.setFont("Helvetica", 6.8)
+        canvas.drawString(
+            1.2 * cm,
+            0.95 * cm,
+            f"Gestor 360º - {subtitulo_rodape} | Protocolo: {protocolo} | Emitido por: {usuario_emissor} em {data_emissao_str}"
+        )
+        canvas.drawRightString(
+            page_width - 1.2 * cm,
+            0.95 * cm,
+            f"Página {doc_obj.page}"
+        )
+        canvas.restoreState()
+
+    return _desenhar
+
+
+def _extrair_motivo_baixa_resumido(bem):
+    """Extrai o motivo/data da baixa a partir das observações ou da última movimentação de baixa do bem."""
+    if bem.status != 'Baixado':
+        return "-"
+    obs = (bem.observacoes or '').strip()
+    if obs:
+        linhas = [ln.strip() for ln in obs.splitlines() if ln.strip()]
+        for ln in reversed(linhas):
+            if 'BAIXA' in ln.upper() or 'INCORPORAÇÃO DE BEM ANTIGO' in ln.upper():
+                return ln[:160]
+        return linhas[-1][:140]
+    if bem.especificacao_tecnica:
+        return str(bem.especificacao_tecnica).strip()[:140]
+    return "Baixa Patrimonial / Bem Inservível"
+
+
+# =============================================================================
+# 1. PDF PERSONALIZADO (ESCOLHER QUAIS DADOS DEVEM VIR NO RELATÓRIO)
+# =============================================================================
+@patrimonio_bp.route('/relatorio-personalizado/pdf')
+@login_required
+@role_required('Patrimonio', 'admin', 'RH', 'Fiscal')
+def gerar_relatorio_personalizado_pdf():
+    """
+    Gera um Relatório Oficial de Patrimônio Padrão Governamental em PDF permitindo ao usuário
+    escolher exatamente quais colunas/dados devem constar no relatório, além de filtros e agrupamentos.
+    """
+    executar_migracao_patrimonio_segura()
+
+    # Colunas escolhidas pelo usuário
+    campos_selecionados = request.args.getlist('campos')
+    if not campos_selecionados:
+        campos_selecionados = [
+            'tombamento', 'descricao', 'categoria', 'marca_modelo',
+            'localizacao', 'fornecedor', 'nota_fiscal', 'status', 'valor'
+        ]
+
+    status_filtro = (request.args.get('status_filtro') or 'todos').strip()
+    escola_local_filtro = (request.args.get('escola_local') or '').strip()
+    categoria_filtro = (request.args.get('categoria') or '').strip()
+    fornecedor_filtro = (request.args.get('fornecedor') or '').strip()
+    secretaria_id_filtro = (request.args.get('secretaria_id') or '').strip()
+    estado_filtro = (request.args.get('estado') or '').strip()
+    agrupar_por = (request.args.get('agrupar_por') or 'nenhum').strip()
+    orientacao = (request.args.get('orientacao') or 'paisagem').strip().lower()
+    incluir_resumo = (request.args.get('incluir_resumo') or 'sim').strip() != 'nao'
+    incluir_assinaturas = (request.args.get('incluir_assinaturas') or 'sim').strip() != 'nao'
+    titulo_custom = (request.args.get('titulo_custom') or '').strip()
+    responsavel_assinatura = (request.args.get('responsavel_assinatura') or '').strip()
+    cargo_assinatura = (request.args.get('cargo_assinatura') or '').strip()
+
+    query = Patrimonio.query
+    if status_filtro == 'Ativo':
+        query = query.filter(Patrimonio.status != 'Baixado')
+    elif status_filtro == 'Baixado':
+        query = query.filter(Patrimonio.status == 'Baixado')
+
+    if secretaria_id_filtro and secretaria_id_filtro.isdigit():
+        query = query.filter(Patrimonio.secretaria_id == int(secretaria_id_filtro))
+    if categoria_filtro:
+        query = query.filter(Patrimonio.categoria == categoria_filtro)
+    if estado_filtro:
+        query = query.filter(Patrimonio.estado_conservacao == estado_filtro)
+    if fornecedor_filtro:
+        query = query.filter(Patrimonio.fornecedor_nome.ilike(f"%{fornecedor_filtro}%"))
+
+    todos_bens = query.order_by(Patrimonio.localizacao, Patrimonio.descricao, Patrimonio.id.desc()).all()
+
+    escolas_db = Escola.query.order_by(Escola.nome).all()
+    dados_esc = _agrupar_bens_por_escola_e_setor(todos_bens, escolas_db)
+    mapa_bem_unidade = dados_esc['mapa_bem_unidade']
+
+    # Filtro por Escola ou Local específico
+    if escola_local_filtro and escola_local_filtro != '__TODOS__':
+        if escola_local_filtro == '__APENAS_ESCOLAS__':
+            todos_bens = [b for b in todos_bens if mapa_bem_unidade.get(b.id, {}).get('eh_escola')]
+        elif escola_local_filtro.startswith('escola_') or escola_local_filtro == 'outros_setores':
+            todos_bens = [b for b in todos_bens if mapa_bem_unidade.get(b.id, {}).get('codigo') == escola_local_filtro]
+        else:
+            norm_f = _normalizar_nome_pasta(escola_local_filtro)
+            todos_bens = [
+                b for b in todos_bens
+                if _normalizar_nome_pasta(b.localizacao) == norm_f
+                or _normalizar_nome_pasta(mapa_bem_unidade.get(b.id, {}).get('nome_unidade', '')) == norm_f
+            ]
+
+    # Definição do catálogo de colunas disponíveis (peso de largura, cabeçalho e alinhamento)
+    catalogo_colunas = {
+        'tombamento': {'titulo': 'TOMBAMENTO', 'peso': 2.2, 'align': 'center'},
+        'descricao': {'titulo': 'DESCRIÇÃO / ESPECIFICAÇÃO DO BEM', 'peso': 5.2, 'align': 'left'},
+        'categoria': {'titulo': 'CATEGORIA', 'peso': 2.6, 'align': 'center'},
+        'marca_modelo': {'titulo': 'MARCA / MODELO', 'peso': 2.8, 'align': 'left'},
+        'numero_serie': {'titulo': 'Nº SÉRIE / PLACA', 'peso': 2.4, 'align': 'center'},
+        'localizacao': {'titulo': 'ESCOLA / LOCALIZAÇÃO ATUAL', 'peso': 4.0, 'align': 'left'},
+        'secretaria': {'titulo': 'SECRETARIA', 'peso': 2.8, 'align': 'left'},
+        'responsavel': {'titulo': 'RESPONSÁVEL / GUARDA', 'peso': 3.0, 'align': 'left'},
+        'fornecedor': {'titulo': 'FORNECEDOR / CNPJ', 'peso': 3.8, 'align': 'left'},
+        'nota_fiscal': {'titulo': 'NF / EMPENHO / PROCESSO', 'peso': 2.8, 'align': 'center'},
+        'data_aquisicao': {'titulo': 'AQUISIÇÃO', 'peso': 2.0, 'align': 'center'},
+        'estado_conservacao': {'titulo': 'CONSERVAÇÃO / USO', 'peso': 2.4, 'align': 'center'},
+        'status': {'titulo': 'SITUAÇÃO (ATIVO/BAIXADO)', 'peso': 2.5, 'align': 'center'},
+        'valor': {'titulo': 'VALOR (R$)', 'peso': 2.4, 'align': 'right'},
+        'observacoes': {'titulo': 'HISTÓRICO / MOTIVO BAIXA / OBS.', 'peso': 4.0, 'align': 'left'},
+    }
+
+    ordem_padrao_campos = [
+        'tombamento', 'descricao', 'categoria', 'marca_modelo', 'numero_serie',
+        'localizacao', 'secretaria', 'responsavel', 'fornecedor', 'nota_fiscal',
+        'data_aquisicao', 'estado_conservacao', 'status', 'valor', 'observacoes'
+    ]
+    colunas_ativas = [c for c in ordem_padrao_campos if c in campos_selecionados and c in catalogo_colunas]
+    if not colunas_ativas:
+        colunas_ativas = ['tombamento', 'descricao', 'localizacao', 'status', 'valor']
+
+    pagesize_escolhido = A4 if orientacao == 'retrato' else landscape(A4)
+    page_width, page_height = pagesize_escolhido
+    largura_util = page_width - 2.4 * cm
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=pagesize_escolhido,
+        leftMargin=1.2 * cm,
+        rightMargin=1.2 * cm,
+        topMargin=3.4 * cm,
+        bottomMargin=1.8 * cm,
+        title=titulo_custom or "Relatório Personalizado de Patrimônio Público"
+    )
+
+    st = _obter_estilos_pdf_gov()
+    protocolo = f"REL-PERS-{datetime.now().strftime('%Y%m%d-%H%M')}"
+    secretaria_nome = "PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ"
+    if secretaria_id_filtro and secretaria_id_filtro.isdigit():
+        sec_obj = Secretaria.query.get(int(secretaria_id_filtro))
+        if sec_obj:
+            secretaria_nome = sec_obj.nome.upper()
+
+    url_verif = url_for('patrimonio.listar_itens', _external=True)
+    cb_header = _criar_callback_cabecalho_rodape_gov(
+        page_width, page_height, secretaria_nome, protocolo,
+        "Relatório Patrimonial Parametrizado (Padrão Governamental)",
+        f"PREFEITURA DE VALENCA DO PIAUI | {protocolo} | QTD: {len(todos_bens)} | {url_verif}"
+    )
+
+    elementos = []
+    titulo_principal = (titulo_custom or "RELATÓRIO OFICIAL PARAMETRIZADO DE CONTROLE PATRIMONIAL").upper()
+    elementos.append(Paragraph(_esc_pdf(titulo_principal), st['titulo_doc']))
+    elementos.append(Paragraph(
+        "Demonstrativo oficial customizado de bens patrimoniais emitido em conformidade com as normas do Controle Interno e TCE/MCASP",
+        st['subtitulo_doc']
+    ))
+
+    bens_ativos_lista = [b for b in todos_bens if b.status != 'Baixado']
+    bens_baixados_lista = [b for b in todos_bens if b.status == 'Baixado']
+    soma_ativos = sum(float(b.valor_aquisicao or 0.0) for b in bens_ativos_lista)
+    soma_baixados = sum(float(b.valor_aquisicao or 0.0) for b in bens_baixados_lista)
+    soma_geral = soma_ativos + soma_baixados
+
+    if incluir_resumo:
+        nomes_campos_legiveis = ", ".join([catalogo_colunas[c]['titulo'] for c in colunas_ativas])
+        quadro_resumo = [
+            [
+                Paragraph("<b>TOTAL GERAL DE BENS:</b>", st['celula']),
+                Paragraph(f"<b>{len(todos_bens)} item(ns) ({_fmt_moeda_br(soma_geral)})</b>", st['celula_bold']),
+                Paragraph("<b>BENS ATIVOS / EM USO:</b>", st['celula']),
+                Paragraph(f"<font color='#15803d'><b>{len(bens_ativos_lista)} unid. ({_fmt_moeda_br(soma_ativos)})</b></font>", st['celula_bold']),
+            ],
+            [
+                Paragraph("<b>BENS BAIXADOS / INATIVOS:</b>", st['celula']),
+                Paragraph(f"<font color='#b91c1c'><b>{len(bens_baixados_lista)} unid. ({_fmt_moeda_br(soma_baixados)})</b></font>", st['celula_bold']),
+                Paragraph("<b>AGRUPAMENTO / FILTRO:</b>", st['celula']),
+                Paragraph(
+                    f"Agrupado por: <b>{agrupar_por.upper()}</b> | Status: <b>{status_filtro.upper()}</b>",
+                    st['celula']
+                ),
+            ],
+            [
+                Paragraph("<b>COLUNAS SELECIONADAS:</b>", st['celula']),
+                Paragraph(_esc_pdf(nomes_campos_legiveis), st['celula']),
+                Paragraph("<b>PROTOCOLO / EXERCÍCIO:</b>", st['celula']),
+                Paragraph(f"{protocolo} ({datetime.now().year})", st['celula']),
+            ],
+        ]
+        w_col1 = largura_util * 0.19
+        w_col2 = largura_util * 0.36
+        w_col3 = largura_util * 0.19
+        w_col4 = largura_util * 0.26
+        t_res = Table(quadro_resumo, colWidths=[w_col1, w_col2, w_col3, w_col4])
+        t_res.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), st['cor_cinza_claro']),
+            ('BACKGROUND', (2, 0), (2, -1), st['cor_cinza_claro']),
+            ('GRID', (0, 0), (-1, -1), 0.5, st['cor_borda']),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 5),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ]))
+        elementos.append(t_res)
+        elementos.append(Spacer(1, 0.3 * cm))
+
+    # Calcula larguras proporcionais das colunas (incluindo coluna # inicial)
+    peso_idx = 0.9
+    soma_pesos = peso_idx + sum(catalogo_colunas[c]['peso'] for c in colunas_ativas)
+    larguras_cols = [(peso_idx / soma_pesos) * largura_util] + [
+        (catalogo_colunas[c]['peso'] / soma_pesos) * largura_util for c in colunas_ativas
+    ]
+
+    def _montar_celula_campo(bem, idx_item, campo):
+        nf_rel = bem.nota_fiscal_rel
+        info_u = mapa_bem_unidade.get(bem.id, {})
+        if campo == 'tombamento':
+            tomb = bem.numero_patrimonio or f"S/N (#{bem.id})"
+            return Paragraph(f"<b>{_esc_pdf(tomb)}</b>", st['celula_center'])
+        if campo == 'descricao':
+            txt = f"<b>{_esc_pdf(bem.descricao)}</b>"
+            if bem.especificacao_tecnica and 'observacoes' not in colunas_ativas:
+                txt += f"<br/><font size=6 color='#64748b'>{_esc_pdf(str(bem.especificacao_tecnica)[:70])}</font>"
+            return Paragraph(txt, st['celula'])
+        if campo == 'categoria':
+            return Paragraph(_esc_pdf(bem.categoria or 'Geral'), st['celula_center'])
+        if campo == 'marca_modelo':
+            mm = " / ".join([x for x in [bem.marca, bem.modelo] if x]) or "-"
+            return Paragraph(_esc_pdf(mm), st['celula'])
+        if campo == 'numero_serie':
+            return Paragraph(_esc_pdf(bem.numero_serie or '-'), st['celula_center'])
+        if campo == 'localizacao':
+            nome_u = info_u.get('nome_unidade') or bem.localizacao or '-'
+            loc_txt = f"<b>{_esc_pdf(bem.localizacao or '-')}</b>"
+            if nome_u and nome_u.lower() != (bem.localizacao or '').lower():
+                loc_txt += f"<br/><font size=6 color='#0f4c81'>{_esc_pdf(nome_u)}</font>"
+            return Paragraph(loc_txt, st['celula'])
+        if campo == 'secretaria':
+            sec_n = bem.secretaria.nome if bem.secretaria else '-'
+            return Paragraph(_esc_pdf(sec_n), st['celula'])
+        if campo == 'responsavel':
+            resp_n = bem.nome_responsavel_atual or info_u.get('diretor') or 'Não informado'
+            if bem.responsavel_cargo:
+                resp_n += f" ({bem.responsavel_cargo})"
+            return Paragraph(_esc_pdf(resp_n), st['celula'])
+        if campo == 'fornecedor':
+            forn_n = (bem.fornecedor_nome or (nf_rel.fornecedor_nome if nf_rel else '') or 'Sem Fornecedor').strip()
+            cnpj_n = (bem.fornecedor_cnpj or (nf_rel.fornecedor_cnpj if nf_rel else '') or '').strip()
+            txt_f = f"<b>{_esc_pdf(forn_n[:45])}</b>"
+            if cnpj_n:
+                txt_f += f"<br/><font size=6 color='#475569'>CNPJ: {_esc_pdf(cnpj_n)}</font>"
+            return Paragraph(txt_f, st['celula'])
+        if campo == 'nota_fiscal':
+            nf_n = bem.numero_nota_fiscal or (nf_rel.numero_nf if nf_rel else '') or 'S/N'
+            emp_n = bem.numero_empenho or (nf_rel.numero_empenho if nf_rel else '') or ''
+            proc_n = bem.numero_processo or (nf_rel.numero_processo if nf_rel else '') or ''
+            txt_nf = f"NF: <b>{_esc_pdf(nf_n)}</b>"
+            if emp_n:
+                txt_nf += f"<br/><font size=6>NE: {_esc_pdf(emp_n)}</font>"
+            if proc_n:
+                txt_nf += f"<br/><font size=6 color='#64748b'>Proc: {_esc_pdf(proc_n)}</font>"
+            return Paragraph(txt_nf, st['celula_center'])
+        if campo == 'data_aquisicao':
+            dt_ref = bem.data_aquisicao or bem.data_nota_fiscal
+            return Paragraph(dt_ref.strftime('%d/%m/%Y') if dt_ref else '-', st['celula_center'])
+        if campo == 'estado_conservacao':
+            est = (bem.estado_conservacao or 'Bom').upper()
+            uso = bem.situacao_uso or 'Em uso'
+            return Paragraph(f"<b>{_esc_pdf(est)}</b><br/><font size=6 color='#475569'>{_esc_pdf(uso)}</font>", st['celula_center'])
+        if campo == 'status':
+            if bem.status == 'Baixado':
+                return Paragraph("<font color='#b91c1c'><b>BAIXADO / INATIVO</b></font>", st['celula_center'])
+            return Paragraph("<font color='#15803d'><b>ATIVO / EM USO</b></font>", st['celula_center'])
+        if campo == 'valor':
+            return Paragraph(f"<b>{_fmt_moeda_br(bem.valor_aquisicao, prefixo=False)}</b>", st['celula_right'])
+        if campo == 'observacoes':
+            if bem.status == 'Baixado':
+                obs_str = _extrair_motivo_baixa_resumido(bem)
+            else:
+                obs_str = (bem.observacoes or bem.especificacao_tecnica or '-').strip()[:120]
+            return Paragraph(_esc_pdf(obs_str), st['celula'])
+        return Paragraph("-", st['celula_center'])
+
+    def _construir_tabela_grupo(lista_bens_grupo):
+        header_row = [Paragraph("#", st['header_tabela'])] + [
+            Paragraph(catalogo_colunas[c]['titulo'], st['header_tabela']) for c in colunas_ativas
+        ]
+        rows = [header_row]
+        if lista_bens_grupo:
+            for idx_b, b_item in enumerate(lista_bens_grupo, start=1):
+                linha = [Paragraph(f"{idx_b:02d}", st['celula_center'])]
+                for c_key in colunas_ativas:
+                    linha.append(_montar_celula_campo(b_item, idx_b, c_key))
+                rows.append(linha)
+        else:
+            linha_vazia = [Paragraph("-", st['celula_center'])] * (len(colunas_ativas) + 1)
+            linha_vazia[1] = Paragraph("Nenhum bem encontrado para os filtros selecionados.", st['celula'])
+            rows.append(linha_vazia)
+
+        t_g = Table(rows, colWidths=larguras_cols, repeatRows=1)
+        est_g = [
+            ('BACKGROUND', (0, 0), (-1, 0), st['cor_gov_azul']),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('GRID', (0, 0), (-1, -1), 0.45, st['cor_borda']),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 3.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 3.5),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 3.5),
+        ]
+        for r_i in range(1, len(rows)):
+            if r_i % 2 == 0:
+                est_g.append(('BACKGROUND', (0, r_i), (-1, r_i), colors.HexColor("#f8fafc")))
+        t_g.setStyle(TableStyle(est_g))
+        return t_g
+
+    # Renderização com ou sem agrupamento
+    if agrupar_por in ('escola_local', 'fornecedor', 'categoria', 'status') and todos_bens:
+        grupos_dict = {}
+        for b in todos_bens:
+            nf_rel = b.nota_fiscal_rel
+            if agrupar_por == 'escola_local':
+                chave_g = mapa_bem_unidade.get(b.id, {}).get('nome_unidade') or (b.localizacao or 'Não informada').strip()
+            elif agrupar_por == 'fornecedor':
+                chave_g = (b.fornecedor_nome or (nf_rel.fornecedor_nome if nf_rel else '') or 'Incorporação Direta / Sem Fornecedor').strip()
+            elif agrupar_por == 'categoria':
+                chave_g = (b.categoria or 'Sem Categoria Informada').strip()
+            else:
+                chave_g = 'BENS BAIXADOS / INATIVOS' if b.status == 'Baixado' else 'BENS ATIVOS / EM USO'
+            grupos_dict.setdefault(chave_g, []).append(b)
+
+        for nome_grupo, itens_grupo in sorted(grupos_dict.items(), key=lambda x: x[0].lower()):
+            qtd_at_g = sum(1 for x in itens_grupo if x.status != 'Baixado')
+            qtd_bx_g = sum(1 for x in itens_grupo if x.status == 'Baixado')
+            soma_g = sum(float(x.valor_aquisicao or 0.0) for x in itens_grupo)
+
+            barra_grupo = Table(
+                [[
+                    Paragraph(f"<b>GRUPO: {_esc_pdf(nome_grupo.upper())}</b>", st['secao_barra']),
+                    Paragraph(
+                        f"<font color='#ffffff'><b>Total: {len(itens_grupo)} unid.</b> "
+                        f"(Ativos: {qtd_at_g} | Baixados: {qtd_bx_g}) — <b>Subtotal: {_fmt_moeda_br(soma_g)}</b></font>",
+                        ParagraphStyle('GrpRight', parent=st['secao_barra'], alignment=TA_RIGHT, fontSize=7.5)
+                    )
+                ]],
+                colWidths=[largura_util * 0.55, largura_util * 0.45]
+            )
+            barra_grupo.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), st['cor_gov_secundaria']),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ]))
+            elementos.append(barra_grupo)
+            elementos.append(_construir_tabela_grupo(itens_grupo))
+            elementos.append(Spacer(1, 0.3 * cm))
+    else:
+        elementos.append(_construir_tabela_grupo(todos_bens))
+        elementos.append(Spacer(1, 0.3 * cm))
+
+    if incluir_assinaturas:
+        usuario_emissor = session.get('username') or getattr(current_user, 'username', 'Controle Interno')
+        nome_resp = responsavel_assinatura or "___________________________________________________"
+        cargo_resp = cargo_assinatura or "Responsável Técnico / Controle Interno / Gestor"
+
+        texto_termo = (
+            "<b>DECLARAÇÃO DE CONFORMIDADE E CONTROLE INTERNO PATRIMONIAL:</b> "
+            "Declaramos que os dados constantes neste relatório parametrizado refletem fielmente os registros oficiais "
+            "do Sistema Integrado de Gestão Patrimonial da Prefeitura Municipal de Valença do Piauí, servindo para fins de "
+            "conferência física, auditoria interna e prestação de contas."
+        )
+        bloco_ass = Table(
+            [
+                [
+                    Paragraph("___________________________________________________", st['celula_center']),
+                    Paragraph("___________________________________________________", st['celula_center']),
+                ],
+                [
+                    Paragraph(f"<b>{_esc_pdf(usuario_emissor.upper())}</b><br/><font size=6.5 color='#475569'>Coordenadoria de Controle Patrimonial</font>", st['celula_center']),
+                    Paragraph(f"<b>{_esc_pdf(nome_resp)}</b><br/><font size=6.5 color='#475569'>{_esc_pdf(cargo_resp)}</font>", st['celula_center']),
+                ],
+            ],
+            colWidths=[largura_util / 2.0, largura_util / 2.0]
+        )
+        bloco_ass.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        elementos.append(KeepTogether([
+            Paragraph(texto_termo, st['termo']),
+            Spacer(1, 0.75 * cm),
+            bloco_ass
+        ]))
+
+    doc.build(elementos, onFirstPage=cb_header, onLaterPages=cb_header)
+    buffer.seek(0)
+    return send_file(
+        buffer,
+        mimetype='application/pdf',
+        as_attachment=False,
+        download_name=f"Relatorio_Personalizado_Patrimonio_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+    )
+
+
+# =============================================================================
+# 2. PDF DE ITENS BAIXADOS POR ESCOLA (PADRÃO GOVERNAMENTAL / TCE / MCASP)
+# =============================================================================
+@patrimonio_bp.route('/relatorio-baixados-escola/pdf')
+@login_required
+@role_required('Patrimonio', 'admin', 'RH', 'Fiscal')
+def gerar_relatorio_baixados_escola_pdf():
+    """
+    Gera o Relatório Oficial de Bens Baixados / Inservíveis por Escola (Padrão Governo / TCE / MCASP),
+    contendo Quadro Consolidado por Escola e Relação Analítica Detalhada por Unidade Escolar.
+    """
+    executar_migracao_patrimonio_segura()
+
+    escola_param = (request.args.get('escola') or '__TODAS__').strip()
+    exibir_escolas_sem_baixa = (request.args.get('exibir_escolas_sem_baixa') or 'nao').strip() == 'sim'
+    incluir_outros_setores = (request.args.get('incluir_outros_setores') or 'sim').strip() != 'nao'
+    incluir_valores = (request.args.get('incluir_valores') or 'sim').strip() != 'nao'
+    responsavel_comissao = (request.args.get('responsavel_comissao') or '').strip()
+    cargo_comissao = (request.args.get('cargo_comissao') or 'Presidente da Comissão de Inventário e Baixa Patrimonial').strip()
+
+    escolas_db = Escola.query.order_by(Escola.nome).all()
+    todos_bens_baixados = Patrimonio.query.filter_by(status='Baixado').order_by(
+        Patrimonio.localizacao, Patrimonio.descricao, Patrimonio.id.desc()
+    ).all()
+
+    dados_esc = _agrupar_bens_por_escola_e_setor(todos_bens_baixados, escolas_db)
+    unidades_lista = list(dados_esc['pastas_escolas'])
+    if incluir_outros_setores and dados_esc['pasta_outros']['qtd_baixados'] > 0:
+        unidades_lista.append(dados_esc['pasta_outros'])
+
+    # Se filtrou por uma escola/pasta específica
+    escola_especifica_obj = None
+    if escola_param and escola_param != '__TODAS__':
+        norm_p = _normalizar_nome_pasta(escola_param)
+        filtradas = []
+        for u in dados_esc['todas_unidades']:
+            if u['codigo'] == escola_param or u['chave_norm'] == norm_p or (norm_p and norm_p in u['chave_norm']):
+                filtradas.append(u)
+                escola_especifica_obj = u
+                break
+        if filtradas:
+            unidades_lista = filtradas
+
+    unidades_com_baixa = [u for u in unidades_lista if u['qtd_baixados'] > 0]
+    unidades_para_exibir = unidades_lista if (exibir_escolas_sem_baixa or escola_especifica_obj) else unidades_com_baixa
+
+    total_itens_baixados = sum(u['qtd_baixados'] for u in unidades_lista)
+    valor_total_baixado = sum(u['valor_baixados'] for u in unidades_lista)
+
+    page_width, page_height = landscape(A4)
+    largura_util = page_width - 2.4 * cm
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=1.2 * cm,
+        rightMargin=1.2 * cm,
+        topMargin=3.4 * cm,
+        bottomMargin=1.8 * cm,
+        title="Relatório Oficial de Bens Baixados por Escola"
+    )
+
+    st = _obter_estilos_pdf_gov()
+    protocolo = f"BX-ESC-{datetime.now().strftime('%Y%m%d-%H%M')}"
+    secretaria_nome = "SECRETARIA MUNICIPAL DE EDUCAÇÃO — SEMED"
+    url_verif = url_for('patrimonio.listar_itens_baixados', _external=True)
+
+    cb_header = _criar_callback_cabecalho_rodape_gov(
+        page_width, page_height, secretaria_nome, protocolo,
+        "Relatório Oficial de Bens Baixados e Desincorporados por Escola",
+        f"PREFEITURA DE VALENCA DO PIAUI | {protocolo} | BAIXADOS: {total_itens_baixados} | {url_verif}"
+    )
+
+    elementos = []
+    sub_escola_titulo = f" — UNIDADE: {escola_especifica_obj['nome'].upper()}" if escola_especifica_obj else " — CONSOLIDADO E ANALÍTICO POR UNIDADE ESCOLAR"
+    elementos.append(Paragraph(
+        f"RELATÓRIO OFICIAL DE BENS PATRIMONIAIS BAIXADOS / INSERVÍVEIS POR ESCOLA{_esc_pdf(sub_escola_titulo)}",
+        st['titulo_doc']
+    ))
+    elementos.append(Paragraph(
+        "Demonstrativo oficial de desincorporação, inservibilidade e baixa patrimonial por unidade escolar em conformidade com o Controle Interno e TCE/MCASP",
+        st['subtitulo_doc']
+    ))
+
+    # QUADRO 1: METADADOS E RESUMO EXECUTIVO DE BAIXAS
+    quadro_meta = [
+        [
+            Paragraph("<b>ESCOPO DO RELATÓRIO:</b>", st['celula']),
+            Paragraph(
+                f"<b>{_esc_pdf(escola_especifica_obj['nome'] if escola_especifica_obj else 'TODAS AS UNIDADES ESCOLARES REDE MUNICIPAL')}</b>",
+                st['celula_bold']
+            ),
+            Paragraph("<b>PROTOCOLO / EXERCÍCIO:</b>", st['celula']),
+            Paragraph(f"{protocolo} / Exercício {datetime.now().year}", st['celula']),
+        ],
+        [
+            Paragraph("<b>UNIDADES ESCOLARES COM BAIXA:</b>", st['celula']),
+            Paragraph(f"<b>{len(unidades_com_baixa)}</b> unidade(s) com bens baixados (de {len(unidades_lista)} analisadas)", st['celula']),
+            Paragraph("<b>TOTAL DE BENS BAIXADOS:</b>", st['celula']),
+            Paragraph(f"<font color='#b91c1c'><b>{total_itens_baixados} item(ns) inativo(s) / baixado(s)</b></font>", st['celula_bold']),
+        ],
+        [
+            Paragraph("<b>COMISSÃO / RESPONSÁVEL:</b>", st['celula']),
+            Paragraph(_esc_pdf(responsavel_comissao or "Comissão Permanente de Inventário e Baixa Patrimonial"), st['celula']),
+            Paragraph("<b>VALOR CONTÁBIL DESINCORPORADO:</b>", st['celula']),
+            Paragraph(f"<b>{_fmt_moeda_br(valor_total_baixado) if incluir_valores else 'Oculto'}</b>", st['celula_bold']),
+        ],
+    ]
+    t_meta = Table(quadro_meta, colWidths=[5.2 * cm, 11.3 * cm, 5.2 * cm, 5.6 * cm])
+    t_meta.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), st['cor_cinza_claro']),
+        ('BACKGROUND', (2, 0), (2, -1), st['cor_cinza_claro']),
+        ('GRID', (0, 0), (-1, -1), 0.5, st['cor_borda']),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elementos.append(t_meta)
+    elementos.append(Spacer(1, 0.3 * cm))
+
+    # QUADRO 2: SÍNTESE CONSOLIDADA POR ESCOLA (se não for apenas 1 escola específica)
+    if not escola_especifica_obj and unidades_para_exibir:
+        barra_sintese = Table(
+            [[Paragraph("<b>I. QUADRO SINTÉTICO CONSOLIDADO DE BENS BAIXADOS POR UNIDADE ESCOLAR</b>", st['secao_barra'])]],
+            colWidths=[largura_util]
+        )
+        barra_sintese.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), st['cor_gov_azul']),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elementos.append(barra_sintese)
+
+        rows_sintese = [[
+            Paragraph("#", st['header_tabela']),
+            Paragraph("UNIDADE ESCOLAR / PASTA DE ARQUIVO", st['header_tabela']),
+            Paragraph("INEP / ZONA", st['header_tabela']),
+            Paragraph("DIRETOR(A) / RESPONSÁVEL", st['header_tabela']),
+            Paragraph("CATEGORIAS AFETADAS", st['header_tabela']),
+            Paragraph("QTD. BAIXADOS", st['header_tabela']),
+            Paragraph("VALOR BAIXADO (R$)", st['header_tabela']),
+        ]]
+        for idx_u, u in enumerate(unidades_para_exibir, start=1):
+            cats_u = sorted({(b.categoria or 'Geral').strip() for b in u['bens_baixados']})
+            cats_str = ", ".join(cats_u[:4]) + (f" (+{len(cats_u)-4})" if len(cats_u) > 4 else "") if cats_u else "-"
+            inep_zona = " / ".join([x for x in [u['inep'], u['zona']] if x and x != '-']) or "-"
+            rows_sintese.append([
+                Paragraph(f"{idx_u:02d}", st['celula_center']),
+                Paragraph(f"<b>{_esc_pdf(u['nome'])}</b>", st['celula']),
+                Paragraph(_esc_pdf(inep_zona), st['celula_center']),
+                Paragraph(_esc_pdf(u['diretor'] or 'Não informado'), st['celula']),
+                Paragraph(_esc_pdf(cats_str), st['celula']),
+                Paragraph(f"<font color='#b91c1c'><b>{u['qtd_baixados']} unid.</b></font>", st['celula_center']),
+                Paragraph(f"<b>{_fmt_moeda_br(u['valor_baixados'], prefixo=False) if incluir_valores else '-'}</b>", st['celula_right']),
+            ])
+        rows_sintese.append([
+            Paragraph("", st['celula']),
+            Paragraph("<b>TOTAL CONSOLIDADO DE BENS BAIXADOS NAS UNIDADES ESCOLARES</b>", st['celula_bold']),
+            Paragraph("", st['celula']),
+            Paragraph("", st['celula']),
+            Paragraph("", st['celula']),
+            Paragraph(f"<font color='#b91c1c'><b>{total_itens_baixados} unid.</b></font>", st['celula_center']),
+            Paragraph(f"<b>{_fmt_moeda_br(valor_total_baixado) if incluir_valores else '-'}</b>", st['celula_right']),
+        ])
+
+        t_sintese = Table(
+            rows_sintese,
+            colWidths=[1.1 * cm, 8.2 * cm, 2.8 * cm, 4.7 * cm, 4.9 * cm, 2.6 * cm, 3.0 * cm],
+            repeatRows=1
+        )
+        t_sintese.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), st['cor_gov_secundaria']),
+            ('GRID', (0, 0), (-1, -1), 0.45, st['cor_borda']),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 3.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
+            ('SPAN', (1, -1), (4, -1)),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#e2e8f0")),
+        ]))
+        elementos.append(t_sintese)
+        elementos.append(Spacer(1, 0.35 * cm))
+
+    # QUADRO 3: DETALHAMENTO ANALÍTICO DE BENS BAIXADOS POR ESCOLA
+    barra_analitico = Table(
+        [[Paragraph("<b>II. DEMONSTRATIVO ANALÍTICO DETALHADO DE ITENS BAIXADOS POR ESCOLA</b>", st['secao_barra'])]],
+        colWidths=[largura_util]
+    )
+    barra_analitico.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), st['cor_gov_azul']),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elementos.append(barra_analitico)
+    elementos.append(Spacer(1, 0.15 * cm))
+
+    if unidades_para_exibir:
+        for u in unidades_para_exibir:
+            cab_escola = Table(
+                [[
+                    Paragraph(
+                        f"<b>ESCOLA / UNIDADE: {_esc_pdf(u['nome'].upper())}</b>"
+                        f"{'  |  INEP: ' + _esc_pdf(u['inep']) if u.get('inep') and u.get('inep') != '-' else ''}"
+                        f"{'  |  Diretor(a)/Resp.: ' + _esc_pdf(u['diretor']) if u.get('diretor') else ''}",
+                        st['secao_barra']
+                    ),
+                    Paragraph(
+                        f"<font color='#ffffff'><b>Baixados: {u['qtd_baixados']} item(ns)</b>"
+                        f"{'  |  Subtotal: ' + _fmt_moeda_br(u['valor_baixados']) if incluir_valores else ''}</font>",
+                        ParagraphStyle('SubEscDir', parent=st['secao_barra'], alignment=TA_RIGHT, fontSize=8)
+                    )
+                ]],
+                colWidths=[largura_util * 0.65, largura_util * 0.35]
+            )
+            cab_escola.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#7f1d1d")),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ]))
+            elementos.append(cab_escola)
+
+            rows_bens = [[
+                Paragraph("#", st['header_tabela']),
+                Paragraph("TOMBAMENTO", st['header_tabela']),
+                Paragraph("DESCRIÇÃO DO BEM / ESPECIFICAÇÃO", st['header_tabela']),
+                Paragraph("CATEGORIA", st['header_tabela']),
+                Paragraph("MARCA / MODELO / SÉRIE", st['header_tabela']),
+                Paragraph("FORNECEDOR / NF / NE", st['header_tabela']),
+                Paragraph("MOTIVO / PARECER DA BAIXA E AUDITORIA", st['header_tabela']),
+                Paragraph("SITUAÇÃO", st['header_tabela']),
+                Paragraph("VALOR (R$)", st['header_tabela']),
+            ]]
+
+            if u['bens_baixados']:
+                for idx_b, b in enumerate(u['bens_baixados'], start=1):
+                    nf_rel = b.nota_fiscal_rel
+                    mm = " / ".join([x for x in [b.marca, b.modelo] if x]) or "-"
+                    if b.numero_serie:
+                        mm += f"<br/><font size=6 color='#475569'>Série: {_esc_pdf(b.numero_serie)}</font>"
+
+                    forn_str = (b.fornecedor_nome or (nf_rel.fornecedor_nome if nf_rel else '') or 'Acervo / S/F').strip()[:32]
+                    nf_str = b.numero_nota_fiscal or (nf_rel.numero_nf if nf_rel else '') or 'S/N'
+                    forn_nf_cell = f"<b>{_esc_pdf(forn_str)}</b><br/><font size=6>NF: {_esc_pdf(nf_str)}</font>"
+                    if b.data_aquisicao:
+                        forn_nf_cell += f" <font size=6 color='#64748b'>({b.data_aquisicao.strftime('%d/%m/%Y')})</font>"
+
+                    motivo_txt = _extrair_motivo_baixa_resumido(b)
+                    rows_bens.append([
+                        Paragraph(f"{idx_b:02d}", st['celula_center']),
+                        Paragraph(f"<font color='#b91c1c'><b>{_esc_pdf(b.numero_patrimonio or f'S/N (#{b.id})')}</b></font>", st['celula_center']),
+                        Paragraph(f"<b>{_esc_pdf(b.descricao)}</b>", st['celula']),
+                        Paragraph(_esc_pdf(b.categoria or 'Geral'), st['celula_center']),
+                        Paragraph(mm, st['celula']),
+                        Paragraph(forn_nf_cell, st['celula']),
+                        Paragraph(_esc_pdf(motivo_txt), st['celula']),
+                        Paragraph("<font color='#b91c1c'><b>BAIXADO / INATIVO</b></font>", st['celula_center']),
+                        Paragraph(_fmt_moeda_br(b.valor_aquisicao, prefixo=False) if incluir_valores else "-", st['celula_right']),
+                    ])
+            else:
+                rows_bens.append([
+                    Paragraph("-", st['celula_center']),
+                    Paragraph("-", st['celula_center']),
+                    Paragraph("Nenhum bem baixado registrado nesta unidade escolar.", st['celula']),
+                    Paragraph("-", st['celula_center']),
+                    Paragraph("-", st['celula_center']),
+                    Paragraph("-", st['celula_center']),
+                    Paragraph("-", st['celula_center']),
+                    Paragraph("SEM BAIXAS", st['celula_center']),
+                    Paragraph("0,00", st['celula_right']),
+                ])
+
+            t_escola_bens = Table(
+                rows_bens,
+                colWidths=[0.9 * cm, 2.3 * cm, 5.2 * cm, 2.4 * cm, 3.0 * cm, 3.6 * cm, 5.5 * cm, 2.2 * cm, 2.2 * cm],
+                repeatRows=1
+            )
+            est_eb = [
+                ('BACKGROUND', (0, 0), (-1, 0), st['cor_gov_azul']),
+                ('GRID', (0, 0), (-1, -1), 0.45, st['cor_borda']),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 3.5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
+            ]
+            for r_i in range(1, len(rows_bens)):
+                if r_i % 2 == 0:
+                    est_eb.append(('BACKGROUND', (0, r_i), (-1, r_i), colors.HexColor("#fff5f5")))
+            t_escola_bens.setStyle(TableStyle(est_eb))
+            elementos.append(t_escola_bens)
+            elementos.append(Spacer(1, 0.3 * cm))
+    else:
+        elementos.append(Paragraph("Nenhum bem baixado encontrado para os parâmetros informados.", st['celula']))
+        elementos.append(Spacer(1, 0.3 * cm))
+
+    # TERMO DE BAIXA E DESINCORPORAÇÃO + ASSINATURAS
+    usuario_emissor = session.get('username') or getattr(current_user, 'username', 'Controle Interno')
+    nome_comissao = responsavel_comissao or "___________________________________________________"
+    texto_termo_baixa = (
+        "<b>TERMO OFICIAL DE VISTORIA, INSERVIBILIDADE E BAIXA PATRIMONIAL POR UNIDADE ESCOLAR:</b> "
+        "Certificamos, para fins de Controle Interno, Contabilidade Pública (MCASP) e prestação de contas junto ao Tribunal de Contas (TCE), "
+        f"que os <b>{total_itens_baixados} bem(ns) permanente(s)</b> discriminados neste relatório encontram-se formalmente <b>BAIXADOS / INATIVOS</b> "
+        "no acervo municipal por motivo de inservibilidade, desgaste natural, obsolescência ou antieconomicidade de manutenção, devidamente "
+        "vinculados às respectivas pastas de arquivo das Unidades Escolares de origem."
+    )
+    bloco_ass = Table(
+        [
+            [
+                Paragraph("___________________________________________________", st['celula_center']),
+                Paragraph("___________________________________________________", st['celula_center']),
+                Paragraph("___________________________________________________", st['celula_center']),
+            ],
+            [
+                Paragraph(f"<b>{_esc_pdf(usuario_emissor.upper())}</b><br/><font size=6.5 color='#475569'>Coordenadoria de Controle Patrimonial</font>", st['celula_center']),
+                Paragraph(f"<b>{_esc_pdf(nome_comissao)}</b><br/><font size=6.5 color='#475569'>{_esc_pdf(cargo_comissao)}</font>", st['celula_center']),
+                Paragraph("<b>SECRETÁRIO(A) MUNICIPAL / GESTOR(A)</b><br/><font size=6.5 color='#475569'>Homologação / Controle Interno</font>", st['celula_center']),
+            ],
+        ],
+        colWidths=[largura_util / 3.0, largura_util / 3.0, largura_util / 3.0]
+    )
+    bloco_ass.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    elementos.append(KeepTogether([
+        Paragraph(texto_termo_baixa, st['termo']),
+        Spacer(1, 0.8 * cm),
+        bloco_ass
+    ]))
+
+    doc.build(elementos, onFirstPage=cb_header, onLaterPages=cb_header)
+    buffer.seek(0)
+    return send_file(
+        buffer,
+        mimetype='application/pdf',
+        as_attachment=False,
+        download_name=f"Relatorio_Bens_Baixados_Por_Escola_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+    )
+
+
+# =============================================================================
+# 3. PDF RELATÓRIO COMPLETO PARA PRESTAÇÃO DE CONTAS (TCE / CONTROLE INTERNO)
+#    Mostrando por Escola, por Fornecedor, por Categoria e se está Baixado ou Ativo
+# =============================================================================
+@patrimonio_bp.route('/relatorio-prestacao-contas/pdf')
+@login_required
+@role_required('Patrimonio', 'admin', 'RH', 'Fiscal')
+def gerar_relatorio_prestacao_contas_pdf():
+    """
+    Gera o Relatório Completo de Prestação de Contas Patrimonial (Padrão Governamental / TCE / MCASP),
+    demonstrando integralmente o acervo:
+      - Seção I: Balanço Consolidado e Resumo Executivo (Ativos x Baixados e Conservação)
+      - Seção II: Demonstrativo Completo por Escola / Unidade (Quadro Sintético + Analítico indicando Ativo ou Baixado)
+      - Seção III: Demonstrativo Completo por Fornecedor e Notas Fiscais (Quadro Sintético + Analítico por NF mostrando Escola e se está Ativo ou Baixado)
+      - Seção IV: Demonstrativo Completo por Categoria Patrimonial (Quadro Sintético + Analítico mostrando Escola, Fornecedor e se está Ativo ou Baixado)
+      - Seção V: Relação Especial de Auditoria de Bens Baixados x Bens Ativos
+      - Seção VI: Parecer de Conformidade Contábil e Termo de Encerramento com Assinaturas
+    """
+    executar_migracao_patrimonio_segura()
+
+    exercicio = (request.args.get('exercicio') or str(datetime.now().year)).strip()
+    secretaria_id_filtro = (request.args.get('secretaria_id') or '').strip()
+    escola_filtro = (request.args.get('escola') or '__TODAS__').strip()
+    fornecedor_filtro = (request.args.get('fornecedor') or '').strip()
+    categoria_filtro = (request.args.get('categoria') or '').strip()
+    status_filtro = (request.args.get('status_filtro') or 'todos').strip()
+
+    secoes_marcadas = request.args.getlist('secoes')
+    if not secoes_marcadas:
+        secoes_marcadas = ['resumo_executivo', 'por_escola', 'por_fornecedor', 'por_categoria', 'auditoria_status']
+
+    nome_patrimonio = (request.args.get('nome_patrimonio') or '').strip()
+    nome_controlador = (request.args.get('nome_controlador') or '').strip()
+    nome_gestor = (request.args.get('nome_gestor') or '').strip()
+
+    query = Patrimonio.query
+    if secretaria_id_filtro and secretaria_id_filtro.isdigit():
+        query = query.filter(Patrimonio.secretaria_id == int(secretaria_id_filtro))
+    if categoria_filtro:
+        query = query.filter(Patrimonio.categoria == categoria_filtro)
+    if fornecedor_filtro:
+        query = query.filter(Patrimonio.fornecedor_nome.ilike(f"%{fornecedor_filtro}%"))
+    if status_filtro == 'Ativo':
+        query = query.filter(Patrimonio.status != 'Baixado')
+    elif status_filtro == 'Baixado':
+        query = query.filter(Patrimonio.status == 'Baixado')
+
+    todos_bens = query.order_by(Patrimonio.localizacao, Patrimonio.descricao, Patrimonio.id.desc()).all()
+
+    escolas_db = Escola.query.order_by(Escola.nome).all()
+    dados_esc = _agrupar_bens_por_escola_e_setor(todos_bens, escolas_db)
+    mapa_bem_unidade = dados_esc['mapa_bem_unidade']
+
+    if escola_filtro and escola_filtro != '__TODAS__':
+        norm_e = _normalizar_nome_pasta(escola_filtro)
+        todos_bens = [
+            b for b in todos_bens
+            if mapa_bem_unidade.get(b.id, {}).get('codigo') == escola_filtro
+            or _normalizar_nome_pasta(mapa_bem_unidade.get(b.id, {}).get('nome_unidade', '')) == norm_e
+            or _normalizar_nome_pasta(b.localizacao) == norm_e
+        ]
+        dados_esc = _agrupar_bens_por_escola_e_setor(todos_bens, escolas_db)
+        mapa_bem_unidade = dados_esc['mapa_bem_unidade']
+
+    bens_ativos = [b for b in todos_bens if b.status != 'Baixado']
+    bens_baixados = [b for b in todos_bens if b.status == 'Baixado']
+
+    valor_total_geral = sum(float(b.valor_aquisicao or 0.0) for b in todos_bens)
+    valor_total_ativos = sum(float(b.valor_aquisicao or 0.0) for b in bens_ativos)
+    valor_total_baixados = sum(float(b.valor_aquisicao or 0.0) for b in bens_baixados)
+
+    # Agrupamento por Fornecedor
+    mapa_fornecedores = {}
+    for b in todos_bens:
+        nf_rel = b.nota_fiscal_rel
+        nome_forn = (
+            (b.fornecedor_nome or '').strip()
+            or (nf_rel.fornecedor_nome.strip() if nf_rel and nf_rel.fornecedor_nome else '')
+            or 'Incorporação Direta / Sem Fornecedor Informado'
+        )
+        cnpj_forn = (
+            (b.fornecedor_cnpj or '').strip()
+            or (nf_rel.fornecedor_cnpj.strip() if nf_rel and nf_rel.fornecedor_cnpj else '')
+        )
+        ch_f = nome_forn.lower()
+        if ch_f not in mapa_fornecedores:
+            mapa_fornecedores[ch_f] = {
+                'nome': nome_forn,
+                'cnpj': cnpj_forn,
+                'notas_set': set(),
+                'empenhos_set': set(),
+                'processos_set': set(),
+                'bens_todos': [],
+                'qtd_total': 0,
+                'qtd_ativos': 0,
+                'qtd_baixados': 0,
+                'valor_total': 0.0,
+                'valor_ativos': 0.0,
+                'valor_baixados': 0.0,
+            }
+        entry_f = mapa_fornecedores[ch_f]
+        if not entry_f['cnpj'] and cnpj_forn:
+            entry_f['cnpj'] = cnpj_forn
+        num_nf = (b.numero_nota_fiscal or (nf_rel.numero_nf if nf_rel else '') or '').strip()
+        if num_nf:
+            entry_f['notas_set'].add(num_nf)
+        num_emp = (b.numero_empenho or (nf_rel.numero_empenho if nf_rel else '') or '').strip()
+        if num_emp:
+            entry_f['empenhos_set'].add(num_emp)
+        num_proc = (b.numero_processo or (nf_rel.numero_processo if nf_rel else '') or '').strip()
+        if num_proc:
+            entry_f['processos_set'].add(num_proc)
+
+        val_b = float(b.valor_aquisicao or 0.0)
+        entry_f['bens_todos'].append(b)
+        entry_f['qtd_total'] += 1
+        entry_f['valor_total'] += val_b
+        if b.status == 'Baixado':
+            entry_f['qtd_baixados'] += 1
+            entry_f['valor_baixados'] += val_b
+        else:
+            entry_f['qtd_ativos'] += 1
+            entry_f['valor_ativos'] += val_b
+
+    lista_fornecedores_pc = sorted(mapa_fornecedores.values(), key=lambda x: (-x['valor_total'], x['nome'].lower()))
+
+    # Agrupamento por Categoria
+    mapa_categorias = {}
+    for b in todos_bens:
+        cat_nome = (b.categoria or 'Outros Bens Permanentes').strip()
+        ch_c = cat_nome.lower()
+        if ch_c not in mapa_categorias:
+            mapa_categorias[ch_c] = {
+                'nome': cat_nome,
+                'bens_todos': [],
+                'qtd_total': 0,
+                'qtd_ativos': 0,
+                'qtd_baixados': 0,
+                'valor_total': 0.0,
+                'valor_ativos': 0.0,
+                'valor_baixados': 0.0,
+            }
+        entry_c = mapa_categorias[ch_c]
+        val_b = float(b.valor_aquisicao or 0.0)
+        entry_c['bens_todos'].append(b)
+        entry_c['qtd_total'] += 1
+        entry_c['valor_total'] += val_b
+        if b.status == 'Baixado':
+            entry_c['qtd_baixados'] += 1
+            entry_c['valor_baixados'] += val_b
+        else:
+            entry_c['qtd_ativos'] += 1
+            entry_c['valor_ativos'] += val_b
+
+    lista_categorias_pc = sorted(mapa_categorias.values(), key=lambda x: (-x['valor_total'], x['nome'].lower()))
+
+    # Unidades (Escolas + Setores com bens)
+    unidades_com_bens = [u for u in dados_esc['todas_unidades'] if u['qtd_total'] > 0]
+
+    page_width, page_height = landscape(A4)
+    largura_util = page_width - 2.4 * cm
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=1.2 * cm,
+        rightMargin=1.2 * cm,
+        topMargin=3.4 * cm,
+        bottomMargin=1.8 * cm,
+        title=f"Prestação de Contas Patrimonial Completa - Exercício {exercicio}"
+    )
+
+    st = _obter_estilos_pdf_gov()
+    protocolo = f"PC-TCE-{datetime.now().strftime('%Y%m%d-%H%M')}"
+    secretaria_nome = "PREFEITURA MUNICIPAL DE VALENÇA DO PIAUÍ — CONTROLE INTERNO E PATRIMÔNIO"
+    if secretaria_id_filtro and secretaria_id_filtro.isdigit():
+        sec_obj = Secretaria.query.get(int(secretaria_id_filtro))
+        if sec_obj:
+            secretaria_nome = sec_obj.nome.upper()
+
+    url_verif = url_for('patrimonio.listar_itens', _external=True)
+    cb_header = _criar_callback_cabecalho_rodape_gov(
+        page_width, page_height, secretaria_nome, protocolo,
+        f"Relatório Completo de Prestação de Contas Patrimonial (Exercício {exercicio})",
+        f"PREFEITURA DE VALENCA DO PIAUI | PRESTACAO DE CONTAS {protocolo} | BENS: {len(todos_bens)} | {url_verif}"
+    )
+
+    elementos = []
+    elementos.append(Paragraph(
+        f"RELATÓRIO GERAL DE PRESTAÇÃO DE CONTAS E INVENTÁRIO PATRIMONIAL COMPLETO — EXERCÍCIO {_esc_pdf(exercicio)}",
+        st['titulo_doc']
+    ))
+    elementos.append(Paragraph(
+        "Demonstrativo contábil e físico integral por Unidade Escolar/Setor, por Fornecedor/Nota Fiscal, por Categoria Patrimonial e Situação Cadastral (Ativo x Baixado) — Padrão TCE / MCASP",
+        st['subtitulo_doc']
+    ))
+
+    # =========================================================================
+    # SEÇÃO I: BALANÇO PATRIMONIAL CONSOLIDADO E RESUMO EXECUTIVO
+    # =========================================================================
+    if 'resumo_executivo' in secoes_marcadas:
+        barra_s1 = Table(
+            [[Paragraph("<b>SEÇÃO I — BALANÇO PATRIMONIAL CONSOLIDADO E RESUMO EXECUTIVO PARA PRESTAÇÃO DE CONTAS</b>", st['secao_barra'])]],
+            colWidths=[largura_util]
+        )
+        barra_s1.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), st['cor_gov_azul']),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elementos.append(barra_s1)
+
+        perc_ativos = (len(bens_ativos) / len(todos_bens) * 100.0) if todos_bens else 0.0
+        perc_baixados = (len(bens_baixados) / len(todos_bens) * 100.0) if todos_bens else 0.0
+
+        quadro_balanco = [
+            [
+                Paragraph("<b>TOTAL GERAL INCORPORADO:</b>", st['celula']),
+                Paragraph(f"<b>{len(todos_bens)} bem(ns) ({_fmt_moeda_br(valor_total_geral)})</b>", st['celula_bold']),
+                Paragraph("<b>UNIDADES / ESCOLAS COM BENS:</b>", st['celula']),
+                Paragraph(f"<b>{len(unidades_com_bens)} unidade(s)</b> ({len(dados_esc['pastas_escolas'])} escolas cadastradas)", st['celula']),
+            ],
+            [
+                Paragraph("<b>BENS ATIVOS (EM USO NORMAL):</b>", st['celula']),
+                Paragraph(f"<font color='#15803d'><b>{len(bens_ativos)} unid. ({perc_ativos:.1f}%) — {_fmt_moeda_br(valor_total_ativos)}</b></font>", st['celula_bold']),
+                Paragraph("<b>FORNECEDORES VINCULADOS:</b>", st['celula']),
+                Paragraph(f"<b>{len(lista_fornecedores_pc)} fornecedor(es)</b>", st['celula']),
+            ],
+            [
+                Paragraph("<b>BENS BAIXADOS (INATIVOS):</b>", st['celula']),
+                Paragraph(f"<font color='#b91c1c'><b>{len(bens_baixados)} unid. ({perc_baixados:.1f}%) — {_fmt_moeda_br(valor_total_baixados)}</b></font>", st['celula_bold']),
+                Paragraph("<b>CATEGORIAS / GRUPOS CONTÁBEIS:</b>", st['celula']),
+                Paragraph(f"<b>{len(lista_categorias_pc)} grupo(s) patrimonial(is)</b> | Prot: {protocolo}", st['celula']),
+            ],
+        ]
+        t_bal = Table(quadro_balanco, colWidths=[5.4 * cm, 9.2 * cm, 5.4 * cm, 7.3 * cm])
+        t_bal.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), st['cor_cinza_claro']),
+            ('BACKGROUND', (2, 0), (2, -1), st['cor_cinza_claro']),
+            ('GRID', (0, 0), (-1, -1), 0.5, st['cor_borda']),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elementos.append(t_bal)
+        elementos.append(Spacer(1, 0.35 * cm))
+
+    # =========================================================================
+    # SEÇÃO II: DEMONSTRATIVO POR ESCOLA / UNIDADE DE ALOCAÇÃO
+    # =========================================================================
+    if 'por_escola' in secoes_marcadas:
+        barra_s2 = Table(
+            [[Paragraph("<b>SEÇÃO II — DEMONSTRATIVO PATRIMONIAL POR ESCOLA / UNIDADE DE ALOCAÇÃO (ATIVOS X BAIXADOS)</b>", st['secao_barra'])]],
+            colWidths=[largura_util]
+        )
+        barra_s2.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), st['cor_gov_azul']),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elementos.append(barra_s2)
+
+        # 2.1 Tabela Sintética por Escola / Unidade
+        rows_esc_sint = [[
+            Paragraph("#", st['header_tabela']),
+            Paragraph("ESCOLA / UNIDADE / SETOR", st['header_tabela']),
+            Paragraph("DIRETOR(A) / RESPONSÁVEL", st['header_tabela']),
+            Paragraph("QTD. ATIVOS", st['header_tabela']),
+            Paragraph("VALOR ATIVO (R$)", st['header_tabela']),
+            Paragraph("QTD. BAIXADOS", st['header_tabela']),
+            Paragraph("VALOR BAIXADO (R$)", st['header_tabela']),
+            Paragraph("TOTAL ITENS", st['header_tabela']),
+            Paragraph("VALOR TOTAL (R$)", st['header_tabela']),
+        ]]
+        for idx_u, u in enumerate(unidades_com_bens, start=1):
+            rows_esc_sint.append([
+                Paragraph(f"{idx_u:02d}", st['celula_center']),
+                Paragraph(f"<b>{_esc_pdf(u['nome'])}</b>", st['celula']),
+                Paragraph(_esc_pdf(u['diretor'] or 'Não informado'), st['celula']),
+                Paragraph(f"<font color='#15803d'><b>{u['qtd_ativos']}</b></font>", st['celula_center']),
+                Paragraph(_fmt_moeda_br(u['valor_ativos'], prefixo=False), st['celula_right']),
+                Paragraph(f"<font color='#b91c1c'><b>{u['qtd_baixados']}</b></font>", st['celula_center']),
+                Paragraph(_fmt_moeda_br(u['valor_baixados'], prefixo=False), st['celula_right']),
+                Paragraph(f"<b>{u['qtd_total']}</b>", st['celula_center']),
+                Paragraph(f"<b>{_fmt_moeda_br(u['valor_total'], prefixo=False)}</b>", st['celula_right']),
+            ])
+        rows_esc_sint.append([
+            Paragraph("", st['celula']),
+            Paragraph("<b>TOTAL GERAL POR UNIDADES ESCOLARES / SETORES</b>", st['celula_bold']),
+            Paragraph("", st['celula']),
+            Paragraph(f"<font color='#15803d'><b>{len(bens_ativos)}</b></font>", st['celula_center']),
+            Paragraph(f"<b>{_fmt_moeda_br(valor_total_ativos, prefixo=False)}</b>", st['celula_right']),
+            Paragraph(f"<font color='#b91c1c'><b>{len(bens_baixados)}</b></font>", st['celula_center']),
+            Paragraph(f"<b>{_fmt_moeda_br(valor_total_baixados, prefixo=False)}</b>", st['celula_right']),
+            Paragraph(f"<b>{len(todos_bens)}</b>", st['celula_center']),
+            Paragraph(f"<b>{_fmt_moeda_br(valor_total_geral, prefixo=False)}</b>", st['celula_right']),
+        ])
+
+        t_esc_sint = Table(
+            rows_esc_sint,
+            colWidths=[1.0 * cm, 7.6 * cm, 4.5 * cm, 2.0 * cm, 2.6 * cm, 2.2 * cm, 2.6 * cm, 2.0 * cm, 2.8 * cm],
+            repeatRows=1
+        )
+        t_esc_sint.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), st['cor_gov_secundaria']),
+            ('GRID', (0, 0), (-1, -1), 0.45, st['cor_borda']),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 3.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
+            ('SPAN', (1, -1), (2, -1)),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#e2e8f0")),
+        ]))
+        elementos.append(t_esc_sint)
+        elementos.append(Spacer(1, 0.25 * cm))
+
+        # 2.2 Relação Analítica de Bens por Escola / Unidade
+        for u in unidades_com_bens:
+            cab_u = Table(
+                [[
+                    Paragraph(
+                        f"<b>UNIDADE: {_esc_pdf(u['nome'].upper())}</b>"
+                        f"{' | Diretor(a)/Resp.: ' + _esc_pdf(u['diretor']) if u.get('diretor') else ''}",
+                        st['secao_barra']
+                    ),
+                    Paragraph(
+                        f"<font color='#ffffff'>Ativos: <b>{u['qtd_ativos']}</b> ({_fmt_moeda_br(u['valor_ativos'])})  |  "
+                        f"Baixados: <b>{u['qtd_baixados']}</b> ({_fmt_moeda_br(u['valor_baixados'])})  |  "
+                        f"<b>Total: {u['qtd_total']} unid. ({_fmt_moeda_br(u['valor_total'])})</b></font>",
+                        ParagraphStyle('CabUDir', parent=st['secao_barra'], alignment=TA_RIGHT, fontSize=7.3)
+                    )
+                ]],
+                colWidths=[largura_util * 0.48, largura_util * 0.52]
+            )
+            cab_u.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#1e3a5f")),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 3.5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ]))
+            elementos.append(cab_u)
+
+            rows_u_bens = [[
+                Paragraph("#", st['header_tabela']),
+                Paragraph("TOMBAMENTO", st['header_tabela']),
+                Paragraph("DESCRIÇÃO DO BEM PATRIMONIAL", st['header_tabela']),
+                Paragraph("CATEGORIA", st['header_tabela']),
+                Paragraph("MARCA / MODELO / SÉRIE", st['header_tabela']),
+                Paragraph("FORNECEDOR / NF / EMPENHO", st['header_tabela']),
+                Paragraph("CONSERVAÇÃO / RESP.", st['header_tabela']),
+                Paragraph("SITUAÇÃO (ATIVO / BAIXADO)", st['header_tabela']),
+                Paragraph("VALOR (R$)", st['header_tabela']),
+            ]]
+            for idx_b, b in enumerate(u['bens_todos'], start=1):
+                nf_rel = b.nota_fiscal_rel
+                mm = " / ".join([x for x in [b.marca, b.modelo] if x]) or "-"
+                if b.numero_serie:
+                    mm += f"<br/><font size=6 color='#475569'>Série: {_esc_pdf(b.numero_serie)}</font>"
+                forn_n = (b.fornecedor_nome or (nf_rel.fornecedor_nome if nf_rel else '') or 'Sem Fornecedor').strip()[:32]
+                nf_n = b.numero_nota_fiscal or (nf_rel.numero_nf if nf_rel else '') or 'S/N'
+                emp_n = b.numero_empenho or (nf_rel.numero_empenho if nf_rel else '') or ''
+                txt_fnf = f"<b>{_esc_pdf(forn_n)}</b><br/><font size=6>NF: {_esc_pdf(nf_n)}{' | NE: ' + _esc_pdf(emp_n) if emp_n else ''}</font>"
+
+                cons_resp = f"<b>{_esc_pdf((b.estado_conservacao or 'Bom').upper())}</b><br/><font size=6 color='#475569'>{_esc_pdf((b.nome_responsavel_atual or u.get('diretor') or '-')[:25])}</font>"
+                if b.status == 'Baixado':
+                    sit_html = "<font color='#b91c1c'><b>BAIXADO / INATIVO</b></font>"
+                else:
+                    sit_html = "<font color='#15803d'><b>ATIVO / EM USO</b></font>"
+
+                rows_u_bens.append([
+                    Paragraph(f"{idx_b:02d}", st['celula_center']),
+                    Paragraph(f"<b>{_esc_pdf(b.numero_patrimonio or f'S/N (#{b.id})')}</b>", st['celula_center']),
+                    Paragraph(f"<b>{_esc_pdf(b.descricao)}</b>", st['celula']),
+                    Paragraph(_esc_pdf(b.categoria or 'Geral'), st['celula_center']),
+                    Paragraph(mm, st['celula']),
+                    Paragraph(txt_fnf, st['celula']),
+                    Paragraph(cons_resp, st['celula_center']),
+                    Paragraph(sit_html, st['celula_center']),
+                    Paragraph(f"<b>{_fmt_moeda_br(b.valor_aquisicao, prefixo=False)}</b>", st['celula_right']),
+                ])
+
+            t_u_bens = Table(
+                rows_u_bens,
+                colWidths=[0.9 * cm, 2.3 * cm, 5.5 * cm, 2.6 * cm, 3.2 * cm, 4.4 * cm, 3.3 * cm, 2.8 * cm, 2.3 * cm],
+                repeatRows=1
+            )
+            est_ub = [
+                ('BACKGROUND', (0, 0), (-1, 0), st['cor_gov_azul']),
+                ('GRID', (0, 0), (-1, -1), 0.4, st['cor_borda']),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ]
+            for r_i, b_obj in enumerate(u['bens_todos'], start=1):
+                if b_obj.status == 'Baixado':
+                    est_ub.append(('BACKGROUND', (0, r_i), (-1, r_i), colors.HexColor("#fff1f2")))
+                elif r_i % 2 == 0:
+                    est_ub.append(('BACKGROUND', (0, r_i), (-1, r_i), colors.HexColor("#f8fafc")))
+            t_u_bens.setStyle(TableStyle(est_ub))
+            elementos.append(t_u_bens)
+            elementos.append(Spacer(1, 0.25 * cm))
+
+        elementos.append(Spacer(1, 0.15 * cm))
+
+    # =========================================================================
+    # SEÇÃO III: DEMONSTRATIVO POR FORNECEDOR E NOTAS FISCAIS / LICITAÇÃO
+    # =========================================================================
+    if 'por_fornecedor' in secoes_marcadas:
+        barra_s3 = Table(
+            [[Paragraph("<b>SEÇÃO III — DEMONSTRATIVO POR FORNECEDOR, NOTAS FISCAIS E EMPENHOS (COM ESCOLA E SITUAÇÃO ATIVO/BAIXADO)</b>", st['secao_barra'])]],
+            colWidths=[largura_util]
+        )
+        barra_s3.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), st['cor_gov_azul']),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elementos.append(barra_s3)
+
+        # 3.1 Quadro Sintético por Fornecedor
+        rows_forn_sint = [[
+            Paragraph("#", st['header_tabela']),
+            Paragraph("RAZÃO SOCIAL / FORNECEDOR", st['header_tabela']),
+            Paragraph("CNPJ / CPF", st['header_tabela']),
+            Paragraph("NOTAS FISCAIS / EMPENHOS", st['header_tabela']),
+            Paragraph("ATIVOS", st['header_tabela']),
+            Paragraph("BAIXADOS", st['header_tabela']),
+            Paragraph("TOTAL BENS", st['header_tabela']),
+            Paragraph("VALOR ATIVO (R$)", st['header_tabela']),
+            Paragraph("VALOR TOTAL (R$)", st['header_tabela']),
+        ]]
+        for idx_f, f in enumerate(lista_fornecedores_pc, start=1):
+            nfs_str = ", ".join(sorted(f['notas_set'])[:5]) or "S/NF"
+            if len(f['notas_set']) > 5:
+                nfs_str += f" (+{len(f['notas_set'])-5})"
+            emps_str = ", ".join(sorted(f['empenhos_set'])[:3])
+            nf_emp_res = f"NF: {_esc_pdf(nfs_str)}" + (f"<br/><font size=6 color='#475569'>NE: {_esc_pdf(emps_str)}</font>" if emps_str else "")
+            rows_forn_sint.append([
+                Paragraph(f"{idx_f:02d}", st['celula_center']),
+                Paragraph(f"<b>{_esc_pdf(f['nome'])}</b>", st['celula']),
+                Paragraph(_esc_pdf(f['cnpj'] or 'Não informado'), st['celula_center']),
+                Paragraph(nf_emp_res, st['celula']),
+                Paragraph(f"<font color='#15803d'><b>{f['qtd_ativos']}</b></font>", st['celula_center']),
+                Paragraph(f"<font color='#b91c1c'><b>{f['qtd_baixados']}</b></font>", st['celula_center']),
+                Paragraph(f"<b>{f['qtd_total']}</b>", st['celula_center']),
+                Paragraph(_fmt_moeda_br(f['valor_ativos'], prefixo=False), st['celula_right']),
+                Paragraph(f"<b>{_fmt_moeda_br(f['valor_total'], prefixo=False)}</b>", st['celula_right']),
+            ])
+        rows_forn_sint.append([
+            Paragraph("", st['celula']),
+            Paragraph("<b>TOTAL GERAL POR FORNECEDORES</b>", st['celula_bold']),
+            Paragraph("", st['celula']),
+            Paragraph("", st['celula']),
+            Paragraph(f"<font color='#15803d'><b>{len(bens_ativos)}</b></font>", st['celula_center']),
+            Paragraph(f"<font color='#b91c1c'><b>{len(bens_baixados)}</b></font>", st['celula_center']),
+            Paragraph(f"<b>{len(todos_bens)}</b>", st['celula_center']),
+            Paragraph(f"<b>{_fmt_moeda_br(valor_total_ativos, prefixo=False)}</b>", st['celula_right']),
+            Paragraph(f"<b>{_fmt_moeda_br(valor_total_geral, prefixo=False)}</b>", st['celula_right']),
+        ])
+
+        t_forn_sint = Table(
+            rows_forn_sint,
+            colWidths=[1.0 * cm, 7.2 * cm, 3.3 * cm, 4.6 * cm, 1.8 * cm, 2.0 * cm, 2.0 * cm, 2.6 * cm, 2.8 * cm],
+            repeatRows=1
+        )
+        t_forn_sint.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), st['cor_gov_secundaria']),
+            ('GRID', (0, 0), (-1, -1), 0.45, st['cor_borda']),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 3.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
+            ('SPAN', (1, -1), (3, -1)),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#e2e8f0")),
+        ]))
+        elementos.append(t_forn_sint)
+        elementos.append(Spacer(1, 0.25 * cm))
+
+        # 3.2 Detalhamento Analítico de Bens por Fornecedor
+        for f in lista_fornecedores_pc:
+            cab_f = Table(
+                [[
+                    Paragraph(
+                        f"<b>FORNECEDOR: {_esc_pdf(f['nome'].upper())}</b>"
+                        f"{'  |  CNPJ: ' + _esc_pdf(f['cnpj']) if f.get('cnpj') else ''}",
+                        st['secao_barra']
+                    ),
+                    Paragraph(
+                        f"<font color='#ffffff'>Ativos: <b>{f['qtd_ativos']}</b>  |  Baixados: <b>{f['qtd_baixados']}</b>  |  "
+                        f"<b>Total Fornecido: {f['qtd_total']} unid. ({_fmt_moeda_br(f['valor_total'])})</b></font>",
+                        ParagraphStyle('CabFDir', parent=st['secao_barra'], alignment=TA_RIGHT, fontSize=7.3)
+                    )
+                ]],
+                colWidths=[largura_util * 0.55, largura_util * 0.45]
+            )
+            cab_f.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#0f4c81")),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 3.5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ]))
+            elementos.append(cab_f)
+
+            rows_f_bens = [[
+                Paragraph("#", st['header_tabela']),
+                Paragraph("NF / EMPENHO / AQUISIÇÃO", st['header_tabela']),
+                Paragraph("TOMBAMENTO", st['header_tabela']),
+                Paragraph("DESCRIÇÃO DO BEM / MARCA", st['header_tabela']),
+                Paragraph("CATEGORIA", st['header_tabela']),
+                Paragraph("ESCOLA / LOCALIZAÇÃO ATUAL", st['header_tabela']),
+                Paragraph("SITUAÇÃO (ATIVO / BAIXADO)", st['header_tabela']),
+                Paragraph("VALOR (R$)", st['header_tabela']),
+            ]]
+            for idx_b, b in enumerate(f['bens_todos'], start=1):
+                nf_rel = b.nota_fiscal_rel
+                nf_n = b.numero_nota_fiscal or (nf_rel.numero_nf if nf_rel else '') or 'S/N'
+                emp_n = b.numero_empenho or (nf_rel.numero_empenho if nf_rel else '') or '-'
+                dt_aq = b.data_aquisicao.strftime('%d/%m/%Y') if b.data_aquisicao else '-'
+                nf_cell = f"<b>NF: {_esc_pdf(nf_n)}</b><br/><font size=6 color='#475569'>NE: {_esc_pdf(emp_n)} | Aq: {dt_aq}</font>"
+
+                mm = " / ".join([x for x in [b.marca, b.modelo] if x])
+                desc_mm = f"<b>{_esc_pdf(b.descricao)}</b>" + (f"<br/><font size=6 color='#475569'>{_esc_pdf(mm)}</font>" if mm else "")
+
+                info_u = mapa_bem_unidade.get(b.id, {})
+                esc_loc = info_u.get('nome_unidade') or b.localizacao or '-'
+                sit_html = "<font color='#b91c1c'><b>BAIXADO / INATIVO</b></font>" if b.status == 'Baixado' else "<font color='#15803d'><b>ATIVO / EM USO</b></font>"
+
+                rows_f_bens.append([
+                    Paragraph(f"{idx_b:02d}", st['celula_center']),
+                    Paragraph(nf_cell, st['celula_center']),
+                    Paragraph(f"<b>{_esc_pdf(b.numero_patrimonio or f'S/N (#{b.id})')}</b>", st['celula_center']),
+                    Paragraph(desc_mm, st['celula']),
+                    Paragraph(_esc_pdf(b.categoria or 'Geral'), st['celula_center']),
+                    Paragraph(f"<b>{_esc_pdf(esc_loc)}</b><br/><font size=6 color='#64748b'>Local: {_esc_pdf(b.localizacao or '-')}</font>", st['celula']),
+                    Paragraph(sit_html, st['celula_center']),
+                    Paragraph(f"<b>{_fmt_moeda_br(b.valor_aquisicao, prefixo=False)}</b>", st['celula_right']),
+                ])
+
+            t_f_bens = Table(
+                rows_f_bens,
+                colWidths=[0.9 * cm, 3.6 * cm, 2.4 * cm, 6.4 * cm, 3.0 * cm, 5.7 * cm, 2.9 * cm, 2.4 * cm],
+                repeatRows=1
+            )
+            est_fb = [
+                ('BACKGROUND', (0, 0), (-1, 0), st['cor_gov_azul']),
+                ('GRID', (0, 0), (-1, -1), 0.4, st['cor_borda']),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ]
+            for r_i, b_obj in enumerate(f['bens_todos'], start=1):
+                if b_obj.status == 'Baixado':
+                    est_fb.append(('BACKGROUND', (0, r_i), (-1, r_i), colors.HexColor("#fff1f2")))
+                elif r_i % 2 == 0:
+                    est_fb.append(('BACKGROUND', (0, r_i), (-1, r_i), colors.HexColor("#f8fafc")))
+            t_f_bens.setStyle(TableStyle(est_fb))
+            elementos.append(t_f_bens)
+            elementos.append(Spacer(1, 0.25 * cm))
+
+        elementos.append(Spacer(1, 0.15 * cm))
+
+    # =========================================================================
+    # SEÇÃO IV: DEMONSTRATIVO POR CATEGORIA / GRUPO CONTÁBIL PATRIMONIAL
+    # =========================================================================
+    if 'por_categoria' in secoes_marcadas:
+        barra_s4 = Table(
+            [[Paragraph("<b>SEÇÃO IV — DEMONSTRATIVO POR CATEGORIA / GRUPO PATRIMONIAL (ATIVOS X BAIXADOS)</b>", st['secao_barra'])]],
+            colWidths=[largura_util]
+        )
+        barra_s4.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), st['cor_gov_azul']),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elementos.append(barra_s4)
+
+        rows_cat_sint = [[
+            Paragraph("#", st['header_tabela']),
+            Paragraph("CATEGORIA / GRUPO CONTÁBIL PATRIMONIAL", st['header_tabela']),
+            Paragraph("QTD. ATIVOS", st['header_tabela']),
+            Paragraph("VALOR ATIVO (R$)", st['header_tabela']),
+            Paragraph("QTD. BAIXADOS", st['header_tabela']),
+            Paragraph("VALOR BAIXADO (R$)", st['header_tabela']),
+            Paragraph("TOTAL ITENS", st['header_tabela']),
+            Paragraph("% ACERVO", st['header_tabela']),
+            Paragraph("VALOR TOTAL (R$)", st['header_tabela']),
+        ]]
+        for idx_c, c in enumerate(lista_categorias_pc, start=1):
+            perc_c = (c['valor_total'] / valor_total_geral * 100.0) if valor_total_geral > 0 else 0.0
+            rows_cat_sint.append([
+                Paragraph(f"{idx_c:02d}", st['celula_center']),
+                Paragraph(f"<b>{_esc_pdf(c['nome'])}</b>", st['celula']),
+                Paragraph(f"<font color='#15803d'><b>{c['qtd_ativos']}</b></font>", st['celula_center']),
+                Paragraph(_fmt_moeda_br(c['valor_ativos'], prefixo=False), st['celula_right']),
+                Paragraph(f"<font color='#b91c1c'><b>{c['qtd_baixados']}</b></font>", st['celula_center']),
+                Paragraph(_fmt_moeda_br(c['valor_baixados'], prefixo=False), st['celula_right']),
+                Paragraph(f"<b>{c['qtd_total']}</b>", st['celula_center']),
+                Paragraph(f"{perc_c:.1f}%", st['celula_center']),
+                Paragraph(f"<b>{_fmt_moeda_br(c['valor_total'], prefixo=False)}</b>", st['celula_right']),
+            ])
+        rows_cat_sint.append([
+            Paragraph("", st['celula']),
+            Paragraph("<b>TOTAL GERAL POR CATEGORIAS PATRIMONIAIS</b>", st['celula_bold']),
+            Paragraph(f"<font color='#15803d'><b>{len(bens_ativos)}</b></font>", st['celula_center']),
+            Paragraph(f"<b>{_fmt_moeda_br(valor_total_ativos, prefixo=False)}</b>", st['celula_right']),
+            Paragraph(f"<font color='#b91c1c'><b>{len(bens_baixados)}</b></font>", st['celula_center']),
+            Paragraph(f"<b>{_fmt_moeda_br(valor_total_baixados, prefixo=False)}</b>", st['celula_right']),
+            Paragraph(f"<b>{len(todos_bens)}</b>", st['celula_center']),
+            Paragraph("<b>100,0%</b>", st['celula_center']),
+            Paragraph(f"<b>{_fmt_moeda_br(valor_total_geral, prefixo=False)}</b>", st['celula_right']),
+        ])
+
+        t_cat_sint = Table(
+            rows_cat_sint,
+            colWidths=[1.0 * cm, 9.7 * cm, 2.2 * cm, 2.8 * cm, 2.4 * cm, 2.8 * cm, 2.0 * cm, 1.6 * cm, 2.8 * cm],
+            repeatRows=1
+        )
+        t_cat_sint.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), st['cor_gov_secundaria']),
+            ('GRID', (0, 0), (-1, -1), 0.45, st['cor_borda']),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 3.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#e2e8f0")),
+        ]))
+        elementos.append(t_cat_sint)
+        elementos.append(Spacer(1, 0.25 * cm))
+
+        # 4.2 Detalhamento por Categoria mostrando Escola, Fornecedor e Situação (Ativo/Baixado)
+        for c in lista_categorias_pc:
+            cab_c = Table(
+                [[
+                    Paragraph(f"<b>CATEGORIA: {_esc_pdf(c['nome'].upper())}</b>", st['secao_barra']),
+                    Paragraph(
+                        f"<font color='#ffffff'>Ativos: <b>{c['qtd_ativos']}</b> ({_fmt_moeda_br(c['valor_ativos'])})  |  "
+                        f"Baixados: <b>{c['qtd_baixados']}</b> ({_fmt_moeda_br(c['valor_baixados'])})  |  "
+                        f"<b>Subtotal: {c['qtd_total']} unid. ({_fmt_moeda_br(c['valor_total'])})</b></font>",
+                        ParagraphStyle('CabCDir', parent=st['secao_barra'], alignment=TA_RIGHT, fontSize=7.3)
+                    )
+                ]],
+                colWidths=[largura_util * 0.45, largura_util * 0.55]
+            )
+            cab_c.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#334155")),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 3.5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ]))
+            elementos.append(cab_c)
+
+            rows_c_bens = [[
+                Paragraph("#", st['header_tabela']),
+                Paragraph("TOMBAMENTO", st['header_tabela']),
+                Paragraph("DESCRIÇÃO DO BEM / SÉRIE", st['header_tabela']),
+                Paragraph("ESCOLA / UNIDADE DE ALOCAÇÃO", st['header_tabela']),
+                Paragraph("FORNECEDOR / NOTA FISCAL", st['header_tabela']),
+                Paragraph("CONSERVAÇÃO", st['header_tabela']),
+                Paragraph("SITUAÇÃO (ATIVO / BAIXADO)", st['header_tabela']),
+                Paragraph("VALOR (R$)", st['header_tabela']),
+            ]]
+            for idx_b, b in enumerate(c['bens_todos'], start=1):
+                nf_rel = b.nota_fiscal_rel
+                info_u = mapa_bem_unidade.get(b.id, {})
+                esc_nome = info_u.get('nome_unidade') or b.localizacao or '-'
+                forn_n = (b.fornecedor_nome or (nf_rel.fornecedor_nome if nf_rel else '') or 'Sem Fornecedor').strip()[:34]
+                nf_n = b.numero_nota_fiscal or (nf_rel.numero_nf if nf_rel else '') or 'S/N'
+                sit_html = "<font color='#b91c1c'><b>BAIXADO / INATIVO</b></font>" if b.status == 'Baixado' else "<font color='#15803d'><b>ATIVO / EM USO</b></font>"
+
+                desc_s = f"<b>{_esc_pdf(b.descricao)}</b>"
+                if b.numero_serie:
+                    desc_s += f"<br/><font size=6 color='#475569'>Série: {_esc_pdf(b.numero_serie)}</font>"
+
+                rows_c_bens.append([
+                    Paragraph(f"{idx_b:02d}", st['celula_center']),
+                    Paragraph(f"<b>{_esc_pdf(b.numero_patrimonio or f'S/N (#{b.id})')}</b>", st['celula_center']),
+                    Paragraph(desc_s, st['celula']),
+                    Paragraph(_esc_pdf(esc_nome), st['celula']),
+                    Paragraph(f"{_esc_pdf(forn_n)}<br/><font size=6 color='#64748b'>NF: {_esc_pdf(nf_n)}</font>", st['celula']),
+                    Paragraph(_esc_pdf((b.estado_conservacao or 'Bom').upper()), st['celula_center']),
+                    Paragraph(sit_html, st['celula_center']),
+                    Paragraph(f"<b>{_fmt_moeda_br(b.valor_aquisicao, prefixo=False)}</b>", st['celula_right']),
+                ])
+
+            t_c_bens = Table(
+                rows_c_bens,
+                colWidths=[0.9 * cm, 2.4 * cm, 6.3 * cm, 5.6 * cm, 4.9 * cm, 2.1 * cm, 2.8 * cm, 2.3 * cm],
+                repeatRows=1
+            )
+            est_cb = [
+                ('BACKGROUND', (0, 0), (-1, 0), st['cor_gov_azul']),
+                ('GRID', (0, 0), (-1, -1), 0.4, st['cor_borda']),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ]
+            for r_i, b_obj in enumerate(c['bens_todos'], start=1):
+                if b_obj.status == 'Baixado':
+                    est_cb.append(('BACKGROUND', (0, r_i), (-1, r_i), colors.HexColor("#fff1f2")))
+                elif r_i % 2 == 0:
+                    est_cb.append(('BACKGROUND', (0, r_i), (-1, r_i), colors.HexColor("#f8fafc")))
+            t_c_bens.setStyle(TableStyle(est_cb))
+            elementos.append(t_c_bens)
+            elementos.append(Spacer(1, 0.25 * cm))
+
+        elementos.append(Spacer(1, 0.15 * cm))
+
+    # =========================================================================
+    # SEÇÃO V: DEMONSTRATIVO ESPECIAL DE AUDITORIA DE BENS BAIXADOS X ATIVOS
+    # =========================================================================
+    if 'auditoria_status' in secoes_marcadas and bens_baixados:
+        barra_s5 = Table(
+            [[Paragraph("<b>SEÇÃO V — RELAÇÃO ESPECÍFICA DE BENS BAIXADOS / DESINCORPORADOS PARA CONFERÊNCIA DO CONTROLE INTERNO</b>", st['secao_barra'])]],
+            colWidths=[largura_util]
+        )
+        barra_s5.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#7f1d1d")),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elementos.append(barra_s5)
+
+        rows_bx = [[
+            Paragraph("#", st['header_tabela']),
+            Paragraph("TOMBAMENTO", st['header_tabela']),
+            Paragraph("DESCRIÇÃO DO BEM", st['header_tabela']),
+            Paragraph("CATEGORIA", st['header_tabela']),
+            Paragraph("ESCOLA / PASTA DA BAIXA", st['header_tabela']),
+            Paragraph("FORNECEDOR / NF", st['header_tabela']),
+            Paragraph("JUSTIFICATIVA / HISTÓRICO DA BAIXA", st['header_tabela']),
+            Paragraph("VALOR (R$)", st['header_tabela']),
+        ]]
+        for idx_bx, b in enumerate(bens_baixados, start=1):
+            nf_rel = b.nota_fiscal_rel
+            info_u = mapa_bem_unidade.get(b.id, {})
+            esc_nome = info_u.get('nome_unidade') or b.localizacao or '-'
+            forn_n = (b.fornecedor_nome or (nf_rel.fornecedor_nome if nf_rel else '') or 'Sem Fornecedor').strip()[:30]
+            nf_n = b.numero_nota_fiscal or (nf_rel.numero_nf if nf_rel else '') or 'S/N'
+            rows_bx.append([
+                Paragraph(f"{idx_bx:02d}", st['celula_center']),
+                Paragraph(f"<font color='#b91c1c'><b>{_esc_pdf(b.numero_patrimonio or f'S/N (#{b.id})')}</b></font>", st['celula_center']),
+                Paragraph(f"<b>{_esc_pdf(b.descricao)}</b>", st['celula']),
+                Paragraph(_esc_pdf(b.categoria or 'Geral'), st['celula_center']),
+                Paragraph(f"<b>{_esc_pdf(esc_nome)}</b>", st['celula']),
+                Paragraph(f"{_esc_pdf(forn_n)} (NF: {_esc_pdf(nf_n)})", st['celula']),
+                Paragraph(_esc_pdf(_extrair_motivo_baixa_resumido(b)), st['celula']),
+                Paragraph(f"<b>{_fmt_moeda_br(b.valor_aquisicao, prefixo=False)}</b>", st['celula_right']),
+            ])
+        t_bx = Table(
+            rows_bx,
+            colWidths=[0.9 * cm, 2.3 * cm, 5.2 * cm, 2.6 * cm, 4.7 * cm, 3.9 * cm, 5.4 * cm, 2.3 * cm],
+            repeatRows=1
+        )
+        t_bx.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), st['cor_gov_azul']),
+            ('GRID', (0, 0), (-1, -1), 0.4, st['cor_borda']),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]))
+        elementos.append(t_bx)
+        elementos.append(Spacer(1, 0.35 * cm))
+
+    # =========================================================================
+    # SEÇÃO VI: PARECER DE PRESTAÇÃO DE CONTAS E ASSINATURAS OFICIAIS
+    # =========================================================================
+    usuario_emissor = session.get('username') or getattr(current_user, 'username', 'Controle Interno')
+    ass_patrimonio = nome_patrimonio or usuario_emissor.upper()
+    ass_controlador = nome_controlador or "___________________________________________________"
+    ass_gestor = nome_gestor or "___________________________________________________"
+
+    texto_parecer = (
+        f"<b>TERMO DE ENCERRAMENTO E CERTIFICAÇÃO DE PRESTAÇÃO DE CONTAS PATRIMONIAL (EXERCÍCIO {_esc_pdf(exercicio)}):</b> "
+        f"Para fins de prestação de contas anual e mensal junto ao Controle Interno Municipal e ao Tribunal de Contas do Estado (TCE/PI), "
+        f"certificamos que o inventário patrimonial consolidado neste documento compreende o total de <b>{len(todos_bens)} bem(ns) permanente(s)</b> "
+        f"no valor global histórico de <b>{_fmt_moeda_br(valor_total_geral)}</b>, sendo <b>{len(bens_ativos)} bem(ns) ATIVOS EM USO ({_fmt_moeda_br(valor_total_ativos)})</b> "
+        f"e <b>{len(bens_baixados)} bem(ns) BAIXADOS / DESINCORPORADOS ({_fmt_moeda_br(valor_total_baixados)})</b>, devidamente conciliados por "
+        "Unidade Escolar/Setor, por Fornecedor/Nota Fiscal e por Categoria Contábil (MCASP)."
+    )
+
+    bloco_ass_pc = Table(
+        [
+            [
+                Paragraph("___________________________________________________", st['celula_center']),
+                Paragraph("___________________________________________________", st['celula_center']),
+                Paragraph("___________________________________________________", st['celula_center']),
+            ],
+            [
+                Paragraph(f"<b>{_esc_pdf(ass_patrimonio)}</b><br/><font size=6.5 color='#475569'>Coordenador(a) de Controle Patrimonial</font>", st['celula_center']),
+                Paragraph(f"<b>{_esc_pdf(ass_controlador)}</b><br/><font size=6.5 color='#475569'>Controlador(a) Interno / Fiscal</font>", st['celula_center']),
+                Paragraph(f"<b>{_esc_pdf(ass_gestor)}</b><br/><font size=6.5 color='#475569'>Secretário(a) Municipal / Ordenador de Despesas</font>", st['celula_center']),
+            ],
+        ],
+        colWidths=[largura_util / 3.0, largura_util / 3.0, largura_util / 3.0]
+    )
+    bloco_ass_pc.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+
+    elementos.append(KeepTogether([
+        Paragraph(texto_parecer, st['termo']),
+        Spacer(1, 0.85 * cm),
+        bloco_ass_pc
+    ]))
+
+    doc.build(elementos, onFirstPage=cb_header, onLaterPages=cb_header)
+    buffer.seek(0)
+    return send_file(
+        buffer,
+        mimetype='application/pdf',
+        as_attachment=False,
+        download_name=f"Relatorio_Completo_Prestacao_Contas_Patrimonio_{exercicio}_{datetime.now().strftime('%Y%m%d')}.pdf"
+    )
+

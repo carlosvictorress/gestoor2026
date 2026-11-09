@@ -134,6 +134,11 @@
       </p>
     </div>
     <div class="d-flex flex-wrap gap-2">
+      <a href="{{ url_for('patrimonio.gerar_relatorio_baixados_escola_pdf') }}"
+         target="_blank"
+         class="btn btn-dark fw-bold shadow-sm">
+        <i class="bi bi-file-earmark-pdf-fill text-warning me-1"></i> Emitir PDF Governamental (Todas as Escolas)
+      </a>
       <button type="button"
               class="btn btn-danger fw-bold shadow-sm"
               data-codigo="{{ ns.pasta_ativa.codigo if ns.pasta_ativa else '' }}"
@@ -391,6 +396,11 @@
                   Total: R$ {{ "%.2f"|format(pasta.valor_total)|replace('.', ',') }}
                 </span>
               {% endif %}
+              <a href="{{ url_for('patrimonio.gerar_relatorio_baixados_escola_pdf', escola=pasta.codigo) }}"
+                 target="_blank"
+                 class="btn btn-dark fw-bold shadow-sm">
+                <i class="bi bi-file-earmark-pdf-fill text-warning me-1"></i> PDF Oficial desta Escola
+              </a>
               <button type="button"
                       class="btn btn-danger fw-bold shadow-sm"
                       data-codigo="{{ pasta.codigo }}"

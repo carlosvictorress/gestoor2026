@@ -140,6 +140,9 @@
             <p class="text-muted small mb-0">Gestão organizada por Fornecedores, Notas Fiscais, Tombamentos e Termos de Guarda Municipal.</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-danger btn-rounded shadow-sm fw-bold" onclick="abrirCentralPdfsGov('prestacao_contas')">
+                <i class="bi bi-file-earmark-pdf-fill me-1"></i> Emitir PDFs Padrão Governamental
+            </button>
             <button type="button" class="btn btn-dark btn-rounded shadow-sm fw-bold" onclick="abrirModalTransferenciaLote('', '')">
                 <i class="bi bi-arrow-left-right me-1 text-warning"></i> Transferir Bens em Lote
             </button>
@@ -227,6 +230,99 @@
                     <div>
                         <small class="text-muted d-block">Valor Contábil em Acervo</small>
                         <h4 class="fw-bold mb-0 text-success">R$ {{ "%.2f"|format(kpis.valor_acervo if kpis else 0)|replace('.', ',') }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Central de Emissão de PDFs Padrão Governamental no Dashboard -->
+    <div class="card dashboard-card shadow-sm mb-4 border-0" style="background: linear-gradient(135deg, #0f2942 0%, #1b3f66 100%); color: #ffffff;">
+        <div class="card-body p-3 p-md-4">
+            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-3">
+                <div>
+                    <span class="badge bg-warning text-dark fw-bold mb-1">
+                        <i class="bi bi-shield-check me-1"></i> Padrão Governamental • TCE / Controle Interno / MCASP
+                    </span>
+                    <h5 class="fw-bold mb-0 text-white">
+                        <i class="bi bi-file-earmark-pdf-fill text-danger me-2"></i>Central de Emissão de Relatórios Oficiais em PDF
+                    </h5>
+                    <small class="text-white-50">
+                        Emita relatórios oficiais com Timbre Institucional, QR Code de Auditoria, Protocolo e Termo de Assinaturas.
+                    </small>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">
+                        <i class="bi bi-check-circle-fill me-1"></i> Ativos: {{ kpis.total_ativos if kpis and kpis.total_ativos is defined else 0 }}
+                    </span>
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 rounded-pill">
+                        <i class="bi bi-slash-circle-fill me-1"></i> Baixados: {{ kpis.total_baixados if kpis and kpis.total_baixados is defined else 0 }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <!-- Opção 1: PDF escolhendo quais dados devem vir no relatório -->
+                <div class="col-md-4">
+                    <div class="p-3 rounded-4 h-100 d-flex flex-column justify-content-between" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.18);">
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <span class="badge bg-info text-dark rounded-pill">Opção 1</span>
+                                <h6 class="fw-bold mb-0 text-white">PDF Personalizado (Escolher Dados)</h6>
+                            </div>
+                            <p class="small text-white-50 mb-3">
+                                Escolha exatamente quais colunas e informações (Tombamento, NF, Fornecedor, Série, Local, Status, Valor, etc.) devem sair no PDF.
+                            </p>
+                        </div>
+                        <button type="button" class="btn btn-info btn-sm btn-rounded fw-bold text-dark w-100 shadow-sm" onclick="abrirCentralPdfsGov('personalizado')">
+                            <i class="bi bi-sliders me-1"></i> Escolher Dados e Gerar PDF
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Opção 2: PDF de Itens Baixados por Escola -->
+                <div class="col-md-4">
+                    <div class="p-3 rounded-4 h-100 d-flex flex-column justify-content-between" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.18);">
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <span class="badge bg-warning text-dark rounded-pill">Opção 2</span>
+                                <h6 class="fw-bold mb-0 text-white">PDF de Itens Baixados por Escola</h6>
+                            </div>
+                            <p class="small text-white-50 mb-3">
+                                Relatório oficial de desincorporação e bens baixados/inservíveis separado por Unidade Escolar, com quadro resumo e justificativas.
+                            </p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-warning btn-sm btn-rounded fw-bold text-dark flex-grow-1 shadow-sm" onclick="abrirCentralPdfsGov('baixados_escola')">
+                                <i class="bi bi-folder-symlink-fill me-1"></i> Configurar / Por Escola
+                            </button>
+                            <a href="{{ url_for('patrimonio.gerar_relatorio_baixados_escola_pdf') }}" target="_blank" class="btn btn-outline-light btn-sm btn-rounded fw-semibold" title="Emitir PDF Geral de Baixados por Escola imediatamente">
+                                <i class="bi bi-printer-fill"></i> Direto
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Opção 3: PDF Relatório Completo para Prestação de Contas -->
+                <div class="col-md-4">
+                    <div class="p-3 rounded-4 h-100 d-flex flex-column justify-content-between" style="background: rgba(220, 53, 69, 0.22); border: 1px solid rgba(255, 193, 7, 0.45);">
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <span class="badge bg-danger text-white rounded-pill">Opção 3 • Completo</span>
+                                <h6 class="fw-bold mb-0 text-white">PDF Completo — Prestação de Contas</h6>
+                            </div>
+                            <p class="small text-white-50 mb-3">
+                                Relatório integral para Prestação de Contas mostrando <strong>por Escola</strong>, <strong>por Fornecedor</strong>, <strong>por Categoria</strong> e se está <strong>Baixado ou Ativo</strong>.
+                            </p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-danger btn-sm btn-rounded fw-bold text-white flex-grow-1 shadow-sm" onclick="abrirCentralPdfsGov('prestacao_contas')">
+                                <i class="bi bi-file-earmark-check-fill me-1"></i> Abrir Prestação de Contas
+                            </button>
+                            <a href="{{ url_for('patrimonio.gerar_relatorio_prestacao_contas_pdf') }}" target="_blank" class="btn btn-light btn-sm btn-rounded fw-bold text-danger" title="Gerar PDF Completo de Prestação de Contas com 1 clique">
+                                <i class="bi bi-lightning-charge-fill"></i> 1-Clique
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2100,6 +2196,556 @@
 
         if (inputAcao) inputAcao.value = acao;
         form.submit();
+    }
+</script>
+
+<!-- ========================================================================= -->
+<!-- MODAL: CENTRAL DE EMISSÃO DE PDFs PADRÃO GOVERNAMENTAL (3 OPÇÕES)         -->
+<!-- ========================================================================= -->
+<div class="modal fade" id="modalCentralPdfsGov" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 18px;">
+            <div class="modal-header text-white border-0 py-3 px-4" style="background: linear-gradient(135deg, #0f2942 0%, #1e4e79 100%); border-top-left-radius: 18px; border-top-right-radius: 18px;">
+                <div>
+                    <span class="badge bg-warning text-dark fw-bold mb-1">
+                        <i class="bi bi-shield-check me-1"></i> Emissão Oficial Padrão Governamental • TCE / Controle Interno / MCASP
+                    </span>
+                    <h5 class="modal-title fw-bold mb-0">
+                        <i class="bi bi-file-earmark-pdf-fill text-danger me-2"></i>Central de Relatórios e Prestação de Contas em PDF
+                    </h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <!-- Navegação entre as 3 modalidades de PDF solicitadas -->
+                <ul class="nav nav-pills nav-fill gap-2 p-2 bg-light rounded-4 border mb-4" id="pillsCentralPdfsTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-3 fw-bold py-2 active"
+                                id="btn-tab-pdf-personalizado"
+                                data-bs-toggle="pill"
+                                data-bs-target="#pane-pdf-personalizado"
+                                type="button"
+                                role="tab">
+                            <i class="bi bi-sliders me-1"></i> 1. PDF Personalizado (Escolher Dados)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-3 fw-bold py-2"
+                                id="btn-tab-pdf-baixados-escola"
+                                data-bs-toggle="pill"
+                                data-bs-target="#pane-pdf-baixados-escola"
+                                type="button"
+                                role="tab">
+                            <i class="bi bi-folder-x me-1"></i> 2. PDF de Itens Baixados por Escola
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-3 fw-bold py-2"
+                                id="btn-tab-pdf-prestacao-contas"
+                                data-bs-toggle="pill"
+                                data-bs-target="#pane-pdf-prestacao-contas"
+                                type="button"
+                                role="tab">
+                            <i class="bi bi-journal-check me-1"></i> 3. PDF Completo para Prestação de Contas
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="pillsCentralPdfsContent">
+                    <!-- ================================================================= -->
+                    <!-- ABA 1: PDF COM A OPÇÃO DE ESCOLHER QUAIS DADOS DEVEM VIR          -->
+                    <!-- ================================================================= -->
+                    <div class="tab-pane fade show active" id="pane-pdf-personalizado" role="tabpanel">
+                        <form method="GET" action="{{ url_for('patrimonio.gerar_relatorio_personalizado_pdf') }}" target="_blank" id="formPdfPersonalizado">
+                            <div class="alert alert-primary border-0 rounded-4 py-2 px-3 small mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                <div>
+                                    <i class="bi bi-check2-square me-1"></i>
+                                    <strong>Relatório Sob Medida:</strong> Marque abaixo exatamente quais dados/colunas devem aparecer na tabela do PDF e escolha como agrupar ou filtrar.
+                                </div>
+                                <div class="d-flex gap-1">
+                                    <button type="button" class="btn btn-xs btn-sm btn-primary rounded-pill py-0 px-2" onclick="selecionarCamposPdfPersonalizado('todos')">
+                                        Marcar Todos
+                                    </button>
+                                    <button type="button" class="btn btn-xs btn-sm btn-outline-primary bg-white rounded-pill py-0 px-2" onclick="selecionarCamposPdfPersonalizado('padrao')">
+                                        Padrão
+                                    </button>
+                                    <button type="button" class="btn btn-xs btn-sm btn-outline-secondary bg-white rounded-pill py-0 px-2" onclick="selecionarCamposPdfPersonalizado('essencial')">
+                                        Essencial
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Seleção de Colunas / Dados -->
+                            <div class="p-3 bg-light rounded-4 border mb-3">
+                                <label class="form-label fw-bold text-dark small mb-2 d-block">
+                                    <i class="bi bi-table text-primary me-1"></i> 1. Escolha quais Dados / Colunas devem constar no PDF:
+                                </label>
+                                <div class="row g-2 small">
+                                    <div class="col-md-3 col-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border">
+                                            <input class="form-check-input chk-campo-pdf" type="checkbox" name="campos" value="tombamento" id="chk_c_tomb" checked>
+                                            <label class="form-check-label fw-semibold" for="chk_c_tomb">Nº de Tombamento</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border">
+                                            <input class="form-check-input chk-campo-pdf" type="checkbox" name="campos" value="descricao" id="chk_c_desc" checked>
+                                            <label class="form-check-label fw-semibold" for="chk_c_desc">Descrição do Bem</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border">
+                                            <input class="form-check-input chk-campo-pdf" type="checkbox" name="campos" value="categoria" id="chk_c_cat" checked>
+                                            <label class="form-check-label fw-semibold" for="chk_c_cat">Categoria / Grupo</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border">
+                                            <input class="form-check-input chk-campo-pdf" type="checkbox" name="campos" value="marca_modelo" id="chk_c_mm" checked>
+                                            <label class="form-check-label fw-semibold" for="chk_c_mm">Marca / Modelo</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border">
+                                            <input class="form-check-input chk-campo-pdf" type="checkbox" name="campos" value="numero_serie" id="chk_c_serie">
+                                            <label class="form-check-label fw-semibold" for="chk_c_serie">Nº de Série / Placa</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border">
+                                            <input class="form-check-input chk-campo-pdf" type="checkbox" name="campos" value="localizacao" id="chk_c_loc" checked>
+                                            <label class="form-check-label fw-semibold" for="chk_c_loc">Escola / Localização</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border">
+                                            <input class="form-check-input chk-campo-pdf" type="checkbox" name="campos" value="secretaria" id="chk_c_sec">
+                                            <label class="form-check-label fw-semibold" for="chk_c_sec">Secretaria Gestora</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border">
+                                            <input class="form-check-input chk-campo-pdf" type="checkbox" name="campos" value="responsavel" id="chk_c_resp">
+                                            <label class="form-check-label fw-semibold" for="chk_c_resp">Responsável / Guarda</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border">
+                                            <input class="form-check-input chk-campo-pdf" type="checkbox" name="campos" value="fornecedor" id="chk_c_forn" checked>
+                                            <label class="form-check-label fw-semibold" for="chk_c_forn">Fornecedor &amp; CNPJ</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border">
+                                            <input class="form-check-input chk-campo-pdf" type="checkbox" name="campos" value="nota_fiscal" id="chk_c_nf" checked>
+                                            <label class="form-check-label fw-semibold" for="chk_c_nf">Nota Fiscal / Empenho</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border">
+                                            <input class="form-check-input chk-campo-pdf" type="checkbox" name="campos" value="data_aquisicao" id="chk_c_dtaq">
+                                            <label class="form-check-label fw-semibold" for="chk_c_dtaq">Data de Aquisição</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border">
+                                            <input class="form-check-input chk-campo-pdf" type="checkbox" name="campos" value="estado_conservacao" id="chk_c_cons">
+                                            <label class="form-check-label fw-semibold" for="chk_c_cons">Estado de Conservação</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 col-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border border-danger-subtle">
+                                            <input class="form-check-input chk-campo-pdf" type="checkbox" name="campos" value="status" id="chk_c_status" checked>
+                                            <label class="form-check-label fw-bold text-danger" for="chk_c_status">Situação (Ativo ou Baixado)</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 col-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border border-success-subtle">
+                                            <input class="form-check-input chk-campo-pdf" type="checkbox" name="campos" value="valor" id="chk_c_val" checked>
+                                            <label class="form-check-label fw-bold text-success" for="chk_c_val">Valor Unitário (R$)</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 col-12">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border">
+                                            <input class="form-check-input chk-campo-pdf" type="checkbox" name="campos" value="observacoes" id="chk_c_obs">
+                                            <label class="form-check-label fw-semibold" for="chk_c_obs">Motivo de Baixa / Observações</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Filtros e Agrupamento do PDF Personalizado -->
+                            <div class="p-3 bg-light rounded-4 border mb-3">
+                                <label class="form-label fw-bold text-dark small mb-2 d-block">
+                                    <i class="bi bi-funnel-fill text-primary me-1"></i> 2. Filtros, Agrupamento e Opções de Página:
+                                </label>
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold mb-1">Agrupar Relatório Por</label>
+                                        <select name="agrupar_por" class="form-select form-select-sm fw-semibold border-primary">
+                                            <option value="nenhum">Sem Agrupamento (Lista Contínua)</option>
+                                            <option value="escola_local" selected>🏫 Agrupar por Escola / Local</option>
+                                            <option value="fornecedor">🏢 Agrupar por Fornecedor</option>
+                                            <option value="categoria">📦 Agrupar por Categoria</option>
+                                            <option value="status">⚖️ Agrupar por Situação (Ativos x Baixados)</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold mb-1">Situação dos Bens</label>
+                                        <select name="status_filtro" class="form-select form-select-sm fw-semibold">
+                                            <option value="todos" selected>Todos os Bens (Ativos + Baixados)</option>
+                                            <option value="Ativo">Apenas Bens Ativos (Em Uso)</option>
+                                            <option value="Baixado">Apenas Bens Baixados / Inativos</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold mb-1">Escola / Localização</label>
+                                        <select name="escola_local" class="form-select form-select-sm">
+                                            <option value="__TODOS__" selected>Todas as Escolas e Setores</option>
+                                            <option value="__APENAS_ESCOLAS__">🏫 Apenas Unidades Escolares</option>
+                                            {% if pastas_escolas_resumo %}
+                                            <optgroup label="Unidades Escolares / Pastas">
+                                                {% for u_esc in pastas_escolas_resumo %}
+                                                    <option value="{{ u_esc.codigo }}">{{ u_esc.nome }} ({{ u_esc.qtd_total }} bens)</option>
+                                                {% endfor %}
+                                            </optgroup>
+                                            {% endif %}
+                                            {% if locais_inventario %}
+                                            <optgroup label="Locais Específicos">
+                                                {% for loc_i in locais_inventario %}
+                                                    <option value="{{ loc_i.nome }}">📍 {{ loc_i.nome }}</option>
+                                                {% endfor %}
+                                            </optgroup>
+                                            {% endif %}
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold mb-1">Categoria Patrimonial</label>
+                                        <select name="categoria" class="form-select form-select-sm">
+                                            <option value="">Todas as Categorias</option>
+                                            {% if categorias_disponiveis %}
+                                                {% for cat_nome in categorias_disponiveis %}
+                                                    <option value="{{ cat_nome }}">{{ cat_nome }}</option>
+                                                {% endfor %}
+                                            {% endif %}
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold mb-1">Fornecedor</label>
+                                        <select name="fornecedor" class="form-select form-select-sm">
+                                            <option value="">Todos os Fornecedores</option>
+                                            {% if fornecedores_disponiveis %}
+                                                {% for forn_n in fornecedores_disponiveis %}
+                                                    <option value="{{ forn_n }}">{{ forn_n }}</option>
+                                                {% endfor %}
+                                            {% endif %}
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold mb-1">Secretaria</label>
+                                        <select name="secretaria_id" class="form-select form-select-sm">
+                                            <option value="">Todas as Secretarias</option>
+                                            {% for sec in secretarias %}
+                                                <option value="{{ sec.id }}">{{ sec.nome }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold mb-1">Orientação do PDF</label>
+                                        <select name="orientacao" class="form-select form-select-sm">
+                                            <option value="paisagem" selected>Paisagem (Recomendado)</option>
+                                            <option value="retrato">Retrato (Vertical)</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold mb-1">Quadro Resumo no Topo?</label>
+                                        <select name="incluir_resumo" class="form-select form-select-sm">
+                                            <option value="sim" selected>Sim (Com Resumo Contábil)</option>
+                                            <option value="nao">Não (Apenas Tabelas)</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold mb-1">Responsável (Assinatura)</label>
+                                        <input type="text" name="responsavel_assinatura" class="form-control form-control-sm" placeholder="Opcional...">
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold mb-1">Cargo (Assinatura)</label>
+                                        <input type="text" name="cargo_assinatura" class="form-control form-control-sm" placeholder="Ex: Controle Interno...">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="button" class="btn btn-secondary btn-rounded px-4" data-bs-dismiss="modal">Fechar</button>
+                                <button type="submit" class="btn btn-primary btn-rounded fw-bold px-4 shadow-sm">
+                                    <i class="bi bi-file-earmark-pdf-fill me-1"></i> Emitir PDF Personalizado
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- ================================================================= -->
+                    <!-- ABA 2: PDF DE ITENS BAIXADOS POR ESCOLA                           -->
+                    <!-- ================================================================= -->
+                    <div class="tab-pane fade" id="pane-pdf-baixados-escola" role="tabpanel">
+                        <form method="GET" action="{{ url_for('patrimonio.gerar_relatorio_baixados_escola_pdf') }}" target="_blank">
+                            <div class="alert alert-warning border-0 rounded-4 py-2 px-3 small mb-3">
+                                <i class="bi bi-archive-fill text-danger me-1"></i>
+                                <strong>Relatório Oficial de Bens Baixados / Inservíveis por Escola:</strong>
+                                Emite o demonstrativo governamental consolidado e analítico de todos os bens baixados/desincorporados organizados por Unidade Escolar, incluindo motivo/laudo da baixa, valores e termo de vistoria.
+                            </div>
+
+                            <div class="p-3 bg-light rounded-4 border mb-3">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold text-dark small mb-1">
+                                            1. Selecione a Unidade Escolar (ou Todas as Escolas)
+                                        </label>
+                                        <select name="escola" class="form-select fw-semibold border-warning">
+                                            <option value="__TODAS__" selected>🏫 TODAS AS ESCOLAS (Relatório Consolidado + Detalhado por Escola)</option>
+                                            {% if pastas_escolas_resumo %}
+                                                {% for u_esc in pastas_escolas_resumo %}
+                                                    <option value="{{ u_esc.codigo }}">
+                                                        📁 {{ u_esc.nome }} — ({{ u_esc.qtd_baixados }} baixado(s))
+                                                    </option>
+                                                {% endfor %}
+                                            {% endif %}
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-bold text-dark small mb-1">
+                                            2. Escolas sem Baixas
+                                        </label>
+                                        <select name="exibir_escolas_sem_baixa" class="form-select">
+                                            <option value="nao" selected>Listar apenas escolas com baixas</option>
+                                            <option value="sim">Listar todas as escolas (mesmo com 0)</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-bold text-dark small mb-1">
+                                            3. Exibir Valores Contábeis?
+                                        </label>
+                                        <select name="incluir_valores" class="form-select">
+                                            <option value="sim" selected>Sim (Com Valores em R$)</option>
+                                            <option value="nao">Não (Apenas Quantitativo)</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold mb-1">Incluir Sede / Outros Setores?</label>
+                                        <select name="incluir_outros_setores" class="form-select form-select-sm">
+                                            <option value="sim" selected>Sim (Escolas + Sede/Secretaria)</option>
+                                            <option value="nao">Apenas Unidades Escolares</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold mb-1">Responsável / Presidente da Comissão</label>
+                                        <input type="text" name="responsavel_comissao" class="form-control form-control-sm"
+                                               placeholder="Nome para assinatura no Termo de Baixa...">
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold mb-1">Cargo / Função na Comissão</label>
+                                        <input type="text" name="cargo_comissao" class="form-control form-control-sm"
+                                               value="Presidente da Comissão de Inventário e Baixa">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <a href="{{ url_for('patrimonio.listar_itens_baixados') }}" class="btn btn-outline-dark btn-sm btn-rounded">
+                                    <i class="bi bi-folder2-open me-1"></i> Ver Pastas de Bens Baixados na Tela
+                                </a>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-secondary btn-rounded px-4" data-bs-dismiss="modal">Fechar</button>
+                                    <button type="submit" class="btn btn-warning text-dark btn-rounded fw-bold px-4 shadow-sm">
+                                        <i class="bi bi-file-earmark-pdf-fill me-1"></i> Emitir PDF de Baixados por Escola
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- ================================================================= -->
+                    <!-- ABA 3: PDF RELATÓRIO COMPLETO PARA PRESTAÇÃO DE CONTAS            -->
+                    <!-- ================================================================= -->
+                    <div class="tab-pane fade" id="pane-pdf-prestacao-contas" role="tabpanel">
+                        <form method="GET" action="{{ url_for('patrimonio.gerar_relatorio_prestacao_contas_pdf') }}" target="_blank">
+                            <div class="alert alert-danger border-0 rounded-4 py-2 px-3 small mb-3">
+                                <i class="bi bi-award-fill me-1"></i>
+                                <strong>Relatório Completo para Prestação de Contas (Padrão TCE / Controle Interno / MCASP):</strong>
+                                Gera o caderno oficial completo demonstrando todo o patrimônio <strong>por Escola/Unidade</strong>, <strong>por Fornecedor e Notas Fiscais</strong>, <strong>por Categoria Contábil</strong> e destacando em cada item e quadro resumo se o bem está <strong>ATIVO ou BAIXADO/INATIVO</strong>.
+                            </div>
+
+                            <!-- Seções incluídas no Relatório Completo -->
+                            <div class="p-3 bg-light rounded-4 border mb-3">
+                                <label class="form-label fw-bold text-dark small mb-2 d-block">
+                                    <i class="bi bi-layers-fill text-danger me-1"></i> Cadernos / Seções Inclusas no Relatório de Prestação de Contas:
+                                </label>
+                                <div class="row g-2 small">
+                                    <div class="col-md-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border">
+                                            <input class="form-check-input" type="checkbox" name="secoes" value="resumo_executivo" id="chk_pc_s1" checked>
+                                            <label class="form-check-label fw-bold text-dark" for="chk_pc_s1">
+                                                I. Balanço Patrimonial Consolidado (Total Geral, Ativos x Baixados)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border">
+                                            <input class="form-check-input" type="checkbox" name="secoes" value="por_escola" id="chk_pc_s2" checked>
+                                            <label class="form-check-label fw-bold text-primary" for="chk_pc_s2">
+                                                II. Demonstrativo Completo por Escola / Unidade (Sintético + Analítico)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border">
+                                            <input class="form-check-input" type="checkbox" name="secoes" value="por_fornecedor" id="chk_pc_s3" checked>
+                                            <label class="form-check-label fw-bold text-success" for="chk_pc_s3">
+                                                III. Demonstrativo Completo por Fornecedor e Notas Fiscais (Sintético + Analítico)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border">
+                                            <input class="form-check-input" type="checkbox" name="secoes" value="por_categoria" id="chk_pc_s4" checked>
+                                            <label class="form-check-label fw-bold text-secondary" for="chk_pc_s4">
+                                                IV. Demonstrativo Completo por Categoria Patrimonial (Sintético + Analítico)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <div class="form-check bg-white p-2 ps-4 rounded-3 border border-danger-subtle">
+                                            <input class="form-check-input" type="checkbox" name="secoes" value="auditoria_status" id="chk_pc_s5" checked>
+                                            <label class="form-check-label fw-bold text-danger" for="chk_pc_s5">
+                                                V. Quadro Especial de Auditoria de Bens Baixados / Desincorporados (Com Motivo e Escola)
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Filtros Opcionais e Assinaturas da Prestação de Contas -->
+                            <div class="p-3 bg-light rounded-4 border mb-3">
+                                <div class="row g-3">
+                                    <div class="col-md-2">
+                                        <label class="form-label small fw-bold mb-1">Exercício / Ano</label>
+                                        <input type="text" name="exercicio" class="form-control form-control-sm fw-bold" value="2026">
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold mb-1">Situação dos Bens</label>
+                                        <select name="status_filtro" class="form-select form-select-sm fw-semibold">
+                                            <option value="todos" selected>Todos (Ativos + Baixados)</option>
+                                            <option value="Ativo">Somente Ativos</option>
+                                            <option value="Baixado">Somente Baixados</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold mb-1">Filtrar Escola / Unidade (Opcional)</label>
+                                        <select name="escola" class="form-select form-select-sm">
+                                            <option value="__TODAS__" selected>Todas as Escolas e Unidades (Completo)</option>
+                                            {% if pastas_escolas_resumo %}
+                                                {% for u_esc in pastas_escolas_resumo %}
+                                                    <option value="{{ u_esc.codigo }}">{{ u_esc.nome }} ({{ u_esc.qtd_total }} bens)</option>
+                                                {% endfor %}
+                                            {% endif %}
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold mb-1">Filtrar Categoria (Opcional)</label>
+                                        <select name="categoria" class="form-select form-select-sm">
+                                            <option value="" selected>Todas as Categorias</option>
+                                            {% if categorias_disponiveis %}
+                                                {% for cat_nome in categorias_disponiveis %}
+                                                    <option value="{{ cat_nome }}">{{ cat_nome }}</option>
+                                                {% endfor %}
+                                            {% endif %}
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold mb-1">Coordenador(a) de Patrimônio (Assinatura 1)</label>
+                                        <input type="text" name="nome_patrimonio" class="form-control form-control-sm"
+                                               placeholder="Nome do responsável pelo Patrimônio...">
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold mb-1">Controlador(a) Interno / Fiscal (Assinatura 2)</label>
+                                        <input type="text" name="nome_controlador" class="form-control form-control-sm"
+                                               placeholder="Nome do Controlador Interno / Fiscal...">
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold mb-1">Secretário(a) / Gestor(a) (Assinatura 3)</label>
+                                        <input type="text" name="nome_gestor" class="form-control form-control-sm"
+                                               placeholder="Nome do Secretário(a) ou Prefeito(a)...">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="button" class="btn btn-secondary btn-rounded px-4" data-bs-dismiss="modal">Fechar</button>
+                                <button type="submit" class="btn btn-danger btn-rounded fw-bold px-4 shadow-sm">
+                                    <i class="bi bi-file-earmark-pdf-fill me-1"></i> Emitir PDF Completo de Prestação de Contas
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function abrirCentralPdfsGov(abaInicial) {
+        const modalEl = document.getElementById('modalCentralPdfsGov');
+        if (!modalEl) return;
+        const modalInst = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modalInst.show();
+
+        let btnId = 'btn-tab-pdf-personalizado';
+        if (abaInicial === 'baixados_escola') {
+            btnId = 'btn-tab-pdf-baixados-escola';
+        } else if (abaInicial === 'prestacao_contas') {
+            btnId = 'btn-tab-pdf-prestacao-contas';
+        }
+        const tabBtn = document.getElementById(btnId);
+        if (tabBtn) {
+            const tabInst = bootstrap.Tab.getOrCreateInstance(tabBtn);
+            tabInst.show();
+        }
+    }
+
+    function selecionarCamposPdfPersonalizado(modo) {
+        const padrao = ['tombamento', 'descricao', 'categoria', 'marca_modelo', 'localizacao', 'fornecedor', 'nota_fiscal', 'status', 'valor'];
+        const essencial = ['tombamento', 'descricao', 'localizacao', 'status', 'valor'];
+        document.querySelectorAll('.chk-campo-pdf').forEach(chk => {
+            if (modo === 'todos') {
+                chk.checked = true;
+            } else if (modo === 'padrao') {
+                chk.checked = padrao.includes(chk.value);
+            } else if (modo === 'essencial') {
+                chk.checked = essencial.includes(chk.value);
+            }
+        });
     }
 </script>
 {% endblock %}

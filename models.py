@@ -109,26 +109,65 @@ class Veiculo(db.Model):
     certificado_tacografo = db.Column(db.String(50), nullable=True)
     data_emissao_tacografo = db.Column(db.Date, nullable=True)
     validade_tacografo = db.Column(db.Date, nullable=True)
+    extintor_incendio = db.Column(db.String(50), nullable=True)
+    validade_extintor = db.Column(db.Date, nullable=True)
+
+
+class PostoCombustivel(db.Model):
+    __tablename__ = "posto_combustivel"
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(150), nullable=False)
+    cnpj = db.Column(db.String(30), nullable=True)
+    endereco = db.Column(db.String(200), nullable=True)
+    telefone = db.Column(db.String(30), nullable=True)
+    preco_gasolina_comum = db.Column(db.Float, nullable=False, default=5.89)
+    preco_gasolina_aditivada = db.Column(db.Float, nullable=False, default=6.09)
+    preco_diesel_s10 = db.Column(db.Float, nullable=False, default=6.19)
+    preco_diesel_comum = db.Column(db.Float, nullable=False, default=6.05)
+    preco_etanol = db.Column(db.Float, nullable=False, default=4.39)
+    ativo = db.Column(db.Boolean, default=True)
+
+    def obter_preco_combustivel(self, tipo_combustivel):
+        t = (tipo_combustivel or "").strip().lower()
+        if "aditivada" in t:
+            return self.preco_gasolina_aditivada or 0.0
+        elif "gasolina" in t:
+            return self.preco_gasolina_comum or 0.0
+        elif "s10" in t or "s-10" in t:
+            return self.preco_diesel_s10 or 0.0
+        elif "diesel" in t:
+            return self.preco_diesel_comum or 0.0
+        elif "etanol" in t or "alcool" in t or "álcool" in t:
+            return self.preco_etanol or 0.0
+        return self.preco_gasolina_comum or 0.0
 
 
 class Abastecimento(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    codigo_ordem = db.Column(db.String(20), nullable=True)
     data = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    quilometragem = db.Column(db.Float, nullable=False)
+    quilometragem = db.Column(db.Float, nullable=False, default=0.0)
     tipo_combustivel = db.Column(db.String(50), nullable=False)
-    litros = db.Column(db.Float, nullable=False)
-    valor_litro = db.Column(db.Float, nullable=False)
-    valor_total = db.Column(db.Float, nullable=False)
+    litros = db.Column(db.Float, nullable=False, default=0.0)
+    valor_litro = db.Column(db.Float, nullable=False, default=0.0)
+    valor_total = db.Column(db.Float, nullable=False, default=0.0)
     veiculo_placa = db.Column(
         db.String(10), db.ForeignKey("veiculo.placa"), nullable=False
     )
-    # servidor_cpf = db.Column(db.String(14), db.ForeignKey('servidor.cpf'), nullable=False)
-    # motorista = db.relationship('Servidor', backref=db.backref('abastecimentos', lazy=True))
-
     motorista_id = db.Column(db.Integer, db.ForeignKey("motorista.id"), nullable=False)
     motorista = db.relationship(
         "Motorista", backref=db.backref("abastecimentos", lazy=True)
     )
+    posto_id = db.Column(db.Integer, db.ForeignKey("posto_combustivel.id"), nullable=True)
+    posto = db.relationship("PostoCombustivel", backref=db.backref("abastecimentos", lazy=True))
+    completar_tanque = db.Column(db.String(10), nullable=True, default="SIM")
+    status = db.Column(db.String(20), nullable=True, default="CONCLUIDO")
+    solicitante = db.Column(db.String(80), nullable=True)
+    secretaria_id = db.Column(db.Integer, db.ForeignKey("secretaria.id"), nullable=True)
+    secretaria_rel = db.relationship("Secretaria", foreign_keys=[secretaria_id])
+    observacao = db.Column(db.Text, nullable=True)
+    baixado_por = db.Column(db.String(80), nullable=True)
+    data_baixa = db.Column(db.DateTime, nullable=True)
 
 
 class Manutencao(db.Model):

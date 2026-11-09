@@ -1,0 +1,322 @@
+{% extends 'base.html' %}
+
+{% block title %}Ordens Pendentes — Baixa de Abastecimento do Posto{% endblock %}
+
+{% block content %}
+<!-- Card Superior de Cabeçalho (Estilo Print 2) -->
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-body p-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h4 class="fw-bold text-dark mb-1">Listar Ordens Pendentes</h4>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0 small">
+                    <li class="breadcrumb-item"><a href="{{ url_for('lancar_abastecimento') }}" class="text-decoration-none text-muted">Home</a></li>
+                    <li class="breadcrumb-item active text-primary fw-semibold" aria-current="page">Ordens Pendentes (Baixa do Posto)</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <form method="GET" action="{{ url_for('ordens_pendentes_posto') }}" class="d-flex align-items-center gap-2">
+                <select name="posto_id" class="form-select form-select-sm fw-semibold" onchange="this.form.submit()" style="min-width: 210px;">
+                    <option value="">Todos os Postos Credenciados</option>
+                    {% for p in postos %}
+                    <option value="{{ p.id }}" {% if posto_filtro == p.id %}selected{% endif %}>{{ p.nome }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% if session.get('role') in ['admin', 'Combustivel'] %}
+            <a href="{{ url_for('lancar_abastecimento') }}" class="btn btn-outline-primary btn-sm fw-bold px-3">
+                <i class="bi bi-speedometer2 me-1"></i> Voltar à Dashboard de Combustível
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Tabela Principal: Abastecimentos Pendentes (N) -->
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-header bg-white py-3 px-4 border-bottom-0">
+        <h5 class="fw-bold text-primary mb-3">
+            Abastecimentos Pendentes ({{ ordens_pendentes|length }})
+        </h5>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div class="d-flex align-items-center gap-2 small text-muted">
+                <span>Show</span>
+                <select id="selectLimitPosto" class="form-select form-select-sm" style="width: 75px;">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="9999">Todos</option>
+                </select>
+                <span>entries</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <label class="small text-muted mb-0">Pesquisar</label>
+                <input type="text" id="inputBuscaPosto" class="form-control form-control-sm" placeholder="Código (ex: 59559), placa, motorista..." style="width: 260px;">
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body px-4 pt-2 pb-3">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="tabelaPostoPendentes">
+                <thead class="border-top border-bottom small fw-bold text-dark">
+                    <tr>
+                        <th>Nº</th>
+                        <th>Data Abastec.</th>
+                        <th>Posto</th>
+                        <th>Veículo</th>
+                        <th>Motorista</th>
+                        <th>Combustível</th>
+                        <th class="text-center">Completar?</th>
+                        <th>Preço/L</th>
+                        <th>Secretaria</th>
+                        <th>Solicitante</th>
+                        <th>Obs</th>
+                        <th class="text-center">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ordem in ordens_pendentes %}
+                    <tr class="linha-posto-pendente">
+                        <td>
+                            <span class="badge bg-danger text-white fw-bold font-monospace fs-6 px-2 py-1">
+                                {{ ordem.codigo_ordem or ordem.id }}
+                            </span>
+                        </td>
+                        <td class="small fw-semibold">{{ ordem.data.strftime('%d/%m/%Y') }}</td>
+                        <td class="small fw-bold text-dark">{{ ordem.posto.nome if ordem.posto else 'POSTO PADRÃO' }}</td>
+                        <td>
+                            <div class="fw-bold text-dark">{{ ordem.veiculo_placa }}</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">{{ ordem.veiculo.modelo if ordem.veiculo else '' }}</div>
+                        </td>
+                        <td class="small text-uppercase fw-semibold">{{ ordem.motorista.nome if ordem.motorista else '---' }}</td>
+                        <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-bold">{{ ordem.tipo_combustivel }}</span></td>
+                        <td class="text-center">
+                            {% if ordem.completar_tanque == 'SIM' %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle fw-bold">SIM</span>
+                            {% else %}
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle fw-bold">NÃO</span>
+                            {% endif %}
+                        </td>
+                        <td class="small fw-bold text-primary">R$ {{ "%.2f"|format(ordem.valor_litro or 0)|replace('.', ',') }}</td>
+                        <td class="small">{{ ordem.secretaria_rel.nome if ordem.secretaria_rel else (ordem.veiculo.secretaria.nome if ordem.veiculo and ordem.veiculo.secretaria else '---') }}</td>
+                        <td class="small fw-semibold text-uppercase">{{ ordem.solicitante or 'ADMIN' }}</td>
+                        <td class="small text-muted" style="max-width: 180px;">{{ ordem.observacao or '---' }}</td>
+                        <td class="text-center">
+                            <button type="button"
+                                    class="btn btn-sm btn-success fw-bold px-3 shadow-sm"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalFrentistaBaixa{{ ordem.id }}">
+                                <i class="bi bi-fuel-pump-fill me-1"></i> Dar Baixa
+                            </button>
+                        </td>
+                    </tr>
+
+                    <!-- Modal de Baixa do Frentista -->
+                    <div class="modal fade" id="modalFrentistaBaixa{{ ordem.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                                <div class="modal-header bg-primary text-white border-0 py-3">
+                                    <h5 class="modal-title fw-bold">
+                                        <i class="bi bi-fuel-pump-fill me-2"></i>Dar Baixa no Abastecimento — #{{ ordem.codigo_ordem or ordem.id }}
+                                    </h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                </div>
+                                <form action="{{ url_for('dar_baixa_abastecimento', id=ordem.id) }}" method="POST">
+                                    <input type="hidden" name="origem" value="posto">
+                                    <div class="modal-body p-4">
+                                        <div class="p-3 rounded-3 bg-light border mb-3">
+                                            <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                                                <span class="small text-muted fw-bold text-uppercase">Código da Ordem</span>
+                                                <span class="fs-4 fw-bold text-danger font-monospace">#{{ ordem.codigo_ordem or ordem.id }}</span>
+                                            </div>
+                                            <div class="row g-2 small">
+                                                <div class="col-6">
+                                                    <span class="text-muted d-block">Posto:</span>
+                                                    <strong class="text-dark">{{ ordem.posto.nome if ordem.posto else 'POSTO PADRÃO' }}</strong>
+                                                </div>
+                                                <div class="col-6">
+                                                    <span class="text-muted d-block">Data da Ordem:</span>
+                                                    <strong>{{ ordem.data.strftime('%d/%m/%Y') }}</strong>
+                                                </div>
+                                                <div class="col-6">
+                                                    <span class="text-muted d-block">Veículo / Placa:</span>
+                                                    <strong class="text-primary">{{ ordem.veiculo_placa }} — {{ ordem.veiculo.modelo if ordem.veiculo else '' }}</strong>
+                                                </div>
+                                                <div class="col-6">
+                                                    <span class="text-muted d-block">Motorista Autorizado:</span>
+                                                    <strong>{{ ordem.motorista.nome if ordem.motorista else '' }}</strong>
+                                                </div>
+                                                <div class="col-6">
+                                                    <span class="text-muted d-block">Combustível Autorizado:</span>
+                                                    <span class="badge bg-dark">{{ ordem.tipo_combustivel }}</span>
+                                                </div>
+                                                <div class="col-6">
+                                                    <span class="text-muted d-block">Completar Tanque?</span>
+                                                    <span class="badge {% if ordem.completar_tanque == 'SIM' %}bg-success{% else %}bg-secondary{% endif %}">{{ ordem.completar_tanque }}</span>
+                                                </div>
+                                                {% if ordem.observacao %}
+                                                <div class="col-12 mt-2 pt-2 border-top">
+                                                    <span class="text-muted d-block">Observação da Secretaria:</span>
+                                                    <strong class="text-dark">{{ ordem.observacao }}</strong>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label small fw-bold text-muted">Preço por Litro (Sistema)</label>
+                                                <input type="text" class="form-control bg-light fw-bold text-primary" value="R$ {{ '%.2f'|format(ordem.valor_litro or 0)|replace('.', ',') }} / L" readonly>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label small fw-bold text-success">Quantidade Abastecida (Litros)*</label>
+                                                <input type="text"
+                                                       class="form-control form-control-lg border-success fw-bold input-litros-posto"
+                                                       name="litros"
+                                                       data-preco="{{ ordem.valor_litro or 0 }}"
+                                                       data-target="#valorTotalPosto{{ ordem.id }}"
+                                                       placeholder="Ex: 50,00"
+                                                       required>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label small fw-bold text-dark">KM Atual do Veículo*</label>
+                                                <input type="text"
+                                                       class="form-control form-control-lg fw-bold"
+                                                       name="quilometragem"
+                                                       placeholder="Ex: {{ '%.0f'|format(ultimos_kms.get(ordem.veiculo_placa, 0)) }}"
+                                                       required>
+                                                {% if ultimos_kms.get(ordem.veiculo_placa, 0) > 0 %}
+                                                    <small class="text-muted" style="font-size: 0.72rem;">Último KM: {{ "%.0f"|format(ultimos_kms.get(ordem.veiculo_placa, 0)) }} km</small>
+                                                {% endif %}
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label small fw-bold text-muted">Valor Total a Faturar (R$)</label>
+                                                <input type="text"
+                                                       id="valorTotalPosto{{ ordem.id }}"
+                                                       class="form-control form-control-lg bg-success-subtle text-success fw-bold"
+                                                       value="R$ 0,00"
+                                                       readonly>
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label small fw-bold text-muted">Nº do Cupom / Nota ou Observação do Frentista (Opcional)</label>
+                                                <input type="text" class="form-control" name="observacao_baixa" placeholder="Ex: Cupom Fiscal nº 1042">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer bg-light border-0 py-3">
+                                        <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">Voltar</button>
+                                        <button type="submit" class="btn btn-success fw-bold px-4">
+                                            <i class="bi bi-check2-circle me-1"></i> Confirmar Baixa no Posto
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <tr>
+                        <td colspan="12" class="text-center py-4 bg-light text-muted">
+                            Nenhum registro encontrado
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-3 small text-muted">
+            <span>Showing {{ 1 if ordens_pendentes|length > 0 else 0 }} to {{ ordens_pendentes|length }} of {{ ordens_pendentes|length }} entries</span>
+            <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-outline-secondary disabled"><i class="bi bi-chevron-left"></i></button>
+                <button type="button" class="btn btn-outline-secondary disabled"><i class="bi bi-chevron-right"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Histórico Recente de Baixas Realizadas pelo Posto -->
+{% if baixas_hoje %}
+<div class="card border-0 shadow-sm rounded-4">
+    <div class="card-header bg-white py-3 px-4 border-bottom">
+        <h6 class="mb-0 fw-bold text-success">
+            <i class="bi bi-check-all me-1"></i> Últimas Baixas Realizadas no Posto
+        </h6>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light small">
+                    <tr>
+                        <th class="ps-4">Ordem</th>
+                        <th>Data/Hora Baixa</th>
+                        <th>Posto</th>
+                        <th>Veículo</th>
+                        <th>Motorista</th>
+                        <th>Combustível</th>
+                        <th>KM Informado</th>
+                        <th>Litros</th>
+                        <th>Valor Total</th>
+                        <th class="pe-4">Baixado por</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in baixas_hoje %}
+                    <tr class="small">
+                        <td class="ps-4 fw-bold font-monospace text-secondary">#{{ b.codigo_ordem or b.id }}</td>
+                        <td>{{ b.data_baixa.strftime('%d/%m/%Y %H:%M') if b.data_baixa else b.data.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ b.posto.nome if b.posto else '---' }}</td>
+                        <td class="fw-bold">{{ b.veiculo_placa }}</td>
+                        <td>{{ b.motorista.nome if b.motorista else '---' }}</td>
+                        <td>{{ b.tipo_combustivel }}</td>
+                        <td>{{ "%.0f"|format(b.quilometragem) }} km</td>
+                        <td class="fw-bold">{{ "%.2f"|format(b.litros)|replace('.', ',') }} L</td>
+                        <td class="fw-bold text-success">R$ {{ "%.2f"|format(b.valor_total)|replace('.', ',') }}</td>
+                        <td class="pe-4"><span class="badge bg-success-subtle text-success">{{ b.baixado_por or 'POSTO' }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.input-litros-posto').forEach(input => {
+        input.addEventListener('input', function () {
+            const preco = parseFloat(this.dataset.preco || '0');
+            const litros = parseFloat((this.value || '0').replace(',', '.')) || 0;
+            const total = (litros * preco).toFixed(2).replace('.', ',');
+            const target = document.querySelector(this.dataset.target);
+            if (target) {
+                target.value = 'R$ ' + total;
+            }
+        });
+    });
+
+    const inputBusca = document.getElementById('inputBuscaPosto');
+    const selectLimit = document.getElementById('selectLimitPosto');
+    const linhas = Array.from(document.querySelectorAll('#tabelaPostoPendentes tbody tr.linha-posto-pendente'));
+
+    function filtrar() {
+        const termo = (inputBusca ? inputBusca.value : '').toLowerCase();
+        const limite = parseInt(selectLimit ? selectLimit.value : '10', 10);
+        let count = 0;
+        linhas.forEach(tr => {
+            const match = tr.textContent.toLowerCase().includes(termo);
+            if (match && count < limite) {
+                tr.style.display = '';
+                count++;
+            } else {
+                tr.style.display = 'none';
+            }
+        });
+    }
+    if (inputBusca) inputBusca.addEventListener('input', filtrar);
+    if (selectLimit) selectLimit.addEventListener('change', filtrar);
+});
+</script>
+{% endblock %}

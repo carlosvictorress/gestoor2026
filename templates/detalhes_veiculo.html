@@ -5,46 +5,28 @@
 {% block extra_head %}
 <style>
     /* Estilização da Linha do Tempo Profissional */
-    .timeline-steps { display: flex; justify-content: center; flex-wrap: wrap; margin-top: 2rem; }
-    .timeline-steps .timeline-step { align-items: center; display: flex; flex-direction: column; position: relative; margin: 1rem; width: 250px; }
-    .timeline-steps .timeline-content { width: 100%; text-align: center; }
+    .timeline-steps { display: flex; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem; gap: 1rem; }
+    .timeline-steps .timeline-step { align-items: center; display: flex; flex-direction: column; position: relative; margin: 0.5rem; width: 270px; }
+    .timeline-steps .timeline-content { width: 100%; text-align: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem 1rem; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .timeline-steps .timeline-content:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06); }
     
     /* Círculo interno dinâmico */
-    .timeline-steps .timeline-content .inner-circle { border-radius: 1.5rem; height: 1.2rem; width: 1.2rem; margin: 0 auto 0.5rem; border: 3px solid #dee2e6; background-color: #fff; z-index: 1; position: relative; }
+    .timeline-steps .timeline-content .inner-circle { border-radius: 50%; height: 2.2rem; width: 2.2rem; margin: 0 auto 0.65rem; border: 4px solid #dee2e6; background-color: #fff; z-index: 1; position: relative; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.95rem; }
     
     /* Cores de Status para a Linha do Tempo */
-    .status-success { border-color: #198754 !important; background-color: #198754 !important; }
-    .status-danger { border-color: #dc3545 !important; background-color: #dc3545 !important; }
+    .status-success { border-color: #bbf7d0 !important; background-color: #198754 !important; box-shadow: 0 0 0 4px rgba(25, 135, 84, 0.15); }
+    .status-warning { border-color: #fef08a !important; background-color: #f59e0b !important; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.18); }
+    .status-danger { border-color: #fecaca !important; background-color: #dc3545 !important; box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.15); }
+    .status-pending { border-color: #e2e8f0 !important; background-color: #64748b !important; }
 
-    .timeline-steps .timeline-step:not(:last-child):after { content: ""; border-top: 3px dashed #dee2e6; width: 100%; position: absolute; left: 50%; top: 0.45rem; z-index: 0; }
-    .timeline-steps .timeline-content .h6 { font-weight: 700; margin-bottom: 0.25rem; color: #1a202c; }
+    .timeline-steps .timeline-content .h6 { font-weight: 700; margin-bottom: 0.25rem; color: #0f172a; }
 </style>
 {% endblock %}
 
 {% block content %}
+{% set seg = indicadores.seguranca %}
 
-<div class="alert alert-secondary shadow-sm mb-4">
-    <h6 class="fw-bold"><i class="bi bi-bug"></i> Painel de Diagnóstico de Dados</h6>
-    <hr class="my-2">
-    <div class="row small font-monospace">
-        <div class="col-md-4">
-            <strong>Data Hoje (Python):</strong> {{ hoje }}<br>
-            <strong>Tacógrafo (Banco):</strong> {{ veiculo.validade_tacografo }}
-        </div>
-        <div class="col-md-4">
-            <strong>DETRAN (Banco):</strong> {{ veiculo.validade_autorizacao }}<br>
-            <strong>Extintor (Banco):</strong> {{ veiculo.validade_extintor }}
-        </div>
-        <div class="col-md-4 text-end">
-            <strong>Variáveis Disponíveis no Objeto Veículo:</strong><br>
-            <span class="badge bg-dark">Consulte os nomes exatos acima</span>
-        </div>
-    </div>
-</div>
-
-
- 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
     <div>
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb mb-1">
@@ -52,10 +34,13 @@
                 <li class="breadcrumb-item active">Detalhes</li>
             </ol>
         </nav>
-        <h2 class="fw-bold mb-0 text-dark"><i class="bi bi-truck me-2"></i>{{ veiculo.modelo }}</h2>
+        <h2 class="fw-bold mb-0 text-dark"><i class="bi bi-truck me-2 text-primary"></i>{{ veiculo.modelo }}</h2>
         <span class="badge bg-dark px-3 py-2 font-monospace mt-1" style="letter-spacing: 1px; font-size: 1rem;">{{ veiculo.placa }}</span>
     </div>
     <div class="d-flex gap-2">
+        <button type="button" class="btn btn-primary fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAtualizarCronograma">
+            <i class="bi bi-shield-check me-1"></i> Atualizar Segurança e Validades
+        </button>
         <a href="{{ url_for('gerenciar_veiculos') }}" class="btn btn-outline-secondary border-2 fw-bold">
             <i class="bi bi-arrow-left"></i> Voltar
         </a>
@@ -66,7 +51,7 @@
     <div class="card-header bg-primary text-white py-3 border-0">
         <div class="d-flex justify-content-between align-items-center">
             <h5 class="mb-0 fw-bold"><i class="bi bi-card-checklist me-2"></i>Ficha Técnica e Documentação</h5>
-            <span class="badge bg-white text-primary fw-bold">{{ veiculo.tipo }}</span>
+            <span class="badge bg-white text-primary fw-bold px-3 py-2">{{ veiculo.tipo }}</span>
         </div>
     </div>
     <div class="card-body p-4 bg-white">
@@ -92,73 +77,74 @@
             </div>
         </div>
 
-        {% if veiculo.tipo in ['Ônibus', 'Micro-ônibus', 'Van'] %}
         <div class="row g-3">
             <div class="col-md-4">
-                {% set detran_vencido = veiculo.validade_autorizacao < hoje if veiculo.validade_autorizacao else True %}
-                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 {% if detran_vencido %}border-danger{% else %}border-success{% endif %}">
-                    <label class="text-muted small fw-bold text-uppercase d-block mb-2">Autorização DETRAN</label>
+                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 {% if seg.detran.status == 'regular' %}border-success{% elif seg.detran.status == 'atencao' %}border-warning{% elif seg.detran.status == 'vencido' %}border-danger{% else %}border-secondary{% endif %}">
+                    <label class="text-muted small fw-bold text-uppercase d-block mb-2">
+                        <i class="bi bi-file-earmark-check me-1"></i> Autorização DETRAN
+                    </label>
                     <div class="d-flex justify-content-between align-items-center">
-                        <span class="fw-bold">{{ veiculo.autorizacao_detran or 'Não cadastrada' }}</span>
-                        {% if veiculo.validade_autorizacao %}
-                        <span class="badge {% if detran_vencido %}bg-danger{% else %}bg-success{% endif %}">{{ veiculo.validade_autorizacao.strftime('%d/%m/%Y') }}</span>
-                        {% endif %}
+                        <span class="fw-bold text-dark">{{ veiculo.autorizacao_detran or 'Não cadastrada' }}</span>
+                        <span class="badge {{ seg.detran.badge_class }}">{{ seg.detran.data_fmt }}</span>
                     </div>
+                    <small class="d-block mt-1 {{ seg.detran.text_class }} fw-semibold">{{ seg.detran.detalhe_dias }}</small>
                 </div>
             </div>
             <div class="col-md-4">
-                {% set tacografo_vencido = veiculo.validade_tacografo < hoje if veiculo.validade_tacografo else True %}
-                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 {% if tacografo_vencido %}border-danger{% else %}border-success{% endif %}">
-                    <label class="text-muted small fw-bold text-uppercase d-block mb-2">Certificado Tacógrafo</label>
+                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 {% if seg.tacografo.status == 'regular' %}border-success{% elif seg.tacografo.status == 'atencao' %}border-warning{% elif seg.tacografo.status == 'vencido' %}border-danger{% else %}border-secondary{% endif %}">
+                    <label class="text-muted small fw-bold text-uppercase d-block mb-2">
+                        <i class="bi bi-speedometer2 me-1"></i> Certificado Tacógrafo
+                    </label>
                     <div class="d-flex justify-content-between align-items-center">
-                        <span class="fw-bold">{{ veiculo.certificado_tacografo or 'Não cadastrado' }}</span>
-                        {% if veiculo.validade_tacografo %}
-                        <span class="badge {% if tacografo_vencido %}bg-danger{% else %}bg-success{% endif %}">{{ veiculo.validade_tacografo.strftime('%d/%m/%Y') }}</span>
-                        {% endif %}
+                        <span class="fw-bold text-dark">{{ veiculo.certificado_tacografo or 'Não cadastrado' }}</span>
+                        <span class="badge {{ seg.tacografo.badge_class }}">{{ seg.tacografo.data_fmt }}</span>
                     </div>
+                    <small class="d-block mt-1 {{ seg.tacografo.text_class }} fw-semibold">
+                        {{ seg.tacografo.detalhe_dias }}
+                        {% if veiculo.data_emissao_tacografo %} • Emissão: {{ veiculo.data_emissao_tacografo.strftime('%d/%m/%Y') }}{% endif %}
+                    </small>
                 </div>
             </div>
             <div class="col-md-4">
-                {% set extintor_vencido = veiculo.validade_extintor < hoje if veiculo.validade_extintor else True %}
-                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 {% if extintor_vencido %}border-danger{% else %}border-success{% endif %}">
-                    <label class="text-muted small fw-bold text-uppercase d-block mb-2">Extintor de Incêndio</label>
+                <div class="p-3 border rounded-3 bg-light h-100 border-start border-4 {% if seg.extintor.status == 'regular' %}border-success{% elif seg.extintor.status == 'atencao' %}border-warning{% elif seg.extintor.status == 'vencido' %}border-danger{% else %}border-secondary{% endif %}">
+                    <label class="text-muted small fw-bold text-uppercase d-block mb-2">
+                        <i class="bi bi-fire me-1"></i> Extintor de Incêndio
+                    </label>
                     <div class="d-flex justify-content-between align-items-center">
-                        <span class="fw-bold">{{ veiculo.extintor_incendio or 'Não cadastrado' }}</span>
-                        {% if veiculo.validade_extintor %}
-                        <span class="badge {% if extintor_vencido %}bg-danger{% else %}bg-success{% endif %}">{{ veiculo.validade_extintor.strftime('%d/%m/%Y') }}</span>
-                        {% endif %}
+                        <span class="fw-bold text-dark">{{ veiculo.extintor_incendio or 'Não cadastrado' }}</span>
+                        <span class="badge {{ seg.extintor.badge_class }}">{{ seg.extintor.data_fmt }}</span>
                     </div>
+                    <small class="d-block mt-1 {{ seg.extintor.text_class }} fw-semibold">{{ seg.extintor.detalhe_dias }}</small>
                 </div>
             </div>
         </div>
-        {% endif %}
     </div>
 </div>
 
 <div class="row mb-4 g-3">
     <div class="col-md-3">
-        <div class="card shadow-sm border-0 rounded-4 text-center p-3">
+        <div class="card shadow-sm border-0 rounded-4 text-center p-3 h-100">
             <i class="bi bi-currency-dollar fs-3 text-danger mb-2"></i>
             <h6 class="text-muted small fw-bold text-uppercase mb-1">Gasto Acumulado</h6>
             <h4 class="fw-bold mb-0">R$ {{ "%.2f"|format(indicadores.gasto_total)|replace('.', ',') }}</h4>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card shadow-sm border-0 rounded-4 text-center p-3">
+        <div class="card shadow-sm border-0 rounded-4 text-center p-3 h-100">
             <i class="bi bi-speedometer2 fs-3 text-dark mb-2"></i>
             <h6 class="text-muted small fw-bold text-uppercase mb-1">Distância Total</h6>
             <h4 class="fw-bold mb-0">{{ "%.1f"|format(indicadores.total_km_rodado)|replace('.', ',') }} km</h4>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card shadow-sm border-0 rounded-4 text-center p-3">
+        <div class="card shadow-sm border-0 rounded-4 text-center p-3 h-100">
             <i class="bi bi-fuel-pump fs-3 text-primary mb-2"></i>
             <h6 class="text-muted small fw-bold text-uppercase mb-1">Consumo Médio</h6>
             <h4 class="fw-bold mb-0 text-primary">{{ "%.2f"|format(indicadores.consumo_medio_geral)|replace('.', ',') }} km/L</h4>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card shadow-sm border-0 rounded-4 text-center p-3">
+        <div class="card shadow-sm border-0 rounded-4 text-center p-3 h-100">
             <i class="bi bi-graph-up fs-3 text-success mb-2"></i>
             <h6 class="text-muted small fw-bold text-uppercase mb-1">Custo por KM</h6>
             <h4 class="fw-bold mb-0 text-success">R$ {{ "%.2f"|format(indicadores.custo_medio_km)|replace('.', ',') }}</h4>
@@ -167,52 +153,171 @@
 </div>
 
 <div class="card shadow-sm border-0 rounded-4 mb-4">
-    <div class="card-header bg-white py-3 border-bottom">
-        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-clock-history me-2 text-primary"></i>Cronograma de Segurança e Validades</h5>
-    </div>
-    <div class="card-body">
-<div class="timeline-steps">
-    <div class="timeline-step">
-        <div class="timeline-content">
-            {# Compara como string se o dado não for objeto de data #}
-            {% set taco_data = veiculo.validade_tacografo|string %}
-            {% set hoje_str = hoje|string %}
-            {% set taco_ok = veiculo.validade_tacografo and taco_data >= hoje_str %}
-            
-            <div class="inner-circle {% if taco_ok %}status-success{% else %}status-danger{% endif %}"></div>
-            <p class="h6 mt-3 mb-1">Tacógrafo</p>
-            <p class="small mb-0 {% if taco_ok %}text-success{% else %}text-danger{% endif %}">
-                <b>{{ veiculo.validade_tacografo if veiculo.validade_tacografo else 'Pendente' }}</b>
-            </p>
+    <div class="card-header bg-white py-3 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <h5 class="mb-0 fw-bold text-dark">
+                <i class="bi bi-clock-history me-2 text-primary"></i>Cronograma de Segurança e Validades
+            </h5>
+            <small class="text-muted">Monitoramento ativo de Tacógrafo, Autorização do DETRAN e Extintor de Incêndio</small>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">
+                <i class="bi bi-check-circle-fill me-1"></i>{{ seg.resumo.regulares }} Em Dia
+            </span>
+            {% if seg.resumo.atencao > 0 %}
+            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 rounded-pill">
+                <i class="bi bi-exclamation-circle-fill me-1"></i>{{ seg.resumo.atencao }} Vence em Breve
+            </span>
+            {% endif %}
+            {% if seg.resumo.vencidos > 0 %}
+            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 rounded-pill">
+                <i class="bi bi-x-octagon-fill me-1"></i>{{ seg.resumo.vencidos }} Vencido(s)
+            </span>
+            {% endif %}
+            {% if seg.resumo.pendentes > 0 %}
+            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-2 rounded-pill">
+                <i class="bi bi-dash-circle me-1"></i>{{ seg.resumo.pendentes }} Pendente(s)
+            </span>
+            {% endif %}
+            <button type="button" class="btn btn-sm btn-outline-primary fw-bold rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#modalAtualizarCronograma">
+                <i class="bi bi-pencil-square me-1"></i> Editar Datas
+            </button>
         </div>
     </div>
+    <div class="card-body p-4">
+        <div class="timeline-steps">
+            <div class="timeline-step">
+                <div class="timeline-content">
+                    <div class="inner-circle {{ seg.tacografo.circle_class }}">
+                        <i class="bi {% if seg.tacografo.status == 'regular' %}bi-check-lg{% elif seg.tacografo.status == 'atencao' %}bi-exclamation-lg{% elif seg.tacografo.status == 'vencido' %}bi-x-lg{% else %}bi-clock{% endif %}"></i>
+                    </div>
+                    <p class="h6 mt-2 mb-1">Tacógrafo</p>
+                    <div class="small text-muted mb-2">
+                        Certificado: <strong>{{ veiculo.certificado_tacografo or 'Não informado' }}</strong>
+                    </div>
+                    <span class="badge {{ seg.tacografo.badge_class }} px-3 py-2 rounded-pill mb-2">
+                        {{ seg.tacografo.label }} • {{ seg.tacografo.data_fmt }}
+                    </span>
+                    <p class="small mb-0 fw-semibold {{ seg.tacografo.text_class }}">
+                        {{ seg.tacografo.detalhe_dias }}
+                    </p>
+                </div>
+            </div>
 
-    <div class="timeline-step">
-        <div class="timeline-content">
-            {% set detran_data = veiculo.validade_autorizacao|string %}
-            {% set detran_ok = veiculo.validade_autorizacao and detran_data >= hoje_str %}
-            
-            <div class="inner-circle {% if detran_ok %}status-success{% else %}status-danger{% endif %}"></div>
-            <p class="h6 mt-3 mb-1">Autorização DETRAN</p>
-            <p class="small mb-0 {% if detran_ok %}text-success{% else %}text-danger{% endif %}">
-                <b>{{ veiculo.validade_autorizacao if veiculo.validade_autorizacao else 'Pendente' }}</b>
-            </p>
-        </div>
-    </div>
+            <div class="timeline-step">
+                <div class="timeline-content">
+                    <div class="inner-circle {{ seg.detran.circle_class }}">
+                        <i class="bi {% if seg.detran.status == 'regular' %}bi-check-lg{% elif seg.detran.status == 'atencao' %}bi-exclamation-lg{% elif seg.detran.status == 'vencido' %}bi-x-lg{% else %}bi-clock{% endif %}"></i>
+                    </div>
+                    <p class="h6 mt-2 mb-1">Autorização DETRAN</p>
+                    <div class="small text-muted mb-2">
+                        Nº Autorização: <strong>{{ veiculo.autorizacao_detran or 'Não informado' }}</strong>
+                    </div>
+                    <span class="badge {{ seg.detran.badge_class }} px-3 py-2 rounded-pill mb-2">
+                        {{ seg.detran.label }} • {{ seg.detran.data_fmt }}
+                    </span>
+                    <p class="small mb-0 fw-semibold {{ seg.detran.text_class }}">
+                        {{ seg.detran.detalhe_dias }}
+                    </p>
+                </div>
+            </div>
 
-    <div class="timeline-step">
-        <div class="timeline-content">
-            {% set ext_data = veiculo.validade_extintor|string %}
-            {% set ext_ok = veiculo.validade_extintor and ext_data >= hoje_str %}
-            
-            <div class="inner-circle {% if ext_ok %}status-success{% else %}status-danger{% endif %}"></div>
-            <p class="h6 mt-3 mb-1">Extintor de Incêndio</p>
-            <p class="small mb-0 {% if ext_ok %}text-success{% else %}text-danger{% endif %}">
-                <b>{{ veiculo.validade_extintor if veiculo.validade_extintor else 'Pendente' }}</b>
-            </p>
+            <div class="timeline-step">
+                <div class="timeline-content">
+                    <div class="inner-circle {{ seg.extintor.circle_class }}">
+                        <i class="bi {% if seg.extintor.status == 'regular' %}bi-check-lg{% elif seg.extintor.status == 'atencao' %}bi-exclamation-lg{% elif seg.extintor.status == 'vencido' %}bi-x-lg{% else %}bi-clock{% endif %}"></i>
+                    </div>
+                    <p class="h6 mt-2 mb-1">Extintor de Incêndio</p>
+                    <div class="small text-muted mb-2">
+                        Nº / Série: <strong>{{ veiculo.extintor_incendio or 'Não informado' }}</strong>
+                    </div>
+                    <span class="badge {{ seg.extintor.badge_class }} px-3 py-2 rounded-pill mb-2">
+                        {{ seg.extintor.label }} • {{ seg.extintor.data_fmt }}
+                    </span>
+                    <p class="small mb-0 fw-semibold {{ seg.extintor.text_class }}">
+                        {{ seg.extintor.detalhe_dias }}
+                    </p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<!-- Modal para Atualizar Cronograma de Segurança e Validades diretamente na tela de Detalhes -->
+<div class="modal fade" id="modalAtualizarCronograma" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-primary text-white border-0 py-3">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-shield-check me-2"></i>Cronograma de Segurança e Validades — {{ veiculo.placa }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form action="{{ url_for('editar_veiculo', placa=veiculo.placa) }}" method="POST">
+                <input type="hidden" name="origem" value="detalhes">
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="p-3 border rounded-3 bg-light">
+                                <h6 class="fw-bold text-primary mb-3"><i class="bi bi-card-checklist me-1"></i> 1. Autorização do DETRAN</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Nº da Autorização DETRAN</label>
+                                        <input type="text" class="form-control" name="autorizacao_detran" value="{{ veiculo.autorizacao_detran or '' }}" placeholder="Ex: AUT-2026/9812">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Data de Validade (DETRAN)</label>
+                                        <input type="date" class="form-control" name="validade_autorizacao" value="{{ veiculo.validade_autorizacao.strftime('%Y-%m-%d') if veiculo.validade_autorizacao else '' }}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="p-3 border rounded-3 bg-light">
+                                <h6 class="fw-bold text-primary mb-3"><i class="bi bi-speedometer2 me-1"></i> 2. Certificado do Tacógrafo</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold">Nº do Certificado</label>
+                                        <input type="text" class="form-control" name="certificado_tacografo" value="{{ veiculo.certificado_tacografo or '' }}" placeholder="Ex: INMETRO-4451">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold">Data de Emissão</label>
+                                        <input type="date" class="form-control" name="data_emissao_tacografo" value="{{ veiculo.data_emissao_tacografo.strftime('%Y-%m-%d') if veiculo.data_emissao_tacografo else '' }}">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold">Data de Validade (Tacógrafo)</label>
+                                        <input type="date" class="form-control" name="validade_tacografo" value="{{ veiculo.validade_tacografo.strftime('%Y-%m-%d') if veiculo.validade_tacografo else '' }}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="p-3 border border-danger-subtle rounded-3 bg-danger-subtle bg-opacity-10">
+                                <h6 class="fw-bold text-danger mb-3"><i class="bi bi-fire me-1"></i> 3. Extintor de Incêndio</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-danger">Nº / Série do Extintor</label>
+                                        <input type="text" class="form-control" name="extintor_incendio" value="{{ veiculo.extintor_incendio or '' }}" placeholder="Ex: EXT-ABC-009">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-danger">Data de Validade (Extintor)</label>
+                                        <input type="date" class="form-control" name="validade_extintor" value="{{ veiculo.validade_extintor.strftime('%Y-%m-%d') if veiculo.validade_extintor else '' }}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0 p-3">
+                    <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary fw-bold px-4">
+                        <i class="bi bi-check2-circle me-1"></i> Salvar Cronograma e Atualizar Indicadores
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 

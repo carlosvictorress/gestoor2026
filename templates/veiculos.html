@@ -5,22 +5,49 @@
 {% block content %}
 
 {% if veiculos_com_alerta %}
-<div class="alert alert-warning border-warning shadow-sm mb-4" role="alert">
-    <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> Atenção: Documentação a Vencer</h4>
-    <p>Os seguintes veículos possuem documentos vencidos ou que irão vencer nos próximos 30 dias. Por favor, regularize a situação.</p>
-    <hr>
-    <ul class="mb-0">
+<div class="alert alert-warning border-warning shadow-sm mb-4 rounded-4" role="alert">
+    <h5 class="alert-heading fw-bold d-flex align-items-center gap-2">
+        <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+        Atenção: Cronograma de Segurança e Documentação a Vencer / Vencida
+    </h5>
+    <p class="mb-2 small">Os seguintes veículos possuem itens de segurança ou documentação (DETRAN, Tacógrafo ou Extintor) vencidos ou que irão vencer nos próximos 30 dias:</p>
+    <hr class="my-2">
+    <ul class="mb-0 small">
         {% for veiculo in veiculos_com_alerta %}
-            {% if veiculo.validade_autorizacao and veiculo.validade_autorizacao <= hoje %}
-                <li><strong>{{ veiculo.modelo }} ({{ veiculo.placa }})</strong>: Autorização do Detran VENCIDA em {{ veiculo.validade_autorizacao.strftime('%d/%m/%Y') }}.</li>
+            {% if veiculo.validade_autorizacao and veiculo.validade_autorizacao < hoje %}
+                <li class="mb-1">
+                    <a href="{{ url_for('detalhes_veiculo', placa=veiculo.placa) }}" class="fw-bold text-dark text-decoration-none">{{ veiculo.modelo }} ({{ veiculo.placa }})</a>:
+                    <span class="badge bg-danger">Autorização DETRAN VENCIDA</span> em <strong>{{ veiculo.validade_autorizacao.strftime('%d/%m/%Y') }}</strong>.
+                </li>
             {% elif veiculo.validade_autorizacao and veiculo.validade_autorizacao <= data_limite %}
-                <li><strong>{{ veiculo.modelo }} ({{ veiculo.placa }})</strong>: Autorização do Detran vence em <strong>{{ veiculo.validade_autorizacao.strftime('%d/%m/%Y') }}</strong>.</li>
+                <li class="mb-1">
+                    <a href="{{ url_for('detalhes_veiculo', placa=veiculo.placa) }}" class="fw-bold text-dark text-decoration-none">{{ veiculo.modelo }} ({{ veiculo.placa }})</a>:
+                    <span class="badge bg-warning text-dark">Autorização DETRAN vence em breve</span> (<strong>{{ veiculo.validade_autorizacao.strftime('%d/%m/%Y') }}</strong>).
+                </li>
             {% endif %}
 
-            {% if veiculo.validade_tacografo and veiculo.validade_tacografo <= hoje %}
-                <li><strong>{{ veiculo.modelo }} ({{ veiculo.placa }})</strong>: Tacógrafo VENCIDO em {{ veiculo.validade_tacografo.strftime('%d/%m/%Y') }}.</li>
+            {% if veiculo.validade_tacografo and veiculo.validade_tacografo < hoje %}
+                <li class="mb-1">
+                    <a href="{{ url_for('detalhes_veiculo', placa=veiculo.placa) }}" class="fw-bold text-dark text-decoration-none">{{ veiculo.modelo }} ({{ veiculo.placa }})</a>:
+                    <span class="badge bg-danger">Tacógrafo VENCIDO</span> em <strong>{{ veiculo.validade_tacografo.strftime('%d/%m/%Y') }}</strong>.
+                </li>
             {% elif veiculo.validade_tacografo and veiculo.validade_tacografo <= data_limite %}
-                <li><strong>{{ veiculo.modelo }} ({{ veiculo.placa }})</strong>: Tacógrafo vence em <strong>{{ veiculo.validade_tacografo.strftime('%d/%m/%Y') }}</strong>.</li>
+                <li class="mb-1">
+                    <a href="{{ url_for('detalhes_veiculo', placa=veiculo.placa) }}" class="fw-bold text-dark text-decoration-none">{{ veiculo.modelo }} ({{ veiculo.placa }})</a>:
+                    <span class="badge bg-warning text-dark">Tacógrafo vence em breve</span> (<strong>{{ veiculo.validade_tacografo.strftime('%d/%m/%Y') }}</strong>).
+                </li>
+            {% endif %}
+
+            {% if veiculo.validade_extintor and veiculo.validade_extintor < hoje %}
+                <li class="mb-1">
+                    <a href="{{ url_for('detalhes_veiculo', placa=veiculo.placa) }}" class="fw-bold text-dark text-decoration-none">{{ veiculo.modelo }} ({{ veiculo.placa }})</a>:
+                    <span class="badge bg-danger">Extintor de Incêndio VENCIDO</span> em <strong>{{ veiculo.validade_extintor.strftime('%d/%m/%Y') }}</strong>.
+                </li>
+            {% elif veiculo.validade_extintor and veiculo.validade_extintor <= data_limite %}
+                <li class="mb-1">
+                    <a href="{{ url_for('detalhes_veiculo', placa=veiculo.placa) }}" class="fw-bold text-dark text-decoration-none">{{ veiculo.modelo }} ({{ veiculo.placa }})</a>:
+                    <span class="badge bg-warning text-dark">Extintor de Incêndio vence em breve</span> (<strong>{{ veiculo.validade_extintor.strftime('%d/%m/%Y') }}</strong>).
+                </li>
             {% endif %}
         {% endfor %}
     </ul>
@@ -28,42 +55,42 @@
 {% endif %}
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="mb-0"><i class="bi bi-truck"></i> Frota Municipal</h2>
-    <span class="text-muted">Total de {{ veiculos|length }} veículos cadastrados</span>
+    <h2 class="mb-0 fw-bold"><i class="bi bi-truck text-primary me-2"></i>Frota Municipal</h2>
+    <span class="badge bg-dark px-3 py-2 rounded-pill">Total de {{ veiculos|length }} veículos cadastrados</span>
 </div>
 
-<div class="row mb-4">
+<div class="row mb-4 g-3">
     <div class="col-md-3">
-        <div class="card shadow-sm border-0 border-start border-4 border-primary">
+        <div class="card shadow-sm border-0 border-start border-4 border-primary h-100">
             <div class="card-body">
                 <h6 class="text-muted small text-uppercase fw-bold">Total Frota</h6>
-                <h3 class="mb-0">{{ veiculos|length }}</h3>
+                <h3 class="mb-0 fw-bold">{{ veiculos|length }}</h3>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card shadow-sm border-0 border-start border-4 border-warning">
+        <div class="card shadow-sm border-0 border-start border-4 border-warning h-100">
             <div class="card-body">
-                <h6 class="text-muted small text-uppercase fw-bold">Alertas Ativos</h6>
-                <h3 class="mb-0 text-warning">{{ veiculos_com_alerta|length }}</h3>
+                <h6 class="text-muted small text-uppercase fw-bold">Alertas de Validade</h6>
+                <h3 class="mb-0 fw-bold text-warning">{{ veiculos_com_alerta|length }}</h3>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card shadow-sm border-0 border-start border-4 border-success">
+        <div class="card shadow-sm border-0 border-start border-4 border-success h-100">
             <div class="card-body">
                 <h6 class="text-muted small text-uppercase fw-bold">Admins/Leves</h6>
-                <h3 class="mb-0 text-success">
+                <h3 class="mb-0 fw-bold text-success">
                     {{ veiculos|selectattr("tipo", "equalto", "Carro Administrativo")|list|length }}
                 </h3>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card shadow-sm border-0 border-start border-4 border-info">
+        <div class="card shadow-sm border-0 border-start border-4 border-info h-100">
             <div class="card-body">
                 <h6 class="text-muted small text-uppercase fw-bold">Pesados/Escolar</h6>
-                <h3 class="mb-0 text-info">
+                <h3 class="mb-0 fw-bold text-info">
                     {{ veiculos|rejectattr("tipo", "equalto", "Carro Administrativo")|list|length }}
                 </h3>
             </div>
@@ -73,9 +100,9 @@
 
 <div class="row">
     <div class="col-lg-4 mb-4">
-        <div class="card shadow-sm border-0 h-100">
+        <div class="card shadow-sm border-0 h-100 rounded-4 overflow-hidden">
             <div class="card-header bg-dark text-white border-0 py-3">
-                <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Cadastrar Veículo</h5>
+                <h5 class="mb-0 fw-bold"><i class="bi bi-plus-circle me-2"></i>Cadastrar Veículo</h5>
             </div>
             <div class="card-body">
                 <form action="{{ url_for('gerenciar_veiculos') }}" method="POST">
@@ -99,7 +126,7 @@
 
                     <div class="mb-3">
                         <label for="modelo" class="form-label small fw-bold">Modelo*</label>
-                        <input type="text" class="form-control" name="modelo" required placeholder="Ex: VW Gol 1.0">
+                        <input type="text" class="form-control" name="modelo" required placeholder="Ex: VW Gol 1.0 / Marcopolo Volare">
                     </div>
 
                     <div class="mb-3">
@@ -119,7 +146,7 @@
                     </div>
                     
                     <div class="mb-3">
-                         <label for="secretaria_id" class="form-label small fw-bold">Secretaria Responsável*</label>
+                        <label for="secretaria_id" class="form-label small fw-bold">Secretaria Responsável*</label>
                         <select class="form-select" name="secretaria_id" required>
                             <option value="" disabled selected>Selecione a Secretaria</option>
                             {% for sec in secretarias %}
@@ -128,45 +155,47 @@
                         </select>
                     </div>
 
-                    <div id="campos_onibus" class="p-3 border rounded bg-light" style="display: none;">
-                        <h6 class="text-primary mb-3 small fw-bold"><i class="bi bi-file-earmark-lock"></i> Documentação Especial</h6>
+                    <div id="campos_onibus" class="p-3 border rounded-3 bg-light">
+                        <h6 class="text-primary mb-3 small fw-bold d-flex align-items-center gap-1">
+                            <i class="bi bi-shield-check"></i> Cronograma de Segurança e Validades
+                        </h6>
                         <div class="mb-2">
-                            <label class="form-label small">Nº Autorização Detran</label>
-                            <input type="text" class="form-control form-control-sm" name="autorizacao_detran">
+                            <label class="form-label small fw-semibold mb-1">Nº Autorização DETRAN</label>
+                            <input type="text" class="form-control form-control-sm" name="autorizacao_detran" placeholder="Nº da Autorização">
                         </div>
                         <div class="mb-2">
-                            <label class="form-label small">Validade Autorização</label>
+                            <label class="form-label small fw-semibold mb-1">Validade Autorização DETRAN</label>
                             <input type="date" class="form-control form-control-sm" name="validade_autorizacao">
                         </div>
                         <hr class="my-2">
                         <div class="mb-2">
-                            <label class="form-label small">Nº Certificado Tacógrafo</label>
-                            <input type="text" class="form-control form-control-sm" name="certificado_tacografo">
+                            <label class="form-label small fw-semibold mb-1">Nº Certificado Tacógrafo</label>
+                            <input type="text" class="form-control form-control-sm" name="certificado_tacografo" placeholder="Nº do Certificado INMETRO">
                         </div>
-                        <div class="row mb-2">
+                        <div class="row mb-2 g-2">
                             <div class="col-6">
-                                <label class="form-label small">Emissão Tacog.</label>
+                                <label class="form-label small fw-semibold mb-1">Emissão Tacóg.</label>
                                 <input type="date" class="form-control form-control-sm" name="data_emissao_tacografo">
                             </div>
                             <div class="col-6">
-                                <label class="form-label small">Validade Tacog.</label>
+                                <label class="form-label small fw-semibold mb-1">Validade Tacóg.</label>
                                 <input type="date" class="form-control form-control-sm" name="validade_tacografo">
                             </div>
                         </div>
                         <hr class="my-2">
                         <div class="mb-2">
-                            <label class="form-label small text-danger fw-bold">Nº Extintor de Incêndio</label>
-                            <input type="text" class="form-control form-control-sm" name="extintor_incendio" placeholder="Série/ID">
+                            <label class="form-label small text-danger fw-bold mb-1">Nº / Série Extintor de Incêndio</label>
+                            <input type="text" class="form-control form-control-sm" name="extintor_incendio" placeholder="Ex: EXT-2026-01">
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label small text-danger fw-bold">Validade Extintor</label>
+                        <div class="mb-1">
+                            <label class="form-label small text-danger fw-bold mb-1">Validade do Extintor</label>
                             <input type="date" class="form-control form-control-sm" name="validade_extintor">
                         </div>
                     </div>
 
                     <div class="d-grid mt-4">
-                        <button type="submit" class="btn btn-primary shadow-sm">
-                            <i class="bi bi-save"></i> Finalizar Cadastro
+                        <button type="submit" class="btn btn-primary fw-bold py-2 shadow-sm">
+                            <i class="bi bi-save me-1"></i> Finalizar Cadastro
                         </button>
                     </div>
                 </form>
@@ -175,9 +204,9 @@
     </div>
 
     <div class="col-lg-8 mb-4">
-        <div class="card shadow-sm border-0 h-100">
+        <div class="card shadow-sm border-0 h-100 rounded-4 overflow-hidden">
             <div class="card-header bg-white py-3 border-bottom">
-                <h5 class="mb-0">Veículos em Operação</h5>
+                <h5 class="mb-0 fw-bold">Veículos em Operação</h5>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
@@ -186,6 +215,7 @@
                             <tr>
                                 <th>Identificação</th>
                                 <th>Categoria</th>
+                                <th>Segurança / Validades</th>
                                 <th>Vínculo</th>
                                 <th class="text-center">Ações</th>
                             </tr>
@@ -198,22 +228,50 @@
                                     <span class="badge bg-secondary font-monospace">{{ veiculo.placa }}</span>
                                 </td>
                                 <td>
-                                    <div class="small">{{ veiculo.tipo }}</div>
+                                    <div class="small fw-semibold">{{ veiculo.tipo }}</div>
                                     {% if veiculo.ano_modelo %}
                                         <div class="text-muted x-small">Ano: {{ veiculo.ano_modelo }}</div>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <span class="text-truncate d-inline-block" style="max-width: 150px;">
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {% if veiculo.validade_tacografo %}
+                                            {% set taco_v = veiculo.validade_tacografo < hoje %}
+                                            {% set taco_a = not taco_v and veiculo.validade_tacografo <= data_limite %}
+                                            <span class="badge {% if taco_v %}bg-danger{% elif taco_a %}bg-warning text-dark{% else %}bg-success-subtle text-success border border-success-subtle{% endif %} x-small" title="Validade do Tacógrafo">
+                                                <i class="bi bi-speedometer2"></i> Tacóg: {{ veiculo.validade_tacografo.strftime('%d/%m/%y') }}
+                                            </span>
+                                        {% endif %}
+                                        {% if veiculo.validade_autorizacao %}
+                                            {% set det_v = veiculo.validade_autorizacao < hoje %}
+                                            {% set det_a = not det_v and veiculo.validade_autorizacao <= data_limite %}
+                                            <span class="badge {% if det_v %}bg-danger{% elif det_a %}bg-warning text-dark{% else %}bg-success-subtle text-success border border-success-subtle{% endif %} x-small" title="Validade da Autorização DETRAN">
+                                                <i class="bi bi-card-checklist"></i> DETRAN: {{ veiculo.validade_autorizacao.strftime('%d/%m/%y') }}
+                                            </span>
+                                        {% endif %}
+                                        {% if veiculo.validade_extintor %}
+                                            {% set ext_v = veiculo.validade_extintor < hoje %}
+                                            {% set ext_a = not ext_v and veiculo.validade_extintor <= data_limite %}
+                                            <span class="badge {% if ext_v %}bg-danger{% elif ext_a %}bg-warning text-dark{% else %}bg-success-subtle text-success border border-success-subtle{% endif %} x-small" title="Validade do Extintor">
+                                                <i class="bi bi-fire"></i> Extintor: {{ veiculo.validade_extintor.strftime('%d/%m/%y') }}
+                                            </span>
+                                        {% endif %}
+                                        {% if not veiculo.validade_tacografo and not veiculo.validade_autorizacao and not veiculo.validade_extintor %}
+                                            <span class="text-muted x-small"><i class="bi bi-dash-circle"></i> Sem datas cadastradas</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="text-truncate d-inline-block small" style="max-width: 140px;">
                                         {{ veiculo.secretaria.nome if veiculo.secretaria else 'Sem Secretaria' }}
                                     </span>
                                 </td>
                                 <td class="text-center">
                                     <div class="btn-group shadow-sm">
-                                        <a href="{{ url_for('detalhes_veiculo', placa=veiculo.placa) }}" class="btn btn-sm btn-outline-info" title="Gestão">
+                                        <a href="{{ url_for('detalhes_veiculo', placa=veiculo.placa) }}" class="btn btn-sm btn-outline-info" title="Painel de Gestão e Cronograma">
                                             <i class="bi bi-pie-chart"></i>
                                         </a>
-                                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal{{ veiculo.placa|replace('-', '') }}" title="Editar">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal{{ veiculo.placa|replace('-', '')|replace(' ', '') }}" title="Editar Dados e Validades">
                                             <i class="bi bi-pencil"></i>
                                         </button>
                                         <a href="{{ url_for('excluir_veiculo', placa=veiculo.placa) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Excluir veículo {{ veiculo.placa }}?');" title="Excluir">
@@ -223,14 +281,14 @@
                                 </td>
                             </tr>
 
-                            <div class="modal fade" id="editModal{{ veiculo.placa|replace('-', '') }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal fade" id="editModal{{ veiculo.placa|replace('-', '')|replace(' ', '') }}" tabindex="-1" aria-hidden="true">
                                 <div class="modal-dialog modal-lg modal-dialog-centered">
-                                    <div class="modal-content border-0 shadow-lg">
+                                    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
                                         <div class="modal-header bg-primary text-white border-0">
-                                            <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Editar Veículo</h5>
+                                            <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Editar Veículo — {{ veiculo.placa }}</h5>
                                             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
-                                        <form action="/veiculos/editar/{{ veiculo.placa }}" method="POST">
+                                        <form action="{{ url_for('editar_veiculo', placa=veiculo.placa) }}" method="POST">
                                             <div class="modal-body p-4">
                                                 <div class="row g-3">
                                                     <div class="col-md-6">
@@ -261,35 +319,41 @@
                                                     </div>
 
                                                     <div class="col-12 mt-4">
-                                                        <div class="p-3 border rounded bg-light">
-                                                            <h6 class="text-primary mb-3 small fw-bold"><i class="bi bi-file-earmark-lock"></i> Documentação Especial (Edição)</h6>
+                                                        <div class="p-3 border rounded-3 bg-light">
+                                                            <h6 class="text-primary mb-3 small fw-bold">
+                                                                <i class="bi bi-shield-check me-1"></i> Cronograma de Segurança e Validades (DETRAN, Tacógrafo e Extintor)
+                                                            </h6>
                                                             
-                                                            <div class="row g-2">
+                                                            <div class="row g-3">
                                                                 <div class="col-md-6">
-                                                                    <label class="form-label small">Nº Autorização Detran</label>
-                                                                    <input type="text" class="form-control" name="autorizacao_detran" value="{{ veiculo.autorizacao_detran or '' }}">
+                                                                    <label class="form-label small fw-semibold">Nº Autorização DETRAN</label>
+                                                                    <input type="text" class="form-control" name="autorizacao_detran" value="{{ veiculo.autorizacao_detran or '' }}" placeholder="Nº da Autorização">
                                                                 </div>
                                                                 <div class="col-md-6">
-                                                                    <label class="form-label small">Validade Autorização</label>
-                                                                    <input type="date" class="form-control" name="validade_autor_detran" value="{{ veiculo.validade_autorizacao }}">
+                                                                    <label class="form-label small fw-semibold">Validade Autorização DETRAN</label>
+                                                                    <input type="date" class="form-control" name="validade_autorizacao" value="{{ veiculo.validade_autorizacao.strftime('%Y-%m-%d') if veiculo.validade_autorizacao else '' }}">
                                                                 </div>
                                                                 
-                                                                <div class="col-md-6">
-                                                                    <label class="form-label small">Nº Tacógrafo</label>
-                                                                    <input type="text" class="form-control" name="num_tacografo" value="{{ veiculo.certificado_tacografo or '' }}">
+                                                                <div class="col-md-4">
+                                                                    <label class="form-label small fw-semibold">Nº Certificado Tacógrafo</label>
+                                                                    <input type="text" class="form-control" name="certificado_tacografo" value="{{ veiculo.certificado_tacografo or '' }}" placeholder="Certificado INMETRO">
                                                                 </div>
-                                                                <div class="col-md-6">
-                                                                    <label class="form-label small">Validade Tacógrafo</label>
-                                                                    <input type="date" class="form-control" name="validade_tacografo" value="{{ veiculo.validade_tacografo }}">
+                                                                <div class="col-md-4">
+                                                                    <label class="form-label small fw-semibold">Emissão Tacógrafo</label>
+                                                                    <input type="date" class="form-control" name="data_emissao_tacografo" value="{{ veiculo.data_emissao_tacografo.strftime('%Y-%m-%d') if veiculo.data_emissao_tacografo else '' }}">
+                                                                </div>
+                                                                <div class="col-md-4">
+                                                                    <label class="form-label small fw-semibold">Validade Tacógrafo</label>
+                                                                    <input type="date" class="form-control" name="validade_tacografo" value="{{ veiculo.validade_tacografo.strftime('%Y-%m-%d') if veiculo.validade_tacografo else '' }}">
                                                                 </div>
 
                                                                 <div class="col-md-6">
-                                                                    <label class="form-label small text-danger fw-bold">Nº Extintor</label>
-                                                                    <input type="text" class="form-control" name="extintor_incendio" value="{{ veiculo.extintor_incendio or '' }}">
+                                                                    <label class="form-label small text-danger fw-bold">Nº / Série do Extintor</label>
+                                                                    <input type="text" class="form-control" name="extintor_incendio" value="{{ veiculo.extintor_incendio or '' }}" placeholder="Identificação do Extintor">
                                                                 </div>
                                                                 <div class="col-md-6">
-                                                                    <label class="form-label small text-danger fw-bold">Validade Extintor</label>
-                                                                    <input type="date" class="form-control" name="validade_extintor" value="{{ veiculo.validade_extintor }}">
+                                                                    <label class="form-label small text-danger fw-bold">Validade do Extintor</label>
+                                                                    <input type="date" class="form-control" name="validade_extintor" value="{{ veiculo.validade_extintor.strftime('%Y-%m-%d') if veiculo.validade_extintor else '' }}">
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -305,9 +369,11 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div class="modal-footer border-0 p-3">
-                                                <button type="button" class="btn btn-light fw-bold" data-bs-dismiss="modal">Cancelar</button>
-                                                <button type="submit" class="btn btn-primary fw-bold px-4">Salvar Alterações</button>
+                                            <div class="modal-footer border-0 p-3 bg-light">
+                                                <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                                                <button type="submit" class="btn btn-primary fw-bold px-4">
+                                                    <i class="bi bi-check2-circle me-1"></i> Salvar Alterações
+                                                </button>
                                             </div>
                                         </form>
                                     </div>
@@ -315,7 +381,7 @@
                             </div>
                             {% else %}
                             <tr>
-                                <td colspan="4" class="text-center py-5">
+                                <td colspan="5" class="text-center py-5">
                                     <div class="text-muted">
                                         <i class="bi bi-inbox h1 d-block"></i>
                                         Nenhum veículo encontrado.
@@ -334,24 +400,5 @@
 <style>
     .x-small { font-size: 0.75rem; }
 </style>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const tipoSelect = document.getElementById('tipoVeiculo');
-    const camposOnibus = document.getElementById('campos_onibus');
-
-    function toggleCamposOnibus() {
-        const tiposEspeciais = ['Ônibus', 'Micro-ônibus', 'Van'];
-        if (tiposEspeciais.includes(tipoSelect.value)) {
-            camposOnibus.style.display = 'block';
-        } else {
-            camposOnibus.style.display = 'none';
-        }
-    }
-
-    tipoSelect.addEventListener('change', toggleCamposOnibus);
-    toggleCamposOnibus();
-});
-</script>
 
 {% endblock %}

@@ -2502,11 +2502,129 @@ def baixar_modelo_csv():
     return response
 
 
+_migracao_veiculos_executada = False
+
+def executar_migracao_veiculos_segura():
+    """Garante que todas as colunas de segurança e validades existam na tabela veiculo (SQLite e PostgreSQL)."""
+    global _migracao_veiculos_executada
+    if _migracao_veiculos_executada:
+        return
+    try:
+        from sqlalchemy import inspect as sa_inspect, text as sa_text
+        inspector = sa_inspect(db.engine)
+        if "veiculo" in inspector.get_table_names():
+            colunas_existentes = {col["name"] for col in inspector.get_columns("veiculo")}
+            novas_colunas = [
+                ("autorizacao_detran", "VARCHAR(50)"),
+                ("validade_autorizacao", "DATE"),
+                ("renavam", "VARCHAR(50)"),
+                ("certificado_tacografo", "VARCHAR(50)"),
+                ("data_emissao_tacografo", "DATE"),
+                ("validade_tacografo", "DATE"),
+                ("extintor_incendio", "VARCHAR(50)"),
+                ("validade_extintor", "DATE"),
+            ]
+            with db.engine.begin() as conn:
+                for nome_col, tipo_sql in novas_colunas:
+                    if nome_col not in colunas_existentes:
+                        conn.execute(sa_text(f"ALTER TABLE veiculo ADD COLUMN {nome_col} {tipo_sql}"))
+        _migracao_veiculos_executada = True
+    except Exception as e:
+        print(f"Aviso na migração segura de veículos: {e}")
+
+
+def _parse_data_form(valor_str):
+    """Converte string YYYY-MM-DD ou DD/MM/YYYY de formulário em objeto date com segurança."""
+    if not valor_str:
+        return None
+    valor_str = str(valor_str).strip()
+    if not valor_str or valor_str.lower() == "none":
+        return None
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(valor_str, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _avaliar_status_validade(data_val, hoje, data_limite):
+    """Retorna dicionário padronizado com status, classe CSS, texto e dias restantes para um item de segurança."""
+    if not data_val:
+        return {
+            "status": "pendente",
+            "badge_class": "bg-secondary",
+            "circle_class": "status-pending",
+            "text_class": "text-secondary",
+            "label": "Não Cadastrado",
+            "data_fmt": "Pendente",
+            "dias_restantes": None,
+            "detalhe_dias": "Aguardando cadastro da data",
+            "ok": False,
+        }
+    if isinstance(data_val, str):
+        data_val = _parse_data_form(data_val)
+        if not data_val:
+            return {
+                "status": "pendente",
+                "badge_class": "bg-secondary",
+                "circle_class": "status-pending",
+                "text_class": "text-secondary",
+                "label": "Não Cadastrado",
+                "data_fmt": "Pendente",
+                "dias_restantes": None,
+                "detalhe_dias": "Aguardando cadastro da data",
+                "ok": False,
+            }
+
+    dias = (data_val - hoje).days
+    data_fmt = data_val.strftime("%d/%m/%Y")
+
+    if data_val < hoje:
+        return {
+            "status": "vencido",
+            "badge_class": "bg-danger",
+            "circle_class": "status-danger",
+            "text_class": "text-danger",
+            "label": "VENCIDO",
+            "data_fmt": data_fmt,
+            "dias_restantes": dias,
+            "detalhe_dias": f"Vencido há {abs(dias)} dia(s)",
+            "ok": False,
+        }
+    elif data_val <= data_limite:
+        return {
+            "status": "atencao",
+            "badge_class": "bg-warning text-dark",
+            "circle_class": "status-warning",
+            "text_class": "text-warning",
+            "label": "VENCE EM BREVE",
+            "data_fmt": data_fmt,
+            "dias_restantes": dias,
+            "detalhe_dias": "Vence hoje!" if dias == 0 else f"Vence em {dias} dia(s)",
+            "ok": True,
+        }
+    else:
+        return {
+            "status": "regular",
+            "badge_class": "bg-success",
+            "circle_class": "status-success",
+            "text_class": "text-success",
+            "label": "REGULAR / EM DIA",
+            "data_fmt": data_fmt,
+            "dias_restantes": dias,
+            "detalhe_dias": f"Válido por mais {dias} dia(s)",
+            "ok": True,
+        }
+
+
 @app.route("/veiculo/<string:placa>/detalhes")
 @login_required
 @check_license
 @role_required("Combustivel", "admin")
 def detalhes_veiculo(placa):
+    executar_migracao_veiculos_segura()
+    executar_migracao_combustivel_segura()
     veiculo = Veiculo.query.get_or_404(placa)
     
     # Adicionando as variáveis de data para as verificações de status/pendência
@@ -2514,7 +2632,10 @@ def detalhes_veiculo(placa):
     data_limite = hoje + timedelta(days=30) # Útil para alertas de "Vence em breve"
 
     abastecimentos = (
-        Abastecimento.query.filter_by(veiculo_placa=placa)
+        Abastecimento.query.filter(
+            Abastecimento.veiculo_placa == placa,
+            or_(Abastecimento.status == None, Abastecimento.status != "PENDENTE")
+        )
         .order_by(Abastecimento.quilometragem.asc())
         .all()
     )
@@ -2523,6 +2644,20 @@ def detalhes_veiculo(placa):
         .order_by(Manutencao.data.desc())
         .all()
     )
+
+    seguranca = {
+        "tacografo": _avaliar_status_validade(veiculo.validade_tacografo, hoje, data_limite),
+        "detran": _avaliar_status_validade(veiculo.validade_autorizacao, hoje, data_limite),
+        "extintor": _avaliar_status_validade(veiculo.validade_extintor, hoje, data_limite),
+    }
+    itens_seg = list(seguranca.values())
+    seguranca["resumo"] = {
+        "regulares": sum(1 for i in itens_seg if i["status"] == "regular"),
+        "atencao": sum(1 for i in itens_seg if i["status"] == "atencao"),
+        "vencidos": sum(1 for i in itens_seg if i["status"] == "vencido"),
+        "pendentes": sum(1 for i in itens_seg if i["status"] == "pendente"),
+        "cadastrados": sum(1 for i in itens_seg if i["status"] != "pendente"),
+    }
     
     indicadores = {
         "gasto_combustivel": sum(a.valor_total for a in abastecimentos),
@@ -2531,6 +2666,7 @@ def detalhes_veiculo(placa):
         "total_km_rodado": 0,
         "consumo_medio_geral": 0,
         "custo_medio_km": 0,
+        "seguranca": seguranca,
     }
     
     indicadores["gasto_total"] = (
@@ -2792,14 +2928,18 @@ def uploaded_file(filename):
 @check_license
 @role_required("Combustivel", "admin")
 def gerenciar_veiculos():
+    executar_migracao_veiculos_segura()
     # Lógica para CADASTRAR um novo veículo (quando o formulário é enviado)
     if request.method == "POST":
         try:
-            nova_placa = request.form.get("placa").upper().strip()
+            nova_placa = request.form.get("placa", "").upper().strip()
             veiculo_existente = Veiculo.query.get(nova_placa)
             if veiculo_existente:
                 flash("Veículo com esta placa já cadastrado.", "danger")
                 return redirect(url_for("gerenciar_veiculos"))
+
+            val_detran_str = request.form.get("validade_autorizacao") or request.form.get("validade_autor_detran")
+            num_taco_str = request.form.get("certificado_tacografo") or request.form.get("num_tacografo")
 
             novo_veiculo = Veiculo(
                 placa=nova_placa,
@@ -2807,32 +2947,15 @@ def gerenciar_veiculos():
                 tipo=request.form.get("tipo"),
                 ano_fabricacao=request.form.get("ano_fabricacao", type=int),
                 ano_modelo=request.form.get("ano_modelo", type=int),
-                # Salva o ID da secretaria selecionada no formulário
                 secretaria_id=request.form.get("secretaria_id", type=int),
                 renavam=request.form.get("renavam") or None,
                 autorizacao_detran=request.form.get("autorizacao_detran") or None,
-                validade_autorizacao=(
-                    datetime.strptime(
-                        request.form.get("validade_autorizacao"), "%Y-%m-%d"
-                    ).date()
-                    if request.form.get("validade_autorizacao")
-                    else None
-                ),
-                certificado_tacografo=request.form.get("certificado_tacografo") or None,
-                data_emissao_tacografo=(
-                    datetime.strptime(
-                        request.form.get("data_emissao_tacografo"), "%Y-%m-%d"
-                    ).date()
-                    if request.form.get("data_emissao_tacografo")
-                    else None
-                ),
-                validade_tacografo=(
-                    datetime.strptime(
-                        request.form.get("validade_tacografo"), "%Y-%m-%d"
-                    ).date()
-                    if request.form.get("validade_tacografo")
-                    else None
-                ),
+                validade_autorizacao=_parse_data_form(val_detran_str),
+                certificado_tacografo=num_taco_str or None,
+                data_emissao_tacografo=_parse_data_form(request.form.get("data_emissao_tacografo")),
+                validade_tacografo=_parse_data_form(request.form.get("validade_tacografo")),
+                extintor_incendio=request.form.get("extintor_incendio") or None,
+                validade_extintor=_parse_data_form(request.form.get("validade_extintor")),
             )
             db.session.add(novo_veiculo)
             db.session.commit()
@@ -2862,7 +2985,7 @@ def gerenciar_veiculos():
     # Busca a lista de secretarias para popular o formulário de cadastro
     secretarias = Secretaria.query.order_by(Secretaria.nome).all()
 
-    # Lógica para os alertas de documentação
+    # Lógica para os alertas de documentação e segurança (Detran, Tacógrafo e Extintor)
     hoje = datetime.now().date()
     data_limite = hoje + timedelta(days=30)
     veiculos_com_alerta = [
@@ -2870,6 +2993,7 @@ def gerenciar_veiculos():
         for v in veiculos
         if (v.validade_autorizacao and v.validade_autorizacao <= data_limite)
         or (v.validade_tacografo and v.validade_tacografo <= data_limite)
+        or (v.validade_extintor and v.validade_extintor <= data_limite)
     ]
 
     return render_template(
@@ -2900,44 +3024,49 @@ def excluir_veiculo(placa):
 @login_required
 @role_required("Combustivel", "admin")
 def editar_veiculo(placa):
+    executar_migracao_veiculos_segura()
     veiculo = Veiculo.query.get_or_404(placa)
+    origem = request.form.get("origem", "lista")
     try:
-        # Atualizando campos básicos
-        veiculo.modelo = request.form.get("modelo")
-        veiculo.tipo = request.form.get("tipo")
-        veiculo.renavam = request.form.get("renavam")
-        veiculo.ano_fabricacao = request.form.get("ano_fabricacao", type=int)
-        veiculo.ano_modelo = request.form.get("ano_modelo", type=int)
-        veiculo.secretaria_id = request.form.get("secretaria_id", type=int)
+        # Atualiza campos básicos se vierem no formulário (permite edição rápida só de validades na tela de detalhes)
+        if "modelo" in request.form and request.form.get("modelo"):
+            veiculo.modelo = request.form.get("modelo")
+        if "tipo" in request.form and request.form.get("tipo"):
+            veiculo.tipo = request.form.get("tipo")
+        if "renavam" in request.form:
+            veiculo.renavam = request.form.get("renavam") or None
+        if "ano_fabricacao" in request.form:
+            veiculo.ano_fabricacao = request.form.get("ano_fabricacao", type=int)
+        if "ano_modelo" in request.form:
+            veiculo.ano_modelo = request.form.get("ano_modelo", type=int)
+        if "secretaria_id" in request.form and request.form.get("secretaria_id", type=int):
+            veiculo.secretaria_id = request.form.get("secretaria_id", type=int)
         
         # Atualizando Extintor
-        veiculo.extintor_incendio = request.form.get("extintor_incendio")
-        if request.form.get("validade_extintor"):
-            veiculo.validade_extintor = datetime.strptime(request.form.get("validade_extintor"), "%Y-%m-%d").date()
-        else:
-            veiculo.validade_extintor = None
+        veiculo.extintor_incendio = (request.form.get("extintor_incendio") or "").strip() or None
+        veiculo.validade_extintor = _parse_data_form(request.form.get("validade_extintor"))
 
-        # Atualizando Detran
-        veiculo.autorizacao_detran = request.form.get("autorizacao_detran")
-        if request.form.get("validade_autorizacao"):
-            veiculo.validade_autorizacao = datetime.strptime(request.form.get("validade_autorizacao"), "%Y-%m-%d").date()
-        else:
-            veiculo.validade_autorizacao = None
+        # Atualizando Detran (compatível com validade_autorizacao e validade_autor_detran)
+        veiculo.autorizacao_detran = (request.form.get("autorizacao_detran") or "").strip() or None
+        val_detran_str = request.form.get("validade_autorizacao") or request.form.get("validade_autor_detran")
+        veiculo.validade_autorizacao = _parse_data_form(val_detran_str)
 
-        # Atualizando Tacógrafo
-        veiculo.certificado_tacografo = request.form.get("certificado_tacografo")
-        if request.form.get("validade_tacografo"):
-            veiculo.validade_tacografo = datetime.strptime(request.form.get("validade_tacografo"), "%Y-%m-%d").date()
-        else:
-            veiculo.validade_tacografo = None
+        # Atualizando Tacógrafo (compatível com certificado_tacografo e num_tacografo)
+        num_taco_str = request.form.get("certificado_tacografo") or request.form.get("num_tacografo")
+        veiculo.certificado_tacografo = (num_taco_str or "").strip() or None
+        if "data_emissao_tacografo" in request.form:
+            veiculo.data_emissao_tacografo = _parse_data_form(request.form.get("data_emissao_tacografo"))
+        veiculo.validade_tacografo = _parse_data_form(request.form.get("validade_tacografo"))
 
         db.session.commit()
-        registrar_log(f"Editou o veículo: {veiculo.placa}")
-        flash("Veículo atualizado com sucesso!", "success")
+        registrar_log(f"Atualizou dados/validades do veículo: {veiculo.placa}")
+        flash("Dados e cronograma de segurança do veículo atualizados com sucesso!", "success")
     except Exception as e:
         db.session.rollback()
         flash(f"Erro ao editar veículo: {e}", "danger")
     
+    if origem == "detalhes":
+        return redirect(url_for("detalhes_veiculo", placa=veiculo.placa))
     return redirect(url_for("gerenciar_veiculos"))
 
 
@@ -3532,53 +3661,480 @@ def gerar_certidao_efetivo_exercicio(cpf):
     
     return response
 
+_migracao_combustivel_executada = False
+
+def executar_migracao_combustivel_segura():
+    """Garante que a tabela posto_combustivel e as novas colunas de ordem/baixa em abastecimento existam."""
+    global _migracao_combustivel_executada
+    if _migracao_combustivel_executada:
+        return
+    try:
+        from sqlalchemy import inspect as sa_inspect, text as sa_text
+        db.create_all()
+        inspector = sa_inspect(db.engine)
+        if "abastecimento" in inspector.get_table_names():
+            cols = {c["name"] for c in inspector.get_columns("abastecimento")}
+            novas_cols = [
+                ("codigo_ordem", "VARCHAR(20)"),
+                ("posto_id", "INTEGER"),
+                ("completar_tanque", "VARCHAR(10)"),
+                ("status", "VARCHAR(20)"),
+                ("solicitante", "VARCHAR(80)"),
+                ("secretaria_id", "INTEGER"),
+                ("observacao", "TEXT"),
+                ("baixado_por", "VARCHAR(80)"),
+                ("data_baixa", "TIMESTAMP"),
+            ]
+            with db.engine.begin() as conn:
+                for nome_col, tipo_sql in novas_cols:
+                    if nome_col not in cols:
+                        conn.execute(sa_text(f"ALTER TABLE abastecimento ADD COLUMN {nome_col} {tipo_sql}"))
+                conn.execute(sa_text("UPDATE abastecimento SET status = 'CONCLUIDO' WHERE status IS NULL"))
+                conn.execute(sa_text("UPDATE abastecimento SET completar_tanque = 'SIM' WHERE completar_tanque IS NULL"))
+
+        if PostoCombustivel.query.count() == 0:
+            posto_padrao = PostoCombustivel(
+                nome="POSTO VALADARES2",
+                cnpj="00.000.000/0001-00",
+                endereco="Valença do Piauí - PI",
+                preco_gasolina_comum=5.89,
+                preco_gasolina_aditivada=6.09,
+                preco_diesel_s10=6.19,
+                preco_diesel_comum=6.05,
+                preco_etanol=4.39,
+                ativo=True,
+            )
+            db.session.add(posto_padrao)
+            db.session.commit()
+        _migracao_combustivel_executada = True
+    except Exception as e:
+        db.session.rollback()
+        print(f"Aviso na migração segura de combustível: {e}")
+
+
+def _gerar_codigo_abastecimento():
+    """Gera um código numérico único de 5 dígitos para a Ordem de Abastecimento (ex: 59559)."""
+    import random
+    for _ in range(20):
+        cod = str(random.randint(10000, 99999))
+        if not Abastecimento.query.filter_by(codigo_ordem=cod).first():
+            return cod
+    return str(random.randint(10000, 99999))
+
+
 @app.route("/combustivel", methods=["GET", "POST"])
 @login_required
-@role_required("Combustivel", "admin")
+@role_required("Combustivel", "Posto", "admin")
 def lancar_abastecimento():
+    executar_migracao_combustivel_segura()
+    executar_migracao_veiculos_segura()
+
+    # Se o usuário logado tiver perfil exclusivo de Frentista/Posto, direciona para a tela de baixa do posto
+    if session.get("role") == "Posto" and request.method == "GET":
+        return redirect(url_for("ordens_pendentes_posto"))
+
     if request.method == "POST":
         try:
-            litros_str = request.form.get("litros", "").strip().replace(",", ".")
-            valor_litro_str = (
-                request.form.get("valor_litro", "").strip().replace(",", ".")
+            codigo_ordem = (request.form.get("codigo_ordem") or "").strip() or _gerar_codigo_abastecimento()
+            posto_id = request.form.get("posto_id", type=int)
+            posto_obj = PostoCombustivel.query.get(posto_id) if posto_id else PostoCombustivel.query.first()
+            tipo_combustivel = request.form.get("tipo_combustivel") or "Gasolina Comum"
+            completar_tanque = request.form.get("completar_tanque") or "SIM"
+            observacao = (request.form.get("observacao") or "").strip() or None
+            veiculo_placa = request.form.get("veiculo_placa")
+            motorista_id = request.form.get("motorista_id", type=int)
+
+            data_str = request.form.get("data")
+            if data_str:
+                try:
+                    data_abast = datetime.strptime(data_str, "%Y-%m-%d")
+                    agora = datetime.now()
+                    data_abast = data_abast.replace(hour=agora.hour, minute=agora.minute, second=agora.second)
+                except ValueError:
+                    data_abast = datetime.now()
+            else:
+                data_abast = datetime.now()
+
+            veiculo_obj = Veiculo.query.get(veiculo_placa) if veiculo_placa else None
+            secretaria_id_ordem = (
+                veiculo_obj.secretaria_id if veiculo_obj and veiculo_obj.secretaria_id
+                else session.get("secretaria_id")
             )
-            quilometragem_str = (
-                request.form.get("quilometragem", "").strip().replace(",", ".")
-            )
-            litros = float(litros_str) if litros_str else 0.0
-            valor_litro = float(valor_litro_str) if valor_litro_str else 0.0
-            quilometragem_val = int(quilometragem_str) if quilometragem_str else 0
-            valor_total = litros * valor_litro
+            solicitante_nome = (session.get("username") or "ADMIN").upper()
+
+            # Preço por litro já configurado pelo sistema no cadastro do Posto
+            preco_configurado = posto_obj.obter_preco_combustivel(tipo_combustivel) if posto_obj else 0.0
+            valor_litro_form = (request.form.get("valor_litro") or "").strip().replace(",", ".")
+            valor_litro = float(valor_litro_form) if valor_litro_form else preco_configurado
+
+            litros_str = (request.form.get("litros") or "").strip().replace(",", ".")
+            km_str = (request.form.get("quilometragem") or "").strip().replace(".", "").replace(",", ".")
+            litros_val = float(litros_str) if litros_str else 0.0
+            km_val = float(km_str) if km_str else 0.0
+
+            # Se litros > 0 for informado no lançamento direto, já entra concluído; caso contrário entra PENDENTE para o Posto dar baixa
+            modo_lancamento = request.form.get("modo_lancamento", "ordem_pendente")
+            if modo_lancamento == "direto" and litros_val > 0:
+                status_ordem = "CONCLUIDO"
+                valor_total = round(litros_val * valor_litro, 2)
+                baixado_por = solicitante_nome
+                data_baixa = datetime.now()
+            else:
+                status_ordem = "PENDENTE"
+                litros_val = 0.0
+                km_val = 0.0
+                valor_total = 0.0
+                baixado_por = None
+                data_baixa = None
 
             novo_abastecimento = Abastecimento(
-                veiculo_placa=request.form.get("veiculo_placa"),
-                motorista_id=request.form.get("motorista_id"),
-                quilometragem=quilometragem_val,
-                tipo_combustivel=request.form.get("tipo_combustivel"),
-                litros=litros,
+                codigo_ordem=codigo_ordem,
+                data=data_abast,
+                veiculo_placa=veiculo_placa,
+                motorista_id=motorista_id,
+                posto_id=posto_obj.id if posto_obj else None,
+                tipo_combustivel=tipo_combustivel,
+                completar_tanque=completar_tanque,
+                quilometragem=km_val,
+                litros=litros_val,
                 valor_litro=valor_litro,
                 valor_total=valor_total,
+                status=status_ordem,
+                solicitante=solicitante_nome,
+                secretaria_id=secretaria_id_ordem,
+                observacao=observacao,
+                baixado_por=baixado_por,
+                data_baixa=data_baixa,
             )
             db.session.add(novo_abastecimento)
             db.session.commit()
-            flash("Abastecimento registrado com sucesso!", "success")
+
+            if status_ordem == "PENDENTE":
+                registrar_log(f"Gerou Ordem de Abastecimento #{codigo_ordem} para o veículo {veiculo_placa} no posto {posto_obj.nome if posto_obj else 'N/A'}.")
+                flash(f"Ordem de Abastecimento #{codigo_ordem} gerada e enviada para 'Abastecimentos Pendentes' (aguardando baixa no posto)!", "success")
+            else:
+                registrar_log(f"Lançou abastecimento concluído #{codigo_ordem} para o veículo {veiculo_placa} ({litros_val}L).")
+                flash(f"Abastecimento #{codigo_ordem} registrado e baixado com sucesso!", "success")
         except Exception as e:
             db.session.rollback()
             flash(f"Erro ao registrar abastecimento: {e}", "danger")
 
         return redirect(url_for("lancar_abastecimento"))
 
+    hoje = datetime.now().date()
+    ano_atual = hoje.year
+    mes_atual = hoje.month
+
     veiculos = Veiculo.query.order_by(Veiculo.modelo).all()
     motoristas = Motorista.query.order_by(Motorista.nome).all()
-    abastecimentos = (
-        Abastecimento.query.order_by(Abastecimento.data.desc()).limit(15).all()
+    postos = PostoCombustivel.query.order_by(PostoCombustivel.nome).all()
+    secretarias = Secretaria.query.order_by(Secretaria.nome).all()
+
+    # Todos os abastecimentos concluídos para cálculo dos indicadores do Ano, Mês e Dia
+    concluidos_ano = Abastecimento.query.filter(
+        or_(Abastecimento.status == None, Abastecimento.status == "CONCLUIDO"),
+        db.extract("year", Abastecimento.data) == ano_atual,
+    ).all()
+
+    valor_ano = sum(a.valor_total or 0.0 for a in concluidos_ano)
+    litros_ano = sum(a.litros or 0.0 for a in concluidos_ano)
+    qtd_ano = len(concluidos_ano)
+
+    concluidos_mes = [a for a in concluidos_ano if a.data and a.data.month == mes_atual]
+    valor_mes = sum(a.valor_total or 0.0 for a in concluidos_mes)
+    litros_mes = sum(a.litros or 0.0 for a in concluidos_mes)
+    qtd_mes = len(concluidos_mes)
+
+    concluidos_dia = [a for a in concluidos_mes if a.data and a.data.date() == hoje]
+    valor_dia = sum(a.valor_total or 0.0 for a in concluidos_dia)
+    litros_dia = sum(a.litros or 0.0 for a in concluidos_dia)
+    qtd_dia = len(concluidos_dia)
+
+    ordens_pendentes = (
+        Abastecimento.query.filter_by(status="PENDENTE")
+        .order_by(Abastecimento.data.desc(), Abastecimento.id.desc())
+        .all()
     )
 
+    abastecimentos = (
+        Abastecimento.query.filter(
+            or_(Abastecimento.status == None, Abastecimento.status == "CONCLUIDO")
+        )
+        .order_by(Abastecimento.data.desc(), Abastecimento.id.desc())
+        .limit(50)
+        .all()
+    )
+
+    # Mapa do último KM registrado por veículo para auxiliar na baixa
+    ultimos_kms = {}
+    for v in veiculos:
+        ult = (
+            Abastecimento.query.filter(
+                Abastecimento.veiculo_placa == v.placa,
+                or_(Abastecimento.status == None, Abastecimento.status == "CONCLUIDO"),
+                Abastecimento.quilometragem > 0,
+            )
+            .order_by(Abastecimento.quilometragem.desc())
+            .first()
+        )
+        ultimos_kms[v.placa] = ult.quilometragem if ult else 0.0
+
+    kpis_combustivel = {
+        "valor_ano": valor_ano,
+        "litros_ano": litros_ano,
+        "qtd_ano": qtd_ano,
+        "valor_mes": valor_mes,
+        "litros_mes": litros_mes,
+        "qtd_mes": qtd_mes,
+        "valor_dia": valor_dia,
+        "litros_dia": litros_dia,
+        "qtd_dia": qtd_dia,
+        "qtd_pendentes": len(ordens_pendentes),
+        "ano_atual": ano_atual,
+    }
+
     return render_template(
-        "combustivel.html",  # ATENÇÃO: Verifique se este é o nome correto do seu template
+        "combustivel.html",
         veiculos=veiculos,
         motoristas=motoristas,
+        postos=postos,
+        secretarias=secretarias,
+        ordens_pendentes=ordens_pendentes,
         abastecimentos=abastecimentos,
+        kpis=kpis_combustivel,
+        proximo_codigo=_gerar_codigo_abastecimento(),
+        hoje_iso=hoje.strftime("%Y-%m-%d"),
+        ultimos_kms=ultimos_kms,
+    )
+
+
+@app.route("/combustivel/pendentes", methods=["GET"])
+@login_required
+@role_required("Posto", "Combustivel", "admin")
+def ordens_pendentes_posto():
+    """Página exclusiva para o Posto / Frentista visualizar as ordens pendentes e dar baixa."""
+    executar_migracao_combustivel_segura()
+    posto_filtro = request.args.get("posto_id", type=int)
+
+    query_pendentes = Abastecimento.query.filter_by(status="PENDENTE")
+    if posto_filtro:
+        query_pendentes = query_pendentes.filter_by(posto_id=posto_filtro)
+
+    ordens_pendentes = query_pendentes.order_by(Abastecimento.data.desc(), Abastecimento.id.desc()).all()
+    postos = PostoCombustivel.query.order_by(PostoCombustivel.nome).all()
+
+    hoje = datetime.now().date()
+    baixas_hoje = (
+        Abastecimento.query.filter(
+            Abastecimento.status == "CONCLUIDO",
+            Abastecimento.data_baixa != None,
+        )
+        .order_by(Abastecimento.data_baixa.desc())
+        .limit(20)
+        .all()
+    )
+
+    ultimos_kms = {}
+    for ordem in ordens_pendentes:
+        if ordem.veiculo_placa not in ultimos_kms:
+            ult = (
+                Abastecimento.query.filter(
+                    Abastecimento.veiculo_placa == ordem.veiculo_placa,
+                    or_(Abastecimento.status == None, Abastecimento.status == "CONCLUIDO"),
+                    Abastecimento.quilometragem > 0,
+                )
+                .order_by(Abastecimento.quilometragem.desc())
+                .first()
+            )
+            ultimos_kms[ordem.veiculo_placa] = ult.quilometragem if ult else 0.0
+
+    return render_template(
+        "combustivel_posto_baixa.html",
+        ordens_pendentes=ordens_pendentes,
+        postos=postos,
+        posto_filtro=posto_filtro,
+        baixas_hoje=baixas_hoje,
+        ultimos_kms=ultimos_kms,
+        hoje=hoje,
+    )
+
+
+@app.route("/combustivel/dar-baixa/<int:id>", methods=["POST"])
+@login_required
+@role_required("Posto", "Combustivel", "admin")
+def dar_baixa_abastecimento(id):
+    """Recebe os litros abastecidos e o KM informados pelo frentista e aplica o preço por litro configurado."""
+    executar_migracao_combustivel_segura()
+    ordem = Abastecimento.query.get_or_404(id)
+    origem = request.form.get("origem", "posto")
+
+    try:
+        litros_str = (request.form.get("litros") or "").strip().replace(",", ".")
+        km_str = (request.form.get("quilometragem") or "").strip().replace(".", "").replace(",", ".")
+
+        litros_val = float(litros_str) if litros_str else 0.0
+        km_val = float(km_str) if km_str else 0.0
+
+        if litros_val <= 0:
+            flash("Informe a quantidade de litros abastecida (maior que zero).", "warning")
+            return redirect(url_for("ordens_pendentes_posto") if origem == "posto" else url_for("lancar_abastecimento"))
+
+        # Obtém o preço por litro configurado no Posto (ou mantém o valor_litro já gravado na ordem)
+        preco_litro = ordem.valor_litro or 0.0
+        if ordem.posto:
+            preco_posto = ordem.posto.obter_preco_combustivel(ordem.tipo_combustivel)
+            if preco_posto > 0:
+                preco_litro = preco_posto
+
+        ordem.litros = litros_val
+        ordem.quilometragem = km_val
+        ordem.valor_litro = preco_litro
+        ordem.valor_total = round(litros_val * preco_litro, 2)
+        ordem.status = "CONCLUIDO"
+        ordem.baixado_por = (session.get("username") or "FRENTISTA").upper()
+        ordem.data_baixa = datetime.now()
+
+        if request.form.get("observacao_baixa"):
+            obs_extra = request.form.get("observacao_baixa").strip()
+            ordem.observacao = f"{ordem.observacao} | Baixa: {obs_extra}" if ordem.observacao else obs_extra
+
+        db.session.commit()
+        registrar_log(
+            f"Deu baixa na Ordem #{ordem.codigo_ordem or ordem.id} - Veículo {ordem.veiculo_placa}: {litros_val:.2f}L x R$ {preco_litro:.2f} = R$ {ordem.valor_total:.2f} (KM: {km_val:.0f})."
+        )
+        flash(
+            f"Baixa realizada com sucesso para a Ordem #{ordem.codigo_ordem or ordem.id}! "
+            f"{litros_val:.2f}L abastecidos — Total: R$ {ordem.valor_total:.2f}.",
+            "success",
+        )
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Erro ao dar baixa no abastecimento: {e}", "danger")
+
+    if origem == "dashboard":
+        return redirect(url_for("lancar_abastecimento"))
+    return redirect(url_for("ordens_pendentes_posto"))
+
+
+@app.route("/combustivel/posto/salvar", methods=["POST"])
+@login_required
+@role_required("Combustivel", "admin")
+def salvar_posto_combustivel():
+    """Cadastra um novo Posto ou atualiza os preços por litro configurados no sistema."""
+    executar_migracao_combustivel_segura()
+    posto_id = request.form.get("posto_id", type=int)
+
+    def _f(campo, padrao=0.0):
+        raw = (request.form.get(campo) or "").strip().replace(",", ".")
+        try:
+            return float(raw) if raw else padrao
+        except ValueError:
+            return padrao
+
+    try:
+        if posto_id:
+            posto = PostoCombustivel.query.get_or_404(posto_id)
+        else:
+            posto = PostoCombustivel()
+            db.session.add(posto)
+
+        posto.nome = (request.form.get("nome") or "").strip().upper()
+        posto.cnpj = (request.form.get("cnpj") or "").strip() or None
+        posto.endereco = (request.form.get("endereco") or "").strip() or None
+        posto.telefone = (request.form.get("telefone") or "").strip() or None
+        posto.preco_gasolina_comum = _f("preco_gasolina_comum", 5.89)
+        posto.preco_gasolina_aditivada = _f("preco_gasolina_aditivada", 6.09)
+        posto.preco_diesel_s10 = _f("preco_diesel_s10", 6.19)
+        posto.preco_diesel_comum = _f("preco_diesel_comum", 6.05)
+        posto.preco_etanol = _f("preco_etanol", 4.39)
+
+        db.session.commit()
+        registrar_log(f"Configurou posto e preços de combustível: {posto.nome}")
+        flash(f"Posto '{posto.nome}' e tabela de preços por litro salvos com sucesso!", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Erro ao salvar posto: {e}", "danger")
+
+    return redirect(url_for("lancar_abastecimento"))
+
+
+@app.route("/combustivel/posto/excluir/<int:id>")
+@login_required
+@role_required("Combustivel", "admin")
+def excluir_posto_combustivel(id):
+    executar_migracao_combustivel_segura()
+    posto = PostoCombustivel.query.get_or_404(id)
+    try:
+        nome = posto.nome
+        db.session.delete(posto)
+        db.session.commit()
+        registrar_log(f"Removeu o posto de combustível: {nome}")
+        flash(f"Posto '{nome}' removido.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Não foi possível remover o posto: {e}", "danger")
+    return redirect(url_for("lancar_abastecimento"))
+
+
+@app.route("/combustivel/relatorio-secretaria", methods=["GET"])
+@login_required
+@role_required("Combustivel", "admin")
+def relatorio_abastecimento_secretaria():
+    """Gera o Relatório Oficial de Abastecimentos por Secretaria e Período (para impressão/PDF)."""
+    executar_migracao_combustivel_segura()
+    data_inicial_str = request.args.get("data_inicial")
+    data_final_str = request.args.get("data_final")
+    secretaria_id = request.args.get("secretaria_id", type=int)
+    posto_id = request.args.get("posto_id", type=int)
+    status_filtro = request.args.get("status", "CONCLUIDO")
+
+    hoje = datetime.now().date()
+    dt_ini = _parse_data_form(data_inicial_str) or hoje.replace(day=1)
+    dt_fim = _parse_data_form(data_final_str) or hoje
+
+    dt_ini_full = datetime.combine(dt_ini, datetime.min.time())
+    dt_fim_full = datetime.combine(dt_fim, datetime.max.time())
+
+    query = Abastecimento.query.outerjoin(Veiculo, Abastecimento.veiculo_placa == Veiculo.placa).filter(
+        Abastecimento.data >= dt_ini_full,
+        Abastecimento.data <= dt_fim_full,
+    )
+
+    if status_filtro == "CONCLUIDO":
+        query = query.filter(or_(Abastecimento.status == None, Abastecimento.status == "CONCLUIDO"))
+    elif status_filtro == "PENDENTE":
+        query = query.filter(Abastecimento.status == "PENDENTE")
+
+    secretaria_selecionada = None
+    if secretaria_id:
+        secretaria_selecionada = Secretaria.query.get(secretaria_id)
+        query = query.filter(
+            or_(
+                Abastecimento.secretaria_id == secretaria_id,
+                Veiculo.secretaria_id == secretaria_id,
+            )
+        )
+
+    posto_selecionado = None
+    if posto_id:
+        posto_selecionado = PostoCombustivel.query.get(posto_id)
+        query = query.filter(Abastecimento.posto_id == posto_id)
+
+    registros = query.order_by(Abastecimento.data.asc(), Abastecimento.id.asc()).all()
+    total_litros = sum(r.litros or 0.0 for r in registros)
+    total_valor = sum(r.valor_total or 0.0 for r in registros)
+
+    return render_template(
+        "relatorio_abastecimento_secretaria.html",
+        registros=registros,
+        dt_ini=dt_ini,
+        dt_fim=dt_fim,
+        secretaria_selecionada=secretaria_selecionada,
+        posto_selecionado=posto_selecionado,
+        total_litros=total_litros,
+        total_valor=total_valor,
+        hoje=datetime.now(),
+        usuario_logado=(session.get("username") or "ADMIN").upper(),
     )
 
 
@@ -3759,11 +4315,13 @@ def delete_nota(id):
 @login_required
 @role_required("Combustivel", "admin")
 def relatorio_combustivel():
+    executar_migracao_combustivel_segura()
     # Coleta os filtros da URL
     placa_filtro = request.args.get("placa")
     query = (
         db.session.query(Abastecimento)
         .join(Veiculo)
+        .filter(or_(Abastecimento.status == None, Abastecimento.status != "PENDENTE"))
         .order_by(Abastecimento.veiculo_placa, Abastecimento.quilometragem)
     )
 
@@ -3801,17 +4359,21 @@ def relatorio_combustivel():
 @app.route("/combustivel/excluir/<int:id>")
 @login_required
 def excluir_abastecimento(id):
+    executar_migracao_combustivel_segura()
     abastecimento_para_excluir = Abastecimento.query.get_or_404(id)
+    origem = request.args.get("origem", "dashboard")
     try:
-        info_log = f"veículo placa {abastecimento_para_excluir.veiculo_placa}, {abastecimento_para_excluir.litros}L em {abastecimento_para_excluir.data.strftime('%d/%m/%Y')}"
+        info_log = f"Ordem #{abastecimento_para_excluir.codigo_ordem or abastecimento_para_excluir.id}, veículo placa {abastecimento_para_excluir.veiculo_placa}, {abastecimento_para_excluir.litros}L em {abastecimento_para_excluir.data.strftime('%d/%m/%Y')}"
         db.session.delete(abastecimento_para_excluir)
         db.session.commit()
         registrar_log(f"Excluiu o registro de abastecimento: {info_log}.")
-        flash("Registro de abastecimento excluído com sucesso!", "success")
+        flash("Registro / Ordem de abastecimento excluído com sucesso!", "success")
     except Exception as e:
         db.session.rollback()
         flash(f"Erro ao excluir o registro: {e}", "danger")
 
+    if origem == "posto":
+        return redirect(url_for("ordens_pendentes_posto"))
     return redirect(url_for("lancar_abastecimento"))
 
 

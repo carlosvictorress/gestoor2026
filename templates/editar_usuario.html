@@ -26,7 +26,8 @@
                     <select name="role" id="role" class="form-select">
                         <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Super Admin</option>
                         <option value="RH" {% if user.role == 'RH' %}selected{% endif %}>RH</option>
-                        <option value="Combustivel" {% if user.role == 'Combustivel' %}selected{% endif %}>Combustível</option>
+                        <option value="Combustivel" {% if user.role == 'Combustivel' %}selected{% endif %}>Combustível (Gestor)</option>
+                        <option value="COMBUSTIVEL - FRENTISTA" {% if user.role in ['COMBUSTIVEL - FRENTISTA', 'Posto'] %}selected{% endif %}>COMBUSTIVEL - FRENTISTA</option>
                         <option value="Merenda Escolar" {% if user.role == 'Merenda Escolar' %}selected{% endif %}>Merenda Escolar</option>
                         <option value="Patrimonio" {% if user.role == 'Patrimonio' %}selected{% endif %}>Patrimônio</option>
                         <option value="operador" {% if user.role == 'operador' %}selected{% endif %}>Operador (Básico)</option>

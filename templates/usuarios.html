@@ -28,7 +28,13 @@
                         <tr>
                             <td>{{ usuario.username }}</td>
                             <td>{{ usuario.email or 'N/A' }}</td>
-                            <td><span class="badge bg-secondary">{{ usuario.role|capitalize }}</span></td>
+                            <td>
+                                {% if usuario.role in ['COMBUSTIVEL - FRENTISTA', 'Posto'] %}
+                                    <span class="badge bg-warning text-dark">COMBUSTIVEL - FRENTISTA</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ usuario.role|capitalize }}</span>
+                                {% endif %}
+                            </td>
                             <td>{{ usuario.secretaria.nome if usuario.secretaria else 'N/A' }}</td>
                             <td class="text-right">
                                 <a href="{{ url_for('editar_usuario', id=usuario.id) }}" class="btn btn-sm btn-secondary" title="Editar"><i class="bi bi-pencil-fill"></i></a>
@@ -67,7 +73,7 @@
                                  <option value="admin">Super Admin</option>
                                  <option value="RH">RH</option>
                                  <option value="Combustivel">Combustível (Gestor)</option>
-                                 <option value="Posto">Posto / Frentista (Baixa Combustível)</option>
+                                 <option value="COMBUSTIVEL - FRENTISTA">COMBUSTIVEL - FRENTISTA</option>
                                  <option value="Merenda Escolar">Merenda Escolar</option>
                                  <option value="Patrimonio">Patrimônio</option>
                                  <option value="operador">Operador (Básico)</option>

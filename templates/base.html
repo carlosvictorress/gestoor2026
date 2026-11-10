@@ -722,13 +722,6 @@
                   ><i class="bi bi-fuel-pump-fill"></i><span>Combustível</span></a
                 >
                 {% endif %} {% if session.get('role') in ['admin',
-                'Combustivel', 'Posto'] %}
-                <a
-                  class="dropdown-item {% if request.endpoint == 'ordens_pendentes_posto' %}active-subitem{% endif %}"
-                  href="{{ url_for('ordens_pendentes_posto') }}"
-                  ><i class="bi bi-ev-station-fill"></i><span>Baixa do Posto (Pendentes)</span></a
-                >
-                {% endif %} {% if session.get('role') in ['admin',
                 'almoxarifado'] %}
                 <a
                   class="dropdown-item {% if request.endpoint and request.endpoint.startswith('almoxarifado.') %}active-subitem{% endif %}"

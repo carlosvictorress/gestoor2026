@@ -1,322 +1,568 @@
-{% extends 'base.html' %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal do Frentista • Baixa de Abastecimento | Gestoor360</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --posto-dark: #0f172a;
+            --posto-navy: #072657;
+            --posto-teal: #0f766e;
+            --posto-amber: #d97706;
+        }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #f1f5f9;
+            color: #1e293b;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .frentista-navbar {
+            background: linear-gradient(135deg, #072657 0%, #0f172a 60%, #134e4a 100%);
+            color: #fff;
+            padding: 0.9rem 1.75rem;
+            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.22);
+            position: sticky;
+            top: 0;
+            z-index: 1030;
+        }
+        .brand-badge {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.14);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            color: #fbbf24;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .user-pill {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 10px;
+            padding: 0.4rem 0.9rem;
+            color: #f8fafc;
+            font-size: 0.85rem;
+        }
+        .stat-card {
+            border: none;
+            border-radius: 14px;
+            background: #fff;
+            box-shadow: 0 4px 15px rgba(15, 23, 42, 0.05);
+            transition: transform 0.18s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+        .codigo-ordem-tag {
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: 800;
+            font-size: 1.08rem;
+            letter-spacing: 0.8px;
+            color: #dc2626;
+            background: #fef2f2;
+            border: 1.5px solid #fecaca;
+            padding: 0.25rem 0.65rem;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        .table-posto thead th {
+            background-color: #1e293b;
+            color: #ffffff;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 0.9rem 0.85rem;
+            border: none;
+        }
+        .table-posto tbody td {
+            vertical-align: middle;
+            padding: 0.9rem 0.85rem;
+            font-size: 0.92rem;
+        }
+        .search-codigo-box {
+            border: 2px solid #cbd5e1;
+            border-radius: 10px;
+            overflow: hidden;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .search-codigo-box:focus-within {
+            border-color: #0284c7;
+            box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.15);
+        }
+        .preco-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 999px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            font-size: 0.82rem;
+        }
+        .footer-terminal {
+            margin-top: auto;
+            padding: 1rem 0;
+            font-size: 0.8rem;
+            color: #64748b;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+            background: #fff;
+        }
+    </style>
+</head>
+<body>
 
-{% block title %}Ordens Pendentes — Baixa de Abastecimento do Posto{% endblock %}
+    <!-- TOPBAR EXCLUSIVA DO FRENTISTA (SEM MENU LATERAL) -->
+    <header class="frentista-navbar">
+        <div class="container-fluid d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="brand-badge">
+                    <i class="bi bi-ev-station-fill"></i>
+                </div>
+                <div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-extrabold fs-5 tracking-tight">TERMINAL DO POSTO • BAIXA DE ABASTECIMENTO</span>
+                        <span class="badge bg-warning text-dark fw-bold" style="font-size: 0.72rem;">ONLINE</span>
+                    </div>
+                    <div class="text-white-50 small">
+                        Sistema Integrado Gestoor360 — Recebimento de Ordens e Confirmação pelo Frentista
+                    </div>
+                </div>
+            </div>
 
-{% block content %}
-<!-- Card Superior de Cabeçalho (Estilo Print 2) -->
-<div class="card border-0 shadow-sm rounded-4 mb-4">
-    <div class="card-body p-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
-        <div>
-            <h4 class="fw-bold text-dark mb-1">Listar Ordens Pendentes</h4>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-0 small">
-                    <li class="breadcrumb-item"><a href="{{ url_for('lancar_abastecimento') }}" class="text-decoration-none text-muted">Home</a></li>
-                    <li class="breadcrumb-item active text-primary fw-semibold" aria-current="page">Ordens Pendentes (Baixa do Posto)</li>
-                </ol>
-            </nav>
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <div class="user-pill d-flex align-items-center gap-2">
+                    <i class="bi bi-person-badge-fill text-warning fs-5"></i>
+                    <div>
+                        <div class="fw-bold lh-1">{{ session.get('username', 'Frentista')|upper }}</div>
+                        <small class="text-white-50" style="font-size: 0.72rem;">
+                            Perfil: {{ 'COMBUSTIVEL - FRENTISTA' if session.get('role') in ['COMBUSTIVEL - FRENTISTA', 'Posto'] else session.get('role')|upper }}
+                        </small>
+                    </div>
+                </div>
+
+                <a href="{{ url_for('ordens_pendentes_posto', posto_id=posto_filtro if posto_filtro else None) }}" class="btn btn-outline-light btn-sm fw-semibold px-3 py-2">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Atualizar Ordens
+                </a>
+
+                {% if session.get('role') in ['admin', 'Combustivel'] %}
+                <a href="{{ url_for('lancar_abastecimento') }}" class="btn btn-info btn-sm fw-bold text-dark px-3 py-2">
+                    <i class="bi bi-speedometer2 me-1"></i> Voltar ao Painel Gestor
+                </a>
+                {% endif %}
+
+                <a href="{{ url_for('logout') }}" class="btn btn-danger btn-sm fw-bold px-3 py-2 shadow-sm">
+                    <i class="bi bi-box-arrow-right me-1"></i> Sair
+                </a>
+            </div>
         </div>
-        <div class="d-flex flex-wrap align-items-center gap-2">
-            <form method="GET" action="{{ url_for('ordens_pendentes_posto') }}" class="d-flex align-items-center gap-2">
-                <select name="posto_id" class="form-select form-select-sm fw-semibold" onchange="this.form.submit()" style="min-width: 210px;">
-                    <option value="">Todos os Postos Credenciados</option>
-                    {% for p in postos %}
-                    <option value="{{ p.id }}" {% if posto_filtro == p.id %}selected{% endif %}>{{ p.nome }}</option>
-                    {% endfor %}
-                </select>
-            </form>
-            {% if session.get('role') in ['admin', 'Combustivel'] %}
-            <a href="{{ url_for('lancar_abastecimento') }}" class="btn btn-outline-primary btn-sm fw-bold px-3">
-                <i class="bi bi-speedometer2 me-1"></i> Voltar à Dashboard de Combustível
-            </a>
+    </header>
+
+    <!-- CONTEÚDO PRINCIPAL DO TERMINAL -->
+    <main class="container-fluid py-4 px-3 px-md-4">
+
+        <!-- MENSAGENS FLASH -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm border-0 mb-3" role="alert">
+                    <i class="bi {% if category == 'success' %}bi-check-circle-fill{% elif category == 'danger' %}bi-exclamation-octagon-fill{% else %}bi-info-circle-fill{% endif %} me-2"></i>
+                    <strong>{{ message }}</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+                </div>
+                {% endfor %}
             {% endif %}
-        </div>
-    </div>
-</div>
+        {% endwith %}
 
-<!-- Tabela Principal: Abastecimentos Pendentes (N) -->
-<div class="card border-0 shadow-sm rounded-4 mb-4">
-    <div class="card-header bg-white py-3 px-4 border-bottom-0">
-        <h5 class="fw-bold text-primary mb-3">
-            Abastecimentos Pendentes ({{ ordens_pendentes|length }})
-        </h5>
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-            <div class="d-flex align-items-center gap-2 small text-muted">
-                <span>Show</span>
-                <select id="selectLimitPosto" class="form-select form-select-sm" style="width: 75px;">
-                    <option value="10">10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="9999">Todos</option>
-                </select>
-                <span>entries</span>
+        <!-- BARRA DE INDICADORES E FILTROS RÁPIDOS -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card stat-card h-100 border-start border-4 border-warning">
+                    <div class="card-body d-flex align-items-center justify-content-between py-3">
+                        <div>
+                            <div class="text-uppercase fw-bold text-muted" style="font-size: 0.74rem;">Ordens Pendentes no Posto</div>
+                            <div class="fs-2 fw-extrabold text-warning lh-1 mt-1">{{ ordens_pendentes|length }}</div>
+                            <small class="text-muted">Aguardando abastecimento e baixa</small>
+                        </div>
+                        <div class="rounded-circle bg-warning bg-opacity-10 p-3 text-warning">
+                            <i class="bi bi-hourglass-split fs-3"></i>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="d-flex align-items-center gap-2">
-                <label class="small text-muted mb-0">Pesquisar</label>
-                <input type="text" id="inputBuscaPosto" class="form-control form-control-sm" placeholder="Código (ex: 59559), placa, motorista..." style="width: 260px;">
+
+            <div class="col-md-3">
+                <div class="card stat-card h-100 border-start border-4 border-success">
+                    <div class="card-body d-flex align-items-center justify-content-between py-3">
+                        <div>
+                            <div class="text-uppercase fw-bold text-muted" style="font-size: 0.74rem;">Baixas Recentes Confirmadas</div>
+                            <div class="fs-2 fw-extrabold text-success lh-1 mt-1">{{ baixas_hoje|length }}</div>
+                            <small class="text-muted">Últimos atendimentos concluídos</small>
+                        </div>
+                        <div class="rounded-circle bg-success bg-opacity-10 p-3 text-success">
+                            <i class="bi bi-check2-circle fs-3"></i>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
 
-    <div class="card-body px-4 pt-2 pb-3">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" id="tabelaPostoPendentes">
-                <thead class="border-top border-bottom small fw-bold text-dark">
-                    <tr>
-                        <th>Nº</th>
-                        <th>Data Abastec.</th>
-                        <th>Posto</th>
-                        <th>Veículo</th>
-                        <th>Motorista</th>
-                        <th>Combustível</th>
-                        <th class="text-center">Completar?</th>
-                        <th>Preço/L</th>
-                        <th>Secretaria</th>
-                        <th>Solicitante</th>
-                        <th>Obs</th>
-                        <th class="text-center">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ordem in ordens_pendentes %}
-                    <tr class="linha-posto-pendente">
-                        <td>
-                            <span class="badge bg-danger text-white fw-bold font-monospace fs-6 px-2 py-1">
-                                {{ ordem.codigo_ordem or ordem.id }}
-                            </span>
-                        </td>
-                        <td class="small fw-semibold">{{ ordem.data.strftime('%d/%m/%Y') }}</td>
-                        <td class="small fw-bold text-dark">{{ ordem.posto.nome if ordem.posto else 'POSTO PADRÃO' }}</td>
-                        <td>
-                            <div class="fw-bold text-dark">{{ ordem.veiculo_placa }}</div>
-                            <div class="text-muted" style="font-size: 0.75rem;">{{ ordem.veiculo.modelo if ordem.veiculo else '' }}</div>
-                        </td>
-                        <td class="small text-uppercase fw-semibold">{{ ordem.motorista.nome if ordem.motorista else '---' }}</td>
-                        <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-bold">{{ ordem.tipo_combustivel }}</span></td>
-                        <td class="text-center">
-                            {% if ordem.completar_tanque == 'SIM' %}
-                                <span class="badge bg-success-subtle text-success border border-success-subtle fw-bold">SIM</span>
-                            {% else %}
-                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle fw-bold">NÃO</span>
-                            {% endif %}
-                        </td>
-                        <td class="small fw-bold text-primary">R$ {{ "%.2f"|format(ordem.valor_litro or 0)|replace('.', ',') }}</td>
-                        <td class="small">{{ ordem.secretaria_rel.nome if ordem.secretaria_rel else (ordem.veiculo.secretaria.nome if ordem.veiculo and ordem.veiculo.secretaria else '---') }}</td>
-                        <td class="small fw-semibold text-uppercase">{{ ordem.solicitante or 'ADMIN' }}</td>
-                        <td class="small text-muted" style="max-width: 180px;">{{ ordem.observacao or '---' }}</td>
-                        <td class="text-center">
-                            <button type="button"
-                                    class="btn btn-sm btn-success fw-bold px-3 shadow-sm"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#modalFrentistaBaixa{{ ordem.id }}">
-                                <i class="bi bi-fuel-pump-fill me-1"></i> Dar Baixa
-                            </button>
-                        </td>
-                    </tr>
-
-                    <!-- Modal de Baixa do Frentista -->
-                    <div class="modal fade" id="modalFrentistaBaixa{{ ordem.id }}" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
-                                <div class="modal-header bg-primary text-white border-0 py-3">
-                                    <h5 class="modal-title fw-bold">
-                                        <i class="bi bi-fuel-pump-fill me-2"></i>Dar Baixa no Abastecimento — #{{ ordem.codigo_ordem or ordem.id }}
-                                    </h5>
-                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            <div class="col-md-6">
+                <div class="card stat-card h-100">
+                    <div class="card-body py-3">
+                        <form method="GET" action="{{ url_for('ordens_pendentes_posto') }}" class="row g-2 align-items-end">
+                            <div class="col-sm-5">
+                                <label class="form-label small fw-bold text-secondary mb-1">
+                                    <i class="bi bi-fuel-pump me-1 text-primary"></i>Posto de Atendimento:
+                                </label>
+                                <select name="posto_id" class="form-select" onchange="this.form.submit()">
+                                    <option value="">-- Todos os Postos Credenciados --</option>
+                                    {% for p in postos %}
+                                    <option value="{{ p.id }}" {% if posto_filtro == p.id %}selected{% endif %}>{{ p.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-sm-7">
+                                <label class="form-label small fw-bold text-secondary mb-1">
+                                    <i class="bi bi-upc-scan me-1 text-danger"></i>Localizar Ordem (Digite o Código, Placa ou Motorista):
+                                </label>
+                                <div class="input-group search-codigo-box">
+                                    <span class="input-group-text bg-white border-0"><i class="bi bi-search text-primary"></i></span>
+                                    <input type="text" id="buscaRapidaPosto" class="form-control border-0 fw-semibold" placeholder="Ex: 59559, OEI-0978 ou nome do motorista..." autofocus>
                                 </div>
-                                <form action="{{ url_for('dar_baixa_abastecimento', id=ordem.id) }}" method="POST">
-                                    <input type="hidden" name="origem" value="posto">
-                                    <div class="modal-body p-4">
-                                        <div class="p-3 rounded-3 bg-light border mb-3">
-                                            <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-                                                <span class="small text-muted fw-bold text-uppercase">Código da Ordem</span>
-                                                <span class="fs-4 fw-bold text-danger font-monospace">#{{ ordem.codigo_ordem or ordem.id }}</span>
-                                            </div>
-                                            <div class="row g-2 small">
-                                                <div class="col-6">
-                                                    <span class="text-muted d-block">Posto:</span>
-                                                    <strong class="text-dark">{{ ordem.posto.nome if ordem.posto else 'POSTO PADRÃO' }}</strong>
-                                                </div>
-                                                <div class="col-6">
-                                                    <span class="text-muted d-block">Data da Ordem:</span>
-                                                    <strong>{{ ordem.data.strftime('%d/%m/%Y') }}</strong>
-                                                </div>
-                                                <div class="col-6">
-                                                    <span class="text-muted d-block">Veículo / Placa:</span>
-                                                    <strong class="text-primary">{{ ordem.veiculo_placa }} — {{ ordem.veiculo.modelo if ordem.veiculo else '' }}</strong>
-                                                </div>
-                                                <div class="col-6">
-                                                    <span class="text-muted d-block">Motorista Autorizado:</span>
-                                                    <strong>{{ ordem.motorista.nome if ordem.motorista else '' }}</strong>
-                                                </div>
-                                                <div class="col-6">
-                                                    <span class="text-muted d-block">Combustível Autorizado:</span>
-                                                    <span class="badge bg-dark">{{ ordem.tipo_combustivel }}</span>
-                                                </div>
-                                                <div class="col-6">
-                                                    <span class="text-muted d-block">Completar Tanque?</span>
-                                                    <span class="badge {% if ordem.completar_tanque == 'SIM' %}bg-success{% else %}bg-secondary{% endif %}">{{ ordem.completar_tanque }}</span>
-                                                </div>
-                                                {% if ordem.observacao %}
-                                                <div class="col-12 mt-2 pt-2 border-top">
-                                                    <span class="text-muted d-block">Observação da Secretaria:</span>
-                                                    <strong class="text-dark">{{ ordem.observacao }}</strong>
-                                                </div>
-                                                {% endif %}
-                                            </div>
-                                        </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                                        <div class="row g-3">
-                                            <div class="col-md-6">
-                                                <label class="form-label small fw-bold text-muted">Preço por Litro (Sistema)</label>
-                                                <input type="text" class="form-control bg-light fw-bold text-primary" value="R$ {{ '%.2f'|format(ordem.valor_litro or 0)|replace('.', ',') }} / L" readonly>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label small fw-bold text-success">Quantidade Abastecida (Litros)*</label>
-                                                <input type="text"
-                                                       class="form-control form-control-lg border-success fw-bold input-litros-posto"
-                                                       name="litros"
-                                                       data-preco="{{ ordem.valor_litro or 0 }}"
-                                                       data-target="#valorTotalPosto{{ ordem.id }}"
-                                                       placeholder="Ex: 50,00"
-                                                       required>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label small fw-bold text-dark">KM Atual do Veículo*</label>
-                                                <input type="text"
-                                                       class="form-control form-control-lg fw-bold"
-                                                       name="quilometragem"
-                                                       placeholder="Ex: {{ '%.0f'|format(ultimos_kms.get(ordem.veiculo_placa, 0)) }}"
-                                                       required>
-                                                {% if ultimos_kms.get(ordem.veiculo_placa, 0) > 0 %}
-                                                    <small class="text-muted" style="font-size: 0.72rem;">Último KM: {{ "%.0f"|format(ultimos_kms.get(ordem.veiculo_placa, 0)) }} km</small>
-                                                {% endif %}
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label small fw-bold text-muted">Valor Total a Faturar (R$)</label>
-                                                <input type="text"
-                                                       id="valorTotalPosto{{ ordem.id }}"
-                                                       class="form-control form-control-lg bg-success-subtle text-success fw-bold"
-                                                       value="R$ 0,00"
-                                                       readonly>
-                                            </div>
-                                            <div class="col-12">
-                                                <label class="form-label small fw-bold text-muted">Nº do Cupom / Nota ou Observação do Frentista (Opcional)</label>
-                                                <input type="text" class="form-control" name="observacao_baixa" placeholder="Ex: Cupom Fiscal nº 1042">
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="modal-footer bg-light border-0 py-3">
-                                        <button type="button" class="btn btn-outline-secondary fw-bold" data-bs-dismiss="modal">Voltar</button>
-                                        <button type="submit" class="btn btn-success fw-bold px-4">
-                                            <i class="bi bi-check2-circle me-1"></i> Confirmar Baixa no Posto
-                                        </button>
-                                    </div>
-                                </form>
+        <!-- PREÇOS POR LITRO CONFIGURADOS NO SISTEMA -->
+        {% if postos %}
+        <div class="card stat-card mb-4">
+            <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div class="small fw-bold text-secondary">
+                    <i class="bi bi-tags-fill text-primary me-1"></i> Preço por Litro Configurado Automaticamente pelo Sistema:
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    {% for p in postos %}
+                        {% if not posto_filtro or posto_filtro == p.id %}
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <span class="badge bg-dark">{{ p.nome }}</span>
+                            <span class="preco-chip">Gas. Comum: <strong class="text-success">R$ {{ "%.2f"|format(p.preco_gasolina_comum or 0)|replace('.', ',') }}</strong></span>
+                            <span class="preco-chip">Gas. Aditivada: <strong class="text-success">R$ {{ "%.2f"|format(p.preco_gasolina_aditivada or 0)|replace('.', ',') }}</strong></span>
+                            <span class="preco-chip">Diesel S10: <strong class="text-success">R$ {{ "%.2f"|format(p.preco_diesel_s10 or 0)|replace('.', ',') }}</strong></span>
+                            <span class="preco-chip">Diesel Comum: <strong class="text-success">R$ {{ "%.2f"|format(p.preco_diesel_comum or 0)|replace('.', ',') }}</strong></span>
+                            <span class="preco-chip">Etanol: <strong class="text-success">R$ {{ "%.2f"|format(p.preco_etanol or 0)|replace('.', ',') }}</strong></span>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- TABELA PRINCIPAL: ORDENS AGUARDANDO BAIXA DO FRENTISTA -->
+        <div class="card stat-card mb-4 overflow-hidden">
+            <div class="card-header bg-white py-3 px-4 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-warning text-dark fs-6 px-3 py-2">
+                        <i class="bi bi-clipboard2-pulse-fill me-1"></i> ORDENS AGUARDANDO BAIXA
+                    </span>
+                    <span class="text-muted small">Clique em <strong>"Dar Baixa"</strong>, informe os litros abastecidos e a quilometragem do veículo.</span>
+                </div>
+            </div>
+
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped table-posto mb-0" id="tabelaTerminalPosto">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">Código</th>
+                                <th>Data</th>
+                                <th>Posto Autorizado</th>
+                                <th>Veículo / Placa</th>
+                                <th>Motorista Autorizado</th>
+                                <th>Secretaria</th>
+                                <th>Combustível</th>
+                                <th class="text-center">Completar Tanque?</th>
+                                <th class="text-end">Preço/Litro</th>
+                                <th class="text-center pe-4">Ação do Frentista</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ordem in ordens_pendentes %}
+                            <tr>
+                                <td class="ps-4">
+                                    <span class="codigo-ordem-tag">#{{ ordem.codigo_ordem or ordem.id }}</span>
+                                </td>
+                                <td class="fw-semibold">{{ ordem.data.strftime('%d/%m/%Y') }}</td>
+                                <td class="fw-bold text-dark">{{ ordem.posto.nome if ordem.posto else 'POSTO CREDENCIADO' }}</td>
+                                <td>
+                                    <div class="fw-bold text-dark">{{ ordem.veiculo.modelo if ordem.veiculo else '-' }}</div>
+                                    <span class="badge bg-secondary">{{ ordem.veiculo_placa }}</span>
+                                </td>
+                                <td class="fw-semibold">{{ ordem.motorista.nome if ordem.motorista else 'N/I' }}</td>
+                                <td>
+                                    <span class="small text-muted">
+                                        {{ ordem.secretaria_rel.nome if ordem.secretaria_rel else (ordem.veiculo.secretaria.nome if ordem.veiculo and ordem.veiculo.secretaria else 'N/I') }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info text-dark fw-bold px-2 py-1">{{ ordem.tipo_combustivel }}</span>
+                                </td>
+                                <td class="text-center">
+                                    {% if (ordem.completar_tanque or 'SIM') == 'SIM' %}
+                                        <span class="badge bg-success px-3 py-2"><i class="bi bi-check-circle-fill me-1"></i>SIM</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary px-3 py-2">NÃO</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end fw-bold text-primary">
+                                    R$ {{ "%.2f"|format(ordem.valor_litro or 0)|replace('.', ',') }}
+                                </td>
+                                <td class="text-center pe-4">
+                                    <button type="button"
+                                            class="btn btn-success fw-bold px-3 py-2 shadow-sm"
+                                            onclick="abrirModalBaixaTerminal(
+                                                '{{ ordem.id }}',
+                                                '{{ ordem.codigo_ordem or ordem.id }}',
+                                                '{{ (ordem.veiculo.modelo if ordem.veiculo else '') ~ ' (' ~ ordem.veiculo_placa ~ ')' }}',
+                                                '{{ ordem.motorista.nome if ordem.motorista else 'N/I' }}',
+                                                '{{ ordem.posto.nome if ordem.posto else 'POSTO CREDENCIADO' }}',
+                                                '{{ ordem.tipo_combustivel }}',
+                                                '{{ ordem.completar_tanque or 'SIM' }}',
+                                                '{{ '%.2f'|format(ordem.valor_litro or 0) }}',
+                                                '{{ '%.0f'|format(ultimos_kms.get(ordem.veiculo_placa, 0)) }}'
+                                            )">
+                                        <i class="bi bi-check2-square me-1"></i> Dar Baixa
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="10" class="text-center py-5 text-muted">
+                                    <i class="bi bi-check-circle-fill text-success fs-1 d-block mb-2"></i>
+                                    <h5 class="fw-bold text-secondary mb-1">Nenhuma ordem de abastecimento pendente no momento!</h5>
+                                    <p class="small mb-0">Assim que o setor de transporte lançar uma nova requisição, ela aparecerá aqui automaticamente.</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- HISTÓRICO DAS ÚLTIMAS BAIXAS REALIZADAS PELO POSTO -->
+        <div class="card stat-card overflow-hidden">
+            <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-bold text-secondary">
+                    <i class="bi bi-clock-history text-success me-2"></i>Últimos Abastecimentos Baixados no Posto
+                </h6>
+                <span class="badge bg-success bg-opacity-10 text-success border border-success">Últimos {{ baixas_hoje|length }} registros</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">Código</th>
+                                <th>Horário da Baixa</th>
+                                <th>Posto</th>
+                                <th>Veículo / Placa</th>
+                                <th>Motorista</th>
+                                <th>Combustível</th>
+                                <th class="text-end">KM</th>
+                                <th class="text-end">Litros</th>
+                                <th class="text-end">Preço/L</th>
+                                <th class="text-end">Valor Total</th>
+                                <th class="pe-4">Baixado por</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for b in baixas_hoje %}
+                            <tr>
+                                <td class="ps-4 fw-bold text-secondary">#{{ b.codigo_ordem or b.id }}</td>
+                                <td>{{ b.data_baixa.strftime('%d/%m/%Y %H:%M') if b.data_baixa else b.data.strftime('%d/%m/%Y') }}</td>
+                                <td>{{ b.posto.nome if b.posto else '-' }}</td>
+                                <td><strong>{{ b.veiculo_placa }}</strong> <small class="text-muted">({{ b.veiculo.modelo if b.veiculo else '' }})</small></td>
+                                <td>{{ b.motorista.nome if b.motorista else '-' }}</td>
+                                <td>{{ b.tipo_combustivel }}</td>
+                                <td class="text-end">{{ "{:,.0f}".format(b.quilometragem or 0)|replace(',', '.') }} km</td>
+                                <td class="text-end fw-bold">{{ "%.2f"|format(b.litros or 0)|replace('.', ',') }} L</td>
+                                <td class="text-end">R$ {{ "%.2f"|format(b.valor_litro or 0)|replace('.', ',') }}</td>
+                                <td class="text-end fw-bold text-success">R$ {{ "{:,.2f}".format(b.valor_total or 0)|replace(',', 'X')|replace('.', ',')|replace('X', '.') }}</td>
+                                <td class="pe-4"><span class="badge bg-light text-dark border">{{ b.baixado_por or 'POSTO' }}</span></td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="11" class="text-center py-3 text-muted">Nenhuma baixa realizada recentemente.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="footer-terminal">
+        Gestoor360 • Módulo de Controle de Frota e Abastecimento — Terminal Exclusivo do Frentista
+    </footer>
+
+    <!-- =================================================================== -->
+    <!-- MODAL DE DAR BAIXA (PREENCHIMENTO DO FRENTISTA)                     -->
+    <!-- =================================================================== -->
+    <div class="modal fade" id="modalBaixaTerminal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-fuel-pump-fill me-2"></i>Confirmar Baixa de Abastecimento
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <form id="formBaixaTerminal" method="POST" action="">
+                    <input type="hidden" name="origem" value="posto">
+                    <div class="modal-body p-4">
+                        <div class="p-3 rounded-3 bg-light border mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-muted small fw-bold text-uppercase">Código da Requisição</span>
+                                <span id="termBaixaCodigo" class="codigo-ordem-tag">#00000</span>
+                            </div>
+                            <div class="row g-2 small">
+                                <div class="col-6">
+                                    <span class="text-muted d-block">Posto:</span>
+                                    <strong id="termBaixaPosto" class="text-dark">-</strong>
+                                </div>
+                                <div class="col-6">
+                                    <span class="text-muted d-block">Veículo / Placa:</span>
+                                    <strong id="termBaixaVeiculo" class="text-dark">-</strong>
+                                </div>
+                                <div class="col-6">
+                                    <span class="text-muted d-block">Motorista:</span>
+                                    <strong id="termBaixaMotorista" class="text-dark">-</strong>
+                                </div>
+                                <div class="col-6">
+                                    <span class="text-muted d-block">Combustível / Completar:</span>
+                                    <strong id="termBaixaCombustivel" class="text-primary">-</strong>
+                                    (<span id="termBaixaCompletar" class="fw-bold">-</span>)
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold text-dark"> Litros Abastecidos <span class="text-danger">*</span></label>
+                                <div class="input-group input-group-lg">
+                                    <input type="text" name="litros" id="termInputLitros" class="form-control fw-bold text-primary" placeholder="0,00" required oninput="recalcularTotalTerminal()">
+                                    <span class="input-group-text">L</span>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold text-dark">KM Atual do Veículo <span class="text-danger">*</span></label>
+                                <div class="input-group input-group-lg">
+                                    <input type="text" name="quilometragem" id="termInputKm" class="form-control fw-bold" placeholder="Ex: 125400" required>
+                                    <span class="input-group-text">KM</span>
+                                </div>
+                                <small class="text-muted" id="termUltimoKmHint">Último KM: 0</small>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold text-secondary">Preço por Litro (Sistema)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">R$</span>
+                                    <input type="text" id="termInputPrecoLitro" class="form-control bg-light fw-bold text-secondary" readonly>
+                                </div>
+                                <small class="text-muted">Configurado pelo sistema</small>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold text-success">Valor Total Calculado</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-success text-white fw-bold">R$</span>
+                                    <input type="text" id="termInputValorTotal" class="form-control bg-success bg-opacity-10 fw-extrabold text-success fs-5" value="0,00" readonly>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-secondary">Observação da Bomba / Frentista (Opcional)</label>
+                                <input type="text" name="observacao_baixa" class="form-control" placeholder="Ex: Bomba 02 - Cupom Fiscal nº ...">
                             </div>
                         </div>
                     </div>
-                    {% else %}
-                    <tr>
-                        <td colspan="12" class="text-center py-4 bg-light text-muted">
-                            Nenhum registro encontrado
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        <div class="d-flex justify-content-between align-items-center mt-3 small text-muted">
-            <span>Showing {{ 1 if ordens_pendentes|length > 0 else 0 }} to {{ ordens_pendentes|length }} of {{ ordens_pendentes|length }} entries</span>
-            <div class="btn-group btn-group-sm">
-                <button type="button" class="btn btn-outline-secondary disabled"><i class="bi bi-chevron-left"></i></button>
-                <button type="button" class="btn btn-outline-secondary disabled"><i class="bi bi-chevron-right"></i></button>
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success btn-lg fw-bold px-4">
+                            <i class="bi bi-check2-circle me-1"></i> Confirmar Baixa no Sistema
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Histórico Recente de Baixas Realizadas pelo Posto -->
-{% if baixas_hoje %}
-<div class="card border-0 shadow-sm rounded-4">
-    <div class="card-header bg-white py-3 px-4 border-bottom">
-        <h6 class="mb-0 fw-bold text-success">
-            <i class="bi bi-check-all me-1"></i> Últimas Baixas Realizadas no Posto
-        </h6>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle mb-0">
-                <thead class="table-light small">
-                    <tr>
-                        <th class="ps-4">Ordem</th>
-                        <th>Data/Hora Baixa</th>
-                        <th>Posto</th>
-                        <th>Veículo</th>
-                        <th>Motorista</th>
-                        <th>Combustível</th>
-                        <th>KM Informado</th>
-                        <th>Litros</th>
-                        <th>Valor Total</th>
-                        <th class="pe-4">Baixado por</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for b in baixas_hoje %}
-                    <tr class="small">
-                        <td class="ps-4 fw-bold font-monospace text-secondary">#{{ b.codigo_ordem or b.id }}</td>
-                        <td>{{ b.data_baixa.strftime('%d/%m/%Y %H:%M') if b.data_baixa else b.data.strftime('%d/%m/%Y') }}</td>
-                        <td>{{ b.posto.nome if b.posto else '---' }}</td>
-                        <td class="fw-bold">{{ b.veiculo_placa }}</td>
-                        <td>{{ b.motorista.nome if b.motorista else '---' }}</td>
-                        <td>{{ b.tipo_combustivel }}</td>
-                        <td>{{ "%.0f"|format(b.quilometragem) }} km</td>
-                        <td class="fw-bold">{{ "%.2f"|format(b.litros)|replace('.', ',') }} L</td>
-                        <td class="fw-bold text-success">R$ {{ "%.2f"|format(b.valor_total)|replace('.', ',') }}</td>
-                        <td class="pe-4"><span class="badge bg-success-subtle text-success">{{ b.baixado_por or 'POSTO' }}</span></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-{% endif %}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    let precoUnitarioTerminal = 0.0;
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('.input-litros-posto').forEach(input => {
-        input.addEventListener('input', function () {
-            const preco = parseFloat(this.dataset.preco || '0');
-            const litros = parseFloat((this.value || '0').replace(',', '.')) || 0;
-            const total = (litros * preco).toFixed(2).replace('.', ',');
-            const target = document.querySelector(this.dataset.target);
-            if (target) {
-                target.value = 'R$ ' + total;
-            }
-        });
-    });
+    function abrirModalBaixaTerminal(id, codigo, veiculo, motorista, posto, combustivel, completar, precoLitro, ultimoKm) {
+        const form = document.getElementById('formBaixaTerminal');
+        form.action = `/combustivel/dar-baixa/${id}`;
 
-    const inputBusca = document.getElementById('inputBuscaPosto');
-    const selectLimit = document.getElementById('selectLimitPosto');
-    const linhas = Array.from(document.querySelectorAll('#tabelaPostoPendentes tbody tr.linha-posto-pendente'));
+        document.getElementById('termBaixaCodigo').textContent = '#' + codigo;
+        document.getElementById('termBaixaPosto').textContent = posto;
+        document.getElementById('termBaixaVeiculo').textContent = veiculo;
+        document.getElementById('termBaixaMotorista').textContent = motorista;
+        document.getElementById('termBaixaCombustivel').textContent = combustivel;
+        document.getElementById('termBaixaCompletar').textContent = 'Completar: ' + completar;
 
-    function filtrar() {
-        const termo = (inputBusca ? inputBusca.value : '').toLowerCase();
-        const limite = parseInt(selectLimit ? selectLimit.value : '10', 10);
-        let count = 0;
-        linhas.forEach(tr => {
-            const match = tr.textContent.toLowerCase().includes(termo);
-            if (match && count < limite) {
-                tr.style.display = '';
-                count++;
-            } else {
-                tr.style.display = 'none';
-            }
+        precoUnitarioTerminal = parseFloat(String(precoLitro).replace(',', '.')) || 0;
+        document.getElementById('termInputPrecoLitro').value = precoUnitarioTerminal.toFixed(2).replace('.', ',');
+        document.getElementById('termInputLitros').value = '';
+        document.getElementById('termInputKm').value = (ultimoKm && ultimoKm !== '0') ? ultimoKm : '';
+        document.getElementById('termUltimoKmHint').textContent = 'Último KM registrado no sistema: ' + (ultimoKm || '0') + ' km';
+        document.getElementById('termInputValorTotal').value = '0,00';
+
+        const modal = new bootstrap.Modal(document.getElementById('modalBaixaTerminal'));
+        modal.show();
+        setTimeout(() => document.getElementById('termInputLitros').focus(), 350);
+    }
+
+    function recalcularTotalTerminal() {
+        const litrosRaw = document.getElementById('termInputLitros').value.replace(/\./g, '').replace(',', '.');
+        const litros = parseFloat(litrosRaw) || 0;
+        const total = litros * precoUnitarioTerminal;
+        document.getElementById('termInputValorTotal').value = total.toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
         });
     }
-    if (inputBusca) inputBusca.addEventListener('input', filtrar);
-    if (selectLimit) selectLimit.addEventListener('change', filtrar);
-});
-</script>
-{% endblock %}
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputBusca = document.getElementById('buscaRapidaPosto');
+        const tabela = document.getElementById('tabelaTerminalPosto');
+        if (inputBusca && tabela) {
+            inputBusca.addEventListener('input', function() {
+                const termo = this.value.toLowerCase().trim();
+                const linhas = tabela.querySelectorAll('tbody tr');
+                linhas.forEach(tr => {
+                    if (tr.cells.length <= 1) return;
+                    tr.style.display = tr.textContent.toLowerCase().includes(termo) ? '' : 'none';
+                });
+            });
+        }
+    });
+    </script>
+</body>
+</html>

@@ -256,6 +256,8 @@ def role_required(*roles):
             # Verifica se o papel do usuário está na lista de papéis permitidos
             if session.get("role") not in roles:
                 flash("Você não tem permissão para acessar esta página.", "danger")
+                if session.get("role") in ("COMBUSTIVEL - FRENTISTA", "Posto"):
+                    return redirect(url_for("ordens_pendentes_posto"))
                 return redirect(
                     url_for("dashboard")
                 )  # Redireciona para o painel principal
@@ -264,6 +266,26 @@ def role_required(*roles):
         return decorated_function
 
     return wrapper
+
+
+@app.before_request
+def restringir_acesso_frentista():
+    """
+    Garante que o perfil COMBUSTIVEL - FRENTISTA (ou Posto) acesse exclusivamente
+    o painel isolado de baixa de abastecimentos.
+    """
+    if session.get("logged_in") and session.get("role") in ("COMBUSTIVEL - FRENTISTA", "Posto"):
+        endpoints_permitidos = {
+            "ordens_pendentes_posto",
+            "dar_baixa_abastecimento",
+            "logout",
+            "login",
+            "static",
+            "uploaded_file",
+            "renovar_licenca",
+        }
+        if request.endpoint and request.endpoint not in endpoints_permitidos:
+            return redirect(url_for("ordens_pendentes_posto"))
 
 
 def check_license(f):
@@ -1706,6 +1728,9 @@ def login():
                 flash(mensagem_ausencia, "info")
             else:
                 flash("Login realizado com sucesso!", "success")
+
+            if user.role in ("COMBUSTIVEL - FRENTISTA", "Posto"):
+                return redirect(url_for("ordens_pendentes_posto"))
                 
             return redirect(url_for("dashboard"))
         else:
@@ -3910,7 +3935,7 @@ def lancar_abastecimento():
 
 @app.route("/combustivel/pendentes", methods=["GET"])
 @login_required
-@role_required("Posto", "Combustivel", "admin")
+@role_required("COMBUSTIVEL - FRENTISTA", "Posto", "Combustivel", "admin")
 def ordens_pendentes_posto():
     """Página exclusiva para o Posto / Frentista visualizar as ordens pendentes e dar baixa."""
     executar_migracao_combustivel_segura()
@@ -3961,7 +3986,7 @@ def ordens_pendentes_posto():
 
 @app.route("/combustivel/dar-baixa/<int:id>", methods=["POST"])
 @login_required
-@role_required("Posto", "Combustivel", "admin")
+@role_required("COMBUSTIVEL - FRENTISTA", "Posto", "Combustivel", "admin")
 def dar_baixa_abastecimento(id):
     """Recebe os litros abastecidos e o KM informados pelo frentista e aplica o preço por litro configurado."""
     executar_migracao_combustivel_segura()

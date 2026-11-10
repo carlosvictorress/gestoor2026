@@ -633,7 +633,7 @@
       <div class="sidebar-brand">
         <div class="brand-full">
           <a
-            href="{{ url_for('merenda.dashboard') if session.get('role') == 'Merenda Escolar' else url_for('dashboard') }}"
+            href="{{ url_for('merenda.dashboard') if session.get('role') == 'Merenda Escolar' else (url_for('patrimonio.listar_itens') if session.get('role') == 'Patrimonio' else url_for('dashboard')) }}"
             class="text-decoration-none text-white"
           >
             <b>GESTOR</b> 360º
@@ -644,7 +644,7 @@
         </div>
 
         <a
-          href="{{ url_for('merenda.dashboard') if session.get('role') == 'Merenda Escolar' else url_for('dashboard') }}"
+          href="{{ url_for('merenda.dashboard') if session.get('role') == 'Merenda Escolar' else (url_for('patrimonio.listar_itens') if session.get('role') == 'Patrimonio' else url_for('dashboard')) }}"
           class="brand-mini text-decoration-none"
           title="Gestor 360º - Painel Inicial"
         >
@@ -693,6 +693,47 @@
             >
               <i class="bi bi-tree-fill"></i>
               <span class="nav-text">Agricultura Familiar (PNAE)</span>
+            </a>
+          </li>
+          {% elif session.get('role') == 'Patrimonio' %}
+          <li class="nav-item">
+            <a
+              class="nav-link {% if request.endpoint == 'patrimonio.listar_itens' %}active{% endif %}"
+              href="{{ url_for('patrimonio.listar_itens') }}"
+              data-tooltip="Painel de Patrimônio"
+            >
+              <i class="bi bi-building-check"></i>
+              <span class="nav-text">Painel de Patrimônio</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link {% if request.endpoint == 'patrimonio.novo_item' %}active{% endif %}"
+              href="{{ url_for('patrimonio.novo_item') }}"
+              data-tooltip="Novo Tombamento"
+            >
+              <i class="bi bi-plus-circle-fill"></i>
+              <span class="nav-text">Novo Tombamento</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link {% if request.endpoint == 'patrimonio.listar_itens_baixados' %}active{% endif %}"
+              href="{{ url_for('patrimonio.listar_itens_baixados') }}"
+              data-tooltip="Bens Baixados"
+            >
+              <i class="bi bi-archive-fill"></i>
+              <span class="nav-text">Bens Baixados</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link {% if request.endpoint == 'patrimonio.listar_termos_responsabilidade' %}active{% endif %}"
+              href="{{ url_for('patrimonio.listar_termos_responsabilidade') }}"
+              data-tooltip="Termos de Responsabilidade"
+            >
+              <i class="bi bi-file-earmark-check-fill"></i>
+              <span class="nav-text">Termos de Responsabilidade</span>
             </a>
           </li>
           {% else %}

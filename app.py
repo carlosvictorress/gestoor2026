@@ -260,6 +260,8 @@ def role_required(*roles):
                     return redirect(url_for("ordens_pendentes_posto"))
                 if session.get("role") == "Merenda Escolar":
                     return redirect(url_for("merenda.dashboard"))
+                if session.get("role") == "Patrimonio":
+                    return redirect(url_for("patrimonio.listar_itens"))
                 return redirect(
                     url_for("dashboard")
                 )  # Redireciona para o painel principal
@@ -276,6 +278,7 @@ def restringir_acesso_frentista():
     Garante que perfis exclusivos acessem apenas os seus módulos:
     - COMBUSTIVEL - FRENTISTA (Frentista/Posto): apenas o terminal de baixa de abastecimentos.
     - Merenda Escolar: apenas os módulos de Merenda Escolar e Agricultura Familiar (PNAE).
+    - Patrimonio: apenas o módulo de Patrimônio.
     """
     if not session.get("logged_in"):
         return
@@ -300,6 +303,10 @@ def restringir_acesso_frentista():
     elif role_atual == "Merenda Escolar":
         if request.endpoint and request.endpoint not in endpoints_basicos and not request.endpoint.startswith("merenda."):
             return redirect(url_for("merenda.dashboard"))
+
+    elif role_atual == "Patrimonio":
+        if request.endpoint and request.endpoint not in endpoints_basicos and not request.endpoint.startswith("patrimonio."):
+            return redirect(url_for("patrimonio.listar_itens"))
 
 
 def check_license(f):
@@ -1766,6 +1773,8 @@ def login():
                 return redirect(url_for("ordens_pendentes_posto"))
             if user.role == "Merenda Escolar":
                 return redirect(url_for("merenda.dashboard"))
+            if user.role == "Patrimonio":
+                return redirect(url_for("patrimonio.listar_itens"))
                 
             return redirect(url_for("dashboard"))
         else:

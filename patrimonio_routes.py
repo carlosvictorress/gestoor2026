@@ -2766,7 +2766,7 @@ def mover_pasta_item_baixado(item_id):
 
 @patrimonio_bp.route('/item/excluir/<int:item_id>', methods=['POST'])
 @login_required
-@role_required('admin')
+@role_required('admin', 'Patrimonio')
 def excluir_item_patrimonio(item_id):
     item = Patrimonio.query.get_or_404(item_id)
     justificativa = request.form.get('justificativa_exclusao')

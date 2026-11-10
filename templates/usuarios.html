@@ -1,127 +1,627 @@
 {% extends 'base.html' %}
 
-{% block title %}Gerenciar Usuários e Secretarias{% endblock %}
+{% block title %}Gestão de Usuários e Secretarias | Gestor 360º{% endblock %}
 
 {% block content %}
-<h2>Gerenciar Usuários e Secretarias</h2>
-<hr>
+<style>
+    .users-hero {
+        background: linear-gradient(135deg, #072657 0%, #0f172a 70%, #1e3a8a 100%);
+        border-radius: 16px;
+        padding: 1.6rem 2rem;
+        color: #fff;
+        box-shadow: 0 10px 25px rgba(7, 38, 87, 0.16);
+        margin-bottom: 1.5rem;
+    }
+    .kpi-user-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        background: #fff;
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    .kpi-user-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    }
+    .kpi-icon-box {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        flex-shrink: 0;
+    }
+    .panel-gov-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        background: #ffffff;
+        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+        overflow: hidden;
+    }
+    .user-avatar-circle {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+        color: #fff;
+        font-weight: 700;
+        font-size: 0.92rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        text-transform: uppercase;
+        box-shadow: 0 2px 6px rgba(30, 58, 138, 0.2);
+    }
+    .user-avatar-circle.avatar-admin {
+        background: linear-gradient(135deg, #7c2d12, #ea580c);
+    }
+    .user-avatar-circle.avatar-merenda {
+        background: linear-gradient(135deg, #065f46, #10b981);
+    }
+    .user-avatar-circle.avatar-posto {
+        background: linear-gradient(135deg, #92400e, #f59e0b);
+    }
+    .table-users-gov {
+        margin-bottom: 0;
+    }
+    .table-users-gov thead th {
+        background: #f8fafc;
+        color: #475569;
+        font-size: 0.74rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 0.9rem 1rem;
+        border-bottom: 2px solid #e2e8f0;
+        white-space: nowrap;
+    }
+    .table-users-gov tbody td {
+        padding: 0.9rem 1rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.88rem;
+    }
+    .table-users-gov tbody tr:hover {
+        background-color: #f8fafc;
+    }
+    .role-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.32rem 0.7rem;
+        border-radius: 999px;
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        white-space: nowrap;
+    }
+    .role-admin { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .role-rh { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .role-merenda { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    .role-patrimonio { background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; }
+    .role-combustivel { background: #f0fdfa; color: #0f766e; border: 1px solid #99f6e4; }
+    .role-frentista { background: #fefce8; color: #a16207; border: 1px solid #fde047; }
+    .role-caee { background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; }
+    .role-fiscal { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
+    .role-default { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
 
-<div class="row">
-    <div class="col-lg-7">
-        <div class="card shadow-sm mb-3">
-            <div class="card-header">
-                <h5><i class="bi bi-people-fill"></i> Usuários do Sistema</h5>
+    .sec-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        background: #f8fafc;
+        margin-bottom: 0.55rem;
+        transition: all 0.15s ease;
+    }
+    .sec-item:hover {
+        background: #fff;
+        border-color: #cbd5e1;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    }
+    .filter-bar-users {
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 0.9rem 1.25rem;
+    }
+</style>
+
+{% set qtd_admins = usuarios|selectattr('role', 'equalto', 'admin')|list|length %}
+{% set qtd_setoriais = (usuarios|length) - qtd_admins %}
+
+<!-- CABEÇALHO EXECUTIVO -->
+<div class="users-hero d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="d-flex align-items-center gap-3">
+        <div class="rounded-3 bg-white bg-opacity-10 p-3 d-flex align-items-center justify-content-center border border-white border-opacity-25">
+            <i class="bi bi-shield-lock-fill fs-3 text-warning"></i>
+        </div>
+        <div>
+            <div class="d-flex align-items-center gap-2">
+                <h3 class="mb-0 fw-bold">Gestão de Usuários e Secretarias</h3>
+                <span class="badge bg-warning text-dark fw-bold">Controle de Acesso</span>
             </div>
-            <div class="card-body">
-                <table class="table table-hover">
+            <p class="mb-0 text-white-50 small mt-1">
+                Gerencie contas de acesso, atribua perfis exclusivos por módulo e organize as secretarias municipais.
+            </p>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-warning fw-bold px-3 py-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNovoUsuario">
+            <i class="bi bi-person-plus-fill me-1"></i> Novo Usuário
+        </button>
+        <button type="button" class="btn btn-outline-light fw-semibold px-3 py-2" data-bs-toggle="modal" data-bs-target="#modalNovaSecretaria">
+            <i class="bi bi-building-add me-1"></i> Nova Secretaria
+        </button>
+    </div>
+</div>
+
+<!-- CARDS DE INDICADORES (KPIs) -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="kpi-user-card p-3 h-100 d-flex align-items-center justify-content-between">
+            <div>
+                <div class="text-uppercase text-muted fw-bold" style="font-size: 0.72rem;">Total de Usuários</div>
+                <div class="fs-3 fw-extrabold text-dark lh-1 mt-1">{{ usuarios|length }}</div>
+                <small class="text-muted">Contas ativas no sistema</small>
+            </div>
+            <div class="kpi-icon-box bg-primary bg-opacity-10 text-primary">
+                <i class="bi bi-people-fill"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+        <div class="kpi-user-card p-3 h-100 d-flex align-items-center justify-content-between">
+            <div>
+                <div class="text-uppercase text-muted fw-bold" style="font-size: 0.72rem;">Super Administradores</div>
+                <div class="fs-3 fw-extrabold text-danger lh-1 mt-1">{{ qtd_admins }}</div>
+                <small class="text-muted">Acesso total irrestrito</small>
+            </div>
+            <div class="kpi-icon-box bg-danger bg-opacity-10 text-danger">
+                <i class="bi bi-person-fill-gear"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+        <div class="kpi-user-card p-3 h-100 d-flex align-items-center justify-content-between">
+            <div>
+                <div class="text-uppercase text-muted fw-bold" style="font-size: 0.72rem;">Perfis Setoriais</div>
+                <div class="fs-3 fw-extrabold text-success lh-1 mt-1">{{ qtd_setoriais }}</div>
+                <small class="text-muted">RH, Merenda, Patrimônio, Posto...</small>
+            </div>
+            <div class="kpi-icon-box bg-success bg-opacity-10 text-success">
+                <i class="bi bi-diagram-3-fill"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+        <div class="kpi-user-card p-3 h-100 d-flex align-items-center justify-content-between">
+            <div>
+                <div class="text-uppercase text-muted fw-bold" style="font-size: 0.72rem;">Secretarias / Órgãos</div>
+                <div class="fs-3 fw-extrabold text-info lh-1 mt-1">{{ secretarias|length }}</div>
+                <small class="text-muted">Unidades vinculadas</small>
+            </div>
+            <div class="kpi-icon-box bg-info bg-opacity-10 text-info">
+                <i class="bi bi-buildings-fill"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CONTEÚDO PRINCIPAL EM 2 COLUNAS BEM PROPORCIONADAS -->
+<div class="row g-4">
+
+    <!-- COLUNA PRINCIPAL: DIRETÓRIO DE USUÁRIOS -->
+    <div class="col-xl-8 col-lg-12">
+        <div class="panel-gov-card h-100">
+            <!-- Cabeçalho da Tabela -->
+            <div class="p-3 px-4 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2 bg-white">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-person-lines-fill text-primary fs-5"></i>
+                    <h5 class="mb-0 fw-bold text-dark">Usuários Cadastrados</h5>
+                    <span class="badge rounded-pill bg-light text-secondary border" id="contadorUsuariosVisiveis">{{ usuarios|length }} registros</span>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary fw-semibold" data-bs-toggle="modal" data-bs-target="#modalNovoUsuario">
+                    <i class="bi bi-plus-lg me-1"></i> Adicionar Usuário
+                </button>
+            </div>
+
+            <!-- Barra de Pesquisa e Filtros -->
+            <div class="filter-bar-users">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-5">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" id="buscaUsuarioInput" class="form-control" placeholder="Buscar por usuário ou e-mail...">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <select id="filtroPermissaoSelect" class="form-select form-select-sm">
+                            <option value="">-- Todas as Permissões --</option>
+                            <option value="admin">Super Admin</option>
+                            <option value="rh">RH</option>
+                            <option value="combustivel">Combustível (Gestor)</option>
+                            <option value="frentista">COMBUSTIVEL - FRENTISTA</option>
+                            <option value="merenda">MERENDA ESCOLAR E AGRICULTURA</option>
+                            <option value="patrimonio">PATRIMÔNIO</option>
+                            <option value="caee">CAEE</option>
+                            <option value="fiscal">Fiscal de Contratos</option>
+                            <option value="academico">Acadêmico</option>
+                            <option value="almoxarifado">Almoxarifado</option>
+                            <option value="operador">Operador (Básico)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select id="filtroSecretariaSelect" class="form-select form-select-sm">
+                            <option value="">-- Todas as Secretarias --</option>
+                            {% for sec in secretarias %}
+                            <option value="{{ sec.nome|lower }}">{{ sec.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabela Responsiva Sem Sobreposição -->
+            <div class="table-responsive">
+                <table class="table table-users-gov" id="tabelaUsuariosSistema">
                     <thead>
                         <tr>
                             <th>Usuário</th>
-                            <th>Email</th>
-                            <th>Permissão</th>
-                            <th>Secretaria</th>
-                            <th class="text-right">Ações</th>
+                            <th>E-mail</th>
+                            <th>Perfil de Acesso</th>
+                            <th>Secretaria / Órgão</th>
+                            <th class="text-end pe-4">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for usuario in usuarios %}
-                        <tr>
-                            <td>{{ usuario.username }}</td>
-                            <td>{{ usuario.email or 'N/A' }}</td>
+                        {% set r_low = (usuario.role or '')|lower %}
+                        <tr data-username="{{ usuario.username|lower }}"
+                            data-email="{{ (usuario.email or '')|lower }}"
+                            data-role="{{ 'frentista' if usuario.role in ['Frentista', 'COMBUSTIVEL - FRENTISTA', 'Posto'] else ('merenda' if usuario.role == 'Merenda Escolar' else r_low) }}"
+                            data-secretaria="{{ (usuario.secretaria.nome if usuario.secretaria else '')|lower }}">
                             <td>
-                                {% if usuario.role in ['Frentista', 'COMBUSTIVEL - FRENTISTA', 'Posto'] %}
-                                    <span class="badge bg-warning text-dark">COMBUSTIVEL - FRENTISTA</span>
-                                {% elif usuario.role == 'Merenda Escolar' %}
-                                    <span class="badge bg-success">MERENDA ESCOLAR E AGRICULTURA FAMILIAR</span>
-                                {% elif usuario.role == 'Patrimonio' %}
-                                    <span class="badge bg-primary">PATRIMÔNIO</span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="user-avatar-circle {% if usuario.role == 'admin' %}avatar-admin{% elif usuario.role == 'Merenda Escolar' %}avatar-merenda{% elif usuario.role in ['Frentista', 'COMBUSTIVEL - FRENTISTA', 'Posto'] %}avatar-posto{% endif %}">
+                                        {{ usuario.username[:2] }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold text-dark lh-sm">{{ usuario.username }}</div>
+                                        <small class="text-muted" style="font-size: 0.72rem;">ID #{{ usuario.id }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if usuario.email %}
+                                <span class="text-secondary small"><i class="bi bi-envelope me-1 text-muted"></i>{{ usuario.email }}</span>
                                 {% else %}
-                                    <span class="badge bg-secondary">{{ usuario.role|capitalize }}</span>
+                                <span class="text-muted small fst-italic">Não informado</span>
                                 {% endif %}
                             </td>
-                            <td>{{ usuario.secretaria.nome if usuario.secretaria else 'N/A' }}</td>
-                            <td class="text-right">
-                                <a href="{{ url_for('editar_usuario', id=usuario.id) }}" class="btn btn-sm btn-secondary" title="Editar"><i class="bi bi-pencil-fill"></i></a>
-                                <a href="{{ url_for('delete_usuario', id=usuario.id) }}" class="btn btn-sm btn-danger" title="Excluir" onclick="return confirm('Tem certeza?');"><i class="bi bi-trash-fill"></i></a>
+                            <td>
+                                {% if usuario.role == 'admin' %}
+                                    <span class="role-pill role-admin"><i class="bi bi-shield-fill-check"></i> SUPER ADMIN</span>
+                                {% elif usuario.role == 'RH' %}
+                                    <span class="role-pill role-rh"><i class="bi bi-people-fill"></i> RH</span>
+                                {% elif usuario.role == 'Combustivel' %}
+                                    <span class="role-pill role-combustivel"><i class="bi bi-fuel-pump-fill"></i> COMBUSTÍVEL (GESTOR)</span>
+                                {% elif usuario.role in ['Frentista', 'COMBUSTIVEL - FRENTISTA', 'Posto'] %}
+                                    <span class="role-pill role-frentista"><i class="bi bi-ev-station-fill"></i> COMBUSTIVEL - FRENTISTA</span>
+                                {% elif usuario.role == 'Merenda Escolar' %}
+                                    <span class="role-pill role-merenda"><i class="bi bi-cup-hot-fill"></i> MERENDA & AGRICULTURA</span>
+                                {% elif usuario.role == 'Patrimonio' %}
+                                    <span class="role-pill role-patrimonio"><i class="bi bi-building-check"></i> PATRIMÔNIO</span>
+                                {% elif usuario.role == 'CAEE' %}
+                                    <span class="role-pill role-caee"><i class="bi bi-heart-pulse-fill"></i> CAEE</span>
+                                {% elif usuario.role == 'Fiscal' %}
+                                    <span class="role-pill role-fiscal"><i class="bi bi-clipboard2-check-fill"></i> FISCAL DE CONTRATOS</span>
+                                {% else %}
+                                    <span class="role-pill role-default"><i class="bi bi-person-badge"></i> {{ usuario.role|upper }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if usuario.secretaria %}
+                                <span class="badge bg-light text-dark border fw-semibold px-2 py-1">
+                                    <i class="bi bi-building text-primary me-1"></i>{{ usuario.secretaria.nome }}
+                                </span>
+                                {% else %}
+                                <span class="text-muted small">Sem vínculo</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="d-inline-flex align-items-center gap-1">
+                                    <a href="{{ url_for('editar_usuario', id=usuario.id) }}"
+                                       class="btn btn-sm btn-outline-primary"
+                                       title="Editar dados e permissão de {{ usuario.username }}">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>
+                                    {% if usuario.username != session.get('username') %}
+                                    <a href="{{ url_for('delete_usuario', id=usuario.id) }}"
+                                       class="btn btn-sm btn-outline-danger"
+                                       title="Excluir usuário {{ usuario.username }}"
+                                       onclick="return confirm('Tem certeza que deseja excluir o usuário {{ usuario.username }}?');">
+                                        <i class="bi bi-trash3"></i>
+                                    </a>
+                                    {% else %}
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Sua conta atual">
+                                        <i class="bi bi-person-check-fill"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                Nenhum usuário encontrado.
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-            <div class="card-footer">
-                 <form action="{{ url_for('add_usuario') }}" method="POST">
-                     <h6 class="mb-3">Adicionar Novo Usuário</h6>
-                     <div class="row g-2">
-                         <div class="col-md-4">
-                             <input type="text" name="username" class="form-control" placeholder="Usuário" required>
-                         </div>
-                         <div class="col-md-4">
-                             <input type="email" name="email" class="form-control" placeholder="E-mail" required>
-                         </div>
-                         <div class="col-md-4">
-                             <input type="password" name="password" class="form-control" placeholder="Senha" required>
-                         </div>
-                     </div>
-                     <div class="row g-2 mt-1"> <div class="col-md-6">
-                             <select name="secretaria_id" class="form-select" required>
-                                <option value="" disabled selected>-- Secretaria --</option>
-                                {% for sec in secretarias %}
-                                <option value="{{ sec.id }}">{{ sec.nome }}</option>
-                                {% endfor %}
-                             </select>
-                         </div>
-                         <div class="col-md-6">
-                             <select name="role" class="form-select" required>
-                                 <option value="" disabled selected>-- Permissão --</option>
-                                 <option value="admin">Super Admin</option>
-                                 <option value="RH">RH</option>
-                                 <option value="Combustivel">Combustível (Gestor)</option>
-                                 <option value="Frentista">COMBUSTIVEL - FRENTISTA</option>
-                                 <option value="Merenda Escolar">MERENDA ESCOLAR E AGRICULTURA FAMILIAR</option>
-                                 <option value="Patrimonio">PATRIMÔNIO</option>
-                                 <option value="operador">Operador (Básico)</option>
-                                 <option value="almoxarifado">Almoxarifado</option>
-                                 <option value="academico">Acadêmico</option>
-                                 <option value="CAEE">CAEE</option>
-                                 <option value="Fiscal">Fiscal de Contratos</option>
-                             </select>
-                         </div>
-                     </div>
-                     <button type="submit" class="btn btn-primary mt-2 w-100">Adicionar Usuário</button>
-                 </form>
-                 </div>
         </div>
     </div>
 
-    <div class="col-lg-5">
-        <div class="card shadow-sm mb-3">
-            <div class="card-header">
-                <h5><i class="bi bi-building"></i> Secretarias Cadastradas</h5>
-            </div>
-            <div class="card-body">
-                {% if secretarias %}
-                <ul class="list-group">
-                    {% for sec in secretarias %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        {{ sec.nome }}
-                        <a href="{{ url_for('delete_secretaria', id=sec.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Tem certeza?');"><i class="bi bi-trash-fill"></i></a>
-                    </li>
-                    {% endfor %}
-                </ul>
-                {% else %}
-                <p class="text-muted text-center">Nenhuma secretaria cadastrada.</p>
-                {% endif %}
-            </div>
-            <div class="card-footer">
-                <form action="{{ url_for('add_secretaria') }}" method="POST">
-                    <div class="input-group">
-                        <input type="text" name="nome" class="form-control" placeholder="Nome da nova secretaria" required>
-                        <button class="btn btn-success" type="submit">Adicionar Secretaria</button>
+    <!-- COLUNA LATERAL DIREITA: SECRETARIAS CADASTRADAS E RESUMO DE PERFIS -->
+    <div class="col-xl-4 col-lg-12">
+        <div class="d-flex flex-column gap-4">
+
+            <!-- CARD: SECRETARIAS CADASTRADAS -->
+            <div class="panel-gov-card">
+                <div class="p-3 px-4 border-bottom d-flex justify-content-between align-items-center bg-white">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-buildings-fill text-info fs-5"></i>
+                        <h5 class="mb-0 fw-bold text-dark">Secretarias / Órgãos</h5>
                     </div>
-                </form>
+                    <span class="badge bg-info bg-opacity-10 text-info border border-info">{{ secretarias|length }}</span>
+                </div>
+
+                <div class="p-3 px-4">
+                    <!-- Formulário rápido de nova secretaria -->
+                    <form action="{{ url_for('add_secretaria') }}" method="POST" class="mb-3">
+                        <label class="form-label small fw-bold text-secondary mb-1">Cadastrar Nova Secretaria</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-building-add text-secondary"></i></span>
+                            <input type="text" name="nome" class="form-control form-control-sm" placeholder="Ex: Secretaria de Administração" required>
+                            <button class="btn btn-success btn-sm fw-bold px-3" type="submit">
+                                <i class="bi bi-plus-lg me-1"></i>Adicionar
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Lista de Secretarias -->
+                    <div style="max-height: 360px; overflow-y: auto;" class="pe-1">
+                        {% if secretarias %}
+                            {% for sec in secretarias %}
+                            {% set qtd_vinculados = sec.usuarios|length if sec.usuarios is defined else 0 %}
+                            <div class="sec-item">
+                                <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                    <div class="rounded-2 bg-primary bg-opacity-10 text-primary p-2 d-flex align-items-center justify-content-center">
+                                        <i class="bi bi-building"></i>
+                                    </div>
+                                    <div class="text-truncate">
+                                        <div class="fw-bold text-dark text-truncate" style="font-size: 0.88rem;">{{ sec.nome }}</div>
+                                        <small class="text-muted" style="font-size: 0.73rem;">
+                                            {{ qtd_vinculados }} usuário(s) vinculado(s)
+                                        </small>
+                                    </div>
+                                </div>
+                                <a href="{{ url_for('delete_secretaria', id=sec.id) }}"
+                                   class="btn btn-sm btn-outline-danger ms-2 flex-shrink-0"
+                                   title="Excluir Secretaria {{ sec.nome }}"
+                                   onclick="return confirm('Tem certeza que deseja excluir a secretaria {{ sec.nome }}?');">
+                                    <i class="bi bi-trash3"></i>
+                                </a>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-4 text-muted small">
+                                <i class="bi bi-building-slash fs-3 d-block mb-1"></i>
+                                Nenhuma secretaria cadastrada.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
+
+            <!-- CARD: GUIA RÁPIDO DE PERFIS DE ACESSO -->
+            <div class="panel-gov-card">
+                <div class="p-3 px-4 border-bottom bg-light">
+                    <h6 class="mb-0 fw-bold text-secondary">
+                        <i class="bi bi-info-circle-fill text-primary me-1"></i> Guia de Perfis Exclusivos
+                    </h6>
+                </div>
+                <div class="p-3 px-4 small text-secondary d-flex flex-column gap-2">
+                    <div>
+                        <span class="role-pill role-frentista mb-1"><i class="bi bi-ev-station-fill"></i> COMBUSTIVEL - FRENTISTA</span>
+                        <div class="text-muted" style="font-size: 0.78rem;">Abre diretamente o Terminal do Posto (sem menu lateral) para dar baixa nas requisições pendentes.</div>
+                    </div>
+                    <hr class="my-1">
+                    <div>
+                        <span class="role-pill role-merenda mb-1"><i class="bi bi-cup-hot-fill"></i> MERENDA & AGRICULTURA</span>
+                        <div class="text-muted" style="font-size: 0.78rem;">Acessa exclusivamente os módulos de Merenda Escolar, Estoque e Agricultura Familiar (PNAE).</div>
+                    </div>
+                    <hr class="my-1">
+                    <div>
+                        <span class="role-pill role-patrimonio mb-1"><i class="bi bi-building-check"></i> PATRIMÔNIO</span>
+                        <div class="text-muted" style="font-size: 0.78rem;">Acessa exclusivamente o módulo de Patrimônio (Tombamentos, Transferências, Baixas e Relatórios PDF).</div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
+
+<!-- =================================================================== -->
+<!-- MODAL: ADICIONAR NOVO USUÁRIO                                       -->
+<!-- =================================================================== -->
+<div class="modal fade" id="modalNovoUsuario" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #072657, #1e3a8a);">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-person-plus-fill me-2 text-warning"></i>Cadastrar Novo Usuário
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form action="{{ url_for('add_usuario') }}" method="POST">
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">Nome de Usuário (Login) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-person-fill text-primary"></i></span>
+                                <input type="text" name="username" class="form-control" placeholder="Ex: joao.silva" required>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">Senha de Acesso <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-key-fill text-primary"></i></span>
+                                <input type="password" name="password" id="novaSenhaInput" class="form-control" placeholder="Digite a senha" required>
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePassVisibility('novaSenhaInput', this)">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-secondary">E-mail Institucional ou Pessoal <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-envelope-fill text-primary"></i></span>
+                                <input type="email" name="email" class="form-control" placeholder="usuario@exemplo.com.br" required>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">Secretaria / Órgão <span class="text-danger">*</span></label>
+                            <select name="secretaria_id" class="form-select" required>
+                                <option value="" disabled selected>-- Selecione a Secretaria --</option>
+                                {% for sec in secretarias %}
+                                <option value="{{ sec.id }}">{{ sec.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">Perfil de Permissão <span class="text-danger">*</span></label>
+                            <select name="role" class="form-select fw-semibold" required>
+                                <option value="" disabled selected>-- Selecione o Perfil --</option>
+                                <option value="admin">Super Admin (Acesso Total)</option>
+                                <option value="RH">RH (Recursos Humanos)</option>
+                                <option value="Combustivel">Combustível (Gestor de Frota)</option>
+                                <option value="Frentista">COMBUSTIVEL - FRENTISTA</option>
+                                <option value="Merenda Escolar">MERENDA ESCOLAR E AGRICULTURA FAMILIAR</option>
+                                <option value="Patrimonio">PATRIMÔNIO</option>
+                                <option value="CAEE">CAEE</option>
+                                <option value="Fiscal">Fiscal de Contratos</option>
+                                <option value="academico">Acadêmico (SIGE 360)</option>
+                                <option value="almoxarifado">Almoxarifado</option>
+                                <option value="operador">Operador (Básico)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary fw-bold px-4">
+                        <i class="bi bi-check2-circle me-1"></i> Criar Usuário
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- =================================================================== -->
+<!-- MODAL: NOVA SECRETARIA                                              -->
+<!-- =================================================================== -->
+<div class="modal fade" id="modalNovaSecretaria" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header bg-dark text-white">
+                <h6 class="modal-title fw-bold">
+                    <i class="bi bi-building-add me-2 text-info"></i>Nova Secretaria
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form action="{{ url_for('add_secretaria') }}" method="POST">
+                <div class="modal-body p-3">
+                    <label class="form-label small fw-bold text-secondary">Nome da Secretaria / Órgão</label>
+                    <input type="text" name="nome" class="form-control" placeholder="Ex: Secretaria de Saúde" required>
+                </div>
+                <div class="modal-footer bg-light py-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-sm btn-success fw-bold px-3">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function togglePassVisibility(inputId, btn) {
+    const inp = document.getElementById(inputId);
+    const icon = btn.querySelector('i');
+    if (inp.type === 'password') {
+        inp.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+    } else {
+        inp.type = 'password';
+        icon.className = 'bi bi-eye';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const buscaInput = document.getElementById('buscaUsuarioInput');
+    const permSelect = document.getElementById('filtroPermissaoSelect');
+    const secSelect = document.getElementById('filtroSecretariaSelect');
+    const linhas = document.querySelectorAll('#tabelaUsuariosSistema tbody tr[data-username]');
+    const contador = document.getElementById('contadorUsuariosVisiveis');
+
+    function filtrarTabelaUsuarios() {
+        const termo = (buscaInput.value || '').toLowerCase().trim();
+        const perm = (permSelect.value || '').toLowerCase().trim();
+        const sec = (secSelect.value || '').toLowerCase().trim();
+        let visiveis = 0;
+
+        linhas.forEach(tr => {
+            const u = tr.getAttribute('data-username') || '';
+            const e = tr.getAttribute('data-email') || '';
+            const r = tr.getAttribute('data-role') || '';
+            const s = tr.getAttribute('data-secretaria') || '';
+
+            const matchTermo = !termo || u.includes(termo) || e.includes(termo);
+            const matchPerm = !perm || r === perm;
+            const matchSec = !sec || s === sec;
+
+            if (matchTermo && matchPerm && matchSec) {
+                tr.style.display = '';
+                visiveis++;
+            } else {
+                tr.style.display = 'none';
+            }
+        });
+
+        if (contador) {
+            contador.textContent = visiveis + ' registro(s)';
+        }
+    }
+
+    if (buscaInput) buscaInput.addEventListener('input', filtrarTabelaUsuarios);
+    if (permSelect) permSelect.addEventListener('change', filtrarTabelaUsuarios);
+    if (secSelect) secSelect.addEventListener('change', filtrarTabelaUsuarios);
+});
+</script>
 {% endblock %}

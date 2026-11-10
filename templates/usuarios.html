@@ -215,12 +215,12 @@
     </div>
 </div>
 
-<!-- CONTEÚDO PRINCIPAL EM 2 COLUNAS BEM PROPORCIONADAS -->
+<!-- CONTEÚDO PRINCIPAL: TABELA DE USUÁRIOS EM LARGURA TOTAL (SEM CORTES) -->
 <div class="row g-4">
 
-    <!-- COLUNA PRINCIPAL: DIRETÓRIO DE USUÁRIOS -->
-    <div class="col-xl-8 col-lg-12">
-        <div class="panel-gov-card h-100">
+    <!-- DIRETÓRIO DE USUÁRIOS (100% DE LARGURA) -->
+    <div class="col-12">
+        <div class="panel-gov-card">
             <!-- Cabeçalho da Tabela -->
             <div class="p-3 px-4 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2 bg-white">
                 <div class="d-flex align-items-center gap-2">
@@ -269,7 +269,7 @@
                 </div>
             </div>
 
-            <!-- Tabela Responsiva Sem Sobreposição -->
+            <!-- Tabela Responsiva em Largura Total -->
             <div class="table-responsive">
                 <table class="table table-users-gov" id="tabelaUsuariosSistema">
                     <thead>
@@ -278,7 +278,7 @@
                             <th>E-mail</th>
                             <th>Perfil de Acesso</th>
                             <th>Secretaria / Órgão</th>
-                            <th class="text-end pe-4">Ações</th>
+                            <th class="text-center" style="min-width: 190px;">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -336,23 +336,23 @@
                                 <span class="text-muted small">Sem vínculo</span>
                                 {% endif %}
                             </td>
-                            <td class="text-end pe-4">
-                                <div class="d-inline-flex align-items-center gap-1">
+                            <td class="text-center text-nowrap">
+                                <div class="d-inline-flex align-items-center justify-content-center gap-2">
                                     <a href="{{ url_for('editar_usuario', id=usuario.id) }}"
-                                       class="btn btn-sm btn-outline-primary"
+                                       class="btn btn-sm btn-outline-primary fw-semibold px-2"
                                        title="Editar dados e permissão de {{ usuario.username }}">
-                                        <i class="bi bi-pencil-square"></i>
+                                        <i class="bi bi-pencil-square me-1"></i>Editar
                                     </a>
                                     {% if usuario.username != session.get('username') %}
                                     <a href="{{ url_for('delete_usuario', id=usuario.id) }}"
-                                       class="btn btn-sm btn-outline-danger"
+                                       class="btn btn-sm btn-outline-danger fw-semibold px-2"
                                        title="Excluir usuário {{ usuario.username }}"
                                        onclick="return confirm('Tem certeza que deseja excluir o usuário {{ usuario.username }}?');">
-                                        <i class="bi bi-trash3"></i>
+                                        <i class="bi bi-trash3 me-1"></i>Excluir
                                     </a>
                                     {% else %}
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Sua conta atual">
-                                        <i class="bi bi-person-check-fill"></i>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary px-2" disabled title="Sua conta atual">
+                                        <i class="bi bi-person-check-fill me-1"></i>Logado
                                     </button>
                                     {% endif %}
                                 </div>
@@ -371,39 +371,35 @@
         </div>
     </div>
 
-    <!-- COLUNA LATERAL DIREITA: SECRETARIAS CADASTRADAS E RESUMO DE PERFIS -->
-    <div class="col-xl-4 col-lg-12">
-        <div class="d-flex flex-column gap-4">
-
-            <!-- CARD: SECRETARIAS CADASTRADAS -->
-            <div class="panel-gov-card">
-                <div class="p-3 px-4 border-bottom d-flex justify-content-between align-items-center bg-white">
-                    <div class="d-flex align-items-center gap-2">
-                        <i class="bi bi-buildings-fill text-info fs-5"></i>
-                        <h5 class="mb-0 fw-bold text-dark">Secretarias / Órgãos</h5>
-                    </div>
-                    <span class="badge bg-info bg-opacity-10 text-info border border-info">{{ secretarias|length }}</span>
+    <!-- SEÇÃO INFERIOR: SECRETARIAS CADASTRADAS + GUIA DE PERFIS -->
+    <div class="col-lg-7">
+        <div class="panel-gov-card h-100">
+            <div class="p-3 px-4 border-bottom d-flex justify-content-between align-items-center bg-white">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-buildings-fill text-info fs-5"></i>
+                    <h5 class="mb-0 fw-bold text-dark">Secretarias / Órgãos Cadastrados</h5>
                 </div>
+                <span class="badge bg-info bg-opacity-10 text-info border border-info">{{ secretarias|length }}</span>
+            </div>
 
-                <div class="p-3 px-4">
-                    <!-- Formulário rápido de nova secretaria -->
-                    <form action="{{ url_for('add_secretaria') }}" method="POST" class="mb-3">
-                        <label class="form-label small fw-bold text-secondary mb-1">Cadastrar Nova Secretaria</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light"><i class="bi bi-building-add text-secondary"></i></span>
-                            <input type="text" name="nome" class="form-control form-control-sm" placeholder="Ex: Secretaria de Administração" required>
-                            <button class="btn btn-success btn-sm fw-bold px-3" type="submit">
-                                <i class="bi bi-plus-lg me-1"></i>Adicionar
-                            </button>
-                        </div>
-                    </form>
+            <div class="p-3 px-4">
+                <form action="{{ url_for('add_secretaria') }}" method="POST" class="mb-3">
+                    <label class="form-label small fw-bold text-secondary mb-1">Cadastrar Nova Secretaria</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-building-add text-secondary"></i></span>
+                        <input type="text" name="nome" class="form-control form-control-sm" placeholder="Ex: Secretaria de Administração" required>
+                        <button class="btn btn-success btn-sm fw-bold px-3" type="submit">
+                            <i class="bi bi-plus-lg me-1"></i>Adicionar Secretaria
+                        </button>
+                    </div>
+                </form>
 
-                    <!-- Lista de Secretarias -->
-                    <div style="max-height: 360px; overflow-y: auto;" class="pe-1">
-                        {% if secretarias %}
-                            {% for sec in secretarias %}
-                            {% set qtd_vinculados = sec.usuarios|length if sec.usuarios is defined else 0 %}
-                            <div class="sec-item">
+                <div class="row g-2">
+                    {% if secretarias %}
+                        {% for sec in secretarias %}
+                        {% set qtd_vinculados = sec.usuarios|length if sec.usuarios is defined else 0 %}
+                        <div class="col-md-6">
+                            <div class="sec-item mb-0 h-100">
                                 <div class="d-flex align-items-center gap-2 overflow-hidden">
                                     <div class="rounded-2 bg-primary bg-opacity-10 text-primary p-2 d-flex align-items-center justify-content-center">
                                         <i class="bi bi-building"></i>
@@ -422,42 +418,42 @@
                                     <i class="bi bi-trash3"></i>
                                 </a>
                             </div>
-                            {% endfor %}
-                        {% else %}
-                            <div class="text-center py-4 text-muted small">
-                                <i class="bi bi-building-slash fs-3 d-block mb-1"></i>
-                                Nenhuma secretaria cadastrada.
-                            </div>
-                        {% endif %}
-                    </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="col-12 text-center py-4 text-muted small">
+                            <i class="bi bi-building-slash fs-3 d-block mb-1"></i>
+                            Nenhuma secretaria cadastrada.
+                        </div>
+                    {% endif %}
                 </div>
             </div>
+        </div>
+    </div>
 
-            <!-- CARD: GUIA RÁPIDO DE PERFIS DE ACESSO -->
-            <div class="panel-gov-card">
-                <div class="p-3 px-4 border-bottom bg-light">
-                    <h6 class="mb-0 fw-bold text-secondary">
-                        <i class="bi bi-info-circle-fill text-primary me-1"></i> Guia de Perfis Exclusivos
-                    </h6>
+    <div class="col-lg-5">
+        <div class="panel-gov-card h-100">
+            <div class="p-3 px-4 border-bottom bg-light">
+                <h6 class="mb-0 fw-bold text-secondary">
+                    <i class="bi bi-info-circle-fill text-primary me-1"></i> Guia de Perfis Exclusivos
+                </h6>
+            </div>
+            <div class="p-3 px-4 small text-secondary d-flex flex-column gap-2">
+                <div>
+                    <span class="role-pill role-frentista mb-1"><i class="bi bi-ev-station-fill"></i> COMBUSTIVEL - FRENTISTA</span>
+                    <div class="text-muted" style="font-size: 0.78rem;">Abre diretamente o Terminal do Posto (sem menu lateral) para dar baixa nas requisições pendentes.</div>
                 </div>
-                <div class="p-3 px-4 small text-secondary d-flex flex-column gap-2">
-                    <div>
-                        <span class="role-pill role-frentista mb-1"><i class="bi bi-ev-station-fill"></i> COMBUSTIVEL - FRENTISTA</span>
-                        <div class="text-muted" style="font-size: 0.78rem;">Abre diretamente o Terminal do Posto (sem menu lateral) para dar baixa nas requisições pendentes.</div>
-                    </div>
-                    <hr class="my-1">
-                    <div>
-                        <span class="role-pill role-merenda mb-1"><i class="bi bi-cup-hot-fill"></i> MERENDA & AGRICULTURA</span>
-                        <div class="text-muted" style="font-size: 0.78rem;">Acessa exclusivamente os módulos de Merenda Escolar, Estoque e Agricultura Familiar (PNAE).</div>
-                    </div>
-                    <hr class="my-1">
-                    <div>
-                        <span class="role-pill role-patrimonio mb-1"><i class="bi bi-building-check"></i> PATRIMÔNIO</span>
-                        <div class="text-muted" style="font-size: 0.78rem;">Acessa exclusivamente o módulo de Patrimônio (Tombamentos, Transferências, Baixas e Relatórios PDF).</div>
-                    </div>
+                <hr class="my-1">
+                <div>
+                    <span class="role-pill role-merenda mb-1"><i class="bi bi-cup-hot-fill"></i> MERENDA & AGRICULTURA</span>
+                    <div class="text-muted" style="font-size: 0.78rem;">Acessa exclusivamente os módulos de Merenda Escolar, Estoque e Agricultura Familiar (PNAE).</div>
+                </div>
+                <hr class="my-1">
+                <div>
+                    <span class="role-pill role-patrimonio mb-1"><i class="bi bi-building-check"></i> PATRIMÔNIO</span>
+                    <div class="text-muted" style="font-size: 0.78rem;">Acessa exclusivamente o módulo de Patrimônio (Tombamentos, Transferências, Baixas e Relatórios PDF).</div>
                 </div>
             </div>
-
         </div>
     </div>
 </div>

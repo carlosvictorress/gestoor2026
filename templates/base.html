@@ -633,7 +633,7 @@
       <div class="sidebar-brand">
         <div class="brand-full">
           <a
-            href="{{ url_for('dashboard') }}"
+            href="{{ url_for('merenda.dashboard') if session.get('role') == 'Merenda Escolar' else url_for('dashboard') }}"
             class="text-decoration-none text-white"
           >
             <b>GESTOR</b> 360º
@@ -644,7 +644,7 @@
         </div>
 
         <a
-          href="{{ url_for('dashboard') }}"
+          href="{{ url_for('merenda.dashboard') if session.get('role') == 'Merenda Escolar' else url_for('dashboard') }}"
           class="brand-mini text-decoration-none"
           title="Gestor 360º - Painel Inicial"
         >
@@ -664,6 +664,38 @@
 
       <div class="nav-container">
         <ul class="nav flex-column">
+          {% if session.get('role') == 'Merenda Escolar' %}
+          <li class="nav-item">
+            <a
+              class="nav-link {% if request.endpoint == 'merenda.dashboard' %}active{% endif %}"
+              href="{{ url_for('merenda.dashboard') }}"
+              data-tooltip="Merenda Escolar"
+            >
+              <i class="bi bi-cup-hot-fill"></i>
+              <span class="nav-text">Merenda Escolar</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link {% if request.endpoint == 'merenda.gerenciar_estoque' %}active{% endif %}"
+              href="{{ url_for('merenda.gerenciar_estoque') }}"
+              data-tooltip="Estoque da Merenda"
+            >
+              <i class="bi bi-box-seam-fill"></i>
+              <span class="nav-text">Estoque da Merenda</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link {% if request.endpoint and request.endpoint.startswith('merenda.agricultura') %}active{% endif %}"
+              href="{{ url_for('merenda.agricultura_dashboard') }}"
+              data-tooltip="Agricultura Familiar (PNAE)"
+            >
+              <i class="bi bi-tree-fill"></i>
+              <span class="nav-text">Agricultura Familiar (PNAE)</span>
+            </a>
+          </li>
+          {% else %}
           <li class="nav-item">
             <a
               class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}"
@@ -736,8 +768,7 @@
             </div>
           </li>
 
-          {% if session.get('role') in ['admin', 'Merenda Escolar', 'CAEE',
-          'RH', 'Fiscal'] %}
+          {% if session.get('role') in ['admin', 'Merenda Escolar', 'CAEE', 'RH', 'Fiscal'] %}
           <li class="nav-item has-submenu" data-submenu-title="Módulos" data-submenu-target="#modulosCollapse">
             <a
               class="nav-link dropdown-toggle {% if request.endpoint and request.endpoint.startswith(('merenda.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}active{% endif %}"
@@ -758,15 +789,13 @@
                 <a class="dropdown-item {% if request.endpoint and request.endpoint.startswith('caee.') %}active-subitem{% endif %}" href="{{ url_for('caee.dashboard') }}"
                   ><i class="bi bi-heart-pulse-fill"></i><span>CAEE</span></a
                 >
-                {% endif %} {% if session.get('role') in ['admin', 'RH',
-                'Fiscal'] %}
+                {% endif %} {% if session.get('role') in ['admin', 'RH', 'Fiscal'] %}
                 <a
                   class="dropdown-item {% if request.endpoint and request.endpoint.startswith('fiscal.') %}active-subitem{% endif %}"
                   href="{{ url_for('fiscal.dashboard') }}"
                   ><i class="bi bi-clipboard2-check-fill"></i><span>Fiscal de Contratos</span></a
                 >
-                {% endif %} {% if session.get('role') in ['admin', 'Merenda
-                Escolar'] %}
+                {% endif %} {% if session.get('role') in ['admin', 'Merenda Escolar'] %}
                 <a
                   class="dropdown-item {% if request.endpoint == 'merenda.dashboard' %}active-subitem{% endif %}"
                   href="{{ url_for('merenda.dashboard') }}"
@@ -849,6 +878,7 @@
               <span class="nav-text">Bloco de Notas</span>
             </a>
           </li>
+          {% endif %}
 
           {% if session['role'] in ['admin', 'RH'] %}
           <li class="nav-item">

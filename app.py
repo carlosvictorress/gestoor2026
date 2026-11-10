@@ -258,6 +258,8 @@ def role_required(*roles):
                 flash("Você não tem permissão para acessar esta página.", "danger")
                 if session.get("role") in ("Frentista", "Posto", "COMBUSTIVEL - FRENTISTA"):
                     return redirect(url_for("ordens_pendentes_posto"))
+                if session.get("role") == "Merenda Escolar":
+                    return redirect(url_for("merenda.dashboard"))
                 return redirect(
                     url_for("dashboard")
                 )  # Redireciona para o painel principal
@@ -271,21 +273,33 @@ def role_required(*roles):
 @app.before_request
 def restringir_acesso_frentista():
     """
-    Garante que o perfil COMBUSTIVEL - FRENTISTA acesse exclusivamente
-    o painel isolado de baixa de abastecimentos.
+    Garante que perfis exclusivos acessem apenas os seus módulos:
+    - COMBUSTIVEL - FRENTISTA (Frentista/Posto): apenas o terminal de baixa de abastecimentos.
+    - Merenda Escolar: apenas os módulos de Merenda Escolar e Agricultura Familiar (PNAE).
     """
-    if session.get("logged_in") and session.get("role") in ("Frentista", "Posto", "COMBUSTIVEL - FRENTISTA"):
-        endpoints_permitidos = {
+    if not session.get("logged_in"):
+        return
+
+    role_atual = session.get("role")
+    endpoints_basicos = {
+        "logout",
+        "login",
+        "static",
+        "uploaded_file",
+        "renovar_licenca",
+    }
+
+    if role_atual in ("Frentista", "Posto", "COMBUSTIVEL - FRENTISTA"):
+        endpoints_permitidos = endpoints_basicos | {
             "ordens_pendentes_posto",
             "dar_baixa_abastecimento",
-            "logout",
-            "login",
-            "static",
-            "uploaded_file",
-            "renovar_licenca",
         }
         if request.endpoint and request.endpoint not in endpoints_permitidos:
             return redirect(url_for("ordens_pendentes_posto"))
+
+    elif role_atual == "Merenda Escolar":
+        if request.endpoint and request.endpoint not in endpoints_basicos and not request.endpoint.startswith("merenda."):
+            return redirect(url_for("merenda.dashboard"))
 
 
 def check_license(f):
@@ -1750,6 +1764,8 @@ def login():
 
             if user.role in ("Frentista", "Posto", "COMBUSTIVEL - FRENTISTA"):
                 return redirect(url_for("ordens_pendentes_posto"))
+            if user.role == "Merenda Escolar":
+                return redirect(url_for("merenda.dashboard"))
                 
             return redirect(url_for("dashboard"))
         else:

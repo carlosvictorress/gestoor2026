@@ -31,6 +31,8 @@
                             <td>
                                 {% if usuario.role in ['Frentista', 'COMBUSTIVEL - FRENTISTA', 'Posto'] %}
                                     <span class="badge bg-warning text-dark">COMBUSTIVEL - FRENTISTA</span>
+                                {% elif usuario.role == 'Merenda Escolar' %}
+                                    <span class="badge bg-success">MERENDA ESCOLAR E AGRICULTURA FAMILIAR</span>
                                 {% else %}
                                     <span class="badge bg-secondary">{{ usuario.role|capitalize }}</span>
                                 {% endif %}
@@ -74,7 +76,7 @@
                                  <option value="RH">RH</option>
                                  <option value="Combustivel">Combustível (Gestor)</option>
                                  <option value="Frentista">COMBUSTIVEL - FRENTISTA</option>
-                                 <option value="Merenda Escolar">Merenda Escolar</option>
+                                 <option value="Merenda Escolar">MERENDA ESCOLAR E AGRICULTURA FAMILIAR</option>
                                  <option value="Patrimonio">Patrimônio</option>
                                  <option value="operador">Operador (Básico)</option>
                                  <option value="almoxarifado">Almoxarifado</option>

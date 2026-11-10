@@ -144,7 +144,7 @@
                     <div>
                         <div class="fw-bold lh-1">{{ session.get('username', 'Frentista')|upper }}</div>
                         <small class="text-white-50" style="font-size: 0.72rem;">
-                            Perfil: {{ 'COMBUSTIVEL - FRENTISTA' if session.get('role') in ['COMBUSTIVEL - FRENTISTA', 'Posto'] else session.get('role')|upper }}
+                            Perfil: {{ 'COMBUSTIVEL - FRENTISTA' if session.get('role') in ['Frentista', 'COMBUSTIVEL - FRENTISTA', 'Posto'] else session.get('role')|upper }}
                         </small>
                     </div>
                 </div>

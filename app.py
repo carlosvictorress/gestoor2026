@@ -256,7 +256,7 @@ def role_required(*roles):
             # Verifica se o papel do usuário está na lista de papéis permitidos
             if session.get("role") not in roles:
                 flash("Você não tem permissão para acessar esta página.", "danger")
-                if session.get("role") in ("COMBUSTIVEL - FRENTISTA", "Posto"):
+                if session.get("role") in ("Frentista", "Posto", "COMBUSTIVEL - FRENTISTA"):
                     return redirect(url_for("ordens_pendentes_posto"))
                 return redirect(
                     url_for("dashboard")
@@ -271,10 +271,10 @@ def role_required(*roles):
 @app.before_request
 def restringir_acesso_frentista():
     """
-    Garante que o perfil COMBUSTIVEL - FRENTISTA (ou Posto) acesse exclusivamente
+    Garante que o perfil COMBUSTIVEL - FRENTISTA acesse exclusivamente
     o painel isolado de baixa de abastecimentos.
     """
-    if session.get("logged_in") and session.get("role") in ("COMBUSTIVEL - FRENTISTA", "Posto"):
+    if session.get("logged_in") and session.get("role") in ("Frentista", "Posto", "COMBUSTIVEL - FRENTISTA"):
         endpoints_permitidos = {
             "ordens_pendentes_posto",
             "dar_baixa_abastecimento",
@@ -765,10 +765,22 @@ def mudar_status_requerimento_modal():
     return redirect(url_for("listar_requerimentos"))
 
 
+def garantir_coluna_role_usuario():
+    """Garante que a coluna role da tabela user comporte até 50 caracteres no PostgreSQL."""
+    try:
+        if db.engine.dialect.name == "postgresql":
+            from sqlalchemy import text as sa_text
+            with db.engine.begin() as conn:
+                conn.execute(sa_text('ALTER TABLE "user" ALTER COLUMN role TYPE VARCHAR(50)'))
+    except Exception:
+        pass
+
+
 @app.route("/usuarios")
 @login_required
 @admin_required
 def lista_usuarios():
+    garantir_coluna_role_usuario()
     usuarios = User.query.order_by(User.username).all()
     # Busca a nova lista de secretarias
     secretarias = Secretaria.query.order_by(Secretaria.nome).all()
@@ -825,12 +837,13 @@ def delete_secretaria(id):
 @login_required
 @admin_required
 def add_usuario():
+    garantir_coluna_role_usuario()
     username = request.form.get("username")
     password = request.form.get("password")
-    # --- LINHA ADICIONADA ---
     email = request.form.get("email")
-    # ---------------------------
     role = request.form.get("role", "operador")
+    if role in ("COMBUSTIVEL - FRENTISTA", "Posto", "Frentista"):
+        role = "Frentista"
     secretaria_id = request.form.get("secretaria_id", type=int)
 
     # --- VALIDAÇÃO ATUALIZADA ---
@@ -853,21 +866,23 @@ def add_usuario():
         return redirect(url_for("lista_usuarios"))
     # -------------------------------------
 
-    hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
-    new_user = User(
-        username=username,
-        # --- E-MAIL ADICIONADO ---
-        email=email,
-        # --------------------------
-        password_hash=hashed_password,
-        role=role,
-        secretaria_id=secretaria_id,
-    )
+    try:
+        hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
+        new_user = User(
+            username=username,
+            email=email,
+            password_hash=hashed_password,
+            role=role,
+            secretaria_id=secretaria_id,
+        )
 
-    db.session.add(new_user)
-    db.session.commit()
-    registrar_log(f'Criou o usuário: "{username}".')
-    flash(f'Usuário "{username}" criado com sucesso!', "success")
+        db.session.add(new_user)
+        db.session.commit()
+        registrar_log(f'Criou o usuário: "{username}".')
+        flash(f'Usuário "{username}" criado com sucesso!', "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Erro ao criar usuário: {e}", "danger")
     return redirect(url_for("lista_usuarios"))
 
 
@@ -875,6 +890,7 @@ def add_usuario():
 @login_required
 @admin_required
 def editar_usuario(id):
+    garantir_coluna_role_usuario()
     user = User.query.get_or_404(id)
     # Pega a lista de secretarias para o dropdown
     secretarias = Secretaria.query.order_by(Secretaria.nome).all()
@@ -915,9 +931,12 @@ def editar_usuario(id):
             
         # --- ATUALIZA OS DADOS DO USUÁRIO ---
         try:
+            novo_role = request.form.get("role")
+            if novo_role in ("COMBUSTIVEL - FRENTISTA", "Posto", "Frentista"):
+                novo_role = "Frentista"
             user.username = new_username
             user.email = new_email  # <- CAMPO ADICIONADO
-            user.role = request.form.get("role")
+            user.role = novo_role
             user.secretaria_id = request.form.get("secretaria_id", type=int) # <- CAMPO ADICIONADO
             
             new_password = request.form.get("password")
@@ -1729,7 +1748,7 @@ def login():
             else:
                 flash("Login realizado com sucesso!", "success")
 
-            if user.role in ("COMBUSTIVEL - FRENTISTA", "Posto"):
+            if user.role in ("Frentista", "Posto", "COMBUSTIVEL - FRENTISTA"):
                 return redirect(url_for("ordens_pendentes_posto"))
                 
             return redirect(url_for("dashboard"))
@@ -3935,7 +3954,7 @@ def lancar_abastecimento():
 
 @app.route("/combustivel/pendentes", methods=["GET"])
 @login_required
-@role_required("COMBUSTIVEL - FRENTISTA", "Posto", "Combustivel", "admin")
+@role_required("Frentista", "COMBUSTIVEL - FRENTISTA", "Posto", "Combustivel", "admin")
 def ordens_pendentes_posto():
     """Página exclusiva para o Posto / Frentista visualizar as ordens pendentes e dar baixa."""
     executar_migracao_combustivel_segura()
@@ -3986,7 +4005,7 @@ def ordens_pendentes_posto():
 
 @app.route("/combustivel/dar-baixa/<int:id>", methods=["POST"])
 @login_required
-@role_required("COMBUSTIVEL - FRENTISTA", "Posto", "Combustivel", "admin")
+@role_required("Frentista", "COMBUSTIVEL - FRENTISTA", "Posto", "Combustivel", "admin")
 def dar_baixa_abastecimento(id):
     """Recebe os litros abastecidos e o KM informados pelo frentista e aplica o preço por litro configurado."""
     executar_migracao_combustivel_segura()

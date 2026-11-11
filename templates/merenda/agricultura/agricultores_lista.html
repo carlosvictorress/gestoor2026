@@ -1,92 +1,1040 @@
 {% extends 'base.html' %}
 
-{% block title %}Agricultores Familiares{% endblock %}
+{% block title %}Fornecedores da Agricultura Familiar - PNAE{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-people-fill"></i> Agricultores Familiares</h2>
-    <div class="d-flex gap-2">
-        <a href="{{ url_for('merenda.pdf_relatorio_agricultores') }}" target="_blank" class="btn btn-outline-danger shadow-sm fw-bold">
-            <i class="bi bi-file-earmark-pdf-fill me-1"></i> Relatório PDF
-        </a>
-        <a href="{{ url_for('merenda.novo_agricultor') }}" class="btn btn-primary shadow-sm fw-bold">
-            <i class="bi bi-plus-lg me-1"></i> Novo Fornecedor
-        </a>
-    </div>
-</div>
+{% set r = resumo_pnae if resumo_pnae is defined else {
+    'total_agricultores': agricultores|length,
+    'total_ativos': agricultores|selectattr('status', 'equalto', 'Ativo')|list|length,
+    'total_individuais': agricultores|selectattr('tipo_fornecedor', 'equalto', 'Individual')|list|length,
+    'total_grupos': (agricultores|length) - (agricultores|selectattr('tipo_fornecedor', 'equalto', 'Individual')|list|length),
+    'com_contrato': 0,
+    'sem_contrato': 0,
+    'global_contratado': 0.0,
+    'global_executado': 0.0,
+    'global_saldo': 0.0,
+    'global_percentual': 0.0,
+    'global_entregas': 0
+} %}
 
-<div class="card shadow-sm border-0">
-    <div class="card-body p-0">
+<style>
+    /* ==========================================================================
+       CENTRAL EXECUTIVA DE FORNECEDORES PNAE - GESTOR 360º
+       ========================================================================== */
+    .pnae-page-wrapper {
+        padding-bottom: 2rem;
+    }
+
+    /* Cards de KPI no Topo */
+    .kpi-pnae-card {
+        background: #ffffff;
+        border: 1px solid rgba(15, 23, 42, 0.07);
+        border-radius: 16px;
+        padding: 1.35rem 1.4rem;
+        box-shadow: 0 4px 15px rgba(15, 23, 42, 0.03);
+        transition: transform 0.22s ease, box-shadow 0.22s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .kpi-pnae-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.07);
+    }
+    .kpi-icon-box {
+        width: 48px;
+        height: 48px;
+        border-radius: 13px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        flex-shrink: 0;
+    }
+    .kpi-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: #64748b;
+        margin-bottom: 0.3rem;
+    }
+    .kpi-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #0f172a;
+        letter-spacing: -0.5px;
+        line-height: 1.2;
+    }
+
+    /* Barra de Ferramentas e Filtros */
+    .filter-toolbar {
+        background: #ffffff;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 16px;
+        padding: 1.1rem 1.25rem;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.025);
+    }
+    .search-input-group .input-group-text {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+        color: #64748b;
+    }
+    .search-input-group .form-control {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+        font-size: 0.9rem;
+    }
+    .search-input-group .form-control:focus {
+        background: #ffffff;
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+    }
+    .filter-select {
+        background-color: #f8fafc;
+        border-color: #e2e8f0;
+        font-size: 0.86rem;
+        font-weight: 500;
+        color: #334155;
+        border-radius: 10px;
+    }
+    .filter-select:focus {
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+    }
+
+    /* Card Individual do Agricultor */
+    .farmer-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.035);
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+    }
+    .farmer-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.09);
+        border-color: #cbd5e1;
+    }
+    .farmer-card.status-active-card {
+        border-top: 4px solid #10b981;
+    }
+    .farmer-card.status-group-card {
+        border-top: 4px solid #2563eb;
+    }
+    .farmer-card.status-nocontract-card {
+        border-top: 4px solid #94a3b8;
+    }
+
+    /* Cabeçalho do Card */
+    .farmer-card-header {
+        padding: 1.25rem 1.35rem 0.9rem;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.85rem;
+    }
+    .farmer-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+    .avatar-individual {
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        color: #059669;
+        border: 1px solid #a7f3d0;
+    }
+    .avatar-formal {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        color: #2563eb;
+        border: 1px solid #bfdbfe;
+    }
+    .avatar-informal {
+        background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+        color: #7c3aed;
+        border: 1px solid #ddd6fe;
+    }
+    .farmer-title {
+        font-size: 1.02rem;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.3;
+        margin-bottom: 0.35rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* Bloco de Destaque Financeiro (Valor Executado) */
+    .execution-highlight-box {
+        margin: 0 1.35rem 1rem;
+        padding: 1.05rem 1.15rem;
+        border-radius: 14px;
+        background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%);
+        border: 1px solid #e2e8f0;
+        position: relative;
+    }
+    .execution-highlight-box.has-execution {
+        background: linear-gradient(145deg, #f0fdf4 0%, #ecfdf5 100%);
+        border-color: #bbf7d0;
+    }
+    .execution-title-label {
+        font-size: 0.68rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.65px;
+        color: #475569;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.25rem;
+    }
+    .execution-main-value {
+        font-size: 1.55rem;
+        font-weight: 800;
+        color: #065f46;
+        letter-spacing: -0.6px;
+        line-height: 1.15;
+    }
+    .execution-main-value.zero-exec {
+        color: #475569;
+    }
+    .progress-farmer {
+        height: 9px;
+        border-radius: 50px;
+        background-color: rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+        margin: 0.65rem 0;
+    }
+    .progress-farmer .progress-bar {
+        border-radius: 50px;
+        transition: width 0.6s ease;
+    }
+    .financial-submetrics {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 0.45rem;
+        border-top: 1px dashed rgba(15, 23, 42, 0.1);
+        font-size: 0.78rem;
+    }
+
+    /* Grade de Metadados do Agricultor */
+    .farmer-meta-grid {
+        padding: 0 1.35rem;
+        margin-bottom: 0.9rem;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.65rem;
+    }
+    .meta-item-box {
+        background: #f8fafc;
+        border: 1px solid #f1f5f9;
+        border-radius: 10px;
+        padding: 0.55rem 0.75rem;
+        min-width: 0;
+    }
+    .meta-item-label {
+        font-size: 0.66rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #64748b;
+        letter-spacing: 0.4px;
+        margin-bottom: 0.15rem;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .meta-item-value {
+        font-size: 0.81rem;
+        font-weight: 600;
+        color: #1e293b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Produtos Fornecidos (Tags) */
+    .farmer-products-strip {
+        padding: 0 1.35rem 1rem;
+        margin-top: auto;
+    }
+    .product-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 0.22rem 0.6rem;
+        border-radius: 6px;
+        background: #f1f5f9;
+        color: #334155;
+        border: 1px solid #e2e8f0;
+        margin-right: 0.25rem;
+        margin-bottom: 0.3rem;
+    }
+
+    /* Rodapé de Ações do Card */
+    .farmer-card-footer {
+        padding: 0.9rem 1.35rem;
+        background: #f8fafc;
+        border-top: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+    .btn-action-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        transition: all 0.18s ease;
+    }
+
+    /* Botões de Alternância de Visão */
+    .view-toggle-btn.active {
+        background-color: #0f172a !important;
+        color: #ffffff !important;
+        border-color: #0f172a !important;
+    }
+</style>
+
+<div class="container-fluid py-3 pnae-page-wrapper">
+    <!-- 1. CABEÇALHO EXECUTIVO -->
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4 pb-3 border-bottom">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1 small">
+                    <li class="breadcrumb-item"><a href="{{ url_for('merenda.dashboard') }}" class="text-decoration-none text-muted">Merenda Escolar</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('merenda.agricultura_dashboard') }}" class="text-decoration-none text-muted">Agricultura Familiar</a></li>
+                    <li class="breadcrumb-item active text-success fw-semibold" aria-current="page">Fornecedores</li>
+                </ol>
+            </nav>
+            <div class="d-flex align-items-center gap-2">
+                <h2 class="fw-bold text-dark mb-0">
+                    <i class="bi bi-people-fill text-success me-2"></i>Agricultores Familiares
+                </h2>
+                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1 fw-semibold">
+                    PNAE
+                </span>
+            </div>
+            <p class="text-muted small mb-0 mt-1">
+                Acompanhamento individual de fornecedores, contratos ativos, entregas realizadas e valores executados até o momento.
+            </p>
+        </div>
+
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <a href="{{ url_for('merenda.agricultura_dashboard') }}" class="btn btn-white bg-white border shadow-sm fw-semibold rounded-3">
+                <i class="bi bi-pie-chart-fill text-success me-1"></i> Painel PNAE
+            </a>
+            <a href="{{ url_for('merenda.pdf_relatorio_agricultores') }}" target="_blank" class="btn btn-outline-danger shadow-sm fw-semibold rounded-3">
+                <i class="bi bi-file-earmark-pdf-fill me-1"></i> Relatório PDF
+            </a>
+            <a href="{{ url_for('merenda.novo_agricultor') }}" class="btn btn-primary shadow-sm fw-bold rounded-3 px-3">
+                <i class="bi bi-plus-lg me-1"></i> Novo Fornecedor
+            </a>
+        </div>
+    </div>
+
+    <!-- 2. FAIXA DE KPIs CONSOLIDADOS -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="kpi-pnae-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label">Fornecedores Cadastrados</div>
+                        <div class="kpi-value">{{ r.total_agricultores }}</div>
+                    </div>
+                    <div class="kpi-icon-box bg-primary-subtle text-primary">
+                        <i class="bi bi-people-fill"></i>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2 mt-3 pt-2 border-top small text-muted">
+                    <span class="badge bg-light text-dark border fw-semibold">{{ r.total_individuais }} Individuais</span>
+                    <span class="badge bg-light text-primary border fw-semibold">{{ r.total_grupos }} Grupos / Assoc.</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="kpi-pnae-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label">Valor Global Contratado</div>
+                        <div class="kpi-value text-primary">{{ r.global_contratado | currency_br }}</div>
+                    </div>
+                    <div class="kpi-icon-box bg-info-subtle text-info">
+                        <i class="bi bi-file-earmark-check-fill"></i>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between mt-3 pt-2 border-top small text-muted">
+                    <span><i class="bi bi-check2-circle text-success me-1"></i><strong>{{ r.com_contrato }}</strong> com contrato</span>
+                    <span><strong>{{ r.sem_contrato }}</strong> pendente(s)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="kpi-pnae-card h-100" style="border-left: 4px solid #10b981;">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label text-success">Total Executado até o Momento</div>
+                        <div class="kpi-value text-success">{{ r.global_executado | currency_br }}</div>
+                    </div>
+                    <div class="kpi-icon-box bg-success-subtle text-success">
+                        <i class="bi bi-cash-coin"></i>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between mt-3 pt-2 border-top small">
+                    <span class="badge bg-success-subtle text-success fw-bold">
+                        {{ "%.1f"|format(r.global_percentual) }}% executado
+                    </span>
+                    <span class="text-muted">
+                        <i class="bi bi-truck me-1"></i><strong>{{ r.global_entregas }}</strong> entrega(s)
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="kpi-pnae-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label">Saldo Restante a Executar</div>
+                        <div class="kpi-value text-warning-emphasis">{{ r.global_saldo | currency_br }}</div>
+                    </div>
+                    <div class="kpi-icon-box bg-warning-subtle text-warning-emphasis">
+                        <i class="bi bi-hourglass-split"></i>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between mt-3 pt-2 border-top small text-muted">
+                    <span>Saldo contratual disponível</span>
+                    <span class="fw-semibold text-dark">{{ r.total_ativos }} ativos</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. BARRA INTELIGENTE DE BUSCA, FILTROS E ORDENAÇÃO -->
+    <div class="filter-toolbar mb-4">
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-lg-4">
+                <div class="input-group search-input-group">
+                    <span class="input-group-text border-end-0 rounded-start-3">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text" id="searchAgricultor" class="form-control border-start-0 rounded-end-3"
+                           placeholder="Buscar por nome, CPF/CNPJ, DAP/CAF, comunidade ou produto...">
+                </div>
+            </div>
+
+            <div class="col-6 col-md-3 col-lg-2">
+                <select id="filterTipo" class="form-select filter-select">
+                    <option value="all">Todos os Tipos</option>
+                    <option value="Individual">Agricultor Individual</option>
+                    <option value="Grupo Formal">Grupo Formal (Assoc./Coop.)</option>
+                    <option value="Grupo Informal">Grupo Informal</option>
+                </select>
+            </div>
+
+            <div class="col-6 col-md-3 col-lg-2">
+                <select id="filterContrato" class="form-select filter-select">
+                    <option value="all">Todas as Situações</option>
+                    <option value="com_contrato">Com Contrato Ativo</option>
+                    <option value="com_execucao">Com Valor Executado (&gt; R$ 0)</option>
+                    <option value="sem_contrato">Sem Contrato</option>
+                </select>
+            </div>
+
+            <div class="col-8 col-md-4 col-lg-3">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-light border-end-0 text-muted small">
+                        <i class="bi bi-sort-down me-1"></i>Ordenar
+                    </span>
+                    <select id="sortOrder" class="form-select filter-select border-start-0">
+                        <option value="executado_desc">Maior Valor Executado</option>
+                        <option value="nome_asc" selected>Nome / Razão Social (A-Z)</option>
+                        <option value="contratado_desc">Maior Valor Contratado</option>
+                        <option value="percentual_desc">Maior % de Execução</option>
+                        <option value="saldo_desc">Maior Saldo a Executar</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="col-4 col-md-2 col-lg-1 d-flex justify-content-end">
+                <div class="btn-group shadow-xs" role="group" aria-label="Alternar Visualização">
+                    <button type="button" id="btnViewCards" class="btn btn-sm btn-outline-secondary view-toggle-btn active" title="Visualização em Cards">
+                        <i class="bi bi-grid-3x3-gap-fill"></i>
+                    </button>
+                    <button type="button" id="btnViewTable" class="btn btn-sm btn-outline-secondary view-toggle-btn" title="Visualização em Tabela">
+                        <i class="bi bi-list-ul"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center mt-2 pt-2 border-top small text-muted">
+            <div>
+                Exibindo <strong id="visibleCount" class="text-dark">{{ agricultores|length }}</strong> de <strong>{{ agricultores|length }}</strong> fornecedor(es) da agricultura familiar
+            </div>
+            <button type="button" id="btnResetFilters" class="btn btn-link btn-sm text-decoration-none p-0 d-none text-danger fw-semibold">
+                <i class="bi bi-x-circle me-1"></i>Limpar filtros
+            </button>
+        </div>
+    </div>
+
+    {% if agricultores %}
+    <!-- 4. VISÃO EM CARDS MODERNOS (PADRÃO) -->
+    <div id="viewCardsContainer" class="row g-4">
+        {% for a in agricultores %}
+        {% set total_contratado = a.total_contratado if a.total_contratado is defined else 0.0 %}
+        {% set total_executado = a.total_executado if a.total_executado is defined else 0.0 %}
+        {% set saldo_restante = a.saldo_restante if a.saldo_restante is defined else 0.0 %}
+        {% set percentual = a.percentual_execucao if a.percentual_execucao is defined else 0.0 %}
+        {% set qtd_entregas = a.qtd_entregas if a.qtd_entregas is defined else 0 %}
+        {% set tem_contrato = (a.contratos|length > 0) %}
+        {% set ultimo_contrato = a.ultimo_contrato if a.ultimo_contrato is defined else (a.contratos[-1] if a.contratos else None) %}
+        {% set produtos = a.produtos_lista if a.produtos_lista is defined else [] %}
+
+        <div class="col-12 col-md-6 col-xxl-4 agricultor-item"
+             data-nome="{{ (a.razao_social or '')|lower }}"
+             data-doc="{{ (a.cpf_cnpj or '')|lower }}"
+             data-dap="{{ (a.dap_caf_numero or '')|lower }}"
+             data-tipo="{{ a.tipo_fornecedor or 'Individual' }}"
+             data-comunidade="{{ (a.comunidade or a.endereco_completo or '')|lower }}"
+             data-produtos="{{ (produtos|join(' '))|lower }}"
+             data-executado="{{ '%.2f'|format(total_executado) }}"
+             data-contratado="{{ '%.2f'|format(total_contratado) }}"
+             data-saldo="{{ '%.2f'|format(saldo_restante) }}"
+             data-percentual="{{ '%.2f'|format(percentual) }}"
+             data-tem-contrato="{{ '1' if tem_contrato else '0' }}">
+
+            <div class="farmer-card {{ 'status-group-card' if a.tipo_fornecedor == 'Grupo Formal' else ('status-active-card' if tem_contrato else 'status-nocontract-card') }}">
+                <!-- Cabeçalho do Card -->
+                <div class="farmer-card-header">
+                    <div class="d-flex align-items-start gap-3 min-w-0">
+                        <div class="farmer-avatar {{ 'avatar-formal' if a.tipo_fornecedor == 'Grupo Formal' else ('avatar-informal' if a.tipo_fornecedor == 'Grupo Informal' else 'avatar-individual') }}">
+                            {% if a.tipo_fornecedor == 'Grupo Formal' %}
+                                <i class="bi bi-buildings-fill"></i>
+                            {% elif a.tipo_fornecedor == 'Grupo Informal' %}
+                                <i class="bi bi-people-fill"></i>
+                            {% else %}
+                                <i class="bi bi-person-check-fill"></i>
+                            {% endif %}
+                        </div>
+                        <div class="min-w-0">
+                            <h5 class="farmer-title" title="{{ a.razao_social }}">{{ a.razao_social }}</h5>
+                            <div class="d-flex flex-wrap align-items-center gap-1">
+                                <span class="badge {{ 'bg-primary-subtle text-primary border-primary-subtle' if a.tipo_fornecedor == 'Grupo Formal' else ('bg-info-subtle text-info-emphasis border-info-subtle' if a.tipo_fornecedor == 'Grupo Informal' else 'bg-success-subtle text-success border-success-subtle') }} border fw-semibold" style="font-size: 0.7rem;">
+                                    {{ a.tipo_fornecedor or 'Individual' }}
+                                </span>
+                                <span class="badge bg-light text-secondary border" style="font-size: 0.7rem;">
+                                    <i class="bi bi-geo-alt-fill text-danger me-1"></i>Zona {{ a.zona or 'Rural' }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <span class="badge rounded-pill {{ 'bg-success' if a.status == 'Ativo' else 'bg-secondary' }} px-2 py-1 flex-shrink-0" style="font-size: 0.7rem;">
+                        <i class="bi bi-circle-fill me-1" style="font-size: 0.45rem; vertical-align: middle;"></i>{{ a.status or 'Ativo' }}
+                    </span>
+                </div>
+
+                <!-- Painel de Destaque: Valor Total Executado até o Momento -->
+                <div class="execution-highlight-box {{ 'has-execution' if total_executado > 0 else '' }}">
+                    <div class="execution-title-label">
+                        <span><i class="bi bi-graph-up-arrow me-1 text-success"></i>Valor Executado até o Momento</span>
+                        {% if tem_contrato %}
+                            <span class="badge {{ 'bg-success text-white' if percentual >= 75 else ('bg-primary text-white' if percentual > 0 else 'bg-secondary-subtle text-secondary') }} rounded-pill" style="font-size: 0.7rem;">
+                                {{ "%.1f"|format(percentual) }}%
+                            </span>
+                        {% else %}
+                            <span class="badge bg-secondary-subtle text-secondary rounded-pill" style="font-size: 0.68rem;">
+                                Sem Contrato
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex align-items-baseline justify-content-between mt-1">
+                        <div class="execution-main-value {{ 'zero-exec' if total_executado <= 0 else '' }}">
+                            {{ total_executado | currency_br }}
+                        </div>
+                        {% if qtd_entregas > 0 %}
+                            <span class="text-success small fw-semibold" style="font-size: 0.76rem;">
+                                <i class="bi bi-box-seam-fill me-1"></i>{{ qtd_entregas }} entrega{{ 's' if qtd_entregas > 1 else '' }}
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Barra de Progresso -->
+                    <div class="progress-farmer">
+                        <div class="progress-bar {{ 'bg-danger' if saldo_restante < 0 else ('bg-success' if percentual >= 75 else ('bg-primary' if percentual > 0 else 'bg-secondary')) }}"
+                             role="progressbar"
+                             style="width: {{ 100 if percentual > 100 else (percentual if percentual > 0 else 0) }}%"
+                             aria-valuenow="{{ percentual }}" aria-valuemin="0" aria-valuemax="100">
+                        </div>
+                    </div>
+
+                    <div class="financial-submetrics">
+                        <div>
+                            <span class="text-muted">Contratado:</span>
+                            <strong class="text-dark ms-1">{{ total_contratado | currency_br }}</strong>
+                        </div>
+                        <div>
+                            <span class="text-muted">Saldo:</span>
+                            <strong class="{{ 'text-danger' if saldo_restante < 0 else 'text-primary' }} ms-1">
+                                {{ saldo_restante | currency_br }}
+                            </strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Grade de Dados Cadastrais do Agricultor -->
+                <div class="farmer-meta-grid">
+                    <div class="meta-item-box">
+                        <div class="meta-item-label">
+                            <i class="bi bi-person-vcard text-primary"></i> CPF / CNPJ
+                        </div>
+                        <div class="meta-item-value doc-format" title="{{ a.cpf_cnpj }}">
+                            {{ a.cpf_cnpj or 'Não informado' }}
+                        </div>
+                    </div>
+
+                    <div class="meta-item-box">
+                        <div class="meta-item-label">
+                            <i class="bi bi-patch-check-fill text-success"></i> DAP / CAF
+                        </div>
+                        <div class="meta-item-value" title="{{ a.dap_caf_numero or 'Não informado' }}">
+                            {{ a.dap_caf_numero or 'Não informado' }}
+                        </div>
+                    </div>
+
+                    <div class="meta-item-box">
+                        <div class="meta-item-label">
+                            <i class="bi bi-file-earmark-text text-info"></i> Contrato Vigente
+                        </div>
+                        <div class="meta-item-value">
+                            {% if ultimo_contrato %}
+                                Nº {{ ultimo_contrato.numero_contrato }}
+                                {% if a.qtd_contratos is defined and a.qtd_contratos > 1 %}
+                                    <span class="badge bg-secondary-subtle text-secondary ms-1" style="font-size: 0.65rem;">+{{ a.qtd_contratos - 1 }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted fw-normal">Não contratado</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="meta-item-box">
+                        <div class="meta-item-label">
+                            <i class="bi bi-calendar-check text-warning-emphasis"></i> Última Entrega
+                        </div>
+                        <div class="meta-item-value">
+                            {% if a.ultima_entrega is defined and a.ultima_entrega %}
+                                {{ a.ultima_entrega.strftime('%d/%m/%Y') }}
+                            {% elif a.telefone %}
+                                <i class="bi bi-telephone me-1 text-muted"></i>{{ a.telefone }}
+                            {% else %}
+                                <span class="text-muted fw-normal">Sem registros</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Localidade / Comunidade e Produtos -->
+                <div class="farmer-products-strip">
+                    {% if a.comunidade or a.endereco_completo or a.representante_nome %}
+                    <div class="small text-muted mb-2 text-truncate" title="{{ a.comunidade or a.endereco_completo }}">
+                        {% if a.representante_nome %}
+                            <i class="bi bi-person-badge me-1 text-primary"></i><strong>Rep:</strong> {{ a.representante_nome }}
+                            {% if a.comunidade %} • {% endif %}
+                        {% endif %}
+                        {% if a.comunidade %}
+                            <i class="bi bi-pin-map-fill me-1 text-secondary"></i>{{ a.comunidade }}
+                        {% elif a.endereco_completo %}
+                            <i class="bi bi-pin-map me-1 text-secondary"></i>{{ a.endereco_completo }}
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if produtos %}
+                        <div class="d-flex flex-wrap align-items-center">
+                            {% for prod in produtos[:4] %}
+                                <span class="product-pill">
+                                    <i class="bi bi-basket2-fill text-success" style="font-size: 0.65rem;"></i>{{ prod }}
+                                </span>
+                            {% endfor %}
+                            {% if produtos|length > 4 %}
+                                <span class="product-pill bg-success-subtle text-success border-success-subtle" title="{{ produtos[4:]|join(', ') }}">
+                                    +{{ produtos|length - 4 }} item(ns)
+                                </span>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="small text-muted fst-italic" style="font-size: 0.76rem;">
+                            <i class="bi bi-info-circle me-1"></i>Nenhum item de projeto de venda vinculado ainda.
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Rodapé de Ações do Card -->
+                <div class="farmer-card-footer">
+                    <div class="flex-grow-1">
+                        {% if ultimo_contrato %}
+                            <a href="{{ url_for('merenda.gerenciar_contrato_pnae', contrato_id=ultimo_contrato.id) }}"
+                               class="btn btn-sm btn-success fw-semibold w-100 rounded-3 shadow-xs">
+                                <i class="bi bi-gear-fill me-1"></i> Gerenciar Execução
+                            </a>
+                        {% else %}
+                            <a href="{{ url_for('merenda.novo_contrato_pnae', agricultor_id=a.id) }}"
+                               class="btn btn-sm btn-outline-primary fw-semibold w-100 rounded-3">
+                                <i class="bi bi-file-earmark-plus-fill me-1"></i> Firmar Contrato
+                            </a>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex align-items-center gap-1">
+                        {% if ultimo_contrato %}
+                            <a href="{{ url_for('merenda.novo_contrato_pnae', agricultor_id=a.id) }}"
+                               class="btn btn-sm btn-light border btn-action-icon text-primary"
+                               title="Adicionar Novo Contrato PNAE">
+                                <i class="bi bi-file-earmark-plus"></i>
+                            </a>
+                            <a href="{{ url_for('merenda.pdf_contrato_pnae', contrato_id=ultimo_contrato.id) }}"
+                               target="_blank"
+                               class="btn btn-sm btn-light border btn-action-icon text-danger"
+                               title="Imprimir Projeto de Venda / Contrato (PDF)">
+                                <i class="bi bi-file-earmark-pdf"></i>
+                            </a>
+                        {% endif %}
+
+                        <a href="{{ url_for('merenda.editar_agricultor', agricultor_id=a.id) }}"
+                           class="btn btn-sm btn-light border btn-action-icon text-secondary"
+                           title="Editar Cadastro do Agricultor">
+                            <i class="bi bi-pencil-square"></i>
+                        </a>
+
+                        <a href="{{ url_for('merenda.excluir_agricultor', agricultor_id=a.id) }}"
+                           class="btn btn-sm btn-light border btn-action-icon text-danger"
+                           title="Excluir Agricultor"
+                           onclick="return confirm('Tem certeza que deseja excluir este agricultor? Esta ação não pode ser desfeita.');">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- 5. VISÃO ALTERNATIVA EM TABELA COMPACTA (OCULTA POR PADRÃO) -->
+    <div id="viewTableContainer" class="card shadow-sm border-0 rounded-4 overflow-hidden d-none">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
-                    <tr>
-                        <th>Nome / Razão Social</th>
+                    <tr class="small text-uppercase text-muted">
+                        <th class="ps-4">Nome / Razão Social</th>
                         <th>CPF/CNPJ</th>
                         <th>DAP/CAF</th>
                         <th>Zona</th>
-                        <th>Status</th>
-                        <th class="text-center">Ações</th>
+                        <th class="text-end">Contratado</th>
+                        <th class="text-end">Valor Executado</th>
+                        <th class="text-end">Saldo</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center pe-4">Ações</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="tableBodyAgricultores">
                     {% for a in agricultores %}
-                    <tr>
-                        <td>
-                            <div class="fw-bold">{{ a.razao_social }}</div>
-                            <small class="text-muted">{{ a.tipo_fornecedor }}</small>
+                    {% set total_contratado = a.total_contratado if a.total_contratado is defined else 0.0 %}
+                    {% set total_executado = a.total_executado if a.total_executado is defined else 0.0 %}
+                    {% set saldo_restante = a.saldo_restante if a.saldo_restante is defined else 0.0 %}
+                    {% set percentual = a.percentual_execucao if a.percentual_execucao is defined else 0.0 %}
+                    {% set tem_contrato = (a.contratos|length > 0) %}
+                    {% set ultimo_contrato = a.ultimo_contrato if a.ultimo_contrato is defined else (a.contratos[-1] if a.contratos else None) %}
+                    {% set produtos = a.produtos_lista if a.produtos_lista is defined else [] %}
+
+                    <tr class="agricultor-row-item"
+                        data-nome="{{ (a.razao_social or '')|lower }}"
+                        data-doc="{{ (a.cpf_cnpj or '')|lower }}"
+                        data-dap="{{ (a.dap_caf_numero or '')|lower }}"
+                        data-tipo="{{ a.tipo_fornecedor or 'Individual' }}"
+                        data-comunidade="{{ (a.comunidade or a.endereco_completo or '')|lower }}"
+                        data-produtos="{{ (produtos|join(' '))|lower }}"
+                        data-executado="{{ '%.2f'|format(total_executado) }}"
+                        data-contratado="{{ '%.2f'|format(total_contratado) }}"
+                        data-saldo="{{ '%.2f'|format(saldo_restante) }}"
+                        data-percentual="{{ '%.2f'|format(percentual) }}"
+                        data-tem-contrato="{{ '1' if tem_contrato else '0' }}">
+                        <td class="ps-4">
+                            <div class="fw-bold text-dark">{{ a.razao_social }}</div>
+                            <small class="text-muted">{{ a.tipo_fornecedor }}{% if a.comunidade %} • {{ a.comunidade }}{% endif %}</small>
                         </td>
-                        
-                        <td>{{ a.cpf_cnpj }}</td>
-                        
-                        <td>{{ a.dap_caf_numero or '-' }}</td>
-                        
-                        <td>{{ a.zona or 'N/A' }}</td>
-                        
-                        <td>
+                        <td class="doc-format small fw-medium">{{ a.cpf_cnpj }}</td>
+                        <td class="small">{{ a.dap_caf_numero or '-' }}</td>
+                        <td class="small">{{ a.zona or 'Rural' }}</td>
+                        <td class="text-end fw-semibold text-secondary">{{ total_contratado | currency_br }}</td>
+                        <td class="text-end">
+                            <div class="fw-bold text-success">{{ total_executado | currency_br }}</div>
+                            <small class="text-muted">{{ "%.1f"|format(percentual) }}%</small>
+                        </td>
+                        <td class="text-end fw-semibold {{ 'text-danger' if saldo_restante < 0 else 'text-primary' }}">
+                            {{ saldo_restante | currency_br }}
+                        </td>
+                        <td class="text-center">
                             <span class="badge {{ 'bg-success' if a.status == 'Ativo' else 'bg-secondary' }}">{{ a.status }}</span>
                         </td>
-                        
-                       <td class="text-center">
-    {% if a.contratos %}
-        {% set ultimo_contrato = a.contratos[-1] %}
-        <a href="{{ url_for('merenda.gerenciar_contrato_pnae', contrato_id=ultimo_contrato.id) }}" class="btn btn-sm btn-outline-success" title="Gerenciar Execução">
-            <i class="bi bi-gear-fill"></i> Gerenciar
-        </a>
-    {% else %}
-        <a href="{{ url_for('merenda.novo_contrato_pnae', agricultor_id=a.id) }}" class="btn btn-sm btn-outline-info" title="Novo Contrato">
-            <i class="bi bi-file-earmark-plus"></i> Contratar
-        </a>
-    {% endif %}
-    
-    <a href="{{ url_for('merenda.editar_agricultor', agricultor_id=a.id) }}" class="btn btn-sm btn-outline-secondary" title="Editar">
-        <i class="bi bi-pencil"></i>
-    </a>
-
-    <a href="{{ url_for('merenda.excluir_agricultor', agricultor_id=a.id) }}" 
-       class="btn btn-sm btn-outline-danger" 
-       title="Excluir"
-       onclick="return confirm('Tem certeza que deseja excluir este agricultor? Esta ação não pode ser desfeita.');">
-        <i class="bi bi-trash"></i>
-    </a>
-</td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="6" class="text-center py-4 text-muted">Nenhum agricultor cadastrado.</td>
+                        <td class="text-center pe-4">
+                            <div class="d-inline-flex gap-1">
+                                {% if ultimo_contrato %}
+                                    <a href="{{ url_for('merenda.gerenciar_contrato_pnae', contrato_id=ultimo_contrato.id) }}" class="btn btn-sm btn-outline-success" title="Gerenciar Execução">
+                                        <i class="bi bi-gear-fill"></i> Gerenciar
+                                    </a>
+                                {% else %}
+                                    <a href="{{ url_for('merenda.novo_contrato_pnae', agricultor_id=a.id) }}" class="btn btn-sm btn-outline-primary" title="Novo Contrato">
+                                        <i class="bi bi-file-earmark-plus"></i> Contratar
+                                    </a>
+                                {% endif %}
+                                <a href="{{ url_for('merenda.editar_agricultor', agricultor_id=a.id) }}" class="btn btn-sm btn-outline-secondary" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{{ url_for('merenda.excluir_agricultor', agricultor_id=a.id) }}"
+                                   class="btn btn-sm btn-outline-danger"
+                                   title="Excluir"
+                                   onclick="return confirm('Tem certeza que deseja excluir este agricultor? Esta ação não pode ser desfeita.');">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </div>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
-    <div class="card-footer bg-light d-flex justify-content-between align-items-center py-3 border-top">
-        <div class="text-muted small">
-            <i class="bi bi-people me-1"></i> Total de <strong>{{ agricultores|length }}</strong> agricultor(es) familiar(es) cadastrado(s).
+
+    <!-- Estado Vazio para Filtros Sem Resultado -->
+    <div id="emptyFilterState" class="card border-0 shadow-sm rounded-4 p-5 text-center d-none">
+        <div class="mx-auto mb-3 d-flex align-items-center justify-content-center rounded-circle bg-light text-secondary" style="width: 64px; height: 64px;">
+            <i class="bi bi-search fs-3"></i>
         </div>
-        <a href="{{ url_for('merenda.pdf_relatorio_agricultores') }}" target="_blank" class="btn btn-danger shadow-sm fw-bold">
-            <i class="bi bi-file-earmark-pdf-fill me-1"></i> Gerar Relatório de Agricultores (PDF)
-        </a>
+        <h5 class="fw-bold text-dark mb-1">Nenhum fornecedor encontrado para os filtros aplicados</h5>
+        <p class="text-muted small mb-3">Tente ajustar os termos da pesquisa ou limpar os filtros selecionados.</p>
+        <div>
+            <button type="button" class="btn btn-outline-primary btn-sm rounded-3 px-3" onclick="document.getElementById('btnResetFilters').click()">
+                <i class="bi bi-arrow-counterclockwise me-1"></i> Limpar todos os filtros
+            </button>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Estado Vazio Inicial (Sem Agricultores no Banco) -->
+    <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+        <div class="mx-auto mb-3 d-flex align-items-center justify-content-center rounded-circle bg-success-subtle text-success" style="width: 72px; height: 72px;">
+            <i class="bi bi-people-fill fs-2"></i>
+        </div>
+        <h4 class="fw-bold text-dark mb-2">Nenhum Agricultor Familiar Cadastrado</h4>
+        <p class="text-muted mx-auto mb-4" style="max-width: 480px;">
+            Comece cadastrando os produtores individuais, associações ou cooperativas da agricultura familiar para gerenciar projetos de venda e entregas do PNAE.
+        </p>
+        <div>
+            <a href="{{ url_for('merenda.novo_agricultor') }}" class="btn btn-success fw-bold px-4 py-2 rounded-3 shadow-sm">
+                <i class="bi bi-plus-lg me-1"></i> Cadastrar Primeiro Fornecedor
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Rodapé Resumo e Exportação -->
+    <div class="card border-0 shadow-sm rounded-4 mt-4 bg-white">
+        <div class="card-body d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3 py-3 px-4">
+            <div class="text-muted small">
+                <i class="bi bi-shield-check text-success me-1"></i>
+                Total de <strong>{{ agricultores|length }}</strong> fornecedor(es) mapeado(s) •
+                Execução acumulada: <strong class="text-success">{{ r.global_executado | currency_br }}</strong>
+            </div>
+            <a href="{{ url_for('merenda.pdf_relatorio_agricultores') }}" target="_blank" class="btn btn-danger btn-sm shadow-sm fw-bold rounded-3 px-3 py-2">
+                <i class="bi bi-file-earmark-pdf-fill me-1"></i> Gerar Relatório Oficial de Agricultores (PDF)
+            </a>
+        </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // 1. Formatação amigável de CPF / CNPJ na exibição
+    document.querySelectorAll('.doc-format').forEach(function (el) {
+        const raw = (el.textContent || '').replace(/\D/g, '');
+        if (raw.length === 11) {
+            el.textContent = raw.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+        } else if (raw.length === 14) {
+            el.textContent = raw.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+        }
+    });
+
+    // 2. Elementos de Controle de Filtro, Ordenação e Visão
+    const searchInput = document.getElementById('searchAgricultor');
+    const filterTipo = document.getElementById('filterTipo');
+    const filterContrato = document.getElementById('filterContrato');
+    const sortOrder = document.getElementById('sortOrder');
+    const visibleCountEl = document.getElementById('visibleCount');
+    const btnResetFilters = document.getElementById('btnResetFilters');
+    const emptyFilterState = document.getElementById('emptyFilterState');
+
+    const viewCardsContainer = document.getElementById('viewCardsContainer');
+    const viewTableContainer = document.getElementById('viewTableContainer');
+    const tableBody = document.getElementById('tableBodyAgricultores');
+    const btnViewCards = document.getElementById('btnViewCards');
+    const btnViewTable = document.getElementById('btnViewTable');
+
+    if (!viewCardsContainer) return;
+
+    const cardItems = Array.from(viewCardsContainer.querySelectorAll('.agricultor-item'));
+    const rowItems = tableBody ? Array.from(tableBody.querySelectorAll('.agricultor-row-item')) : [];
+
+    function matchesCriteria(el, query, tipoVal, contratoVal) {
+        const nome = el.dataset.nome || '';
+        const doc = el.dataset.doc || '';
+        const dap = el.dataset.dap || '';
+        const tipo = el.dataset.tipo || '';
+        const comunidade = el.dataset.comunidade || '';
+        const produtos = el.dataset.produtos || '';
+        const executado = parseFloat(el.dataset.executado || '0');
+        const temContrato = el.dataset.temContrato === '1';
+
+        if (query) {
+            const haystack = `${nome} ${doc} ${dap} ${comunidade} ${produtos}`;
+            if (!haystack.includes(query)) return false;
+        }
+
+        if (tipoVal !== 'all' && tipo !== tipoVal) {
+            return false;
+        }
+
+        if (contratoVal === 'com_contrato' && !temContrato) return false;
+        if (contratoVal === 'sem_contrato' && temContrato) return false;
+        if (contratoVal === 'com_execucao' && executado <= 0) return false;
+
+        return true;
+    }
+
+    function compareElements(a, b, sortKey) {
+        if (sortKey === 'nome_asc') {
+            return (a.dataset.nome || '').localeCompare(b.dataset.nome || '', 'pt-BR');
+        }
+        if (sortKey === 'executado_desc') {
+            return (parseFloat(b.dataset.executado || '0') - parseFloat(a.dataset.executado || '0')) ||
+                   (a.dataset.nome || '').localeCompare(b.dataset.nome || '', 'pt-BR');
+        }
+        if (sortKey === 'contratado_desc') {
+            return (parseFloat(b.dataset.contratado || '0') - parseFloat(a.dataset.contratado || '0')) ||
+                   (a.dataset.nome || '').localeCompare(b.dataset.nome || '', 'pt-BR');
+        }
+        if (sortKey === 'percentual_desc') {
+            return (parseFloat(b.dataset.percentual || '0') - parseFloat(a.dataset.percentual || '0')) ||
+                   (a.dataset.nome || '').localeCompare(b.dataset.nome || '', 'pt-BR');
+        }
+        if (sortKey === 'saldo_desc') {
+            return (parseFloat(b.dataset.saldo || '0') - parseFloat(a.dataset.saldo || '0')) ||
+                   (a.dataset.nome || '').localeCompare(b.dataset.nome || '', 'pt-BR');
+        }
+        return 0;
+    }
+
+    function applyFiltersAndSort() {
+        const query = (searchInput.value || '').trim().toLowerCase();
+        const tipoVal = filterTipo.value;
+        const contratoVal = filterContrato.value;
+        const sortVal = sortOrder.value;
+
+        let visibleCount = 0;
+
+        // Ordena e filtra os Cards
+        cardItems.sort((a, b) => compareElements(a, b, sortVal));
+        cardItems.forEach(item => {
+            const visible = matchesCriteria(item, query, tipoVal, contratoVal);
+            item.classList.toggle('d-none', !visible);
+            if (visible) visibleCount++;
+            viewCardsContainer.appendChild(item);
+        });
+
+        // Ordena e filtra as Linhas da Tabela
+        if (tableBody) {
+            rowItems.sort((a, b) => compareElements(a, b, sortVal));
+            rowItems.forEach(row => {
+                const visible = matchesCriteria(row, query, tipoVal, contratoVal);
+                row.classList.toggle('d-none', !visible);
+                tableBody.appendChild(row);
+            });
+        }
+
+        if (visibleCountEl) visibleCountEl.textContent = visibleCount;
+
+        const hasActiveFilter = query !== '' || tipoVal !== 'all' || contratoVal !== 'all';
+        if (btnResetFilters) {
+            btnResetFilters.classList.toggle('d-none', !hasActiveFilter);
+        }
+
+        if (emptyFilterState) {
+            emptyFilterState.classList.toggle('d-none', visibleCount > 0);
+        }
+    }
+
+    searchInput.addEventListener('input', applyFiltersAndSort);
+    filterTipo.addEventListener('change', applyFiltersAndSort);
+    filterContrato.addEventListener('change', applyFiltersAndSort);
+    sortOrder.addEventListener('change', applyFiltersAndSort);
+
+    if (btnResetFilters) {
+        btnResetFilters.addEventListener('click', function () {
+            searchInput.value = '';
+            filterTipo.value = 'all';
+            filterContrato.value = 'all';
+            sortOrder.value = 'nome_asc';
+            applyFiltersAndSort();
+        });
+    }
+
+    // 3. Alternância entre Visão de Cards e Tabela
+    function setViewMode(mode) {
+        if (mode === 'table') {
+            viewCardsContainer.classList.add('d-none');
+            viewTableContainer.classList.remove('d-none');
+            btnViewTable.classList.add('active');
+            btnViewCards.classList.remove('active');
+        } else {
+            viewTableContainer.classList.add('d-none');
+            viewCardsContainer.classList.remove('d-none');
+            btnViewCards.classList.add('active');
+            btnViewTable.classList.remove('active');
+        }
+        try {
+            localStorage.setItem('gestor360_pnae_fornecedores_view', mode);
+        } catch (e) {}
+    }
+
+    btnViewCards.addEventListener('click', () => setViewMode('cards'));
+    btnViewTable.addEventListener('click', () => setViewMode('table'));
+
+    try {
+        const savedView = localStorage.getItem('gestor360_pnae_fornecedores_view');
+        if (savedView === 'table') setViewMode('table');
+    } catch (e) {}
+});
+</script>
 {% endblock %}

@@ -2347,7 +2347,68 @@ def excluir_agricultor(agricultor_id):
 @login_required
 def listar_agricultores():
     agricultores = AgricultorFamiliar.query.order_by(AgricultorFamiliar.razao_social).all()
-    return render_template('merenda/agricultura/agricultores_lista.html', agricultores=agricultores)
+    hoje = date.today()
+
+    for a in agricultores:
+        contratos_lista = a.contratos or []
+        a.qtd_contratos = len(contratos_lista)
+        a.ultimo_contrato = contratos_lista[-1] if contratos_lista else None
+        a.total_contratado = sum((c.valor_total or 0.0) for c in contratos_lista)
+        a.total_executado = sum((c.valor_executado or 0.0) for c in contratos_lista)
+        a.saldo_restante = a.total_contratado - a.total_executado
+        a.percentual_execucao = (a.total_executado / a.total_contratado * 100.0) if a.total_contratado > 0 else 0.0
+
+        entregas_aprovadas = [
+            e for c in contratos_lista for e in (c.entregas or [])
+            if getattr(e, 'status', '') == 'Aprovado'
+        ]
+        a.qtd_entregas = len(entregas_aprovadas)
+        datas_entregas = [e.data_entrega for e in entregas_aprovadas if getattr(e, 'data_entrega', None)]
+        a.ultima_entrega = max(datas_entregas) if datas_entregas else None
+
+        produtos_unicos = []
+        vistos_prod = set()
+        for c in contratos_lista:
+            for item in (c.itens or []):
+                if item.nome_produto:
+                    chave_p = item.nome_produto.strip().lower()
+                    if chave_p and chave_p not in vistos_prod:
+                        vistos_prod.add(chave_p)
+                        produtos_unicos.append(item.nome_produto.strip())
+        a.produtos_lista = produtos_unicos
+
+        if getattr(a, 'dap_caf_validade', None):
+            dias_dap = (a.dap_caf_validade - hoje).days
+            a.dap_status = 'vencida' if dias_dap < 0 else ('alerta' if dias_dap <= 30 else 'valida')
+        else:
+            a.dap_status = 'nao_informada'
+
+    total_agricultores = len(agricultores)
+    com_contrato = sum(1 for a in agricultores if a.qtd_contratos > 0)
+    global_contratado = sum(a.total_contratado for a in agricultores)
+    global_executado = sum(a.total_executado for a in agricultores)
+    global_saldo = global_contratado - global_executado
+    global_percentual = (global_executado / global_contratado * 100.0) if global_contratado > 0 else 0.0
+
+    resumo_pnae = {
+        'total_agricultores': total_agricultores,
+        'total_ativos': sum(1 for a in agricultores if (a.status or 'Ativo') == 'Ativo'),
+        'total_individuais': sum(1 for a in agricultores if (a.tipo_fornecedor or '') == 'Individual'),
+        'total_grupos': sum(1 for a in agricultores if (a.tipo_fornecedor or '') != 'Individual'),
+        'com_contrato': com_contrato,
+        'sem_contrato': total_agricultores - com_contrato,
+        'global_contratado': global_contratado,
+        'global_executado': global_executado,
+        'global_saldo': global_saldo,
+        'global_percentual': global_percentual,
+        'global_entregas': sum(a.qtd_entregas for a in agricultores)
+    }
+
+    return render_template(
+        'merenda/agricultura/agricultores_lista.html',
+        agricultores=agricultores,
+        resumo_pnae=resumo_pnae
+    )
 
 
 @merenda_bp.route('/agricultura/fornecedores/pdf')

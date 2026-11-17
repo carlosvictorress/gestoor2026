@@ -2083,3 +2083,55 @@ class FolhaPagamentoContratado(db.Model):
     def __repr__(self):
         return f'<FolhaPagamentoContratado {self.id} - {self.mes_referencia}>'
 
+
+class EntregaGasEscola(db.Model):
+    __tablename__ = "entrega_gas_escola"
+
+    id = db.Column(db.Integer, primary_key=True)
+    codigo_comprovante = db.Column(db.String(30), unique=True, nullable=False)
+    escola_id = db.Column(db.Integer, db.ForeignKey("escola.id"), nullable=False)
+    escola = db.relationship("Escola", backref=db.backref("entregas_gas", lazy=True, order_by="EntregaGasEscola.data_entrega.desc()"))
+
+    tipo_botijao = db.Column(db.String(20), default="P13")  # P13, P20, P45
+    quantidade = db.Column(db.Integer, default=1, nullable=False)
+    data_entrega = db.Column(db.Date, nullable=False)
+    hora_entrega = db.Column(db.String(10), nullable=True)
+
+    fornecedor = db.Column(db.String(150), nullable=True)
+    numero_lacre_nf = db.Column(db.String(100), nullable=True)
+    valor_unitario = db.Column(db.Float, default=0.0)
+    valor_total = db.Column(db.Float, default=0.0)
+
+    dias_duracao_estimada = db.Column(db.Integer, default=20)
+    data_prevista_fim = db.Column(db.Date, nullable=True)
+
+    recebedor_nome = db.Column(db.String(150), nullable=False)
+    recebedor_cargo = db.Column(db.String(100), nullable=True)
+    recebedor_cpf = db.Column(db.String(20), nullable=True)
+    entregador_nome = db.Column(db.String(150), nullable=True)
+
+    observacoes = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(30), default="Ativo")  # Ativo, Finalizado, Cancelado
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
+    criado_por = db.Column(db.String(80), nullable=True)
+
+    def __repr__(self):
+        return f"<EntregaGasEscola {self.codigo_comprovante} - Escola {self.escola_id}>"
+
+
+class ConfiguracaoGasEscola(db.Model):
+    __tablename__ = "configuracao_gas_escola"
+
+    id = db.Column(db.Integer, primary_key=True)
+    escola_id = db.Column(db.Integer, db.ForeignKey("escola.id"), unique=True, nullable=False)
+    escola = db.relationship("Escola", backref=db.backref("config_gas", uselist=False))
+
+    dias_estimados_por_botijao = db.Column(db.Integer, default=20)
+    tipo_botijao_padrao = db.Column(db.String(20), default="P13")
+    qtd_fogoes = db.Column(db.Integer, default=1)
+    media_refeicoes_dia = db.Column(db.Integer, default=0)
+    observacoes = db.Column(db.Text, nullable=True)
+
+    def __repr__(self):
+        return f"<ConfiguracaoGasEscola Escola {self.escola_id}>"
+

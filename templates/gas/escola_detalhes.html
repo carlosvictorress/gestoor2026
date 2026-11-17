@@ -1,0 +1,657 @@
+{% extends 'base.html' %}
+
+{% block title %}Controle de Gás • {{ escola.nome }} | Gestor 360º{% endblock %}
+
+{% block content %}
+<style>
+    .escola-gas-hero {
+        background: linear-gradient(135deg, #072657 0%, #0f172a 60%, #1e3a8a 100%);
+        border-radius: 16px;
+        padding: 1.8rem 2rem;
+        color: #fff;
+        box-shadow: 0 10px 25px rgba(7, 38, 87, 0.16);
+        margin-bottom: 1.5rem;
+    }
+    .panel-gas-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        background: #ffffff;
+        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+        overflow: hidden;
+    }
+    .kpi-escola-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        background: #fff;
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+        padding: 1.2rem;
+    }
+    .table-comparativo thead th {
+        background: #f8fafc;
+        color: #475569;
+        font-size: 0.74rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 0.85rem 0.9rem;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .table-comparativo tbody td {
+        padding: 0.85rem 0.9rem;
+        vertical-align: middle;
+        font-size: 0.88rem;
+    }
+    .codigo-gas-badge {
+        font-family: 'Courier New', Courier, monospace;
+        font-weight: 800;
+        color: #b91c1c;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        padding: 0.2rem 0.55rem;
+        border-radius: 6px;
+        font-size: 0.82rem;
+    }
+    .trend-up {
+        color: #dc2626;
+        font-weight: 700;
+        font-size: 0.82rem;
+    }
+    .trend-down {
+        color: #16a34a;
+        font-weight: 700;
+        font-size: 0.82rem;
+    }
+    .trend-equal {
+        color: #64748b;
+        font-size: 0.82rem;
+    }
+</style>
+
+<!-- BREADCRUMB & VOLTAR -->
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0 small">
+            <li class="breadcrumb-item"><a href="{{ url_for('gas.dashboard') }}" class="text-decoration-none">Controle de Gás</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ escola.nome }}</li>
+        </ol>
+    </nav>
+    <a href="{{ url_for('gas.dashboard') }}" class="btn btn-outline-secondary btn-sm fw-semibold">
+        <i class="bi bi-arrow-left me-1"></i> Voltar ao Painel Geral
+    </a>
+</div>
+
+<!-- CABEÇALHO DA ESCOLA -->
+<div class="escola-gas-hero d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div class="d-flex align-items-center gap-3">
+        <div class="rounded-3 bg-white bg-opacity-10 p-3 d-flex align-items-center justify-content-center border border-white border-opacity-25" style="width: 58px; height: 58px;">
+            <i class="bi bi-buildings fs-2 text-warning"></i>
+        </div>
+        <div>
+            <div class="d-flex align-items-center gap-2">
+                <h3 class="mb-0 fw-bold">{{ escola.nome }}</h3>
+                <span class="badge bg-light text-dark fw-bold">{{ escola.zona or 'Zona Urbana' }}</span>
+            </div>
+            <p class="mb-0 text-white-50 small mt-1">
+                INEP: <strong>{{ escola.codigo_inep or 'N/I' }}</strong> • Endereço: {{ escola.endereco or 'Valença do Piauí' }} • Diretor(a): {{ escola.diretor_responsavel or 'Não informado' }}
+            </p>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-warning fw-bold px-3 py-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNovaEntregaEstaEscola">
+            <i class="bi bi-plus-circle-fill me-1"></i> Nova Entrega
+        </button>
+        <button type="button" class="btn btn-outline-light fw-semibold px-3 py-2" data-bs-toggle="modal" data-bs-target="#modalConfigParametros">
+            <i class="bi bi-sliders me-1"></i> Parâmetros de Consumo
+        </button>
+    </div>
+</div>
+
+<!-- SITUAÇÃO ATUAL DO GÁS E CONTAGEM REGRESSIVA -->
+<div class="row g-3 mb-4">
+    <!-- Card de Previsão Ativa -->
+    <div class="col-lg-8">
+        <div class="panel-gas-card p-4 h-100 border-start border-4 border-{{ info_gas.badge_cor }}">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-{{ info_gas.badge_cor }} text-white fs-6 px-3 py-2">
+                        <i class="bi bi-fire me-1"></i> SITUAÇÃO ATUAL: {{ info_gas.status|upper }}
+                    </span>
+                    <span class="text-muted small">{{ info_gas.mensagem }}</span>
+                </div>
+                {% if info_gas.tem_entrega %}
+                <span class="codigo-gas-badge">Última Entrega: #{{ info_gas.ultima_entrega.codigo_comprovante }}</span>
+                {% endif %}
+            </div>
+
+            {% if info_gas.tem_entrega %}
+            <div class="row g-3 align-items-center">
+                <div class="col-md-4 text-center border-end">
+                    <div class="text-muted small fw-bold text-uppercase">Dias Restantes Estimados</div>
+                    <div class="display-5 fw-extrabold text-{{ info_gas.badge_cor }} mt-1">
+                        {{ info_gas.dias_restantes if info_gas.dias_restantes >= 0 else ('-' ~ info_gas.dias_restantes|abs) }}
+                    </div>
+                    <small class="text-muted">
+                        {% if info_gas.dias_restantes >= 0 %}
+                            dias até o término
+                        {% else %}
+                            dias em atraso
+                        {% endif %}
+                    </small>
+                </div>
+                <div class="col-md-8">
+                    <div class="mb-2 d-flex justify-content-between small">
+                        <span>Data do Último Abastecimento: <strong>{{ info_gas.ultima_entrega.data_entrega.strftime('%d/%m/%Y') }}</strong></span>
+                        <span>Previsão de Término: <strong class="text-{{ info_gas.badge_cor }}">{{ info_gas.data_prevista.strftime('%d/%m/%Y') }}</strong></span>
+                    </div>
+                    <div class="progress" style="height: 12px; border-radius: 999px;">
+                        <div class="progress-bar bg-{{ info_gas.badge_cor }} progress-bar-striped progress-bar-animated"
+                             role="progressbar"
+                             style="width: {{ info_gas.percentual_restante }}%;">
+                            {{ info_gas.percentual_restante }}%
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between text-muted small mt-1" style="font-size: 0.74rem;">
+                        <span>Decorrido: {{ info_gas.dias_decorridos }} dia(s)</span>
+                        <span>Duração Total Estimada: {{ info_gas.total_dias_estimados }} dia(s) ({{ info_gas.ultima_entrega.quantidade }}x {{ info_gas.ultima_entrega.tipo_botijao }})</span>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-clock-history fs-2 d-block mb-2"></i>
+                <h6 class="fw-bold">Nenhuma entrega de gás cadastrada para esta escola.</h6>
+                <p class="small mb-3">Clique no botão abaixo para lançar o primeiro abastecimento e iniciar o cálculo automático de autonomia.</p>
+                <button type="button" class="btn btn-warning fw-bold px-4" data-bs-toggle="modal" data-bs-target="#modalNovaEntregaEstaEscola">
+                    <i class="bi bi-plus-circle-fill me-1"></i> Lançar 1ª Entrega de Gás
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Indicadores Rápidos da Escola -->
+    <div class="col-lg-4">
+        <div class="panel-gas-card p-3 h-100 d-flex flex-column justify-content-between">
+            <div class="p-2">
+                <div class="text-uppercase text-muted fw-bold small mb-2">Resumo Geral de Consumo</div>
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <span class="text-secondary small">Total no Ano {{ ano_atual }}:</span>
+                    <strong class="text-dark fs-5">{{ total_botijoes_ano }} botijão(ões)</strong>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <span class="text-secondary small">Investimento Acumulado:</span>
+                    <strong class="text-success fs-6">R$ {{ "{:,.2f}".format(total_gasto_ano)|replace(',', 'X')|replace('.', ',')|replace('X', '.') }}</strong>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <span class="text-secondary small">Duração Média por Botijão:</span>
+                    <strong class="text-primary fs-6">{{ media_duracao_geral }} dias</strong>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-2">
+                    <span class="text-secondary small">Estrutura Cadastrada:</span>
+                    <span class="badge bg-light text-dark border">{{ config.qtd_fogoes if config else 1 }} fogão(ões) • {{ config.tipo_botijao_padrao if config else 'P13' }}</span>
+                </div>
+            </div>
+            <div class="p-2 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary w-100" data-bs-toggle="modal" data-bs-target="#modalConfigParametros">
+                    <i class="bi bi-gear-fill me-1"></i> Ajustar Parâmetros da Escola
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =================================================================== -->
+<!-- SEÇÃO DE COMPARAÇÃO DETALHADA ENTRE MESES DA ESCOLA                 -->
+<!-- =================================================================== -->
+<div class="panel-gas-card mb-4">
+    <div class="p-3 px-4 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2 bg-white">
+        <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-bar-chart-fill text-primary fs-5"></i>
+            <div>
+                <h5 class="mb-0 fw-bold text-dark">Comparativo de Consumo Mês a Mês (Ano {{ ano_atual }})</h5>
+                <small class="text-muted">Acompanhe a variação mensal de botijões consumidos e a evolução dos custos da merenda</small>
+            </div>
+        </div>
+        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-3 py-2 fw-bold">
+            Média: {{ "%.1f"|format(total_botijoes_ano / 12) }} botijões/mês
+        </span>
+    </div>
+
+    <div class="p-4 bg-light border-bottom">
+        <!-- Gráfico de Barras e Linha de Tendência -->
+        <div style="height: 250px; position: relative;">
+            <canvas id="graficoComparativoMensalGas"></canvas>
+        </div>
+    </div>
+
+    <!-- Tabela Detalhada com Comparação e Variação Percentual -->
+    <div class="table-responsive">
+        <table class="table table-comparativo mb-0">
+            <thead>
+                <tr>
+                    <th class="ps-4">Mês de Referência</th>
+                    <th class="text-center">Quantidade de Botijões</th>
+                    <th class="text-center">Entregas no Mês</th>
+                    <th class="text-end">Custo Total (R$)</th>
+                    <th class="text-center">Comparativo c/ Mês Anterior</th>
+                    <th class="text-center pe-4">Status do Período</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in dados_mensais %}
+                <tr>
+                    <td class="ps-4 fw-bold text-dark">
+                        {{ d.mes_nome }}
+                    </td>
+                    <td class="text-center">
+                        {% if d.quantidade > 0 %}
+                            <span class="badge bg-dark fs-6 px-3 py-1">{{ d.quantidade }} bot.</span>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center text-muted">
+                        {{ d.entregas_count }} entrega(s)
+                    </td>
+                    <td class="text-end fw-bold text-success">
+                        {% if d.valor_total > 0 %}
+                            R$ {{ "{:,.2f}".format(d.valor_total)|replace(',', 'X')|replace('.', ',')|replace('X', '.') }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if d.variacao_pct is not none %}
+                            {% if d.variacao_pct > 0 %}
+                                <span class="trend-up"><i class="bi bi-arrow-up-right"></i> +{{ d.variacao_pct }}% (Aumento)</span>
+                            {% elif d.variacao_pct < 0 %}
+                                <span class="trend-down"><i class="bi bi-arrow-down-right"></i> {{ d.variacao_pct }}% (Redução)</span>
+                            {% else %}
+                                <span class="trend-equal"><i class="bi bi-dash"></i> Estável (0%)</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted small">Base inicial</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center pe-4">
+                        {% if d.quantidade > 0 %}
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success">Atendido</span>
+                        {% else %}
+                            <span class="badge bg-light text-muted border">Sem entregas</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot class="table-light fw-bold">
+                <tr>
+                    <td class="ps-4 text-dark">TOTAL DO ANO {{ ano_atual }}</td>
+                    <td class="text-center text-dark fs-6">{{ total_botijoes_ano }} botijões</td>
+                    <td class="text-center text-muted">{{ entregas|length }} entregas</td>
+                    <td class="text-end text-success fs-6">R$ {{ "{:,.2f}".format(total_gasto_ano)|replace(',', 'X')|replace('.', ',')|replace('X', '.') }}</td>
+                    <td class="text-center text-muted">-</td>
+                    <td class="text-center pe-4"><span class="badge bg-primary">Consolidado</span></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<!-- =================================================================== -->
+<!-- HISTÓRICO COMPLETO DE ENTREGAS COM EMISSÃO DE COMPROVANTES          -->
+<!-- =================================================================== -->
+<div class="panel-gas-card mb-4">
+    <div class="p-3 px-4 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2 bg-white">
+        <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-clock-history text-secondary fs-5"></i>
+            <h5 class="mb-0 fw-bold text-dark">Histórico Completo de Entregas & Comprovantes Emitidos</h5>
+        </div>
+        <button type="button" class="btn btn-sm btn-primary fw-semibold" data-bs-toggle="modal" data-bs-target="#modalNovaEntregaEstaEscola">
+            <i class="bi bi-plus-lg me-1"></i> Nova Entrega
+        </button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-4">Código / Guia</th>
+                    <th>Data & Hora</th>
+                    <th>Quantidade / Tipo</th>
+                    <th>Fornecedor / Lacre</th>
+                    <th>Recebedor na Escola</th>
+                    <th>Entregador</th>
+                    <th>Autonomia</th>
+                    <th class="text-end">Valor Total</th>
+                    <th class="text-center pe-4">Comprovante Oficial</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in entregas %}
+                <tr>
+                    <td class="ps-4">
+                        <span class="codigo-gas-badge">#{{ e.codigo_comprovante }}</span>
+                    </td>
+                    <td>
+                        <div class="fw-bold text-dark">{{ e.data_entrega.strftime('%d/%m/%Y') }}</div>
+                        <small class="text-muted">{{ e.hora_entrega or '--:--' }}</small>
+                    </td>
+                    <td>
+                        <span class="badge bg-dark px-2 py-1">{{ e.quantidade }}x {{ e.tipo_botijao }}</span>
+                    </td>
+                    <td>
+                        <div class="small fw-semibold text-secondary">{{ e.fornecedor or 'Distribuidora' }}</div>
+                        <small class="text-muted">{{ e.numero_lacre_nf or 'Lacre verificado' }}</small>
+                    </td>
+                    <td>
+                        <div class="small fw-bold text-dark">{{ e.recebedor_nome }}</div>
+                        <small class="text-muted">{{ e.recebedor_cargo or 'Responsável' }}</small>
+                    </td>
+                    <td>
+                        <small class="text-secondary">{{ e.entregador_nome or '-' }}</small>
+                    </td>
+                    <td>
+                        <div class="small fw-semibold">{{ e.dias_duracao_estimada }} dias</div>
+                        <small class="text-muted">Até {{ e.data_prevista_fim.strftime('%d/%m/%Y') if e.data_prevista_fim else '-' }}</small>
+                    </td>
+                    <td class="text-end fw-bold text-success">
+                        {% if e.valor_total and e.valor_total > 0 %}
+                            R$ {{ "{:,.2f}".format(e.valor_total)|replace(',', 'X')|replace('.', ',')|replace('X', '.') }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="text-center pe-4">
+                        <div class="d-inline-flex align-items-center gap-1">
+                            <a href="{{ url_for('gas.gerar_comprovante_gas_pdf', id=e.id) }}" target="_blank" class="btn btn-sm btn-outline-danger fw-bold" title="Imprimir Comprovante de Entrega em PDF">
+                                <i class="bi bi-file-earmark-pdf-fill me-1"></i>Comprovante PDF
+                            </a>
+                            <form action="{{ url_for('gas.cancelar_entrega_gas', id=e.id) }}" method="POST" onsubmit="return confirm('Deseja realmente cancelar esta entrega?');">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Cancelar registro de entrega">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="text-center py-4 text-muted">Nenhuma entrega registrada para esta unidade escolar.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- =================================================================== -->
+<!-- MODAL: REGISTRAR NOVA ENTREGA PARA ESTA ESCOLA                      -->
+<!-- =================================================================== -->
+<div class="modal fade" id="modalNovaEntregaEstaEscola" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #072657, #1e3a8a);">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-warning text-dark p-2 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                        <i class="bi bi-fire fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0">Registrar Entrega de Gás</h5>
+                        <small class="text-white-50">{{ escola.nome }}</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form action="{{ url_for('gas.lancar_entrega_gas') }}" method="POST">
+                <input type="hidden" name="escola_id" value="{{ escola.id }}">
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label small fw-bold text-secondary">Escola Beneficiária</label>
+                            <input type="text" class="form-control form-control-lg bg-light fw-bold text-dark" value="{{ escola.nome }}" readonly>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-secondary">Nº do Comprovante</label>
+                            <input type="text" name="codigo_comprovante" class="form-control form-control-lg bg-light fw-bold text-danger" value="{{ proximo_codigo }}" readonly>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-secondary">Data da Entrega <span class="text-danger">*</span></label>
+                            <input type="date" name="data_entrega" class="form-control" value="{{ hoje_iso }}" required>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-secondary">Hora da Entrega</label>
+                            <input type="time" name="hora_entrega" class="form-control">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-secondary">Tipo do Botijão <span class="text-danger">*</span></label>
+                            <select name="tipo_botijao" class="form-select fw-semibold" required>
+                                <option value="P13" {% if config and config.tipo_botijao_padrao == 'P13' %}selected{% endif %}>P-13 (Comum 13 kg)</option>
+                                <option value="P20" {% if config and config.tipo_botijao_padrao == 'P20' %}selected{% endif %}>P-20 (Cilindro 20 kg)</option>
+                                <option value="P45" {% if config and config.tipo_botijao_padrao == 'P45' %}selected{% endif %}>P-45 (Industrial 45 kg)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-secondary">Quantidade de Botijões <span class="text-danger">*</span></label>
+                            <input type="number" name="quantidade" id="inputQtdEscola" class="form-control fw-bold fs-5 text-primary" value="1" min="1" max="20" required oninput="recalcularTotalEscola()">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-secondary">Preço Unitário (R$)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">R$</span>
+                                <input type="text" name="valor_unitario" id="inputUnitEscola" class="form-control fw-semibold" placeholder="0,00" oninput="recalcularTotalEscola()">
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-secondary">Valor Total Calculado</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">R$</span>
+                                <input type="text" id="inputTotalEscola" class="form-control bg-light fw-bold text-success fs-5" value="0,00" readonly>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">Fornecedor / Distribuidora</label>
+                            <input type="text" name="fornecedor" class="form-control" placeholder="Ex: Distribuidora de Gás X">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">Nº do Lacre ou Nota Fiscal</label>
+                            <input type="text" name="numero_lacre_nf" class="form-control" placeholder="Ex: Lacre nº 038192">
+                        </div>
+
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold text-secondary">Responsável pelo Recebimento <span class="text-danger">*</span></label>
+                            <input type="text" name="recebedor_nome" class="form-control" placeholder="Nome da servidora/merendeira que recebeu" required>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-secondary">Cargo / Função</label>
+                            <input type="text" name="recebedor_cargo" class="form-control" value="Merendeira">
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-secondary">CPF do Recebedor</label>
+                            <input type="text" name="recebedor_cpf" class="form-control" placeholder="000.000.000-00">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">Entregador do Caminhão</label>
+                            <input type="text" name="entregador_nome" class="form-control" placeholder="Nome do entregador">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">Duração Estimada Manual (dias) <small class="text-muted fw-normal">(Opcional)</small></label>
+                            <input type="number" name="dias_duracao_estimada" class="form-control" placeholder="Deixe em branco para cálculo automático">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-secondary">Observações / Checklist</label>
+                            <textarea name="observacoes" class="form-control" rows="2" placeholder="Botijão instalado, lacre intacto, sem vazamentos."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary fw-bold px-4">
+                        <i class="bi bi-check2-circle me-1"></i> Salvar e Gerar Comprovante
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- =================================================================== -->
+<!-- MODAL: PARÂMETROS DE CONSUMO DA ESCOLA                              -->
+<!-- =================================================================== -->
+<div class="modal fade" id="modalConfigParametros" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header bg-dark text-white">
+                <h6 class="modal-title fw-bold">
+                    <i class="bi bi-sliders me-2 text-warning"></i>Configurar Parâmetros de Gás da Escola
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form action="{{ url_for('gas.salvar_config_gas', escola_id=escola.id) }}" method="POST">
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">Dias Estimados por Botijão P-13</label>
+                            <input type="number" name="dias_estimados_por_botijao" class="form-control fw-bold" value="{{ config.dias_estimados_por_botijao if config else 20 }}" min="3" max="120" required>
+                            <small class="text-muted" style="font-size: 0.72rem;">Utilizado na 1ª entrega até o sistema aprender a média real.</small>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">Tipo de Botijão Padrão</label>
+                            <select name="tipo_botijao_padrao" class="form-select">
+                                <option value="P13" {% if not config or config.tipo_botijao_padrao == 'P13' %}selected{% endif %}>P-13 (13 kg)</option>
+                                <option value="P20" {% if config and config.tipo_botijao_padrao == 'P20' %}selected{% endif %}>P-20 (20 kg)</option>
+                                <option value="P45" {% if config and config.tipo_botijao_padrao == 'P45' %}selected{% endif %}>P-45 (45 kg)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">Quantidade de Fogões em Uso</label>
+                            <input type="number" name="qtd_fogoes" class="form-control" value="{{ config.qtd_fogoes if config else 1 }}" min="1" max="10">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">Média de Refeições / Dia</label>
+                            <input type="number" name="media_refeicoes_dia" class="form-control" value="{{ config.media_refeicoes_dia if config else 0 }}" min="0">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-secondary">Observações da Cozinha / Equipamentos</label>
+                            <textarea name="observacoes" class="form-control" rows="2" placeholder="Ex: Fogão industrial de 4 bocas, forno em uso 3x por semana.">{{ config.observacoes if config else '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary fw-bold px-3">Salvar Parâmetros</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- SCRIPTS: CHART.JS & CÁLCULO -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+function recalcularTotalEscola() {
+    const qtd = parseFloat(document.getElementById('inputQtdEscola').value) || 0;
+    const unitRaw = document.getElementById('inputUnitEscola').value.replace(/\./g, '').replace(',', '.');
+    const unit = parseFloat(unitRaw) || 0;
+    const total = qtd * unit;
+    document.getElementById('inputTotalEscola').value = total.toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('graficoComparativoMensalGas');
+    if (ctx) {
+        const labels = {{ meses_siglas|tojson }};
+        const dataValores = {{ totais_por_mes|tojson }};
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Botijões Entregues',
+                        data: dataValores,
+                        backgroundColor: 'rgba(7, 38, 87, 0.85)',
+                        borderColor: '#072657',
+                        borderWidth: 1.5,
+                        borderRadius: 6,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Tendência de Consumo',
+                        data: dataValores,
+                        type: 'line',
+                        borderColor: '#dc2626',
+                        backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.35,
+                        pointBackgroundColor: '#dc2626',
+                        pointRadius: 4,
+                        yAxisID: 'y'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            font: { family: 'Inter', size: 11, weight: 'bold' }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y + ' botijão(ões)';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0,
+                            font: { family: 'Inter', size: 11 }
+                        },
+                        grid: {
+                            color: '#f1f5f9'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            font: { family: 'Inter', size: 11, weight: '600' }
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

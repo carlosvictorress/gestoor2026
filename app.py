@@ -301,7 +301,7 @@ def restringir_acesso_frentista():
             return redirect(url_for("ordens_pendentes_posto"))
 
     elif role_atual == "Merenda Escolar":
-        if request.endpoint and request.endpoint not in endpoints_basicos and not request.endpoint.startswith("merenda."):
+        if request.endpoint and request.endpoint not in endpoints_basicos and not request.endpoint.startswith("merenda.") and not request.endpoint.startswith("gas."):
             return redirect(url_for("merenda.dashboard"))
 
     elif role_atual == "Patrimonio":
@@ -809,10 +809,12 @@ def lista_usuarios():
     return render_template("usuarios.html", usuarios=usuarios, secretarias=secretarias)
 
 
-@app.route("/secretarias/add", methods=["POST"])
+@app.route("/secretarias/add", methods=["GET", "POST"])
 @login_required
 @admin_required
 def add_secretaria():
+    if request.method == "GET":
+        return redirect(url_for("lista_usuarios"))
     nome_secretaria = request.form.get("nome")
     if not nome_secretaria:
         flash("O nome da secretaria é obrigatório.", "warning")
@@ -854,10 +856,12 @@ def delete_secretaria(id):
     return redirect(url_for("lista_usuarios"))
 
 
-@app.route("/usuarios/add", methods=["POST"])
+@app.route("/usuarios/add", methods=["GET", "POST"])
 @login_required
 @admin_required
 def add_usuario():
+    if request.method == "GET":
+        return redirect(url_for("lista_usuarios"))
     garantir_coluna_role_usuario()
     username = request.form.get("username")
     password = request.form.get("password")
@@ -4999,6 +5003,7 @@ from assinatura_routes import assinatura_bp
 from admin_sql_routes import admin_sql_bp
 from helpdesk_routes import helpdesk_bp
 from solicitacao_routes import solicitacao_bp
+from gas_routes import gas_bp
 
 
 
@@ -5007,6 +5012,7 @@ app.register_blueprint(protocolo_bp)
 app.register_blueprint(contratos_bp)
 app.register_blueprint(patrimonio_bp)
 app.register_blueprint(merenda_bp)
+app.register_blueprint(gas_bp)
 app.register_blueprint(motoristas_bp)
 app.register_blueprint(escola_bp)
 app.register_blueprint(frequencia_bp)

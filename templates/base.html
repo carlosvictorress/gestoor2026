@@ -695,6 +695,16 @@
               <span class="nav-text">Agricultura Familiar (PNAE)</span>
             </a>
           </li>
+          <li class="nav-item">
+            <a
+              class="nav-link {% if request.endpoint and request.endpoint.startswith('gas.') %}active{% endif %}"
+              href="{{ url_for('gas.dashboard') }}"
+              data-tooltip="Controle de Gás Escolar"
+            >
+              <i class="bi bi-fire"></i>
+              <span class="nav-text">Gás Escolar</span>
+            </a>
+          </li>
           {% elif session.get('role') == 'Patrimonio' %}
           <li class="nav-item">
             <a
@@ -812,7 +822,7 @@
           {% if session.get('role') in ['admin', 'Merenda Escolar', 'CAEE', 'RH', 'Fiscal'] %}
           <li class="nav-item has-submenu" data-submenu-title="Módulos" data-submenu-target="#modulosCollapse">
             <a
-              class="nav-link dropdown-toggle {% if request.endpoint and request.endpoint.startswith(('merenda.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}active{% endif %}"
+              class="nav-link dropdown-toggle {% if request.endpoint and request.endpoint.startswith(('merenda.', 'gas.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}active{% endif %}"
               data-bs-toggle="collapse"
               href="#modulosCollapse"
               role="button"
@@ -822,7 +832,7 @@
               <span class="nav-text">Módulos</span>
             </a>
             <div
-              class="collapse {% if request.endpoint and request.endpoint.startswith(('merenda.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}show{% endif %}"
+              class="collapse {% if request.endpoint and request.endpoint.startswith(('merenda.', 'gas.', 'listar_gams', 'protocolo.', 'contratos.', 'patrimonio.', 'listar_requerimentos', 'visualizar_frequencia', 'frequencia.dashboard_frequencia', 'escola.listar_escolas', 'caee.', 'fiscal.')) %}show{% endif %}"
               id="modulosCollapse"
             >
               <div class="dropdown-menu-custom">
@@ -851,6 +861,11 @@
                   class="dropdown-item {% if request.endpoint == 'merenda.agricultura_dashboard' %}active-subitem{% endif %}"
                   href="{{ url_for('merenda.agricultura_dashboard') }}"
                   ><i class="bi bi-tree-fill"></i><span>Agricultura (PNAE)</span></a
+                >
+                <a
+                  class="dropdown-item {% if request.endpoint and request.endpoint.startswith('gas.') %}active-subitem{% endif %}"
+                  href="{{ url_for('gas.dashboard') }}"
+                  ><i class="bi bi-fire text-danger"></i><span>Controle de Gás Escolar</span></a
                 >
                 {% endif %} {% if session.get('role') in ['admin', 'RH'] %}
                 <a class="dropdown-item {% if request.endpoint == 'listar_gams' %}active-subitem{% endif %}" href="{{ url_for('listar_gams') }}"

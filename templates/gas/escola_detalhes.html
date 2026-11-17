@@ -100,6 +100,9 @@
         <button type="button" class="btn btn-warning fw-bold px-3 py-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNovaEntregaEstaEscola">
             <i class="bi bi-plus-circle-fill me-1"></i> Nova Entrega
         </button>
+        <button type="button" class="btn btn-primary fw-bold px-3 py-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalRelatoriosEstaEscola">
+            <i class="bi bi-file-earmark-pdf-fill me-1 text-danger"></i> Emitir Relatórios PDF
+        </button>
         <button type="button" class="btn btn-outline-light fw-semibold px-3 py-2" data-bs-toggle="modal" data-bs-target="#modalConfigParametros">
             <i class="bi bi-sliders me-1"></i> Parâmetros de Consumo
         </button>
@@ -559,6 +562,156 @@
                     <button type="submit" class="btn btn-primary fw-bold px-3">Salvar Parâmetros</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- =================================================================== -->
+<!-- MODAL: RELATÓRIOS PDF DESTA ESCOLA                                  -->
+<!-- =================================================================== -->
+<div class="modal fade" id="modalRelatoriosEstaEscola" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #072657, #1e3a8a);">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-file-earmark-pdf-fill fs-4 text-warning"></i>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0">Relatórios em PDF • {{ escola.nome }}</h5>
+                        <small class="text-white-50">Selecione o relatório específico para esta unidade escolar</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <!-- Abas de Navegação -->
+                <ul class="nav nav-pills nav-fill mb-4 p-1 bg-light rounded-3" id="relatoriosEscolaTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold small" id="tab-esc-dias-btn" data-bs-toggle="pill" data-bs-target="#tab-esc-dias" type="button" role="tab">
+                            <i class="bi bi-calendar-range me-1"></i> Por Período / Dias
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold small" id="tab-esc-mensal-btn" data-bs-toggle="pill" data-bs-target="#tab-esc-mensal" type="button" role="tab">
+                            <i class="bi bi-calendar3 me-1"></i> Mensal
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold small" id="tab-esc-anual-btn" data-bs-toggle="pill" data-bs-target="#tab-esc-anual" type="button" role="tab">
+                            <i class="bi bi-graph-up-arrow me-1"></i> Anual Analítico
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="relatoriosEscolaTabsContent">
+
+                    <!-- ABA 1: POR DIAS DESTA ESCOLA -->
+                    <div class="tab-pane fade show active" id="tab-esc-dias" role="tabpanel">
+                        <form action="{{ url_for('gas.relatorio_entregas_dias_pdf') }}" method="GET" target="_blank">
+                            <input type="hidden" name="escola_id" value="{{ escola.id }}">
+                            <div class="p-3 bg-light rounded-3 border mb-3">
+                                <h6 class="fw-bold text-dark mb-1">
+                                    <i class="bi bi-calendar-range text-primary me-1"></i> Entregas por Dias na Escola
+                                </h6>
+                                <p class="text-muted small mb-0">
+                                    Histórico de entregas nesta unidade escolar para um intervalo de dias escolhido, discriminando quantidades, botijões P13/P20/P45, valores e recebedores.
+                                </p>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-secondary">Data Inicial <span class="text-danger">*</span></label>
+                                    <input type="date" name="data_inicio" id="relEscDiasDataInicio" class="form-control" value="{{ hoje_iso[:8] }}01" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-secondary">Data Final <span class="text-danger">*</span></label>
+                                    <input type="date" name="data_fim" id="relEscDiasDataFim" class="form-control" value="{{ hoje_iso }}" required>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 pt-3 border-top text-end">
+                                <button type="submit" class="btn btn-danger fw-bold px-4 shadow-sm">
+                                    <i class="bi bi-file-earmark-pdf-fill me-1"></i> Gerar PDF por Dias
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- ABA 2: MENSAL DESTA ESCOLA -->
+                    <div class="tab-pane fade" id="tab-esc-mensal" role="tabpanel">
+                        <form action="{{ url_for('gas.relatorio_entregas_mensal_pdf') }}" method="GET" target="_blank">
+                            <input type="hidden" name="escola_id" value="{{ escola.id }}">
+                            <div class="p-3 bg-light rounded-3 border mb-3">
+                                <h6 class="fw-bold text-dark mb-1">
+                                    <i class="bi bi-calendar3 text-primary me-1"></i> Demonstrativo Mensal da Escola
+                                </h6>
+                                <p class="text-muted small mb-0">
+                                    Ficha detalhada do mês selecionado com comparativo percentual em relação ao mês anterior, dias de autonomia proporcionados e relação de entregas com comprovantes.
+                                </p>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-7">
+                                    <label class="form-label small fw-bold text-secondary">Mês de Referência <span class="text-danger">*</span></label>
+                                    <select name="mes" class="form-select fw-semibold">
+                                        <option value="1">Janeiro</option>
+                                        <option value="2">Fevereiro</option>
+                                        <option value="3">Março</option>
+                                        <option value="4">Abril</option>
+                                        <option value="5">Maio</option>
+                                        <option value="6">Junho</option>
+                                        <option value="7">Julho</option>
+                                        <option value="8">Agosto</option>
+                                        <option value="9">Setembro</option>
+                                        <option value="10">Outubro</option>
+                                        <option value="11" selected>Novembro</option>
+                                        <option value="12">Dezembro</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-bold text-secondary">Ano <span class="text-danger">*</span></label>
+                                    <input type="number" name="ano" class="form-control fw-bold" value="{{ ano_atual }}" min="2020" max="2035" required>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 pt-3 border-top text-end">
+                                <button type="submit" class="btn btn-danger fw-bold px-4 shadow-sm">
+                                    <i class="bi bi-file-earmark-pdf-fill me-1"></i> Gerar PDF Mensal
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- ABA 3: ANUAL ANALÍTICO DESTA ESCOLA -->
+                    <div class="tab-pane fade" id="tab-esc-anual" role="tabpanel">
+                        <form action="{{ url_for('gas.relatorio_entregas_anual_analitico_pdf') }}" method="GET" target="_blank">
+                            <input type="hidden" name="escola_id" value="{{ escola.id }}">
+                            <div class="p-3 bg-light rounded-3 border mb-3">
+                                <h6 class="fw-bold text-dark mb-1">
+                                    <i class="bi bi-graph-up-arrow text-primary me-1"></i> Balanço Anual Analítico da Escola
+                                </h6>
+                                <p class="text-muted small mb-0">
+                                    Consolidado anual com matriz dos 12 meses, custo médio por botijão, autonomia média histórica e termo formal de conferência e responsabilidade técnica.
+                                </p>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-secondary">Ano do Exercício <span class="text-danger">*</span></label>
+                                    <input type="number" name="ano" class="form-control fw-bold fs-5 text-primary" value="{{ ano_atual }}" min="2020" max="2035" required>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 pt-3 border-top text-end">
+                                <button type="submit" class="btn btn-danger fw-bold px-4 shadow-sm">
+                                    <i class="bi bi-file-earmark-pdf-fill me-1"></i> Gerar Relatório Anual da Escola (PDF)
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
         </div>
     </div>
 </div>

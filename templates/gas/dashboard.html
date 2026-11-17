@@ -109,9 +109,9 @@
         <button type="button" class="btn btn-warning fw-bold px-3 py-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNovaEntregaGas">
             <i class="bi bi-plus-circle-fill me-1"></i> Nova Entrega de Gás
         </button>
-        <a href="{{ url_for('gas.relatorio_geral_gas_pdf', ano=ano_atual) }}" target="_blank" class="btn btn-outline-light fw-semibold px-3 py-2">
-            <i class="bi bi-file-earmark-pdf-fill me-1 text-danger"></i> Relatório Geral (PDF)
-        </a>
+        <button type="button" class="btn btn-primary fw-bold px-3 py-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalCentralRelatoriosGas">
+            <i class="bi bi-file-earmark-pdf-fill me-1 text-danger"></i> Central de Relatórios PDF
+        </button>
     </div>
 </div>
 
@@ -330,6 +330,12 @@
                                 <i class="bi bi-bar-chart-line-fill me-1"></i>Comparativo
                             </a>
                             <button type="button"
+                                    class="btn btn-sm btn-outline-danger"
+                                    title="Relatório Anual Analítico em PDF de {{ esc.nome }}"
+                                    onclick="abrirRelatorioRapidoEscola('{{ esc.id }}', '{{ esc.nome }}')">
+                                <i class="bi bi-file-earmark-pdf-fill"></i>
+                            </button>
+                            <button type="button"
                                     class="btn btn-sm btn-success fw-semibold"
                                     title="Lançar nova entrega para esta escola"
                                     onclick="abrirModalNovaEntregaParaEscola('{{ esc.id }}', '{{ esc.nome }}')">
@@ -538,6 +544,202 @@
     </div>
 </div>
 
+<!-- =================================================================== -->
+<!-- MODAL: CENTRAL DE RELATÓRIOS EM PDF                                 -->
+<!-- =================================================================== -->
+<div class="modal fade" id="modalCentralRelatoriosGas" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #072657, #1e3a8a);">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-file-earmark-pdf-fill fs-4 text-warning"></i>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0">Central de Relatórios em PDF • Gás Escolar</h5>
+                        <small class="text-white-50">Selecione o tipo de demonstrativo oficial para gerar e imprimir</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <!-- Abas de Navegação -->
+                <ul class="nav nav-pills nav-fill mb-4 p-1 bg-light rounded-3" id="relatoriosGasTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold small" id="tab-dias-btn" data-bs-toggle="pill" data-bs-target="#tab-dias" type="button" role="tab">
+                            <i class="bi bi-calendar-range me-1"></i> 1. Por Dias & Escola
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold small" id="tab-mensal-btn" data-bs-toggle="pill" data-bs-target="#tab-mensal" type="button" role="tab">
+                            <i class="bi bi-calendar3 me-1"></i> 2. Mensal & por Escola
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold small" id="tab-anual-btn" data-bs-toggle="pill" data-bs-target="#tab-anual" type="button" role="tab">
+                            <i class="bi bi-graph-up-arrow me-1"></i> 3. Anual Analítico & Indicadores
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Conteúdo das Abas -->
+                <div class="tab-content" id="relatoriosGasTabsContent">
+
+                    <!-- ABA 1: RELATÓRIO POR DIAS E POR ESCOLA -->
+                    <div class="tab-pane fade show active" id="tab-dias" role="tabpanel">
+                        <form action="{{ url_for('gas.relatorio_entregas_dias_pdf') }}" method="GET" target="_blank">
+                            <div class="p-3 bg-light rounded-3 border mb-3">
+                                <h6 class="fw-bold text-dark mb-1">
+                                    <i class="bi bi-calendar-event text-primary me-1"></i> Relatório de Entregas por Dias e Escola
+                                </h6>
+                                <p class="text-muted small mb-0">
+                                    Demonstrativo cronológico de todos os abastecimentos realizados dentro de um período específico de datas, com quantitativo de botijões (P13, P20, P45), lacres, recebedores e custos.
+                                </p>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold text-secondary">Unidade Escolar</label>
+                                    <select name="escola_id" class="form-select fw-semibold" id="relDiasEscolaSelect">
+                                        <option value="0">-- Todas as Escolas (Rede Municipal Completa) --</option>
+                                        {% for esc in escolas %}
+                                        <option value="{{ esc.id }}">{{ esc.nome }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-secondary">Data Inicial <span class="text-danger">*</span></label>
+                                    <input type="date" name="data_inicio" id="relDiasDataInicio" class="form-control" value="{{ hoje_iso[:8] }}01" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-secondary">Data Final <span class="text-danger">*</span></label>
+                                    <input type="date" name="data_fim" id="relDiasDataFim" class="form-control" value="{{ hoje_iso }}" required>
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                                        <span class="small text-muted fw-semibold">Atalhos rápidos:</span>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary py-0" onclick="definirPeriodoRelatorio('hoje')">Hoje</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary py-0" onclick="definirPeriodoRelatorio('7dias')">Últimos 7 dias</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary py-0" onclick="definirPeriodoRelatorio('mesAtual')">Mês Atual</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary py-0" onclick="definirPeriodoRelatorio('anoAtual')">Ano Atual</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 pt-3 border-top text-end">
+                                <button type="submit" class="btn btn-danger fw-bold px-4 shadow-sm">
+                                    <i class="bi bi-file-earmark-pdf-fill me-1"></i> Gerar PDF por Dias
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- ABA 2: RELATÓRIO MENSAL E POR ESCOLA -->
+                    <div class="tab-pane fade" id="tab-mensal" role="tabpanel">
+                        <form action="{{ url_for('gas.relatorio_entregas_mensal_pdf') }}" method="GET" target="_blank">
+                            <div class="p-3 bg-light rounded-3 border mb-3">
+                                <h6 class="fw-bold text-dark mb-1">
+                                    <i class="bi bi-calendar3 text-primary me-1"></i> Relatório Mensal de Fornecimento e Consumo
+                                </h6>
+                                <p class="text-muted small mb-0">
+                                    Balanço consolidado mensal de entregas com comparativo em relação ao mês anterior (variação percentual de botijões e custos), situação de autonomia e comprovantes emitidos.
+                                </p>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold text-secondary">Escopo / Unidade Escolar</label>
+                                    <select name="escola_id" class="form-select fw-semibold" id="relMensalEscolaSelect">
+                                        <option value="0">-- Todas as Escolas (Consolidado Municipal) --</option>
+                                        {% for esc in escolas %}
+                                        <option value="{{ esc.id }}">{{ esc.nome }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="col-md-7">
+                                    <label class="form-label small fw-bold text-secondary">Mês de Referência <span class="text-danger">*</span></label>
+                                    <select name="mes" class="form-select fw-semibold">
+                                        <option value="1" {% if mes_atual == 1 %}selected{% endif %}>Janeiro</option>
+                                        <option value="2" {% if mes_atual == 2 %}selected{% endif %}>Fevereiro</option>
+                                        <option value="3" {% if mes_atual == 3 %}selected{% endif %}>Março</option>
+                                        <option value="4" {% if mes_atual == 4 %}selected{% endif %}>Abril</option>
+                                        <option value="5" {% if mes_atual == 5 %}selected{% endif %}>Maio</option>
+                                        <option value="6" {% if mes_atual == 6 %}selected{% endif %}>Junho</option>
+                                        <option value="7" {% if mes_atual == 7 %}selected{% endif %}>Julho</option>
+                                        <option value="8" {% if mes_atual == 8 %}selected{% endif %}>Agosto</option>
+                                        <option value="9" {% if mes_atual == 9 %}selected{% endif %}>Setembro</option>
+                                        <option value="10" {% if mes_atual == 10 %}selected{% endif %}>Outubro</option>
+                                        <option value="11" {% if mes_atual == 11 %}selected{% endif %}>Novembro</option>
+                                        <option value="12" {% if mes_atual == 12 %}selected{% endif %}>Dezembro</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-bold text-secondary">Ano <span class="text-danger">*</span></label>
+                                    <input type="number" name="ano" class="form-control fw-bold" value="{{ ano_atual }}" min="2020" max="2035" required>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 pt-3 border-top text-end">
+                                <button type="submit" class="btn btn-danger fw-bold px-4 shadow-sm">
+                                    <i class="bi bi-file-earmark-pdf-fill me-1"></i> Gerar PDF Mensal
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- ABA 3: RELATÓRIO ANUAL ANALÍTICO & INDICADORES -->
+                    <div class="tab-pane fade" id="tab-anual" role="tabpanel">
+                        <form action="{{ url_for('gas.relatorio_entregas_anual_analitico_pdf') }}" method="GET" target="_blank">
+                            <div class="p-3 bg-light rounded-3 border mb-3">
+                                <h6 class="fw-bold text-dark mb-1">
+                                    <i class="bi bi-graph-up-arrow text-primary me-1"></i> Relatório Anual Analítico & Indicadores de Consumo
+                                </h6>
+                                <p class="text-muted small mb-0">
+                                    Relatório executivo completo de auditoria do PNAE contendo: Matriz Analítica Mês a Mês (Jan a Dez), Ranking de Consumo por Escola, Custo Médio por Botijão, Duração Média e Termo de Assinaturas Institucionais.
+                                </p>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <label class="form-label small fw-bold text-secondary">Abrangência do Relatório Anual</label>
+                                    <select name="escola_id" class="form-select fw-semibold" id="relAnualEscolaSelect">
+                                        <option value="0">-- Toda a Rede Municipal (Consolidado c/ Ranking) --</option>
+                                        {% for esc in escolas %}
+                                        <option value="{{ esc.id }}">{{ esc.nome }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-secondary">Ano do Exercício <span class="text-danger">*</span></label>
+                                    <input type="number" name="ano" class="form-control fw-bold fs-5 text-primary" value="{{ ano_atual }}" min="2020" max="2035" required>
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="alert alert-info border-0 p-3 small mb-0 rounded-3">
+                                        <i class="bi bi-info-circle-fill me-1 text-primary"></i>
+                                        <strong>Documento Oficial para Prestação de Contas:</strong> Inclui cabeçalho do PNAE, folha timbrada, paginação automática e campos para assinatura da Nutricionista (CRN), Coordenação da Merenda e Secretário de Educação.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 pt-3 border-top text-end">
+                                <button type="submit" class="btn btn-danger fw-bold px-4 shadow-sm">
+                                    <i class="bi bi-file-earmark-pdf-fill me-1"></i> Gerar Relatório Anual Analítico (PDF)
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 function abrirModalNovaEntregaParaEscola(escolaId, escolaNome) {
     const sel = document.getElementById('modalSelectEscola');
@@ -546,6 +748,46 @@ function abrirModalNovaEntregaParaEscola(escolaId, escolaNome) {
     }
     const modal = new bootstrap.Modal(document.getElementById('modalNovaEntregaGas'));
     modal.show();
+}
+
+function abrirRelatorioRapidoEscola(escolaId, escolaNome) {
+    const selDias = document.getElementById('relDiasEscolaSelect');
+    const selMensal = document.getElementById('relMensalEscolaSelect');
+    const selAnual = document.getElementById('relAnualEscolaSelect');
+    if (selDias) selDias.value = escolaId;
+    if (selMensal) selMensal.value = escolaId;
+    if (selAnual) selAnual.value = escolaId;
+    const modal = new bootstrap.Modal(document.getElementById('modalCentralRelatoriosGas'));
+    modal.show();
+}
+
+function definirPeriodoRelatorio(tipo) {
+    const hoje = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const toISO = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    const inputInicio = document.getElementById('relDiasDataInicio');
+    const inputFim = document.getElementById('relDiasDataFim');
+
+    if (!inputInicio || !inputFim) return;
+
+    if (tipo === 'hoje') {
+        inputInicio.value = toISO(hoje);
+        inputFim.value = toISO(hoje);
+    } else if (tipo === '7dias') {
+        const d7 = new Date();
+        d7.setDate(hoje.getDate() - 7);
+        inputInicio.value = toISO(d7);
+        inputFim.value = toISO(hoje);
+    } else if (tipo === 'mesAtual') {
+        const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+        inputInicio.value = toISO(primeiroDia);
+        inputFim.value = toISO(hoje);
+    } else if (tipo === 'anoAtual') {
+        const primeiroDiaAno = new Date(hoje.getFullYear(), 0, 1);
+        inputInicio.value = toISO(primeiroDiaAno);
+        inputFim.value = toISO(hoje);
+    }
 }
 
 function recalcularTotalGas() {

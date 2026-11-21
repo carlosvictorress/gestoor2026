@@ -2498,3 +2498,153 @@ class ConfiguracaoGasEscola(db.Model):
     def __repr__(self):
         return f"<ConfiguracaoGasEscola Escola {self.escola_id}>"
 
+
+# ==============================================================================
+# MÓDULO DE AUDITORIA ANALÍTICA — AGRICULTURA FAMILIAR / PNAE (FNDE)
+# ==============================================================================
+
+class PnaeNormaRegra(db.Model):
+    """Base normativa configurável para auditoria do PNAE (Lei 11.947/2009, Res. CD/FNDE nº 4/2026 e nº 17/2026)."""
+    __tablename__ = "pnae_norma_regra"
+
+    id = db.Column(db.Integer, primary_key=True)
+    codigo = db.Column(db.String(40), unique=True, nullable=False, index=True)
+    nome_exigencia = db.Column(db.String(220), nullable=False)
+    numero_legislacao = db.Column(db.String(160), nullable=False)
+    dispositivo = db.Column(db.String(120), nullable=False)  # Artigo, parágrafo ou inciso
+    descricao_obrigacao = db.Column(db.Text, nullable=False)
+    criterio_verificacao = db.Column(db.Text, nullable=False)
+    dados_necessarios = db.Column(db.Text, nullable=False)
+    gravidade = db.Column(db.String(30), nullable=False, default="ALTA")  # CRITICA, ALTA, MEDIA, BAIXA
+    orientacao_regularizacao = db.Column(db.Text, nullable=False)
+    parametros_json = db.Column(db.Text, nullable=True)  # Ex: {"limite_individual": 40000.0, "alerta_amarelo": 35000.0}
+    versao_normativa = db.Column(db.String(40), nullable=False, default="2026.2-RES17")
+    ativa = db.Column(db.Boolean, default=True, nullable=False)
+    data_atualizacao = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<PnaeNormaRegra {self.codigo} ({self.numero_legislacao})>"
+
+
+class PnaeAssociadoGrupo(db.Model):
+    """Relação de agricultores familiares associados a um Grupo Formal (Associação/Cooperativa) ou Grupo Informal."""
+    __tablename__ = "pnae_associado_grupo"
+
+    id = db.Column(db.Integer, primary_key=True)
+    agricultor_grupo_id = db.Column(db.Integer, db.ForeignKey("pnae_agricultor.id"), nullable=False, index=True)
+    nome = db.Column(db.String(200), nullable=False)
+    cpf = db.Column(db.String(20), nullable=True)
+    caf_pf_numero = db.Column(db.String(60), nullable=True)
+    caf_pf_validade = db.Column(db.Date, nullable=True)
+    inscrito_caf_pj = db.Column(db.Boolean, default=False, nullable=False)
+    consta_projeto_venda = db.Column(db.Boolean, default=False, nullable=False)
+    producao_propria = db.Column(db.Boolean, default=False, nullable=False)
+    mulher_agricultora = db.Column(db.Boolean, default=False, nullable=False)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+    observacoes = db.Column(db.Text, nullable=True)
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
+
+    grupo = db.relationship("AgricultorFamiliar", backref=db.backref("associados_grupo", lazy=True, cascade="all, delete-orphan"))
+
+    def is_elegivel(self, data_ref=None):
+        """Verifica se o associado cumpre todos os requisitos normativos para compor o NAF (VMC = NAF x R$ 40.000)."""
+        ref = data_ref or date.today()
+        if not self.ativo:
+            return False
+        if not (self.caf_pf_numero and self.caf_pf_numero.strip()):
+            return False
+        if self.caf_pf_validade and self.caf_pf_validade < ref:
+            return False
+        return bool(self.inscrito_caf_pj and self.consta_projeto_venda and self.producao_propria)
+
+
+class PnaeAuditoriaDocumentoStatus(db.Model):
+    """Checklist documental auditável por fornecedor e exercício (sem alterar tabela original pnae_documento)."""
+    __tablename__ = "pnae_auditoria_documento_status"
+
+    id = db.Column(db.Integer, primary_key=True)
+    agricultor_id = db.Column(db.Integer, db.ForeignKey("pnae_agricultor.id"), nullable=False, index=True)
+    exercicio = db.Column(db.Integer, nullable=False, default=lambda: date.today().year, index=True)
+    codigo_doc = db.Column(db.String(60), nullable=False)
+    nome_documento = db.Column(db.String(150), nullable=False)
+    situacao = db.Column(db.String(40), nullable=False, default="DOCUMENTO PENDENTE DE CONFERÊNCIA")
+    # DOCUMENTO REGULAR, DOCUMENTO AUSENTE, DOCUMENTO VENCIDO, DOCUMENTO PENDENTE DE CONFERÊNCIA, DOCUMENTO NÃO APLICÁVEL
+    data_validade = db.Column(db.Date, nullable=True)
+    arquivo_url = db.Column(db.String(500), nullable=True)  # Supabase Storage
+    observacao = db.Column(db.Text, nullable=True)
+    usuario_conferencia = db.Column(db.String(100), nullable=True)
+    data_conferencia = db.Column(db.DateTime, default=datetime.utcnow)
+
+    agricultor = db.relationship("AgricultorFamiliar", backref=db.backref("checklist_documentos_auditoria", lazy=True))
+
+
+class PnaePagamentoRegistro(db.Model):
+    """Registro complementar de pagamentos/ordens bancárias para conferência cruzada na auditoria financeira (read-only nos contratos)."""
+    __tablename__ = "pnae_pagamento_registro"
+
+    id = db.Column(db.Integer, primary_key=True)
+    agricultor_id = db.Column(db.Integer, db.ForeignKey("pnae_agricultor.id"), nullable=False, index=True)
+    contrato_id = db.Column(db.Integer, db.ForeignKey("pnae_contrato.id"), nullable=True, index=True)
+    entrega_id = db.Column(db.Integer, db.ForeignKey("pnae_entrega.id"), nullable=True)
+    exercicio = db.Column(db.Integer, nullable=False, default=lambda: date.today().year, index=True)
+    data_pagamento = db.Column(db.Date, nullable=False)
+    numero_ordem_bancaria = db.Column(db.String(80), nullable=True)
+    numero_nota_fiscal = db.Column(db.String(60), nullable=True)
+    valor_pago = db.Column(db.Float, nullable=False, default=0.0)
+    emitido_nome_mulher = db.Column(db.Boolean, default=False)
+    comprovante_url = db.Column(db.String(500), nullable=True)  # Supabase Storage
+    observacoes = db.Column(db.Text, nullable=True)
+    usuario_registro = db.Column(db.String(100), nullable=True)
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
+
+    agricultor = db.relationship("AgricultorFamiliar", backref=db.backref("pagamentos_auditoria", lazy=True))
+    contrato = db.relationship("ContratoPNAE", backref=db.backref("pagamentos_auditoria", lazy=True))
+    entrega = db.relationship("EntregaPNAE", backref=db.backref("pagamentos_auditoria", lazy=True))
+
+
+class PnaeAuditoriaJustificativa(db.Model):
+    """Registro de justificativas administrativas, providências e histórico de regularização por pendência."""
+    __tablename__ = "pnae_auditoria_justificativa"
+
+    id = db.Column(db.Integer, primary_key=True)
+    chave_pendencia = db.Column(db.String(160), nullable=False, index=True)  # Chave determinística da ocorrência
+    exercicio = db.Column(db.Integer, nullable=False, index=True)
+    agricultor_id = db.Column(db.Integer, db.ForeignKey("pnae_agricultor.id"), nullable=True, index=True)
+    contrato_id = db.Column(db.Integer, db.ForeignKey("pnae_contrato.id"), nullable=True)
+    categoria = db.Column(db.String(80), nullable=False)
+    grau_risco = db.Column(db.String(30), nullable=False, default="AMARELO")
+    descricao_pendencia = db.Column(db.Text, nullable=False)
+    justificativa_administrativa = db.Column(db.Text, nullable=False)
+    providencia_adotada = db.Column(db.Text, nullable=True)
+    setor_responsavel = db.Column(db.String(120), nullable=True)
+    prazo_sugerido = db.Column(db.Date, nullable=True)
+    status_resolucao = db.Column(db.String(40), nullable=False, default="Em Análise")
+    # Aberta, Em Análise, Em Regularização, Justificada, Regularizada
+    documento_comprobatorio_url = db.Column(db.String(500), nullable=True)  # Supabase Storage
+    usuario_registro = db.Column(db.String(100), nullable=False)
+    data_registro = db.Column(db.DateTime, default=datetime.utcnow)
+    historico_json = db.Column(db.Text, nullable=True)  # Lista cronológica de atualizações
+
+    agricultor = db.relationship("AgricultorFamiliar", backref=db.backref("justificativas_auditoria", lazy=True))
+
+
+class PnaeAuditoriaHistorico(db.Model):
+    """Trilha imutável de auditorias e relatórios gerados (rastreabilidade para SEME, CAE e Controle Interno)."""
+    __tablename__ = "pnae_auditoria_historico"
+
+    id = db.Column(db.Integer, primary_key=True)
+    codigo_relatorio = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    tipo_relatorio = db.Column(db.String(60), nullable=False)  # PDF Completo, PDF Pendências, PDF Individual, PDF Associações, Excel
+    exercicio = db.Column(db.Integer, nullable=False, index=True)
+    usuario_responsavel = db.Column(db.String(120), nullable=False)
+    ip_address = db.Column(db.String(50), nullable=True)
+    data_geracao = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    filtros_json = db.Column(db.Text, nullable=True)
+    qtd_registros_analisados = db.Column(db.Integer, default=0)
+    qtd_pendencias_total = db.Column(db.Integer, default=0)
+    qtd_criticas = db.Column(db.Integer, default=0)
+    versao_normativa = db.Column(db.String(40), nullable=False, default="2026.2-RES17")
+    resumo_json = db.Column(db.Text, nullable=True)
+    observacoes = db.Column(db.Text, nullable=True)
+
+

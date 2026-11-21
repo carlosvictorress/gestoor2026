@@ -1,0 +1,259 @@
+{% extends 'base.html' %}
+{% block title %}Dossiê Analítico — {{ ficha.razao_social }}{% endblock %}
+
+{% block content %}
+<style>
+  .badge-VERMELHO { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+  .badge-LARANJA  { background: #ffedd5; color: #9a3412; border: 1px solid #fdba74; }
+  .badge-AMARELO  { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+  .badge-VERDE    { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+  .badge-CINZA    { background: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; }
+  .aud-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; box-shadow:0 2px 10px rgba(15,23,42,.04); }
+</style>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0">
+      {{ ficha.razao_social }}
+      <span class="badge badge-{{ ficha.situacao_global }} fs-6 ms-2">{{ ficha.situacao_global_label }}</span>
+    </h3>
+    <small class="text-muted">
+      Exercício {{ exercicio }} · {{ ficha.tipo_fornecedor }} · CPF/CNPJ: <strong>{{ ficha.cpf_cnpj }}</strong> · CAF/DAP: <strong>{{ ficha.caf }}</strong>
+      {% if ficha.caf_validade %} (Validade: {{ ficha.caf_validade.strftime('%d/%m/%Y') }}){% endif %}
+    </small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('auditoria_pnae.relatorio_pdf', exercicio=exercicio, modo='fornecedor', fornecedor_id=ficha.agricultor_id) }}" target="_blank" class="btn btn-danger btn-sm fw-semibold">
+      <i class="bi bi-file-earmark-pdf-fill me-1"></i>PDF Dossiê Individual
+    </a>
+    <a href="{{ url_for('auditoria_pnae.painel', exercicio=exercicio) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Voltar ao Painel</a>
+  </div>
+</div>
+
+{# CARDS FINANCEIROS E DE LIMITE #}
+<div class="row g-2 mb-3">
+  <div class="col-md-2"><div class="aud-card p-3"><div class="small text-muted">Contratado</div><div class="fs-5 fw-bold text-primary">{{ formatar_moeda_br(ficha.valor_contratado) }}</div></div></div>
+  <div class="col-md-2"><div class="aud-card p-3"><div class="small text-muted">Executado</div><div class="fs-5 fw-bold text-success">{{ formatar_moeda_br(ficha.valor_executado) }}</div></div></div>
+  <div class="col-md-2"><div class="aud-card p-3"><div class="small text-muted">Faturado (NF)</div><div class="fs-5 fw-bold">{{ formatar_moeda_br(ficha.valor_faturado) }}</div></div></div>
+  <div class="col-md-2"><div class="aud-card p-3"><div class="small text-muted">Pago (OB)</div><div class="fs-5 fw-bold">{{ formatar_moeda_br(ficha.valor_pago) if ficha.dados_pagamento_disponiveis else 'N/I' }}</div></div></div>
+  <div class="col-md-2"><div class="aud-card p-3"><div class="small text-muted">Limite Normativo</div><div class="fs-5 fw-bold">{{ formatar_moeda_br(ficha.limite_aplicavel) if ficha.limite_aplicavel is not none else 'N/V' }}</div></div></div>
+  <div class="col-md-2"><div class="aud-card p-3"><div class="small text-muted">Excedente Exec.</div><div class="fs-5 fw-bold {% if ficha.excedente_executado > 0 %}text-danger{% else %}text-success{% endif %}">{{ formatar_moeda_br(ficha.excedente_executado) }}</div></div></div>
+</div>
+
+{# OCORRÊNCIAS E ALERTAS DO FORNECEDOR #}
+<div class="aud-card p-3 mb-3">
+  <h5 class="fw-bold mb-3"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Achados de Auditoria e Justificativas ({{ ficha.pendencias|length }})</h5>
+  {% for p in ficha.pendencias %}
+  <div class="p-3 rounded-3 mb-2 border {% if p.cor == 'VERMELHO' %}bg-danger bg-opacity-10 border-danger{% elif p.cor == 'LARANJA' %}bg-warning bg-opacity-10 border-warning{% else %}bg-light{% endif %}">
+    <div class="d-flex justify-content-between align-items-start gap-2">
+      <div>
+        <span class="badge badge-{{ p.cor }} me-1">{{ p.cor }} · {{ p.grau_risco }}</span>
+        <strong>{{ p.categoria }}:</strong> {{ p.o_que_foi_identificado }}
+      </div>
+      <span class="badge bg-white text-dark border">{{ p.status_resolucao }}</span>
+    </div>
+    <div class="small mt-2">
+      <div><strong>Dados de Origem:</strong> {{ p.dados_origem }}</div>
+      <div><strong>Cálculo Realizado:</strong> {{ p.calculo_realizado }}</div>
+      <div class="text-primary"><strong>Fundamentação:</strong> {{ p.dispositivo_normativo }}</div>
+      <div class="text-success"><strong>Providência Recomendada:</strong> {{ p.providencia_recomendada }}</div>
+    </div>
+    {% if p.justificativa %}
+    <div class="mt-2 p-2 bg-white rounded border small">
+      <strong>Justificativa Registrada ({{ p.justificativa.usuario_registro }}):</strong> {{ p.justificativa.justificativa_administrativa }}
+      {% if p.justificativa.providencia_adotada %}<br><strong>Providência:</strong> {{ p.justificativa.providencia_adotada }}{% endif %}
+      {% if p.justificativa.documento_comprobatorio_url %}<br><a href="{{ p.justificativa.documento_comprobatorio_url }}" target="_blank">Abrir documento comprobatório</a>{% endif %}
+    </div>
+    {% endif %}
+    <form method="POST" action="{{ url_for('auditoria_pnae.justificar_pendencia') }}" enctype="multipart/form-data" class="row g-2 mt-2 pt-2 border-top">
+      <input type="hidden" name="exercicio" value="{{ exercicio }}">
+      <input type="hidden" name="chave_pendencia" value="{{ p.chave_pendencia }}">
+      <input type="hidden" name="agricultor_id" value="{{ ficha.agricultor_id }}">
+      <input type="hidden" name="contrato_id" value="{{ p.contrato_id or '' }}">
+      <input type="hidden" name="categoria" value="{{ p.categoria }}">
+      <input type="hidden" name="grau_risco" value="{{ p.cor }}">
+      <input type="hidden" name="descricao_pendencia" value="{{ p.o_que_foi_identificado }}">
+      <div class="col-md-5"><input type="text" class="form-control form-control-sm" name="justificativa_administrativa" required placeholder="Registrar justificativa administrativa..."></div>
+      <div class="col-md-3"><input type="text" class="form-control form-control-sm" name="providencia_adotada" placeholder="Providência adotada..."></div>
+      <div class="col-md-2">
+        <select class="form-select form-select-sm" name="status_resolucao">
+          <option value="Em Análise">Em Análise</option>
+          <option value="Em Regularização">Em Regularização</option>
+          <option value="Justificada">Justificada</option>
+          <option value="Regularizada">Regularizada</option>
+        </select>
+      </div>
+      <div class="col-md-2"><button type="submit" class="btn btn-sm btn-primary w-100">Salvar</button></div>
+    </form>
+  </div>
+  {% else %}
+  <div class="alert alert-success mb-0"><i class="bi bi-check-circle-fill me-2"></i>Nenhuma inconsistência ou pendência aberta identificada para este fornecedor nos dados do exercício {{ exercicio }}.</div>
+  {% endfor %}
+</div>
+
+{# SEÇÃO ESPECÍFICA DE ASSOCIADOS (QUANDO GRUPO FORMAL / ASSOCIAÇÃO / COOPERATIVA) #}
+{% if ficha.eh_formal %}
+<div class="aud-card p-3 mb-3" id="secAssociados">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div>
+      <h5 class="fw-bold mb-0"><i class="bi bi-buildings text-primary me-2"></i>Composição de Agricultores Associados (Cálculo VMC = NAF × R$ 40.000,00)</h5>
+      <small class="text-muted">NAF Elegíveis: <strong>{{ ficha.info_associacao.naf_elegiveis }}</strong> de {{ ficha.info_associacao.total_associados }} cadastrado(s) · VMC: <strong>{{ formatar_moeda_br(ficha.info_associacao.vmc_calculado) if ficha.info_associacao.vmc_calculado is not none else 'Não verificável' }}</strong></small>
+    </div>
+  </div>
+  <form method="POST" action="{{ url_for('auditoria_pnae.salvar_associado_grupo', agricultor_id=ficha.agricultor_id) }}" class="row g-2 p-3 bg-light rounded-3 mb-3">
+    <input type="hidden" name="exercicio" value="{{ exercicio }}">
+    <div class="col-md-3"><label class="form-label small fw-semibold mb-1">Nome do Associado*</label><input type="text" class="form-control form-control-sm" name="nome" required></div>
+    <div class="col-md-2"><label class="form-label small fw-semibold mb-1">CPF</label><input type="text" class="form-control form-control-sm" name="cpf"></div>
+    <div class="col-md-2"><label class="form-label small fw-semibold mb-1">CAF Pessoa Física*</label><input type="text" class="form-control form-control-sm" name="caf_pf_numero"></div>
+    <div class="col-md-2"><label class="form-label small fw-semibold mb-1">Validade CAF PF</label><input type="date" class="form-control form-control-sm" name="caf_pf_validade"></div>
+    <div class="col-md-3 d-flex flex-wrap gap-2 align-items-end small">
+      <div class="form-check"><input class="form-check-input" type="checkbox" name="inscrito_caf_pj" id="cPj" checked><label class="form-check-label" for="cPj">CAF PJ</label></div>
+      <div class="form-check"><input class="form-check-input" type="checkbox" name="consta_projeto_venda" id="cPv" checked><label class="form-check-label" for="cPv">Proj. Venda</label></div>
+      <div class="form-check"><input class="form-check-input" type="checkbox" name="producao_propria" id="cPp" checked><label class="form-check-label" for="cPp">Prod. Própria</label></div>
+      <div class="form-check"><input class="form-check-input" type="checkbox" name="mulher_agricultora" id="cMul"><label class="form-check-label" for="cMul">Mulher</label></div>
+    </div>
+    <div class="col-12 text-end"><button type="submit" class="btn btn-sm btn-success fw-semibold"><i class="bi bi-person-plus me-1"></i>Vincular Associado</button></div>
+  </form>
+
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Associado</th><th>CPF</th><th>CAF PF / Validade</th><th class="text-center">CAF PJ</th><th class="text-center">Proj. Venda</th><th class="text-center">Prod. Própria</th><th class="text-center">Elegível (NAF)</th><th class="text-end">Ação</th></tr>
+      </thead>
+      <tbody>
+        {% for a in ficha.info_associacao.associados %}
+        <tr>
+          <td class="small fw-semibold">{{ a.nome }} {% if a.mulher_agricultora %}<span class="badge bg-info-subtle text-info">Mulher</span>{% endif %}</td>
+          <td class="small">{{ a.cpf or '-' }}</td>
+          <td class="small">{{ a.caf_pf_numero or 'Ausente' }} {% if a.caf_pf_validade %}<br><span class="text-muted">Val: {{ a.caf_pf_validade.strftime('%d/%m/%Y') }}</span>{% endif %}</td>
+          <td class="text-center">{{ 'Sim' if a.inscrito_caf_pj else 'Não' }}</td>
+          <td class="text-center">{{ 'Sim' if a.consta_projeto_venda else 'Não' }}</td>
+          <td class="text-center">{{ 'Sim' if a.producao_propria else 'Não' }}</td>
+          <td class="text-center"><span class="badge {% if a.is_elegivel() %}badge-VERDE{% else %}badge-VERMELHO{% endif %}">{{ 'ELEGÍVEL' if a.is_elegivel() else 'INELEGÍVEL' }}</span></td>
+          <td class="text-end">
+            <form method="POST" action="{{ url_for('auditoria_pnae.excluir_associado_grupo', assoc_id=a.id) }}" class="d-inline">
+              <input type="hidden" name="exercicio" value="{{ exercicio }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-3">Nenhum associado cadastrado ainda. Cadastre acima para calcular o VMC oficial.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# CHECKLIST DOCUMENTAL (12 ITENS) #}
+<div class="aud-card p-3 mb-3" id="secDocumentos">
+  <h5 class="fw-bold mb-3"><i class="bi bi-folder-check text-primary me-2"></i>Checklist Documental Auditável (12 Itens)</h5>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Documento</th><th>Situação Atual</th><th>Observação / Evidência</th><th style="width: 34%;">Conferência Manual (Não altera cadastro original)</th></tr>
+      </thead>
+      <tbody>
+        {% for d in ficha.checklist_docs %}
+        <tr>
+          <td class="small fw-semibold">{{ d.nome_documento }}</td>
+          <td>
+            <span class="badge {% if d.situacao == 'DOCUMENTO REGULAR' %}badge-VERDE{% elif d.situacao == 'DOCUMENTO AUSENTE' %}badge-VERMELHO{% elif d.situacao == 'DOCUMENTO VENCIDO' %}badge-LARANJA{% elif d.situacao == 'DOCUMENTO NÃO APLICÁVEL' %}badge-CINZA{% else %}badge-AMARELO{% endif %}">
+              {{ d.situacao }}
+            </span>
+          </td>
+          <td class="small">
+            {{ d.detalhe }}
+            {% if d.arquivo_url %}<br><a href="{{ d.arquivo_url }}" target="_blank" class="small"><i class="bi bi-paperclip"></i> Abrir documento</a>{% endif %}
+          </td>
+          <td>
+            <form method="POST" action="{{ url_for('auditoria_pnae.atualizar_documento_status', agricultor_id=ficha.agricultor_id) }}" enctype="multipart/form-data" class="d-flex gap-1">
+              <input type="hidden" name="exercicio" value="{{ exercicio }}">
+              <input type="hidden" name="codigo_doc" value="{{ d.codigo_doc }}">
+              <input type="hidden" name="nome_documento" value="{{ d.nome_documento }}">
+              <select class="form-select form-select-sm" name="situacao">
+                {% for st in ['DOCUMENTO REGULAR', 'DOCUMENTO AUSENTE', 'DOCUMENTO VENCIDO', 'DOCUMENTO PENDENTE DE CONFERÊNCIA', 'DOCUMENTO NÃO APLICÁVEL'] %}
+                <option value="{{ st }}" {% if d.situacao == st %}selected{% endif %}>{{ st.replace('DOCUMENTO ', '') }}</option>
+                {% endfor %}
+              </select>
+              <input type="text" class="form-control form-control-sm" name="observacao" placeholder="Obs...">
+              <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-check2"></i></button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# CONCILIAÇÃO FINANCEIRA: CONTRATOS, ENTREGAS E PAGAMENTOS COMPLEMENTARES #}
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="aud-card p-3 h-100">
+      <h6 class="fw-bold text-primary mb-2"><i class="bi bi-file-earmark-text me-1"></i>Contratos no Exercício ({{ ficha.contratos|length }})</h6>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead class="table-light"><tr><th>Contrato</th><th>Chamada</th><th>Vigência</th><th class="text-end">Valor</th></tr></thead>
+          <tbody>
+            {% for ct in ficha.contratos %}
+            <tr>
+              <td class="small fw-bold">{{ ct.numero_contrato }}</td>
+              <td class="small">{{ ct.chamada_publica or 'N/I' }}</td>
+              <td class="small">{{ ct.data_inicio.strftime('%d/%m/%Y') if ct.data_inicio else '?' }} a {{ ct.data_termino.strftime('%d/%m/%Y') if ct.data_termino else '?' }}</td>
+              <td class="text-end small fw-bold">{{ formatar_moeda_br(ct.valor_total) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted small py-3">Sem contratos no exercício.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="aud-card p-3 h-100">
+      <h6 class="fw-bold text-success mb-2"><i class="bi bi-bank me-1"></i>Registro Complementar de Pagamentos / Ordens Bancárias</h6>
+      <form method="POST" action="{{ url_for('auditoria_pnae.registrar_pagamento_auditoria', agricultor_id=ficha.agricultor_id) }}" enctype="multipart/form-data" class="row g-2 mb-3 p-2 bg-light rounded">
+        <input type="hidden" name="exercicio" value="{{ exercicio }}">
+        <div class="col-md-4">
+          <select class="form-select form-select-sm" name="contrato_id">
+            <option value="">Contrato...</option>
+            {% for ct in ficha.contratos %}<option value="{{ ct.id }}">{{ ct.numero_contrato }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4"><input type="date" class="form-control form-control-sm" name="data_pagamento" value="{{ hoje_iso }}" required></div>
+        <div class="col-md-4"><input type="text" class="form-control form-control-sm" name="valor_pago" required placeholder="Valor R$ (ex: 5000,00)"></div>
+        <div class="col-md-4"><input type="text" class="form-control form-control-sm" name="numero_ordem_bancaria" placeholder="Nº Ordem Bancária"></div>
+        <div class="col-md-4"><input type="text" class="form-control form-control-sm" name="numero_nota_fiscal" placeholder="Nº Nota Fiscal"></div>
+        <div class="col-md-4 d-flex align-items-center justify-content-between">
+          <div class="form-check small"><input class="form-check-input" type="checkbox" name="emitido_nome_mulher" id="chkMulPag"><label class="form-check-label" for="chkMulPag">NF Mulher</label></div>
+          <button type="submit" class="btn btn-sm btn-success">Lançar</button>
+        </div>
+      </form>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead class="table-light"><tr><th>Data</th><th>OB / NF</th><th class="text-end">Valor Pago</th><th></th></tr></thead>
+          <tbody>
+            {% for pg in ficha.pagamentos %}
+            <tr>
+              <td class="small">{{ pg.data_pagamento.strftime('%d/%m/%Y') }}</td>
+              <td class="small">OB: {{ pg.numero_ordem_bancaria or '-' }} · NF: {{ pg.numero_nota_fiscal or '-' }} {% if pg.emitido_nome_mulher %}<span class="badge bg-info-subtle text-info">Mulher</span>{% endif %}</td>
+              <td class="text-end small fw-bold">{{ formatar_moeda_br(pg.valor_pago) }}</td>
+              <td class="text-end">
+                <form method="POST" action="{{ url_for('auditoria_pnae.excluir_pagamento_auditoria', pag_id=pg.id) }}" class="d-inline">
+                  <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-1"><i class="bi bi-trash"></i></button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted small py-3">Nenhum pagamento vinculado ainda.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

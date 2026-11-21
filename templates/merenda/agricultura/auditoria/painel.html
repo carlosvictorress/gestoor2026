@@ -1,0 +1,705 @@
+{% extends 'base.html' %}
+{% block title %}Auditoria Analítica — Agricultura Familiar / PNAE {{ auditoria.exercicio }}{% endblock %}
+
+{% block content %}
+<style>
+  .aud-hero {
+    background: linear-gradient(135deg, #0b2545 0%, #134074 60%, #14532d 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 1.5rem 1.75rem;
+    box-shadow: 0 12px 28px rgba(11, 37, 69, 0.18);
+  }
+  .aud-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+  }
+  .aud-kpi {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 0.9rem 1rem;
+    height: 100%;
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+  .aud-kpi:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.07);
+  }
+  .badge-VERMELHO { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+  .badge-LARANJA  { background: #ffedd5; color: #9a3412; border: 1px solid #fdba74; }
+  .badge-AMARELO  { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+  .badge-VERDE    { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+  .badge-CINZA    { background: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; }
+  .nav-pills-aud .nav-link { font-weight: 600; font-size: .88rem; color: #334155; border-radius: 10px; }
+  .nav-pills-aud .nav-link.active { background: #0b2545; color: #fff; }
+</style>
+
+{% set ind = auditoria.indicadores %}
+{% set p45 = auditoria.analise_pnae_45 %}
+
+{# CABEÇALHO INSTITUCIONAL #}
+<div class="aud-hero mb-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+    <div>
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <span class="badge bg-white text-dark fw-semibold px-3 py-1"><i class="bi bi-shield-lock-fill text-primary me-1"></i>CONTROLE INTERNO · SEME VALENÇA DO PIAUÍ</span>
+        <span class="badge bg-success bg-opacity-75 px-2 py-1">Normas v.{{ auditoria.versao_normativa }}</span>
+        <span class="badge bg-light bg-opacity-25 px-2 py-1"><i class="bi bi-eye-fill me-1"></i>Modo Somente Leitura</span>
+      </div>
+      <h2 class="fw-bold mb-1">Auditoria Analítica — Agricultura Familiar / PNAE {{ auditoria.exercicio }}</h2>
+      <p class="mb-0 opacity-75 small">
+        Lei nº 11.947/2009 (art. 14) · Lei nº 15.226/2025 · Res. CD/FNDE nº 4/2026 · Res. CD/FNDE nº 17/2026 · Atualizado em {{ ultima_atualizacao }}
+      </p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <button type="button" class="btn btn-danger fw-bold shadow px-3 py-2" data-bs-toggle="modal" data-bs-target="#modalGerarRelatorio">
+        <i class="bi bi-file-earmark-pdf-fill me-2"></i>GERAR RELATÓRIO ANALÍTICO DE CONFORMIDADE – PNAE
+      </button>
+      <a href="{{ url_for('auditoria_pnae.relatorio_excel', exercicio=filtros.exercicio, data_inicio=filtros.data_inicio_str, data_fim=filtros.data_fim_str, fornecedor=filtros.filtro_fornecedor, cpf_cnpj=filtros.filtro_cpf_cnpj, caf=filtros.filtro_caf, tipo_fornecedor=filtros.filtro_tipo, associacao_id=filtros.filtro_associacao_id, situacao=filtros.filtro_situacao, chamada_publica=filtros.filtro_chamada, contrato_id=filtros.filtro_contrato_id) }}" class="btn btn-success fw-semibold py-2">
+        <i class="bi bi-file-earmark-excel-fill me-1"></i>Excel
+      </a>
+      <a href="{{ url_for('auditoria_pnae.gerenciar_normas') }}" class="btn btn-outline-light py-2"><i class="bi bi-book me-1"></i>Base Normativa</a>
+      <a href="{{ url_for('auditoria_pnae.historico') }}" class="btn btn-outline-light py-2"><i class="bi bi-clock-history me-1"></i>Histórico</a>
+      <a href="{{ url_for('merenda.agricultura_dashboard') }}" class="btn btn-light text-dark py-2"><i class="bi bi-arrow-left me-1"></i>Painel PNAE</a>
+    </div>
+  </div>
+</div>
+
+{# FILTROS COMPLETOS #}
+<div class="aud-card p-3 mb-3">
+  <form method="GET" class="row g-2 align-items-end">
+    <div class="col-md-1">
+      <label class="form-label small fw-semibold mb-1">Exercício</label>
+      <select class="form-select form-select-sm fw-bold" name="exercicio">
+        {% for ano in exercicios_lista %}
+        <option value="{{ ano }}" {% if ano == filtros.exercicio %}selected{% endif %}>{{ ano }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small fw-semibold mb-1">Período Início</label>
+      <input type="date" class="form-control form-control-sm" name="data_inicio" value="{{ filtros.data_inicio_str }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small fw-semibold mb-1">Período Fim</label>
+      <input type="date" class="form-control form-control-sm" name="data_fim" value="{{ filtros.data_fim_str }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small fw-semibold mb-1">Fornecedor</label>
+      <input type="text" class="form-control form-control-sm" name="fornecedor" value="{{ filtros.filtro_fornecedor }}" placeholder="Nome / Razão...">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small fw-semibold mb-1">CPF / CNPJ</label>
+      <input type="text" class="form-control form-control-sm" name="cpf_cnpj" value="{{ filtros.filtro_cpf_cnpj }}" placeholder="Somente números...">
+    </div>
+    <div class="col-md-1">
+      <label class="form-label small fw-semibold mb-1">CAF</label>
+      <input type="text" class="form-control form-control-sm" name="caf" value="{{ filtros.filtro_caf }}" placeholder="CAF...">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small fw-semibold mb-1">Tipo Fornecedor</label>
+      <select class="form-select form-select-sm" name="tipo_fornecedor">
+        <option value="">Todos</option>
+        <option value="individual" {% if filtros.filtro_tipo == 'individual' %}selected{% endif %}>Individual</option>
+        <option value="grupo_formal" {% if filtros.filtro_tipo == 'grupo_formal' %}selected{% endif %}>Grupo Formal (Associação/Coop.)</option>
+        <option value="grupo_informal" {% if filtros.filtro_tipo == 'grupo_informal' %}selected{% endif %}>Grupo Informal</option>
+      </select>
+    </div>
+
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold mb-1">Associação / Cooperativa</label>
+      <select class="form-select form-select-sm" name="associacao_id">
+        <option value="">Todas</option>
+        {% for ass in auditoria.associacoes_disponiveis %}
+        <option value="{{ ass.id }}" {% if ass.id == filtros.filtro_associacao_id %}selected{% endif %}>{{ ass.razao_social }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small fw-semibold mb-1">Situação Auditoria</label>
+      <select class="form-select form-select-sm" name="situacao">
+        <option value="">Todas</option>
+        <option value="VERMELHO" {% if filtros.filtro_situacao == 'VERMELHO' %}selected{% endif %}>Vermelho — Crítico</option>
+        <option value="LARANJA" {% if filtros.filtro_situacao == 'LARANJA' %}selected{% endif %}>Laranja — Inconsistência</option>
+        <option value="AMARELO" {% if filtros.filtro_situacao == 'AMARELO' %}selected{% endif %}>Amarelo — Atenção/Pendência</option>
+        <option value="VERDE" {% if filtros.filtro_situacao == 'VERDE' %}selected{% endif %}>Verde — Regular</option>
+        <option value="CINZA" {% if filtros.filtro_situacao == 'CINZA' %}selected{% endif %}>Cinza — Dados Insuficientes</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small fw-semibold mb-1">Chamada Pública</label>
+      <select class="form-select form-select-sm" name="chamada_publica">
+        <option value="">Todas</option>
+        {% for ch in auditoria.chamadas_disponiveis %}
+        <option value="{{ ch }}" {% if ch == filtros.filtro_chamada %}selected{% endif %}>{{ ch }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold mb-1">Contrato</label>
+      <select class="form-select form-select-sm" name="contrato_id">
+        <option value="">Todos</option>
+        {% for ct in auditoria.contratos_disponiveis %}
+        <option value="{{ ct.id }}" {% if ct.id == filtros.filtro_contrato_id %}selected{% endif %}>{{ ct.numero_contrato }} — {{ ct.agricultor.razao_social[:24] if ct.agricultor else '' }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2 d-flex gap-1">
+      <button type="submit" class="btn btn-sm btn-primary flex-fill fw-semibold"><i class="bi bi-funnel-fill me-1"></i>Auditar</button>
+      <a href="{{ url_for('auditoria_pnae.painel', exercicio=filtros.exercicio) }}" class="btn btn-sm btn-outline-secondary" title="Limpar filtros"><i class="bi bi-x-lg"></i></a>
+    </div>
+  </form>
+</div>
+
+{# CARDS DE INDICADORES (SEÇÃO 8) #}
+<div class="row g-2 mb-3">
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="aud-kpi">
+      <div class="small text-muted fw-semibold">Fornecedores</div>
+      <div class="fs-4 fw-bold text-dark">{{ ind.total_fornecedores }}</div>
+      <div class="text-muted" style="font-size:.73rem;">{{ ind.total_individuais }} Ind. · {{ ind.total_associacoes }} Assoc.</div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="aud-kpi">
+      <div class="small text-muted fw-semibold">Total Contratado</div>
+      <div class="fs-5 fw-bold text-primary">{{ formatar_moeda_br(ind.total_contratado) }}</div>
+      <div class="text-muted" style="font-size:.73rem;">Exercício {{ auditoria.exercicio }}</div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="aud-kpi border-start border-4 border-success">
+      <div class="small text-muted fw-semibold">Total Executado</div>
+      <div class="fs-5 fw-bold text-success">{{ formatar_moeda_br(ind.total_executado) }}</div>
+      <div class="text-muted" style="font-size:.73rem;">Fat: {{ formatar_moeda_br(ind.total_faturado) }}</div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="aud-kpi">
+      <div class="small text-muted fw-semibold">Total Pago (OB)</div>
+      <div class="fs-5 fw-bold text-dark">{{ formatar_moeda_br(ind.total_pago) }}</div>
+      <div class="text-muted" style="font-size:.73rem;">{% if ind.total_pago == 0 and ind.total_executado > 0 %}Sem OBs vinculadas{% else %}Conciliado{% endif %}</div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="aud-kpi border-start border-4 border-danger">
+      <div class="small text-danger fw-semibold">Limites Ultrapassados</div>
+      <div class="fs-4 fw-bold text-danger">{{ ind.qtd_limites_ultrapassados }}</div>
+      <div class="text-muted" style="font-size:.73rem;">{{ ind.qtd_ocorrencias_criticas }} ocorrência(s) crítica(s)</div>
+    </div>
+  </div>
+  <div class="col-xl-2 col-md-4 col-6">
+    <div class="aud-kpi border-start border-4 border-warning">
+      <div class="small text-muted fw-semibold">Situação Geral</div>
+      <div class="d-flex flex-wrap gap-1 mt-1">
+        <span class="badge badge-VERDE">{{ ind.qtd_regulares }} Reg.</span>
+        <span class="badge badge-AMARELO">{{ ind.qtd_atencao }} At.</span>
+        <span class="badge badge-VERMELHO">{{ ind.qtd_criticos }} Crít.</span>
+        <span class="badge badge-CINZA">{{ ind.qtd_cinza }} Insuf.</span>
+      </div>
+      <div class="text-muted mt-1" style="font-size:.71rem;">Doc: {{ ind.qtd_pendencias_documentais }} · Fin: {{ ind.qtd_inconsistencias_financeiras }}</div>
+    </div>
+  </div>
+</div>
+
+{# FAIXA META 45% PNAE (ART. 29) + COMPARATIVO EXERCÍCIOS #}
+<div class="aud-card p-3 mb-3">
+  <div class="row g-3 align-items-center">
+    <div class="col-lg-8">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-1">
+        <span class="fw-bold text-dark small">
+          <i class="bi bi-percent text-success me-1"></i>
+          Cumprimento do Percentual Mínimo da Agricultura Familiar — Art. 29 da Res. CD/FNDE nº 4/2026 (alterada pela Res. nº 17/2026) · Meta: <strong>{{ "%.0f"|format(p45.meta_percentual) }}%</strong>
+        </span>
+        <span class="badge {% if p45.atingiu_meta %}badge-VERDE{% elif not p45.repasse_federal_configurado %}badge-CINZA{% else %}badge-VERMELHO{% endif %}">
+          {{ p45.status_texto }}
+        </span>
+      </div>
+      <div class="progress" style="height: 14px;">
+        <div class="progress-bar {% if p45.atingiu_meta %}bg-success{% else %}bg-warning{% endif %} fw-bold" style="width: {{ [p45.percentual_elegivel, 100]|min }}%;">
+          {{ "%.2f"|format(p45.percentual_elegivel) }}%
+        </div>
+      </div>
+      <div class="d-flex flex-wrap gap-3 small text-muted mt-1">
+        <span><strong>Repasse FNDE:</strong> {{ formatar_moeda_br(p45.repasse_federal) }}</span>
+        <span><strong>Mínimo Legal ({{ "%.0f"|format(p45.meta_percentual) }}%):</strong> {{ formatar_moeda_br(p45.valor_meta_minima) }}</span>
+        <span><strong>Executado Elegível (com CAF):</strong> <strong class="text-success">{{ formatar_moeda_br(p45.total_executado_elegivel) }}</strong></span>
+        {% if p45.total_executado_sem_caf > 0 %}
+        <span class="text-danger"><strong>Sem CAF (não computado):</strong> {{ formatar_moeda_br(p45.total_executado_sem_caf) }}</span>
+        {% endif %}
+        {% if p45.falta_para_meta > 0 %}
+        <span class="text-warning-emphasis"><strong>Falta executar:</strong> {{ formatar_moeda_br(p45.falta_para_meta) }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="col-lg-4 border-start">
+      {% if auditoria.comparativo %}
+      <div class="small">
+        <div class="fw-bold text-primary mb-1"><i class="bi bi-arrow-left-right me-1"></i>Comparativo {{ auditoria.comparativo.ano_anterior }} × {{ auditoria.exercicio }}</div>
+        <div>Executado {{ auditoria.comparativo.ano_anterior }}: <strong>{{ formatar_moeda_br(auditoria.comparativo.executado_anterior) }}</strong> ({{ "%.1f"|format(auditoria.comparativo.percentual_anterior) }}%)</div>
+        <div>Variação em {{ auditoria.exercicio }}: <strong class="{% if auditoria.comparativo.variacao_executado >= 0 %}text-success{% else %}text-danger{% endif %}">{{ formatar_moeda_br(auditoria.comparativo.variacao_executado) }}</strong></div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# GRÁFICOS ANALÍTICOS (5 GRÁFICOS CHART.JS — SEÇÃO 8) #}
+<div class="row g-3 mb-3">
+  <div class="col-lg-4">
+    <div class="aud-card p-3 h-100">
+      <h6 class="fw-bold small mb-2">Distribuição dos Fornecedores por Situação</h6>
+      <div style="height: 210px;"><canvas id="chartSituacao"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="aud-card p-3 h-100">
+      <h6 class="fw-bold small mb-2">Contratado × Executado (Top Fornecedores)</h6>
+      <div style="height: 210px;"><canvas id="chartContExec"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="aud-card p-3 h-100">
+      <h6 class="fw-bold small mb-2">Evolução Mensal da Execução ({{ auditoria.exercicio }})</h6>
+      <div style="height: 210px;"><canvas id="chartEvolucao"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="aud-card p-3 h-100">
+      <h6 class="fw-bold small mb-2">% de Utilização do Limite Individual / VMC (Linha 100% = Teto)</h6>
+      <div style="height: 200px;"><canvas id="chartPctLimite"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="aud-card p-3 h-100">
+      <h6 class="fw-bold small mb-2">Distribuição de Pendências por Categoria</h6>
+      <div style="height: 200px;"><canvas id="chartPendCat"></canvas></div>
+    </div>
+  </div>
+</div>
+
+{# ABAS OPERACIONAIS DA AUDITORIA #}
+<div class="aud-card p-3">
+  <ul class="nav nav-pills nav-pills-aud gap-1 mb-3 border-bottom pb-2" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabFornecedores"><i class="bi bi-people me-1"></i>Fornecedores &amp; Limites ({{ auditoria.fornecedores|length }})</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabPendencias"><i class="bi bi-exclamation-octagon me-1"></i>Quadro de Pendências ({{ auditoria.pendencias|length }})</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabAssociacoes"><i class="bi bi-buildings me-1"></i>Associações / VMC ({{ auditoria.associacoes|length }})</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabDocumental"><i class="bi bi-folder-check me-1"></i>Auditoria Documental</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabProvidencias"><i class="bi bi-list-task me-1"></i>Plano de Providências</button></li>
+  </ul>
+
+  <div class="tab-content">
+    {# ABA 1: FORNECEDORES E LIMITES #}
+    <div class="tab-pane fade show active" id="tabFornecedores">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Fornecedor / CPF-CNPJ / CAF</th>
+              <th>Modalidade</th>
+              <th class="text-end">Contratado</th>
+              <th class="text-end">Executado</th>
+              <th class="text-end">Faturado / Pago</th>
+              <th class="text-end">Limite / Excedente</th>
+              <th class="text-center">Status Limite</th>
+              <th class="text-center">Situação</th>
+              <th class="text-end">Dossiê</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in auditoria.fornecedores %}
+            <tr class="{% if f.status_limite == 'VERMELHO' %}table-danger{% endif %}">
+              <td>
+                <a href="{{ url_for('auditoria_pnae.dossie_fornecedor', agricultor_id=f.agricultor_id, exercicio=auditoria.exercicio) }}" class="fw-bold text-decoration-none text-dark">{{ f.razao_social }}</a>
+                <div class="small text-muted">{{ f.cpf_cnpj }} · CAF: <strong>{{ f.caf }}</strong>{% if f.caf_duplicado %} <span class="badge bg-warning text-dark">CAF Compartilhado</span>{% endif %}</div>
+              </td>
+              <td class="small">{{ f.tipo_fornecedor }}<div class="text-muted">{{ f.qtd_contratos }} ct · {{ f.qtd_entregas }} ent</div></td>
+              <td class="text-end small">{{ formatar_moeda_br(f.valor_contratado) }}</td>
+              <td class="text-end small fw-bold">{{ formatar_moeda_br(f.valor_executado) }}</td>
+              <td class="text-end small">
+                <div>Fat: {{ formatar_moeda_br(f.valor_faturado) }}</div>
+                <div class="text-muted">Pag: {{ formatar_moeda_br(f.valor_pago) if f.dados_pagamento_disponiveis else 'N/I' }}</div>
+              </td>
+              <td class="text-end small">
+                <div>{{ formatar_moeda_br(f.limite_aplicavel) if f.limite_aplicavel is not none else 'N/V' }}</div>
+                {% if f.excedente_executado > 0 %}
+                <div class="text-danger fw-bold">+{{ formatar_moeda_br(f.excedente_executado) }}</div>
+                {% elif f.limite_aplicavel %}
+                <div class="text-muted">{{ "%.1f"|format(f.percentual_limite) }}%</div>
+                {% endif %}
+              </td>
+              <td class="text-center"><span class="badge badge-{{ f.status_limite }}">{{ f.label_limite }}</span></td>
+              <td class="text-center"><span class="badge badge-{{ f.situacao_global }}">{{ f.situacao_global_label }}</span></td>
+              <td class="text-end text-nowrap">
+                <a href="{{ url_for('auditoria_pnae.dossie_fornecedor', agricultor_id=f.agricultor_id, exercicio=auditoria.exercicio) }}" class="btn btn-sm btn-outline-primary" title="Abrir Dossiê Analítico"><i class="bi bi-search"></i></a>
+                <a href="{{ url_for('auditoria_pnae.relatorio_pdf', exercicio=auditoria.exercicio, modo='fornecedor', fornecedor_id=f.agricultor_id) }}" target="_blank" class="btn btn-sm btn-outline-danger" title="PDF Individual"><i class="bi bi-file-earmark-pdf"></i></a>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="text-center text-muted py-4">Nenhum fornecedor encontrado para os filtros aplicados.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {# ABA 2: QUADRO GERAL DE PENDÊNCIAS #}
+    <div class="tab-pane fade" id="tabPendencias">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Risco</th>
+              <th>Fornecedor / Categoria</th>
+              <th>Ocorrência, Cálculo e Fundamentação Legal</th>
+              <th class="text-end">Diferença</th>
+              <th>Situação</th>
+              <th class="text-end">Ação</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in auditoria.pendencias %}
+            <tr>
+              <td><span class="badge badge-{{ p.cor }}">{{ p.cor }}<br>{{ p.grau_risco }}</span></td>
+              <td class="small">
+                <strong>{{ p.fornecedor_nome }}</strong>
+                <div class="text-muted">{{ p.categoria }} · {{ p.chave_pendencia }}</div>
+              </td>
+              <td class="small">
+                <div class="fw-semibold">{{ p.o_que_foi_identificado }}</div>
+                <div class="text-muted"><strong>Cálculo:</strong> {{ p.calculo_realizado }}</div>
+                <div class="text-primary" style="font-size:.75rem;"><strong>Base Legal:</strong> {{ p.dispositivo_normativo }}</div>
+                <div class="text-success" style="font-size:.75rem;"><strong>Providência:</strong> {{ p.providencia_recomendada }}</div>
+                {% if p.justificativa %}
+                <div class="mt-1 p-2 rounded bg-light border small">
+                  <strong>Justificativa ({{ p.justificativa.usuario_registro }}):</strong> {{ p.justificativa.justificativa_administrativa }}
+                  {% if p.justificativa.documento_comprobatorio_url %}<a href="{{ p.justificativa.documento_comprobatorio_url }}" target="_blank" class="ms-2">Ver anexo</a>{% endif %}
+                </div>
+                {% endif %}
+              </td>
+              <td class="text-end small fw-bold">{{ formatar_moeda_br(p.valor_diferenca) if p.valor_diferenca else '-' }}</td>
+              <td><span class="badge bg-light text-dark border">{{ p.status_resolucao }}</span></td>
+              <td class="text-end">
+                <button class="btn btn-sm btn-outline-primary btn-justificar"
+                        data-chave="{{ p.chave_pendencia }}"
+                        data-agricultor="{{ p.agricultor_id or '' }}"
+                        data-contrato="{{ p.contrato_id or '' }}"
+                        data-categoria="{{ p.categoria }}"
+                        data-risco="{{ p.cor }}"
+                        data-desc="{{ p.o_que_foi_identificado }}"
+                        data-setor="{{ p.setor_responsavel }}"
+                        data-status="{{ p.status_resolucao }}"
+                        data-just="{{ p.justificativa.justificativa_administrativa if p.justificativa else '' }}"
+                        data-bs-toggle="modal" data-bs-target="#modalJustificar">
+                  <i class="bi bi-chat-square-text me-1"></i>Justificar
+                </button>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-success py-4"><i class="bi bi-check-circle fs-4 d-block mb-1"></i>Nenhuma pendência detectada neste escopo!</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {# ABA 3: ASSOCIAÇÕES E COOPERATIVAS (VMC) #}
+    <div class="tab-pane fade" id="tabAssociacoes">
+      <div class="alert alert-info small py-2 mb-3">
+        <i class="bi bi-info-circle-fill me-1"></i><strong>Fórmula Normativa (Art. 38, Res. CD/FNDE nº 4/2026):</strong> <code>VMC = NAF × R$ 40.000,00</code>, onde NAF é o número de agricultores elegíveis com CAF PF válido, inscritos no CAF PJ, constantes no Projeto de Venda e com produção própria. Clique em <strong>Gerenciar Associados</strong> para informar os participantes.
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Associação / Cooperativa</th><th>CNPJ / CAF PJ</th><th class="text-center">Cadastrados / NAF</th><th class="text-end">VMC Calculado</th><th class="text-end">Contratado</th><th class="text-end">Executado</th><th class="text-center">Situação</th><th class="text-end">Ações</th></tr>
+          </thead>
+          <tbody>
+            {% for a in auditoria.associacoes %}
+            <tr>
+              <td class="fw-bold small">{{ a.razao_social }}</td>
+              <td class="small">{{ a.cnpj }}<div class="text-muted">CAF PJ: {{ a.caf_pj }}</div></td>
+              <td class="text-center small">{{ a.total_associados }} cad. · <strong class="text-primary">NAF: {{ a.naf_elegiveis }}</strong></td>
+              <td class="text-end small fw-bold">{{ formatar_moeda_br(a.vmc_calculado) if a.vmc_calculado is not none else 'Não verificável' }}</td>
+              <td class="text-end small">{{ formatar_moeda_br(a.valor_contratado) }}</td>
+              <td class="text-end small fw-bold">{{ formatar_moeda_br(a.valor_executado) }}</td>
+              <td class="text-center"><span class="badge badge-{{ a.status_limite }}">{{ a.label_limite }}</span></td>
+              <td class="text-end"><a href="{{ url_for('auditoria_pnae.dossie_fornecedor', agricultor_id=a.agricultor_id, exercicio=auditoria.exercicio) }}#secAssociados" class="btn btn-sm btn-outline-primary">Gerenciar Associados</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-muted py-4">Nenhuma associação ou cooperativa (Grupo Formal) encontrada neste filtro.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {# ABA 4: AUDITORIA DOCUMENTAL #}
+    <div class="tab-pane fade" id="tabDocumental">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Fornecedor</th><th>Modalidade</th><th class="text-center">Regulares</th><th class="text-center">Ausentes</th><th class="text-center">Vencidos</th><th class="text-center">Pend. Conferência</th><th class="text-end">Conferir</th></tr>
+          </thead>
+          <tbody>
+            {% for f in auditoria.fornecedores %}
+            <tr>
+              <td class="small fw-semibold">{{ f.razao_social }}</td>
+              <td class="small">{{ f.tipo_fornecedor }}</td>
+              <td class="text-center"><span class="badge badge-VERDE">{{ f.qtd_docs_regulares }}</span></td>
+              <td class="text-center"><span class="badge {% if f.qtd_docs_ausentes %}badge-VERMELHO{% else %}bg-light text-muted{% endif %}">{{ f.qtd_docs_ausentes }}</span></td>
+              <td class="text-center"><span class="badge {% if f.qtd_docs_vencidos %}badge-LARANJA{% else %}bg-light text-muted{% endif %}">{{ f.qtd_docs_vencidos }}</span></td>
+              <td class="text-center"><span class="badge badge-AMARELO">{{ f.qtd_docs_pendentes }}</span></td>
+              <td class="text-end"><a href="{{ url_for('auditoria_pnae.dossie_fornecedor', agricultor_id=f.agricultor_id, exercicio=auditoria.exercicio) }}#secDocumentos" class="btn btn-sm btn-outline-primary">Checklist 12 Itens</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {# ABA 5: PLANO DE PROVIDÊNCIAS #}
+    <div class="tab-pane fade" id="tabProvidencias">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Prioridade</th><th>Fornecedor</th><th>Problema Identificado</th><th>Providência Necessária</th><th>Setor Responsável</th><th>Prazo</th><th>Situação</th></tr>
+          </thead>
+          <tbody>
+            {% for p in auditoria.pendencias %}
+            <tr>
+              <td><span class="badge badge-{{ p.cor }}">{{ p.grau_risco }}</span></td>
+              <td class="small fw-semibold">{{ p.fornecedor_nome }}</td>
+              <td class="small">{{ p.o_que_foi_identificado }}</td>
+              <td class="small">{{ p.providencia_recomendada }}</td>
+              <td class="small">{{ p.setor_responsavel }}</td>
+              <td class="small text-nowrap">{{ p.prazo_sugerido }}</td>
+              <td><span class="badge bg-light text-dark border">{{ p.status_resolucao }}</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center text-muted py-4">Nenhuma providência pendente.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# MODAL GERAR RELATÓRIO ANALÍTICO DE CONFORMIDADE – PNAE #}
+<div class="modal fade" id="modalGerarRelatorio" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="GET" action="{{ url_for('auditoria_pnae.relatorio_pdf') }}" target="_blank" id="formRelatorioModal">
+        <div class="modal-header bg-dark text-white">
+          <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-pdf-fill text-danger me-2"></i>Gerar Relatório Analítico de Conformidade — PNAE</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Exercício Financeiro</label>
+              <select class="form-select" name="exercicio">
+                {% for ano in exercicios_lista %}
+                <option value="{{ ano }}" {% if ano == filtros.exercicio %}selected{% endif %}>{{ ano }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label small fw-semibold">Modalidade do Relatório</label>
+              <select class="form-select" name="modo" id="selModoRel">
+                <option value="completo">Relatório Analítico Completo (Capa, Sumário e todas as 12 Seções)</option>
+                <option value="pendencias">Relatório Somente de Pendências e Ocorrências</option>
+                <option value="associacoes">Relatório Específico de Associações e Cooperativas (VMC)</option>
+                <option value="fornecedor">Relatório Individual por Fornecedor</option>
+              </select>
+            </div>
+            <div class="col-md-12 d-none" id="boxFornRel">
+              <label class="form-label small fw-semibold">Selecionar Fornecedor</label>
+              <select class="form-select" name="fornecedor_id">
+                {% for f in auditoria.fornecedores %}
+                <option value="{{ f.agricultor_id }}">{{ f.razao_social }} ({{ f.cpf_cnpj }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Período Início (Opcional)</label>
+              <input type="date" class="form-control" name="data_inicio" value="{{ filtros.data_inicio_str }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Período Fim (Opcional)</label>
+              <input type="date" class="form-control" name="data_fim" value="{{ filtros.data_fim_str }}">
+            </div>
+            <div class="col-12">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="incluir_anexos" value="1" id="chkAnexos" checked>
+                <label class="form-check-label small fw-semibold" for="chkAnexos">Incluir Seção 12 (Anexos — Demonstrativo completo de contratos e registros de origem)</label>
+              </div>
+            </div>
+          </div>
+          <div class="alert alert-light border small mt-3 mb-0">
+            <i class="bi bi-shield-check text-primary me-1"></i>A emissão será gravada automaticamente no <strong>Histórico de Auditorias</strong> com usuário, data/hora, código de protocolo e versão normativa.
+          </div>
+        </div>
+        <div class="modal-footer justify-content-between">
+          <a href="{{ url_for('auditoria_pnae.relatorio_imprimir', exercicio=filtros.exercicio) }}" target="_blank" class="btn btn-outline-dark btn-sm"><i class="bi bi-printer me-1"></i>Versão Impressão Direta</a>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-danger fw-bold px-4"><i class="bi bi-file-earmark-pdf-fill me-1"></i>Gerar PDF Institucional</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# MODAL JUSTIFICATIVA ADMINISTRATIVA #}
+<div class="modal fade" id="modalJustificar" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('auditoria_pnae.justificar_pendencia') }}" enctype="multipart/form-data">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title"><i class="bi bi-chat-square-text me-2"></i>Registrar Justificativa Administrativa / Providência</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="exercicio" value="{{ auditoria.exercicio }}">
+          <input type="hidden" name="chave_pendencia" id="jChave">
+          <input type="hidden" name="agricultor_id" id="jAgr">
+          <input type="hidden" name="contrato_id" id="jCt">
+          <input type="hidden" name="categoria" id="jCat">
+          <input type="hidden" name="grau_risco" id="jRisco">
+          <input type="hidden" name="descricao_pendencia" id="jDescHidden">
+
+          <div class="alert alert-light border small mb-3"><strong>Ocorrência:</strong> <span id="jDescTexto"></span></div>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Justificativa Administrativa*</label>
+              <textarea class="form-control" name="justificativa_administrativa" id="jTexto" rows="3" required placeholder="Descreva o esclarecimento técnico, documento conferido ou motivo administrativo..."></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Providência Adotada</label>
+              <input type="text" class="form-control" name="providencia_adotada" placeholder="Ex: Conferida NF física, solicitado aditivo ou retificação de lançamento...">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Setor Responsável</label>
+              <input type="text" class="form-control" name="setor_responsavel" id="jSetor">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Prazo de Regularização</label>
+              <input type="date" class="form-control" name="prazo_sugerido">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Situação da Resolução</label>
+              <select class="form-select" name="status_resolucao" id="jStatus">
+                <option value="Em Análise">Em Análise</option>
+                <option value="Em Regularização">Em Regularização</option>
+                <option value="Justificada">Justificada</option>
+                <option value="Regularizada">Regularizada</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Documento Comprobatório (PDF/Foto — Supabase Storage)</label>
+              <input type="file" class="form-control form-control-sm" name="documento_comprobatorio" accept=".pdf,.png,.jpg,.jpeg">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary fw-semibold">Salvar Justificativa</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const g = {{ graficos_json|safe }};
+
+  // Modal modo relatório
+  const selModo = document.getElementById('selModoRel');
+  const boxForn = document.getElementById('boxFornRel');
+  if (selModo) {
+    selModo.addEventListener('change', () => boxForn.classList.toggle('d-none', selModo.value !== 'fornecedor'));
+  }
+
+  // Modal justificativa
+  document.querySelectorAll('.btn-justificar').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('jChave').value = btn.dataset.chave;
+      document.getElementById('jAgr').value = btn.dataset.agricultor;
+      document.getElementById('jCt').value = btn.dataset.contrato;
+      document.getElementById('jCat').value = btn.dataset.categoria;
+      document.getElementById('jRisco').value = btn.dataset.risco;
+      document.getElementById('jDescHidden').value = btn.dataset.desc;
+      document.getElementById('jDescTexto').textContent = btn.dataset.desc;
+      document.getElementById('jSetor').value = btn.dataset.setor;
+      document.getElementById('jStatus').value = btn.dataset.status || 'Em Análise';
+      document.getElementById('jTexto').value = btn.dataset.just || '';
+    });
+  });
+
+  if (typeof Chart === 'undefined') return;
+
+  new Chart(document.getElementById('chartSituacao'), {
+    type: 'doughnut',
+    data: {
+      labels: g.situacao_labels,
+      datasets: [{ data: g.situacao_valores, backgroundColor: ['#16a34a', '#eab308', '#f97316', '#dc2626', '#64748b'] }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+  });
+
+  new Chart(document.getElementById('chartContExec'), {
+    type: 'bar',
+    data: {
+      labels: g.forn_labels,
+      datasets: [
+        { label: 'Contratado (R$)', data: g.forn_contratado, backgroundColor: 'rgba(19, 64, 116, 0.8)' },
+        { label: 'Executado (R$)', data: g.forn_executado, backgroundColor: 'rgba(22, 163, 74, 0.85)' }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } }, scales: { y: { beginAtZero: true }, x: { ticks: { font: { size: 9 } } } } }
+  });
+
+  new Chart(document.getElementById('chartEvolucao'), {
+    type: 'line',
+    data: {
+      labels: g.meses_labels,
+      datasets: [
+        { label: 'Executado (R$)', data: g.meses_executado, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.12)', fill: true, tension: 0.3 },
+        { label: 'Faturado NF (R$)', data: g.meses_faturado, borderColor: '#0b2545', borderDash: [4, 4], tension: 0.3 }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } }, scales: { y: { beginAtZero: true } } }
+  });
+
+  new Chart(document.getElementById('chartPctLimite'), {
+    type: 'bar',
+    data: {
+      labels: g.forn_labels,
+      datasets: [{
+        label: '% Limite Utilizado',
+        data: g.forn_pct_limite,
+        backgroundColor: g.forn_pct_limite.map(v => v > 100 ? '#dc2626' : (v >= 87.5 ? '#eab308' : '#16a34a'))
+      }]
+    },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, max: Math.max(120, ...g.forn_pct_limite, 100) } } }
+  });
+
+  new Chart(document.getElementById('chartPendCat'), {
+    type: 'bar',
+    data: {
+      labels: g.cat_pend_labels,
+      datasets: [{ label: 'Ocorrências', data: g.cat_pend_valores, backgroundColor: '#134074', borderRadius: 6 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { ticks: { font: { size: 9 } } } } }
+  });
+});
+</script>
+{% endblock %}

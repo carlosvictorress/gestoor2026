@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Base Normativa Configurável — Auditoria PNAE{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h3 class="fw-bold mb-0"><i class="bi bi-book text-primary me-2"></i>Base Normativa Configurável — PNAE / Agricultura Familiar</h3>
+    <small class="text-muted">Versão ativa: <strong>{{ versao_atual }}</strong> · Referência oficial FNDE (Lei nº 11.947/2009, Lei nº 15.226/2025, Res. CD/FNDE nº 4/2026 e Res. CD/FNDE nº 17/2026).</small>
+  </div>
+  <a href="{{ url_for('auditoria_pnae.painel') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Voltar ao Painel</a>
+</div>
+
+<div class="row g-3">
+  {% for r in regras %}
+  <div class="col-12">
+    <div class="card border shadow-sm rounded-4">
+      <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <div>
+          <span class="badge bg-primary me-2">{{ r.codigo }}</span>
+          <strong>{{ r.nome_exigencia }}</strong>
+        </div>
+        <span class="badge {% if r.gravidade == 'CRITICA' %}bg-danger{% elif r.gravidade == 'ALTA' %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">{{ r.gravidade }}</span>
+      </div>
+      <div class="card-body small">
+        <div class="row g-2">
+          <div class="col-md-6"><strong>Legislação:</strong> {{ r.numero_legislacao }}</div>
+          <div class="col-md-6"><strong>Dispositivo:</strong> <span class="text-primary fw-semibold">{{ r.dispositivo }}</span></div>
+          <div class="col-12"><strong>Obrigação:</strong> {{ r.descricao_obrigacao }}</div>
+          <div class="col-md-6"><strong>Critério de Verificação:</strong> {{ r.criterio_verificacao }}</div>
+          <div class="col-md-6"><strong>Dados Necessários:</strong> {{ r.dados_necessarios }}</div>
+          <div class="col-12"><strong>Orientação para Regularização:</strong> {{ r.orientacao_regularizacao }}</div>
+        </div>
+        {% if session.get('role') == 'admin' %}
+        <hr>
+        <form method="POST" class="row g-2 align-items-end">
+          <input type="hidden" name="regra_id" value="{{ r.id }}">
+          <div class="col-md-4"><label class="form-label mb-1">Dispositivo</label><input type="text" class="form-control form-control-sm" name="dispositivo" value="{{ r.dispositivo }}"></div>
+          <div class="col-md-4"><label class="form-label mb-1">Parâmetros (JSON)</label><input type="text" class="form-control form-control-sm font-monospace" name="parametros_json" value="{{ r.parametros_json or '{}' }}"></div>
+          <div class="col-md-2">
+            <label class="form-label mb-1">Gravidade</label>
+            <select class="form-select form-select-sm" name="gravidade">
+              {% for g in ['CRITICA', 'ALTA', 'MEDIA', 'BAIXA'] %}<option value="{{ g }}" {% if r.gravidade == g %}selected{% endif %}>{{ g }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2 d-flex align-items-center justify-content-between">
+            <div class="form-check"><input class="form-check-input" type="checkbox" name="ativa" {% if r.ativa %}checked{% endif %}><label class="form-check-label">Ativa</label></div>
+            <button type="submit" class="btn btn-sm btn-primary">Salvar</button>
+          </div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

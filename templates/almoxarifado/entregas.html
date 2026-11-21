@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% block title %}Saídas e Guias de Entrega — Almoxarifado SEME{% endblock %}
+
+{% block content %}
+{% include 'almoxarifado/_nav.html' %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0"><i class="bi bi-truck text-primary me-2"></i>Saídas e Guias de Entrega</h3>
+    <small class="text-muted">Controle completo de entregas para Escolas Municipais, Setores da SEME, baixas técnicas e devoluções.</small>
+  </div>
+  {% if session.get('role') in ['admin', 'almoxarifado'] %}
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{{ url_for('almoxarifado.nova_entrega') }}" class="btn btn-primary fw-semibold"><i class="bi bi-send-check me-1"></i>Nova Entrega Direta</a>
+    <a href="{{ url_for('almoxarifado.distribuicao_lote') }}" class="btn btn-success fw-semibold"><i class="bi bi-collection me-1"></i>Distribuição em Lote</a>
+    <a href="{{ url_for('almoxarifado.devolucao_unidade') }}" class="btn btn-outline-info btn-sm d-flex align-items-center"><i class="bi bi-arrow-return-left me-1"></i>Devolução</a>
+    <a href="{{ url_for('almoxarifado.baixa_tecnica') }}" class="btn btn-outline-danger btn-sm d-flex align-items-center"><i class="bi bi-trash3 me-1"></i>Baixa Técnica</a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="almox-card p-3 mb-3">
+  <form method="GET" class="row g-2 align-items-end">
+    <div class="col-md-2">
+      <label class="form-label small fw-semibold mb-1">Início</label>
+      <input type="date" class="form-control form-control-sm" name="data_inicio" value="{{ data_inicio or '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small fw-semibold mb-1">Fim</label>
+      <input type="date" class="form-control form-control-sm" name="data_fim" value="{{ data_fim or '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small fw-semibold mb-1">Tipo Destino</label>
+      <select class="form-select form-select-sm" name="tipo_destino">
+        <option value="">Todos</option>
+        <option value="Escola" {% if tipo_destino == 'Escola' %}selected{% endif %}>Escola Municipal</option>
+        <option value="Setor SEME" {% if tipo_destino == 'Setor SEME' %}selected{% endif %}>Setor da SEME</option>
+        <option value="Outro" {% if tipo_destino == 'Outro' %}selected{% endif %}>Outro</option>
+        <option value="Baixa Interna" {% if tipo_destino == 'Baixa Interna' %}selected{% endif %}>Baixa Interna</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold mb-1">Escola</label>
+      <select class="form-select form-select-sm" name="escola_id">
+        <option value="">Todas as escolas</option>
+        {% for esc in escolas %}
+        <option value="{{ esc.id }}" {% if esc.id == escola_id %}selected{% endif %}>{{ esc.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold mb-1">Setor da SEME</label>
+      <select class="form-select form-select-sm" name="setor_id">
+        <option value="">Todos os setores</option>
+        {% for s in setores %}
+        <option value="{{ s.id }}" {% if s.id == setor_id %}selected{% endif %}>{{ s.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold mb-1">Modalidade</label>
+      <select class="form-select form-select-sm" name="tipo_saida">
+        <option value="">Todas</option>
+        <option value="Entrega Direta" {% if tipo_saida == 'Entrega Direta' %}selected{% endif %}>Entrega Direta</option>
+        <option value="Requisição" {% if tipo_saida == 'Requisição' %}selected{% endif %}>Requisição</option>
+        <option value="Distribuição em Lote" {% if tipo_saida == 'Distribuição em Lote' %}selected{% endif %}>Distribuição em Lote</option>
+        <option value="Baixa Técnica" {% if tipo_saida == 'Baixa Técnica' %}selected{% endif %}>Baixa Técnica</option>
+        <option value="Devolução de Unidade" {% if tipo_saida == 'Devolução de Unidade' %}selected{% endif %}>Devolução de Unidade</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small fw-semibold mb-1">Status</label>
+      <select class="form-select form-select-sm" name="status">
+        <option value="">Todos</option>
+        <option value="Entregue" {% if status == 'Entregue' %}selected{% endif %}>Entregue</option>
+        <option value="Em Trânsito" {% if status == 'Em Trânsito' %}selected{% endif %}>Em Trânsito</option>
+        <option value="Estornada" {% if status == 'Estornada' %}selected{% endif %}>Estornada</option>
+      </select>
+    </div>
+    <div class="col-md-5">
+      <label class="form-label small fw-semibold mb-1">Busca (Guia, Recebedor, Lote Dist.)</label>
+      <input type="text" class="form-control form-control-sm" name="busca" value="{{ busca }}" placeholder="Ex: GUIA-2026-0001...">
+    </div>
+    <div class="col-md-2 d-flex gap-1">
+      <button type="submit" class="btn btn-sm btn-primary flex-fill"><i class="bi bi-search"></i> Filtrar</button>
+      <a href="{{ url_for('almoxarifado.listar_entregas') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-lg"></i></a>
+    </div>
+  </form>
+</div>
+
+<div class="almox-card p-3">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <span class="small text-muted">{{ entregas|length }} guia(s) encontrada(s)</span>
+    <span class="badge bg-primary-subtle text-primary fs-6">Total Ativo: {{ formatar_moeda_br(total_valor) }}</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Guia / Modalidade</th>
+          <th>Data</th>
+          <th>Destino (Escola / Setor SEME)</th>
+          <th>Recebedor</th>
+          <th class="text-center">Itens</th>
+          <th class="text-end">Valor (CMPM)</th>
+          <th>Status</th>
+          <th class="text-end">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in entregas %}
+        <tr class="{% if e.status == 'Estornada' %}table-secondary text-muted{% endif %}">
+          <td>
+            <a href="{{ url_for('almoxarifado.detalhes_entrega', entrega_id=e.id) }}" class="fw-bold text-decoration-none">{{ e.codigo_guia }}</a>
+            <div class="small text-muted">{{ e.tipo_saida }}{% if e.lote_distribuicao_codigo %} · {{ e.lote_distribuicao_codigo }}{% endif %}</div>
+          </td>
+          <td class="small">{{ e.data_entrega.strftime('%d/%m/%Y') }}</td>
+          <td class="small">
+            <span class="badge {% if e.tipo_destino == 'Escola' %}bg-primary-subtle text-primary{% elif e.tipo_destino == 'Setor SEME' %}bg-success-subtle text-success{% else %}bg-secondary-subtle text-dark{% endif %} me-1">{{ e.tipo_destino }}</span>
+            <strong>{{ e.nome_destino_exibicao }}</strong>
+          </td>
+          <td class="small">{{ e.recebedor_nome or '-' }}</td>
+          <td class="text-center"><span class="badge bg-light text-dark border">{{ e.itens|length }}</span></td>
+          <td class="text-end fw-bold small">{{ formatar_moeda_br(e.valor_total) }}</td>
+          <td>
+            <span class="badge {% if e.status == 'Entregue' %}bg-success{% elif e.status == 'Em Trânsito' %}bg-warning text-dark{% elif e.status == 'Estornada' %}bg-danger{% else %}bg-info{% endif %}">{{ e.status }}</span>
+          </td>
+          <td class="text-end text-nowrap">
+            <a href="{{ url_for('almoxarifado.detalhes_entrega', entrega_id=e.id) }}" class="btn btn-sm btn-outline-primary" title="Detalhes / Confirmar"><i class="bi bi-eye"></i></a>
+            <a href="{{ url_for('almoxarifado.guia_entrega_pdf', entrega_id=e.id) }}" target="_blank" class="btn btn-sm btn-outline-danger" title="Guia Oficial PDF"><i class="bi bi-file-earmark-pdf"></i></a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-4">Nenhuma saída/guia registrada.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

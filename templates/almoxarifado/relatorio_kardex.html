@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}Ficha de Prateleira (Kardex) — Almoxarifado SEME{% endblock %}
+
+{% block content %}
+{% include 'almoxarifado/_nav.html' %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0"><i class="bi bi-card-list text-dark me-2"></i>Ficha de Prateleira (Kardex)</h3>
+    <small class="text-muted">Extrato cronológico com saldo acumulado e Custo Médio Ponderado após cada movimentação.</small>
+  </div>
+  {% if material %}
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('almoxarifado.relatorio_kardex', material_id=material.id, data_inicio=data_inicio, data_fim=data_fim, formato='pdf') }}" target="_blank" class="btn btn-danger btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF Oficial</a>
+    <a href="{{ url_for('almoxarifado.relatorio_kardex', material_id=material.id, data_inicio=data_inicio, data_fim=data_fim, formato='excel') }}" class="btn btn-success btn-sm"><i class="bi bi-file-earmark-excel me-1"></i>Excel</a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="almox-card p-3 mb-3">
+  <form method="GET" class="row g-2 align-items-end">
+    <div class="col-md-6">
+      <label class="form-label small fw-semibold mb-1">Material</label>
+      <select class="form-select form-select-sm" name="material_id">
+        {% for m in materiais %}
+        <option value="{{ m.id }}" {% if material and m.id == material.id %}selected{% endif %}>{{ m.codigo_interno or m.id }} — {{ m.descricao }} ({{ m.unidade_medida }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2"><label class="form-label small fw-semibold mb-1">Início</label><input type="date" class="form-control form-control-sm" name="data_inicio" value="{{ data_inicio or '' }}"></div>
+    <div class="col-md-2"><label class="form-label small fw-semibold mb-1">Fim</label><input type="date" class="form-control form-control-sm" name="data_fim" value="{{ data_fim or '' }}"></div>
+    <div class="col-md-2"><button type="submit" class="btn btn-sm btn-primary w-100">Consultar Kardex</button></div>
+  </form>
+</div>
+
+{% if material %}
+<div class="almox-card p-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-2 border-bottom">
+    <div>
+      <h5 class="fw-bold mb-0">{{ material.descricao }}</h5>
+      <small class="text-muted">Código: {{ material.codigo_interno or material.id }} · Local: {{ material.localizacao_fisica or '-' }} · Unidade: {{ material.unidade_medida }}</small>
+    </div>
+    <div class="d-flex gap-2">
+      <span class="badge bg-primary fs-6">Saldo Atual: {{ material.estoque_atual }} {{ material.unidade_medida }}</span>
+      <span class="badge bg-success-subtle text-success fs-6">CMPM: {{ formatar_moeda_br(material.custo_referencia) }}</span>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Data/Hora</th><th>Tipo</th><th>Doc. Ref.</th><th>Origem / Destino</th><th class="text-end">Entrada</th><th class="text-end">Saída</th><th class="text-end">Saldo Após</th><th class="text-end">Custo Méd.</th><th>Usuário</th></tr>
+      </thead>
+      <tbody>
+        {% for mv in movimentos %}
+        <tr>
+          <td class="small">{{ mv.data_movimento.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td><span class="badge {% if mv.quantidade > 0 %}bg-success-subtle text-success{% else %}bg-danger-subtle text-danger{% endif %}">{{ mv.tipo_movimento }}</span></td>
+          <td class="small fw-semibold">{{ mv.documento_ref or mv.nota_fiscal or '-' }}</td>
+          <td class="small">{{ mv.escola.nome if mv.escola else (mv.setor.nome if mv.setor else (mv.fornecedor.nome if mv.fornecedor else (mv.justificativa or '-'))) }}</td>
+          <td class="text-end small text-success fw-bold">{% if mv.quantidade > 0 %}+{{ mv.quantidade }}{% else %}-{% endif %}</td>
+          <td class="text-end small text-danger fw-bold">{% if mv.quantidade < 0 %}{{ mv.quantidade }}{% else %}-{% endif %}</td>
+          <td class="text-end small fw-bold">{{ mv.saldo_apos if mv.saldo_apos is not none else '-' }}</td>
+          <td class="text-end small">{{ formatar_moeda_br(mv.custo_medio_apos or mv.valor_unitario or 0) }}</td>
+          <td class="small text-muted">{{ mv.usuario.username if mv.usuario else '-' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center text-muted py-4">Nenhuma movimentação registrada para este material.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

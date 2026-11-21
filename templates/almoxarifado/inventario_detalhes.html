@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+{% block title %}Inventário {{ inv.codigo }} — Almoxarifado SEME{% endblock %}
+
+{% block content %}
+{% include 'almoxarifado/_nav.html' %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0">
+      Inventário {{ inv.codigo }}
+      <span class="badge {% if inv.status == 'Finalizado' %}bg-success{% elif inv.status == 'Em Conferência' %}bg-info text-dark{% elif inv.status == 'Cancelado' %}bg-secondary{% else %}bg-warning text-dark{% endif %} fs-6 ms-2">{{ inv.status }}</span>
+    </h3>
+    <small class="text-muted">{{ inv.tipo }} · Exercício {{ inv.exercicio }} · Portaria: {{ inv.portaria_comissao or 'N/I' }} · Presidente: {{ inv.presidente_comissao or 'N/I' }}</small>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{{ url_for('almoxarifado.inventario_ata_pdf', inv_id=inv.id) }}" target="_blank" class="btn btn-danger btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>Ata Oficial PDF</a>
+    <a href="{{ url_for('almoxarifado.inventario_excel', inv_id=inv.id) }}" class="btn btn-success btn-sm"><i class="bi bi-file-earmark-excel me-1"></i>Excel</a>
+    <a href="{{ url_for('almoxarifado.listar_inventarios') }}" class="btn btn-outline-secondary btn-sm">Voltar</a>
+  </div>
+</div>
+
+{# KPIs do Inventário #}
+<div class="row g-2 mb-3">
+  <div class="col-md-3">
+    <div class="almox-kpi p-3">
+      <div class="small text-muted">Progresso da Contagem</div>
+      <div class="fs-5 fw-bold text-primary">{{ contados }} / {{ total_itens }} itens</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="almox-kpi p-3">
+      <div class="small text-muted">Divergências Apuradas</div>
+      <div class="fs-5 fw-bold {% if divergentes > 0 %}text-danger{% else %}text-success{% endif %}">
+        {% if inv.status == 'Aberto' and inv.contagem_cega %}<span class="text-muted small">Oculto (Contagem Cega)</span>{% else %}{{ divergentes }} item(ns){% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="almox-kpi p-3">
+      <div class="small text-muted">Valor Contábil (Sistema)</div>
+      <div class="fs-5 fw-bold">{{ formatar_moeda_br(inv.valor_estoque_sistema) }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="almox-kpi p-3">
+      <div class="small text-muted">Diferença Líquida (R$)</div>
+      <div class="fs-5 fw-bold {% if (inv.valor_diferenca_liquida or 0) < 0 %}text-danger{% elif (inv.valor_diferenca_liquida or 0) > 0 %}text-success{% endif %}">
+        {% if inv.status == 'Aberto' and inv.contagem_cega %}<span class="text-muted small">Apurado na Conferência</span>{% else %}{{ formatar_moeda_br(inv.valor_diferenca_liquida) }}{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Filtro Rápido na Tela (Busca / Leitor QR Code / Divergentes) #}
+<div class="almox-card p-3 mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col-md-6">
+      <input type="text" id="filtroInvBusca" class="form-control form-control-sm" placeholder="Filtrar por material, localização ou bipar QR Code / Código de Barras...">
+    </div>
+    <div class="col-md-6 d-flex justify-content-end gap-2">
+      {% if inv.status != 'Aberto' or not inv.contagem_cega %}
+      <a href="{{ url_for('almoxarifado.detalhes_inventario', inv_id=inv.id, divergentes=('0' if apenas_divergentes else '1')) }}" class="btn btn-sm {% if apenas_divergentes %}btn-danger{% else %}btn-outline-danger{% endif %}">
+        <i class="bi bi-funnel me-1"></i>{{ 'Mostrando Apenas Divergentes' if apenas_divergentes else 'Filtrar Divergências' }}
+      </a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<form method="POST" action="{{ url_for('almoxarifado.salvar_contagem_inventario', inv_id=inv.id) }}">
+  <div class="almox-card p-3 mb-3">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0" id="tabelaInventario">
+        <thead class="table-light">
+          <tr>
+            <th>Local / Material</th>
+            {% if not (inv.status == 'Aberto' and inv.contagem_cega) %}
+            <th class="text-center">Saldo Sistema</th>
+            {% endif %}
+            <th style="width: 120px;">1ª Contagem</th>
+            {% if inv.status in ['Em Conferência', 'Finalizado'] %}
+            <th style="width: 120px;">2ª Recontagem</th>
+            <th class="text-center">Diferença</th>
+            <th class="text-end">Impacto (R$)</th>
+            {% endif %}
+            <th style="min-width: 180px;">Justificativa / Obs.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for it in itens %}
+          <tr class="inv-row {% if inv.status != 'Aberto' and it.diferenca and it.diferenca != 0 %}table-warning{% endif %}" data-search="{{ (it.material.descricao ~ ' ' ~ (it.material.codigo_interno or '') ~ ' ' ~ (it.material.codigo_barras or '') ~ ' ' ~ (it.material.localizacao_fisica or ''))|lower }}">
+            <td>
+              <input type="hidden" name="inv_item_id[]" value="{{ it.id }}">
+              <div class="fw-semibold small">{{ it.material.descricao }}</div>
+              <div class="text-muted" style="font-size: 0.75rem;">
+                Cód: {{ it.material.codigo_interno or it.material_id }} · Local: {{ it.material.localizacao_fisica or '-' }} · Unid: {{ it.material.unidade_medida }}
+              </div>
+            </td>
+            {% if not (inv.status == 'Aberto' and inv.contagem_cega) %}
+            <td class="text-center"><span class="badge bg-secondary">{{ it.estoque_sistema_abertura }}</span></td>
+            {% endif %}
+            <td>
+              <input type="number" step="0.01" min="0" class="form-control form-control-sm" name="qtd_1[]" value="{{ it.quantidade_contada_1 if it.quantidade_contada_1 is not none else '' }}" {% if inv.status in ['Finalizado', 'Cancelado'] %}readonly{% endif %}>
+            </td>
+            {% if inv.status in ['Em Conferência', 'Finalizado'] %}
+            <td>
+              <input type="number" step="0.01" min="0" class="form-control form-control-sm" name="qtd_2[]" value="{{ it.quantidade_contada_2 if it.quantidade_contada_2 is not none else '' }}" placeholder="Recontar" {% if inv.status in ['Finalizado', 'Cancelado'] %}readonly{% endif %}>
+            </td>
+            <td class="text-center fw-bold {% if (it.diferenca or 0) > 0 %}text-success{% elif (it.diferenca or 0) < 0 %}text-danger{% endif %}">
+              {{ it.diferenca if it.quantidade_final is not none else '-' }}
+            </td>
+            <td class="text-end small fw-bold {% if (it.valor_diferenca or 0) > 0 %}text-success{% elif (it.valor_diferenca or 0) < 0 %}text-danger{% endif %}">
+              {{ formatar_moeda_br(it.valor_diferenca) if it.quantidade_final is not none else '-' }}
+            </td>
+            {% else %}
+            <input type="hidden" name="qtd_2[]" value="">
+            {% endif %}
+            <td>
+              <input type="text" class="form-control form-control-sm" name="justificativa_item[]" value="{{ it.justificativa_item or '' }}" placeholder="Obs. / Motivo divergência" {% if inv.status in ['Finalizado', 'Cancelado'] %}readonly{% endif %}>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if inv.status in ['Aberto', 'Em Conferência'] and session.get('role') in ['admin', 'almoxarifado'] %}
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary fw-semibold"><i class="bi bi-save me-1"></i>Salvar Rascunho da Contagem</button>
+      {% if inv.status == 'Aberto' %}
+      <button type="submit" name="avancar_conferencia" value="1" class="btn btn-info text-dark fw-semibold"><i class="bi bi-search me-1"></i>Salvar e Revelar Divergências (Conferência)</button>
+      {% endif %}
+    </div>
+    <div class="d-flex gap-2">
+      {% if inv.status == 'Em Conferência' %}
+      <button type="button" class="btn btn-success fw-semibold" data-bs-toggle="modal" data-bs-target="#modalFinalizarInv">
+        <i class="bi bi-check2-all me-1"></i>Aprovar e Efetivar Ajustes no Estoque
+      </button>
+      {% endif %}
+      <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalCancelarInv">Cancelar Inventário</button>
+    </div>
+  </div>
+  {% endif %}
+</form>
+
+{# Modal Finalizar Inventário #}
+<div class="modal fade" id="modalFinalizarInv" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('almoxarifado.finalizar_inventario', inv_id=inv.id) }}">
+        <div class="modal-header bg-success text-white"><h5 class="modal-title">Finalizar e Efetivar Inventário {{ inv.codigo }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <p class="small">Ao confirmar, o sistema atualizará automaticamente o saldo físico dos itens com divergência e gerará lançamentos auditáveis de <strong>Ajuste Inventário</strong> no Kardex.</p>
+          <label class="form-label fw-semibold">Parecer / Observações de Encerramento da Comissão</label>
+          <textarea class="form-control" name="observacoes_conclusao" rows="3" placeholder="Ex: Divergências verificadas e aprovadas conforme Ata da Comissão..."></textarea>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button><button type="submit" class="btn btn-success fw-semibold">Confirmar e Efetivar Ajustes</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# Modal Cancelar Inventário #}
+<div class="modal fade" id="modalCancelarInv" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('almoxarifado.cancelar_inventario', inv_id=inv.id) }}">
+        <div class="modal-header bg-danger text-white"><h5 class="modal-title">Cancelar Inventário {{ inv.codigo }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body"><p class="mb-0">Tem certeza que deseja cancelar este inventário? Nenhum ajuste será aplicado ao estoque e eventual bloqueio será liberado.</p></div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button><button type="submit" class="btn btn-danger">Confirmar Cancelamento</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('filtroInvBusca').addEventListener('input', function() {
+  const q = this.value.toLowerCase().replace('seme_almox_mat:', '').trim();
+  document.querySelectorAll('#tabelaInventario tbody tr.inv-row').forEach(tr => {
+    tr.style.display = !q || (tr.dataset.search || '').includes(q) ? '' : 'none';
+  });
+});
+</script>
+{% endblock %}

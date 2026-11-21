@@ -1,56 +1,93 @@
 {% extends 'base.html' %}
-
-{% block title %}Minhas Requisições de Material{% endblock %}
+{% block title %}Requisições de Material — Almoxarifado SEME{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1>Requisições de Material</h1>
-    <a href="{{ url_for('almoxarifado.nova_requisicao') }}" class="btn btn-primary">
-        <i class="bi bi-plus-circle"></i> Fazer Nova Requisição
-    </a>
+{% include 'almoxarifado/_nav.html' %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0"><i class="bi bi-clipboard2-pulse text-primary me-2"></i>Requisições de Material (SEME)</h3>
+    <small class="text-muted">Solicitações internas vinculadas às Escolas Municipais e Setores da SEME.</small>
+  </div>
+  <a href="{{ url_for('almoxarifado.nova_requisicao') }}" class="btn btn-primary fw-semibold">
+    <i class="bi bi-plus-circle me-1"></i>Nova Requisição
+  </a>
 </div>
 
-<div class="card">
-    <div class="card-body">
-        <table class="table table-striped table-hover">
-            <thead>
-                <tr>
-                    <th>#ID</th>
-                    <th>Data</th>
-                    <th>Solicitante</th>
-                    <th>Secretaria</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for req in requisicoes %}
-                <tr>
-                    <td>{{ req.id }}</td>
-                    <td>{{ req.data_solicitacao.strftime('%d/%m/%Y %H:%M') }}</td>
-                    <td>{{ req.usuario_solicitante.username }}</td>
-                    <td>{{ req.secretaria_solicitante.nome }}</td>
-                    <td>
-                        <span class="badge 
-                            {% if req.status == 'Pendente' %}bg-warning text-dark
-                            {% elif req.status == 'Aprovada' %}bg-info text-dark
-                            {% elif req.status == 'Atendida' %}bg-success
-                            {% elif req.status == 'Recusada' %}bg-danger
-                            {% endif %}">
-                            {{ req.status }}
-                        </span>
-                    </td>
-                    <td>
-	<a href="{{ url_for('almoxarifado.detalhes_requisicao', requisicao_id=req.id) }}" class="btn btn-sm btn-outline-primary">Ver Detalhes</a>
-				</td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="6" class="text-center">Nenhuma requisição encontrada.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="almox-card p-3 mb-3">
+  <form method="GET" class="row g-2 align-items-end">
+    <div class="col-md-4">
+      <label class="form-label small fw-semibold mb-1">Status</label>
+      <select class="form-select form-select-sm" name="status">
+        <option value="">Todos</option>
+        {% for st in ['Pendente', 'Aprovada', 'Atendida Parcialmente', 'Atendida', 'Recusada', 'Cancelada'] %}
+        <option value="{{ st }}" {% if status_filtro == st %}selected{% endif %}>{{ st }}</option>
+        {% endfor %}
+      </select>
     </div>
+    <div class="col-md-4">
+      <label class="form-label small fw-semibold mb-1">Tipo de Destino</label>
+      <select class="form-select form-select-sm" name="tipo_destino">
+        <option value="">Todos</option>
+        <option value="Escola" {% if tipo_destino == 'Escola' %}selected{% endif %}>Escola Municipal</option>
+        <option value="Setor SEME" {% if tipo_destino == 'Setor SEME' %}selected{% endif %}>Setor da SEME</option>
+        <option value="Outro" {% if tipo_destino == 'Outro' %}selected{% endif %}>Outro</option>
+      </select>
+    </div>
+    <div class="col-md-4 d-flex gap-2">
+      <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-search me-1"></i>Filtrar</button>
+      <a href="{{ url_for('almoxarifado.minhas_requisicoes') }}" class="btn btn-sm btn-outline-secondary">Limpar</a>
+    </div>
+  </form>
+</div>
+
+<div class="almox-card p-3">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Código</th>
+          <th>Data</th>
+          <th>Destino (Escola / Setor SEME)</th>
+          <th>Prioridade</th>
+          <th>Registrada por</th>
+          <th>Status</th>
+          <th class="text-end">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for req in requisicoes %}
+        <tr>
+          <td class="fw-bold">{{ req.codigo_exibicao }}</td>
+          <td class="small">{{ req.data_solicitacao.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td class="small">
+            <span class="badge {% if req.tipo_destino == 'Escola' %}bg-primary-subtle text-primary{% else %}bg-success-subtle text-success{% endif %} me-1">{{ req.tipo_destino or 'SEME' }}</span>
+            <strong>{{ req.nome_destino_exibicao }}</strong>
+          </td>
+          <td>
+            <span class="badge {% if req.prioridade == 'Urgente' %}bg-danger{% else %}bg-light text-dark border{% endif %}">{{ req.prioridade or 'Normal' }}</span>
+          </td>
+          <td class="small">{{ req.usuario_solicitante.username if req.usuario_solicitante else '-' }}</td>
+          <td>
+            <span class="badge
+              {% if req.status == 'Pendente' %}bg-warning text-dark
+              {% elif req.status == 'Aprovada' %}bg-info text-dark
+              {% elif req.status == 'Atendida Parcialmente' %}bg-primary
+              {% elif req.status == 'Atendida' %}bg-success
+              {% elif req.status == 'Recusada' %}bg-danger
+              {% else %}bg-secondary{% endif %}">
+              {{ req.status }}
+            </span>
+          </td>
+          <td class="text-end">
+            <a href="{{ url_for('almoxarifado.detalhes_requisicao', requisicao_id=req.id) }}" class="btn btn-sm btn-outline-primary">Detalhes / Atender</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center text-muted py-4">Nenhuma requisição encontrada.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% block title %}Guia {{ entrega.codigo_guia }} — Almoxarifado SEME{% endblock %}
+
+{% block content %}
+{% include 'almoxarifado/_nav.html' %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0">
+      {{ entrega.codigo_guia }}
+      <span class="badge {% if entrega.status == 'Entregue' %}bg-success{% elif entrega.status == 'Em Trânsito' %}bg-warning text-dark{% else %}bg-danger{% endif %} fs-6 ms-2">{{ entrega.status }}</span>
+    </h3>
+    <small class="text-muted">{{ entrega.tipo_saida }} · Emitida em {{ entrega.data_emissao.strftime('%d/%m/%Y %H:%M') }} por {{ entrega.usuario_emissor.username if entrega.usuario_emissor else '-' }}</small>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{{ url_for('almoxarifado.guia_entrega_pdf', entrega_id=entrega.id) }}" target="_blank" class="btn btn-danger btn-sm fw-semibold">
+      <i class="bi bi-file-earmark-pdf me-1"></i>Imprimir Guia / Termo PDF
+    </a>
+    {% if entrega.comprovante_assinado_url %}
+    <a href="{{ entrega.comprovante_assinado_url }}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="bi bi-paperclip me-1"></i>Ver Via Assinada / Anexo</a>
+    {% endif %}
+    {% if entrega.status != 'Estornada' and session.get('role') in ['admin', 'almoxarifado'] %}
+    <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalEstornoGuia"><i class="bi bi-arrow-counterclockwise me-1"></i>Estornar</button>
+    {% endif %}
+    <a href="{{ url_for('almoxarifado.listar_entregas') }}" class="btn btn-outline-secondary btn-sm">Voltar</a>
+  </div>
+</div>
+
+{% if entrega.status == 'Estornada' %}
+<div class="alert alert-danger">
+  <strong>Guia Estornada</strong> em {{ entrega.data_estorno.strftime('%d/%m/%Y %H:%M') if entrega.data_estorno else '-' }}. Motivo: {{ entrega.motivo_estorno }}
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="almox-card p-3 mb-3">
+      <h6 class="fw-bold text-primary mb-2">Destino e Itens da Guia</h6>
+      <div class="row g-2 small mb-3 pb-2 border-bottom">
+        <div class="col-md-6"><strong>Unidade ({{ entrega.tipo_destino }}):</strong> {{ entrega.nome_destino_exibicao }}</div>
+        <div class="col-md-3"><strong>Data Entrega:</strong> {{ entrega.data_entrega.strftime('%d/%m/%Y') }}</div>
+        <div class="col-md-3 text-end"><strong>Total (CMPM):</strong> <span class="text-primary fw-bold">{{ formatar_moeda_br(entrega.valor_total) }}</span></div>
+        {% if entrega.requisicao %}<div class="col-md-6"><strong>Requisição Origem:</strong> <a href="{{ url_for('almoxarifado.detalhes_requisicao', requisicao_id=entrega.requisicao.id) }}">{{ entrega.requisicao.codigo_exibicao }}</a></div>{% endif %}
+        {% if entrega.justificativa %}<div class="col-12"><strong>Justificativa:</strong> {{ entrega.justificativa }}</div>{% endif %}
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Material</th><th>Lote</th><th class="text-center">Quantidade</th><th class="text-end">Custo Médio</th><th class="text-end">Subtotal</th></tr>
+          </thead>
+          <tbody>
+            {% for it in entrega.itens %}
+            <tr>
+              <td class="fw-semibold">{{ it.material.descricao }}</td>
+              <td class="small">{{ it.lote.numero_lote if it.lote else '-' }}</td>
+              <td class="text-center fw-bold">{{ it.quantidade }} {{ it.material.unidade_medida }}</td>
+              <td class="text-end small">{{ formatar_moeda_br(it.custo_unitario_medio) }}</td>
+              <td class="text-end fw-bold">{{ formatar_moeda_br(it.valor_total) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="almox-card p-3">
+      <h6 class="fw-bold text-primary mb-3"><i class="bi bi-person-check me-1"></i>Confirmação de Recebimento</h6>
+      <form method="POST" enctype="multipart/form-data">
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Nome do Recebedor</label>
+          <input type="text" class="form-control form-control-sm" name="recebedor_nome" value="{{ entrega.recebedor_nome or '' }}">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">CPF do Recebedor</label>
+          <input type="text" class="form-control form-control-sm" name="recebedor_cpf" value="{{ entrega.recebedor_cpf or '' }}">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Cargo / Função</label>
+          <input type="text" class="form-control form-control-sm" name="recebedor_cargo" value="{{ entrega.recebedor_cargo or '' }}">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Entregador / Motorista</label>
+          <input type="text" class="form-control form-control-sm" name="entregador_nome" value="{{ entrega.entregador_nome or '' }}">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Anexar Via Assinada (PDF/Foto — Supabase)</label>
+          <input type="file" class="form-control form-control-sm" name="comprovante_assinado" accept=".pdf,.png,.jpg,.jpeg">
+        </div>
+        {% if entrega.status != 'Estornada' and session.get('role') in ['admin', 'almoxarifado'] %}
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" name="confirmar_recebimento" value="1" id="chkConf" {% if entrega.status == 'Entregue' %}checked{% endif %}>
+          <label class="form-check-label small fw-semibold" for="chkConf">Marcar Guia como Entregue/Confirmada</label>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-save me-1"></i>Salvar Recebimento</button>
+        {% endif %}
+      </form>
+      <hr>
+      <div class="small text-muted">
+        <strong>Código Autenticação:</strong> <code>{{ entrega.codigo_autenticacao or '-' }}</code>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalEstornoGuia" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('almoxarifado.estornar_entrega', entrega_id=entrega.id) }}">
+        <div class="modal-header bg-danger text-white"><h5 class="modal-title">Estornar Guia {{ entrega.codigo_guia }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <p class="small">O estorno reverterá o saldo no estoque e gerará o registro de estorno no Kardex.</p>
+          <label class="form-label fw-semibold">Motivo do Estorno*</label>
+          <textarea class="form-control" name="motivo_estorno" rows="3" required></textarea>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-danger">Confirmar Estorno</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

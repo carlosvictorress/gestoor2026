@@ -1,0 +1,126 @@
+{# templates/almoxarifado/_nav.html #}
+<style>
+  .almox-subnav {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 0.55rem 0.9rem;
+    box-shadow: 0 2px 10px rgba(7, 38, 87, 0.05);
+    margin-bottom: 1.25rem;
+  }
+  .almox-subnav .nav-link {
+    color: #334155;
+    font-weight: 600;
+    font-size: 0.88rem;
+    border-radius: 10px;
+    padding: 0.45rem 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all 0.2s ease;
+  }
+  .almox-subnav .nav-link:hover {
+    background: #eef3f9;
+    color: #072657;
+  }
+  .almox-subnav .nav-link.active {
+    background: #072657;
+    color: #ffffff !important;
+  }
+  .almox-hero {
+    background: linear-gradient(135deg, #072657 0%, #0f4c81 100%);
+    color: #ffffff;
+    border-radius: 16px;
+    padding: 1.5rem 1.75rem;
+    box-shadow: 0 10px 25px rgba(7, 38, 87, 0.16);
+    margin-bottom: 1.25rem;
+  }
+  .almox-kpi {
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #fff;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .almox-kpi:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  }
+  .almox-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+    background: #fff;
+  }
+</style>
+
+<div class="almox-subnav d-flex flex-wrap align-items-center justify-content-between gap-2">
+  <ul class="nav nav-pills flex-wrap gap-1 align-items-center">
+    {% if session.get('role') in ['admin', 'almoxarifado', 'Fiscal'] %}
+    <li class="nav-item">
+      <a class="nav-link {% if request.endpoint == 'almoxarifado.dashboard' %}active{% endif %}" href="{{ url_for('almoxarifado.dashboard') }}">
+        <i class="bi bi-speedometer2"></i> Painel
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if request.endpoint in ('almoxarifado.listar_entradas', 'almoxarifado.nova_entrada', 'almoxarifado.detalhes_entrada') %}active{% endif %}" href="{{ url_for('almoxarifado.listar_entradas') }}">
+        <i class="bi bi-box-arrow-in-down"></i> Entradas (NF)
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if request.endpoint in ('almoxarifado.listar_entregas', 'almoxarifado.nova_entrega', 'almoxarifado.distribuicao_lote', 'almoxarifado.detalhes_entrega', 'almoxarifado.baixa_tecnica', 'almoxarifado.devolucao_unidade') %}active{% endif %}" href="{{ url_for('almoxarifado.listar_entregas') }}">
+        <i class="bi bi-truck"></i> Saídas / Guias
+      </a>
+    </li>
+    {% endif %}
+    <li class="nav-item">
+      <a class="nav-link {% if request.endpoint in ('almoxarifado.minhas_requisicoes', 'almoxarifado.nova_requisicao', 'almoxarifado.detalhes_requisicao') %}active{% endif %}" href="{{ url_for('almoxarifado.minhas_requisicoes') }}">
+        <i class="bi bi-clipboard2-pulse"></i> Requisições
+      </a>
+    </li>
+    {% if session.get('role') in ['admin', 'almoxarifado', 'Fiscal'] %}
+    <li class="nav-item">
+      <a class="nav-link {% if request.endpoint in ('almoxarifado.listar_inventarios', 'almoxarifado.novo_inventario', 'almoxarifado.detalhes_inventario') %}active{% endif %}" href="{{ url_for('almoxarifado.listar_inventarios') }}">
+        <i class="bi bi-clipboard-check"></i> Inventários
+      </a>
+    </li>
+    {% endif %}
+    {% if session.get('role') in ['admin', 'almoxarifado'] %}
+    <li class="nav-item dropdown">
+      <a class="nav-link dropdown-toggle {% if request.endpoint in ('almoxarifado.gerenciar_materiais', 'almoxarifado.gerenciar_fornecedores', 'almoxarifado.gerenciar_setores', 'almoxarifado.gerenciar_categorias') %}active{% endif %}" data-bs-toggle="dropdown" href="#">
+        <i class="bi bi-boxes"></i> Cadastros
+      </a>
+      <ul class="dropdown-menu shadow-sm border-0">
+        <li><a class="dropdown-item" href="{{ url_for('almoxarifado.gerenciar_materiais') }}"><i class="bi bi-box-seam me-2"></i>Catálogo de Materiais</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('almoxarifado.gerenciar_setores') }}"><i class="bi bi-building me-2"></i>Setores SEME &amp; Escolas</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('almoxarifado.gerenciar_fornecedores') }}"><i class="bi bi-truck-flatbed me-2"></i>Fornecedores</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('almoxarifado.gerenciar_categorias') }}"><i class="bi bi-tags me-2"></i>Categorias (3.3.90.30)</a></li>
+      </ul>
+    </li>
+    {% endif %}
+    {% if session.get('role') in ['admin', 'almoxarifado', 'Fiscal', 'RH'] %}
+    <li class="nav-item dropdown">
+      <a class="nav-link dropdown-toggle {% if request.endpoint and 'relatorio' in request.endpoint %}active{% endif %}" data-bs-toggle="dropdown" href="#">
+        <i class="bi bi-file-earmark-bar-graph"></i> Relatórios
+      </a>
+      <ul class="dropdown-menu shadow-sm border-0">
+        <li><a class="dropdown-item fw-semibold" href="{{ url_for('almoxarifado.central_relatorios') }}"><i class="bi bi-grid-1x2 me-2 text-primary"></i>Central de Relatórios</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="{{ url_for('almoxarifado.relatorio_entregas_geral') }}"><i class="bi bi-list-ul me-2"></i>Entregas Geral</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('almoxarifado.relatorio_entregas_escolas') }}"><i class="bi bi-mortarboard me-2"></i>Entregas por Escola</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('almoxarifado.relatorio_entregas_setores') }}"><i class="bi bi-diagram-3 me-2"></i>Entregas por Setor SEME</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="{{ url_for('almoxarifado.relatorio_rma') }}"><i class="bi bi-journal-check me-2 text-success"></i>RMA (Mensal Contábil)</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('almoxarifado.relatorio_estoque') }}"><i class="bi bi-archive me-2"></i>Posição de Estoque</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('almoxarifado.relatorio_kardex') }}"><i class="bi bi-card-list me-2"></i>Ficha de Prateleira (Kardex)</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('almoxarifado.relatorio_entradas') }}"><i class="bi bi-receipt me-2"></i>Entradas por NF / Empenho</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('almoxarifado.relatorio_validades') }}"><i class="bi bi-calendar-event me-2"></i>Validade de Lotes</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('almoxarifado.relatorio_curva_abc') }}"><i class="bi bi-bar-chart-steps me-2"></i>Curva ABC</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('almoxarifado.relatorio_movimentacoes') }}"><i class="bi bi-arrow-left-right me-2"></i>Movimentações Gerais</a></li>
+      </ul>
+    </li>
+    {% endif %}
+  </ul>
+  <span class="badge bg-light text-dark border d-none d-xl-inline-flex align-items-center gap-1 py-2 px-3">
+    <i class="bi bi-shield-check text-primary"></i> SEME · Almoxarifado Central
+  </span>
+</div>

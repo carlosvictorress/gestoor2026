@@ -746,6 +746,77 @@
               <span class="nav-text">Termos de Responsabilidade</span>
             </a>
           </li>
+          {% elif session.get('role') == 'almoxarifado' %}
+          <li class="nav-item">
+            <a
+              class="nav-link {% if request.endpoint == 'almoxarifado.dashboard' %}active{% endif %}"
+              href="{{ url_for('almoxarifado.dashboard') }}"
+              data-tooltip="Painel Almoxarifado"
+            >
+              <i class="bi bi-speedometer2"></i>
+              <span class="nav-text">Painel Almoxarifado</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link {% if request.endpoint in ('almoxarifado.listar_entradas', 'almoxarifado.nova_entrada', 'almoxarifado.detalhes_entrada') %}active{% endif %}"
+              href="{{ url_for('almoxarifado.listar_entradas') }}"
+              data-tooltip="Entradas (NF-e)"
+            >
+              <i class="bi bi-box-arrow-in-down"></i>
+              <span class="nav-text">Entradas (NF-e)</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link {% if request.endpoint in ('almoxarifado.listar_entregas', 'almoxarifado.nova_entrega', 'almoxarifado.distribuicao_lote', 'almoxarifado.detalhes_entrega', 'almoxarifado.baixa_tecnica', 'almoxarifado.devolucao_unidade') %}active{% endif %}"
+              href="{{ url_for('almoxarifado.listar_entregas') }}"
+              data-tooltip="Saídas e Entregas"
+            >
+              <i class="bi bi-truck"></i>
+              <span class="nav-text">Saídas e Entregas</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link {% if request.endpoint in ('almoxarifado.minhas_requisicoes', 'almoxarifado.nova_requisicao', 'almoxarifado.detalhes_requisicao') %}active{% endif %}"
+              href="{{ url_for('almoxarifado.minhas_requisicoes') }}"
+              data-tooltip="Requisições"
+            >
+              <i class="bi bi-clipboard2-pulse"></i>
+              <span class="nav-text">Requisições</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link {% if request.endpoint in ('almoxarifado.listar_inventarios', 'almoxarifado.novo_inventario', 'almoxarifado.detalhes_inventario') %}active{% endif %}"
+              href="{{ url_for('almoxarifado.listar_inventarios') }}"
+              data-tooltip="Inventários"
+            >
+              <i class="bi bi-clipboard-check"></i>
+              <span class="nav-text">Inventários</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link {% if request.endpoint in ('almoxarifado.gerenciar_materiais', 'almoxarifado.gerenciar_fornecedores', 'almoxarifado.gerenciar_setores', 'almoxarifado.gerenciar_categorias') %}active{% endif %}"
+              href="{{ url_for('almoxarifado.gerenciar_materiais') }}"
+              data-tooltip="Materiais e Cadastros"
+            >
+              <i class="bi bi-boxes"></i>
+              <span class="nav-text">Materiais e Cadastros</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link {% if request.endpoint and 'relatorio' in request.endpoint %}active{% endif %}"
+              href="{{ url_for('almoxarifado.central_relatorios') }}"
+              data-tooltip="Relatórios SEME"
+            >
+              <i class="bi bi-file-earmark-bar-graph"></i>
+              <span class="nav-text">Relatórios SEME</span>
+            </a>
+          </li>
           {% else %}
           <li class="nav-item">
             <a

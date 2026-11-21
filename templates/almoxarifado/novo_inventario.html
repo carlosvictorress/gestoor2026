@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}Abrir Novo Inventário — Almoxarifado SEME{% endblock %}
+
+{% block content %}
+{% include 'almoxarifado/_nav.html' %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h3 class="fw-bold mb-0"><i class="bi bi-clipboard-plus text-primary me-2"></i>Abertura Formal de Inventário</h3>
+    <small class="text-muted">Ao abrir, o sistema congela o saldo contábil e o Custo Médio atual dos materiais do escopo selecionado.</small>
+  </div>
+  <a href="{{ url_for('almoxarifado.listar_inventarios') }}" class="btn btn-outline-secondary btn-sm">Voltar</a>
+</div>
+
+<div class="almox-card p-4">
+  <form method="POST">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Tipo de Inventário*</label>
+        <select class="form-select" name="tipo" required>
+          <option value="Geral Anual">Geral Anual (Encerramento de Exercício)</option>
+          <option value="Periódico / Mensal">Periódico / Mensal</option>
+          <option value="Rotativo por Categoria">Rotativo por Categoria (Subelemento)</option>
+          <option value="Extraordinário / Troca de Gestor">Extraordinário / Troca de Gestor</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label fw-semibold">Exercício (Ano)*</label>
+        <input type="number" class="form-control" name="exercicio" value="{{ ano_atual }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Escopo de Categoria (vazio = Todos os Materiais Ativos)</label>
+        <select class="form-select" name="categoria_id">
+          <option value="">Todos os materiais ativos do Almoxarifado</option>
+          {% for c in categorias %}
+          <option value="{{ c.id }}">{{ c.codigo_subelemento or '' }} — {{ c.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Portaria da Comissão (SEME)</label>
+        <input type="text" class="form-control" name="portaria_comissao" placeholder="Ex: Portaria SEME nº 042/2026">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Presidente da Comissão</label>
+        <input type="text" class="form-control" name="presidente_comissao" placeholder="Nome completo">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Membros da Comissão</label>
+        <input type="text" class="form-control" name="membros_comissao" placeholder="Nomes separados por vírgula">
+      </div>
+
+      <div class="col-12">
+        <label class="form-label fw-semibold">Justificativa / Objetivo do Inventário*</label>
+        <textarea class="form-control" name="justificativa_geral" rows="2" required placeholder="Ex: Inventário anual de encerramento de exercício financeiro para prestação de contas ao TCE."></textarea>
+      </div>
+
+      <div class="col-md-6">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" name="contagem_cega" id="chkCega" checked>
+          <label class="form-check-label fw-semibold" for="chkCega">Ativar Contagem Cega (Recomendado pelo TCE)</label>
+          <div class="form-text">Oculta o saldo do sistema durante a 1ª contagem para evitar indução e garantir conferência física real.</div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" name="bloquear_movimentacoes" id="chkBloq">
+          <label class="form-check-label fw-semibold" for="chkBloq">Bloquear Entradas e Saídas durante a Contagem</label>
+          <div class="form-text">Impede alterações de estoque enquanto a comissão realiza o balanço físico.</div>
+        </div>
+      </div>
+    </div>
+    <hr>
+    <div class="d-flex justify-content-end gap-2">
+      <a href="{{ url_for('almoxarifado.listar_inventarios') }}" class="btn btn-secondary">Cancelar</a>
+      <button type="submit" class="btn btn-primary fw-semibold px-4"><i class="bi bi-play-circle me-1"></i>Abrir Inventário e Congelar Saldos</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

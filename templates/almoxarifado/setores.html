@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% block title %}Setores da SEME e Escolas — Almoxarifado{% endblock %}
+
+{% block content %}
+{% include 'almoxarifado/_nav.html' %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0"><i class="bi bi-building text-primary me-2"></i>Setores da SEME &amp; Escolas da Rede Municipal</h3>
+    <small class="text-muted">Unidades de destino utilizadas nas requisições, entregas diretas, distribuição em lote e relatórios.</small>
+  </div>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addSetorModal">
+    <i class="bi bi-plus-circle me-1"></i>Novo Setor da SEME
+  </button>
+</div>
+
+<ul class="nav nav-tabs mb-3" role="tablist">
+  <li class="nav-item">
+    <button class="nav-link active fw-semibold" data-bs-toggle="tab" data-bs-target="#paneSetores">
+      <i class="bi bi-diagram-3 me-1"></i>Setores da SEME ({{ setores|length }})
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link fw-semibold" data-bs-toggle="tab" data-bs-target="#paneEscolas">
+      <i class="bi bi-mortarboard me-1"></i>Escolas Cadastradas no Sistema ({{ escolas|length }})
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+  {# Aba Setores da SEME (Tabela própria almox_setor) #}
+  <div class="tab-pane fade show active" id="paneSetores">
+    <div class="almox-card p-3">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Código / Sigla</th><th>Nome do Setor (SEME)</th><th>Responsável</th><th>Contato</th><th>Status</th><th class="text-end">Ações</th></tr>
+          </thead>
+          <tbody>
+            {% for s in setores %}
+            <tr class="{% if not s.ativo %}table-secondary text-muted{% endif %}">
+              <td><span class="badge bg-primary-subtle text-primary">{{ s.codigo or ('SET-' ~ s.id) }}</span> {% if s.sigla %}<small class="text-muted ms-1">{{ s.sigla }}</small>{% endif %}</td>
+              <td class="fw-semibold">{{ s.nome }}</td>
+              <td class="small">{{ s.responsavel_nome or '-' }}</td>
+              <td class="small">{{ s.telefone or '-' }} {% if s.email %}<br>{{ s.email }}{% endif %}</td>
+              <td><span class="badge {% if s.ativo %}bg-success{% else %}bg-secondary{% endif %}">{{ 'Ativo' if s.ativo else 'Inativo' }}</span></td>
+              <td class="text-end text-nowrap">
+                <a href="{{ url_for('almoxarifado.relatorio_entregas_setores', setor_id=s.id) }}" class="btn btn-sm btn-outline-info" title="Relatório de Entregas"><i class="bi bi-bar-chart"></i></a>
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editSetorModal-{{ s.id }}" title="Editar"><i class="bi bi-pencil"></i></button>
+                <form method="POST" action="{{ url_for('almoxarifado.toggle_ativo_setor', setor_id=s.id) }}" class="d-inline">
+                  <button type="submit" class="btn btn-sm btn-outline-secondary" title="Ativar/Inativar"><i class="bi bi-power"></i></button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-4">Nenhum setor cadastrado.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {# Aba Escolas Municipais já cadastradas #}
+  <div class="tab-pane fade" id="paneEscolas">
+    <div class="almox-card p-3">
+      <div class="alert alert-info py-2 small mb-3">
+        <i class="bi bi-info-circle me-1"></i>As escolas abaixo são carregadas automaticamente do cadastro oficial de Escolas do Gestoor360 e já estão prontas para receber entregas e relatórios.
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Escola Municipal</th><th>INEP</th><th>Zona</th><th>Diretor(a)</th><th>Status</th><th class="text-end">Entregas</th></tr>
+          </thead>
+          <tbody>
+            {% for esc in escolas %}
+            <tr>
+              <td class="fw-semibold">{{ esc.nome }}</td>
+              <td class="small">{{ esc.codigo_inep or '-' }}</td>
+              <td><span class="badge bg-light text-dark border">{{ esc.zona or 'Urbana' }}</span></td>
+              <td class="small">{{ esc.diretor_responsavel or '-' }}</td>
+              <td><span class="badge {% if esc.status == 'Ativa' %}bg-success{% else %}bg-secondary{% endif %}">{{ esc.status }}</span></td>
+              <td class="text-end">
+                <a href="{{ url_for('almoxarifado.relatorio_entregas_escolas', escola_id=esc.id) }}" class="btn btn-sm btn-outline-primary">
+                  <i class="bi bi-file-earmark-text me-1"></i>Extrato
+                </a>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-4">Nenhuma escola cadastrada no sistema.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Modal Novo Setor #}
+<div class="modal fade" id="addSetorModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST">
+        <div class="modal-header bg-primary text-white"><h5 class="modal-title">Novo Setor da SEME</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Nome do Setor*</label><input type="text" class="form-control" name="nome" required placeholder="Ex: Coordenação de Ensino Fundamental"></div>
+          <div class="row g-2 mb-3">
+            <div class="col-6"><label class="form-label">Código</label><input type="text" class="form-control" name="codigo" placeholder="Ex: SEME-EF"></div>
+            <div class="col-6"><label class="form-label">Sigla</label><input type="text" class="form-control" name="sigla" placeholder="Ex: COEF"></div>
+          </div>
+          <div class="mb-3"><label class="form-label">Responsável pelo Setor</label><input type="text" class="form-control" name="responsavel_nome"></div>
+          <div class="row g-2 mb-3">
+            <div class="col-6"><label class="form-label">Telefone</label><input type="text" class="form-control" name="telefone"></div>
+            <div class="col-6"><label class="form-label">E-mail</label><input type="email" class="form-control" name="email"></div>
+          </div>
+          <div class="mb-0"><label class="form-label">Observações</label><textarea class="form-control" name="observacoes" rows="2"></textarea></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Salvar Setor</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% for s in setores %}
+<div class="modal fade" id="editSetorModal-{{ s.id }}" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('almoxarifado.editar_setor', setor_id=s.id) }}">
+        <div class="modal-header"><h5 class="modal-title">Editar Setor da SEME</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Nome*</label><input type="text" class="form-control" name="nome" value="{{ s.nome }}" required></div>
+          <div class="row g-2 mb-3">
+            <div class="col-6"><label class="form-label">Código</label><input type="text" class="form-control" name="codigo" value="{{ s.codigo or '' }}"></div>
+            <div class="col-6"><label class="form-label">Sigla</label><input type="text" class="form-control" name="sigla" value="{{ s.sigla or '' }}"></div>
+          </div>
+          <div class="mb-3"><label class="form-label">Responsável</label><input type="text" class="form-control" name="responsavel_nome" value="{{ s.responsavel_nome or '' }}"></div>
+          <div class="row g-2 mb-3">
+            <div class="col-6"><label class="form-label">Telefone</label><input type="text" class="form-control" name="telefone" value="{{ s.telefone or '' }}"></div>
+            <div class="col-6"><label class="form-label">E-mail</label><input type="email" class="form-control" name="email" value="{{ s.email or '' }}"></div>
+          </div>
+          <div class="mb-0"><label class="form-label">Observações</label><textarea class="form-control" name="observacoes" rows="2">{{ s.observacoes or '' }}</textarea></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

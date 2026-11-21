@@ -1,181 +1,281 @@
 {% extends 'base.html' %}
-
-{% block title %}Almoxarifado - Painel Moderno{% endblock %}
+{% block title %}Almoxarifado SEME — Painel Gerencial{% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+{% include 'almoxarifado/_nav.html' %}
 
-<style>
-    :root {
-        --glass-bg: rgba(255, 255, 255, 0.95);
-        --glass-border: rgba(255, 255, 255, 0.2);
-    }
-    
-    .dashboard-header {
-        background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
-        border-radius: 15px;
-        padding: 2rem;
-        color: white;
-        margin-bottom: 2rem;
-        box-shadow: 0 10px 30px rgba(13, 110, 253, 0.15);
-    }
+{% if inv_bloqueio %}
+<div class="alert alert-warning d-flex align-items-center justify-content-between shadow-sm">
+  <div>
+    <i class="bi bi-lock-fill me-2"></i>
+    <strong>Movimentações temporariamente bloqueadas:</strong> O inventário <strong>{{ inv_bloqueio.codigo }}</strong> está em andamento com bloqueio de estoque ativo.
+  </div>
+  <a href="{{ url_for('almoxarifado.detalhes_inventario', inv_id=inv_bloqueio.id) }}" class="btn btn-sm btn-warning fw-semibold">Abrir Inventário</a>
+</div>
+{% endif %}
 
-    .stat-card {
-        border: none;
-        border-radius: 20px;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-        overflow: hidden;
-        position: relative;
-    }
+<div class="almox-hero d-flex flex-wrap justify-content-between align-items-center gap-3">
+  <div>
+    <span class="badge bg-white text-primary mb-2 px-3 py-1 fw-semibold">SEME · NBC TSP 04 / MCASP</span>
+    <h2 class="fw-bold mb-1">Gestão de Almoxarifado Central</h2>
+    <p class="mb-0 opacity-75">Controle público de materiais de consumo, entradas fiscais, distribuição para Escolas e Setores da SEME e inventário auditável.</p>
+  </div>
+  {% if session.get('role') in ['admin', 'almoxarifado'] %}
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{{ url_for('almoxarifado.nova_entrada') }}" class="btn btn-light text-primary fw-semibold">
+      <i class="bi bi-box-arrow-in-down me-1"></i> Nova Entrada (NF)
+    </a>
+    <a href="{{ url_for('almoxarifado.nova_entrega') }}" class="btn btn-success fw-semibold">
+      <i class="bi bi-send-check me-1"></i> Nova Entrega
+    </a>
+    <a href="{{ url_for('almoxarifado.distribuicao_lote') }}" class="btn btn-outline-light fw-semibold">
+      <i class="bi bi-collection me-1"></i> Distribuição em Lote
+    </a>
+  </div>
+  {% endif %}
+</div>
 
-    .stat-card:hover {
-        transform: translateY(-10px);
-        box-shadow: 0 15px 35px rgba(0,0,0,0.1) !important;
-    }
-
-    .stat-icon {
-        position: absolute;
-        right: -10px;
-        bottom: -10px;
-        font-size: 5rem;
-        opacity: 0.15;
-        transform: rotate(-15deg);
-    }
-
-    .quick-action-btn {
-        border-radius: 15px;
-        padding: 1.5rem;
-        transition: all 0.3s ease;
-        border: 1px solid var(--glass-border);
-        background: white;
-        text-align: center;
-        display: block;
-        height: 100%;
-    }
-
-    .quick-action-btn:hover {
-        background: #f8f9fa;
-        transform: scale(1.02);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-    }
-
-    .alert-estoque {
-        border-left: 5px solid #dc3545;
-        background: #fff5f5;
-        border-radius: 12px;
-    }
-</style>
-
-<div class="animate__animated animate__fadeIn">
-    <div class="dashboard-header d-flex justify-content-between align-items-center">
+{# KPIs Principais #}
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="almox-kpi p-3 h-100">
+      <div class="d-flex justify-content-between align-items-start">
         <div>
-            <h1 class="display-5 fw-bold mb-0">Gestão de Almoxarifado</h1>
-            <p class="lead opacity-75">Controle de estoque, requisições e fornecedores</p>
+          <span class="text-muted text-uppercase small fw-semibold">Valor em Estoque (CMPM)</span>
+          <h3 class="fw-bold text-primary mt-1 mb-0">{{ formatar_moeda_br(valor_total_estoque) }}</h3>
+          <small class="text-muted">{{ total_itens }} itens ativos catalogados</small>
         </div>
-        <div class="text-end d-none d-md-block">
-            <i class="bi bi-box-seam display-1"></i>
-        </div>
+        <span class="badge bg-primary-subtle text-primary p-2 rounded-3"><i class="bi bi-cash-stack fs-4"></i></span>
+      </div>
     </div>
-
-    <div class="row g-4">
-        <div class="col-lg-3 col-md-6">
-            <div class="card stat-card bg-primary text-white h-100 shadow-sm animate__animated animate__fadeInUp" style="animation-delay: 0.1s;">
-                <div class="card-body p-4">
-                    <h6 class="text-uppercase opacity-75 fw-bold">Valor do Estoque</h6>
-                    <h2 class="display-6 fw-bold">R$ {{ "%.2f"|format(valor_total_estoque) }}</h2>
-                    <i class="bi bi-cash-stack stat-icon"></i>
-                </div>
-            </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="almox-kpi p-3 h-100">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <span class="text-muted text-uppercase small fw-semibold">Entregas no Mês</span>
+          <h3 class="fw-bold text-success mt-1 mb-0">{{ formatar_moeda_br(valor_entregas_mes) }}</h3>
+          <small class="text-muted">{{ qtd_entregas_mes }} guia(s) · Entradas: {{ formatar_moeda_br(valor_entradas_mes) }}</small>
         </div>
-
-        <div class="col-lg-3 col-md-6">
-            <a href="{{ url_for('almoxarifado.minhas_requisicoes') }}" class="text-decoration-none">
-                <div class="card stat-card bg-warning text-dark h-100 shadow-sm animate__animated animate__fadeInUp" style="animation-delay: 0.2s;">
-                    <div class="card-body p-4">
-                        <h6 class="text-uppercase opacity-75 fw-bold">Req. Pendentes</h6>
-                        <h2 class="display-6 fw-bold">{{ req_pendentes }}</h2>
-                        <i class="bi bi-hourglass-split stat-icon"></i>
-                    </div>
-                </div>
-            </a>
-        </div>
-
-        <div class="col-lg-3 col-md-6">
-            <a href="{{ url_for('almoxarifado.minhas_requisicoes') }}" class="text-decoration-none">
-                <div class="card stat-card bg-info text-white h-100 shadow-sm animate__animated animate__fadeInUp" style="animation-delay: 0.3s;">
-                    <div class="card-body p-4">
-                        <h6 class="text-uppercase opacity-75 fw-bold">Req. Aprovadas</h6>
-                        <h2 class="display-6 fw-bold">{{ req_aprovadas }}</h2>
-                        <i class="bi bi-check2-circle stat-icon"></i>
-                    </div>
-                </div>
-            </a>
-        </div>
-
-        <div class="col-lg-3 col-md-6">
-            <div class="card stat-card bg-danger text-white h-100 shadow-sm animate__animated animate__fadeInUp" style="animation-delay: 0.4s;">
-                <div class="card-body p-4">
-                    <h6 class="text-uppercase opacity-75 fw-bold">Itens em Alerta</h6>
-                    <h2 class="display-6 fw-bold">{{ materiais_baixo_estoque|length }}</h2>
-                    <i class="bi bi-exclamation-triangle-fill stat-icon"></i>
-                </div>
-            </div>
-        </div>
+        <span class="badge bg-success-subtle text-success p-2 rounded-3"><i class="bi bi-truck fs-4"></i></span>
+      </div>
     </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <a href="{{ url_for('almoxarifado.minhas_requisicoes') }}" class="text-decoration-none">
+      <div class="almox-kpi p-3 h-100">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <span class="text-muted text-uppercase small fw-semibold">Requisições em Aberto</span>
+            <h3 class="fw-bold text-warning mt-1 mb-0">{{ req_pendentes }} <small class="fs-6 text-muted fw-normal">pendentes</small></h3>
+            <small class="text-info fw-semibold">{{ req_aprovadas }} aprovada(s) aguardando guia</small>
+          </div>
+          <span class="badge bg-warning-subtle text-warning p-2 rounded-3"><i class="bi bi-hourglass-split fs-4"></i></span>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <a href="{{ url_for('almoxarifado.relatorio_estoque', situacao='baixo') }}" class="text-decoration-none">
+      <div class="almox-kpi p-3 h-100">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <span class="text-muted text-uppercase small fw-semibold">Alertas de Estoque</span>
+            <h3 class="fw-bold text-danger mt-1 mb-0">{{ materiais_baixo_estoque|length }} <small class="fs-6 text-muted fw-normal">abaixo mín.</small></h3>
+            <small class="text-muted">{{ materiais_zerados|length }} zerado(s) · {{ lotes_alerta|length }} lote(s) vencendo</small>
+          </div>
+          <span class="badge bg-danger-subtle text-danger p-2 rounded-3"><i class="bi bi-exclamation-triangle-fill fs-4"></i></span>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
 
-    {% if materiais_baixo_estoque %}
-    <div class="mt-5 animate__animated animate__headShake">
-        <h4 class="fw-bold text-danger mb-3"><i class="bi bi- megaphone-fill me-2"></i>Atenção Crítica</h4>
-        <div class="row g-3">
-            {% for material in materiais_baixo_estoque %}
-            <div class="col-md-4">
-                <div class="p-3 alert-estoque shadow-sm d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="d-block fw-bold text-dark">{{ material.descricao }}</span>
-                        <small class="text-muted">Mínimo sugerido: {{ material.estoque_minimo }}</small>
-                    </div>
-                    <span class="badge bg-danger p-2">Estoque: {{ material.estoque_atual }}</span>
-                </div>
+{# Gráficos e Rankings #}
+<div class="row g-3 mb-4">
+  <div class="col-lg-7">
+    <div class="almox-card p-3 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0"><i class="bi bi-graph-up text-primary me-2"></i>Entradas vs. Saídas (Últimos 6 Meses — R$)</h6>
+        <a href="{{ url_for('almoxarifado.relatorio_rma') }}" class="btn btn-sm btn-outline-primary">Ver RMA Contábil</a>
+      </div>
+      <div style="height: 260px;">
+        <canvas id="graficoFluxoAlmox"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="almox-card p-3 h-100">
+      <h6 class="fw-bold mb-3"><i class="bi bi-trophy text-warning me-2"></i>Maiores Consumos no Exercício</h6>
+      <ul class="nav nav-tabs nav-fill mb-2" role="tablist">
+        <li class="nav-item"><button class="nav-link active py-1 small fw-semibold" data-bs-toggle="tab" data-bs-target="#tabTopEscolas">Escolas Municipais</button></li>
+        <li class="nav-item"><button class="nav-link py-1 small fw-semibold" data-bs-toggle="tab" data-bs-target="#tabTopSetores">Setores da SEME</button></li>
+      </ul>
+      <div class="tab-content">
+        <div class="tab-pane fade show active" id="tabTopEscolas">
+          {% if top_escolas %}
+          <div class="list-group list-group-flush">
+            {% for nome, guias, val in top_escolas %}
+            <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
+              <div>
+                <div class="fw-semibold small">{{ nome }}</div>
+                <small class="text-muted">{{ guias }} guia(s) entregue(s)</small>
+              </div>
+              <span class="badge bg-primary-subtle text-primary fw-bold">{{ formatar_moeda_br(val) }}</span>
             </div>
             {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-muted small text-center my-4">Nenhuma entrega para escolas registrada neste exercício.</p>
+          {% endif %}
+          <div class="mt-2 text-end">
+            <a href="{{ url_for('almoxarifado.relatorio_entregas_escolas') }}" class="small fw-semibold">Relatório completo por escola →</a>
+          </div>
         </div>
-    </div>
-    {% endif %}
-
-    <div class="mt-5">
-        <h4 class="fw-bold mb-4">Ações Rápidas</h4>
-        <div class="row g-4 mb-5">
-            <div class="col-md-4 col-lg-2">
-                <a href="{{ url_for('almoxarifado.iniciar_inventario') }}" class="quick-action-btn text-success text-decoration-none">
-                    <i class="bi bi-clipboard-check display-6 d-block mb-2"></i>
-                    <span>Inventário</span>
-                </a>
+        <div class="tab-pane fade" id="tabTopSetores">
+          {% if top_setores %}
+          <div class="list-group list-group-flush">
+            {% for nome, guias, val in top_setores %}
+            <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
+              <div>
+                <div class="fw-semibold small">{{ nome }}</div>
+                <small class="text-muted">{{ guias }} guia(s) entregue(s)</small>
+              </div>
+              <span class="badge bg-success-subtle text-success fw-bold">{{ formatar_moeda_br(val) }}</span>
             </div>
-            <div class="col-md-4 col-lg-2">
-                <a href="{{ url_for('almoxarifado.minhas_requisicoes') }}" class="quick-action-btn text-info text-decoration-none">
-                    <i class="bi bi-file-earmark-plus display-6 d-block mb-2"></i>
-                    <span>Requisições</span>
-                </a>
-            </div>
-            <div class="col-md-4 col-lg-2">
-                <a href="{{ url_for('almoxarifado.relatorio_estoque') }}" class="quick-action-btn text-warning text-decoration-none">
-                    <i class="bi bi-graph-up-arrow display-6 d-block mb-2"></i>
-                    <span>Relatórios</span>
-                </a>
-            </div>
-            <div class="col-md-4 col-lg-2">
-                <a href="{{ url_for('almoxarifado.gerenciar_materiais') }}" class="quick-action-btn text-secondary text-decoration-none">
-                    <i class="bi bi-boxes display-6 d-block mb-2"></i>
-                    <span>Materiais</span>
-                </a>
-            </div>
-            <div class="col-md-4 col-lg-2">
-                <a href="{{ url_for('almoxarifado.gerenciar_fornecedores') }}" class="quick-action-btn text-secondary text-decoration-none">
-                    <i class="bi bi-truck display-6 d-block mb-2"></i>
-                    <span>Fornecedores</span>
-                </a>
-            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-muted small text-center my-4">Nenhuma entrega para setores da SEME registrada neste exercício.</p>
+          {% endif %}
+          <div class="mt-2 text-end">
+            <a href="{{ url_for('almoxarifado.relatorio_entregas_setores') }}" class="small fw-semibold">Relatório completo por setor →</a>
+          </div>
         </div>
+      </div>
     </div>
+  </div>
 </div>
+
+{# Alertas de Estoque Mínimo e Validades + Últimas Guias #}
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="almox-card p-3 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="fw-bold text-danger mb-0"><i class="bi bi-megaphone-fill me-2"></i>Itens Abaixo do Estoque Mínimo</h6>
+        <a href="{{ url_for('almoxarifado.relatorio_estoque', situacao='baixo') }}" class="small">Ver todos</a>
+      </div>
+      {% if materiais_baixo_estoque %}
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Material</th><th class="text-center">Saldo</th><th class="text-center">Mínimo</th></tr>
+          </thead>
+          <tbody>
+            {% for m in materiais_baixo_estoque[:8] %}
+            <tr>
+              <td class="small fw-semibold">{{ m.descricao }} <span class="text-muted">({{ m.unidade_medida }})</span></td>
+              <td class="text-center"><span class="badge bg-danger">{{ m.estoque_atual }}</span></td>
+              <td class="text-center small">{{ m.estoque_minimo }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center text-muted py-4 small"><i class="bi bi-check-circle text-success fs-4 d-block mb-1"></i>Nenhum item abaixo do estoque mínimo.</div>
+      {% endif %}
+
+      {% if lotes_alerta %}
+      <hr>
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="fw-bold text-warning mb-0"><i class="bi bi-calendar-x me-2"></i>Lotes Vencidos / Próximos (30 dias)</h6>
+        <a href="{{ url_for('almoxarifado.relatorio_validades') }}" class="small">Ver validades</a>
+      </div>
+      <ul class="list-group list-group-flush small">
+        {% for l in lotes_alerta[:5] %}
+        <li class="list-group-item px-0 py-1 d-flex justify-content-between">
+          <span>{{ l.material.descricao }} (Lote {{ l.numero_lote }})</span>
+          <span class="badge {% if l.data_validade < hoje %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+            {{ l.data_validade.strftime('%d/%m/%Y') }} · {{ l.quantidade_atual }} {{ l.material.unidade_medida }}
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="almox-card p-3 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="fw-bold mb-0"><i class="bi bi-clock-history text-primary me-2"></i>Últimas Guias de Entrega / Saídas</h6>
+        <a href="{{ url_for('almoxarifado.listar_entregas') }}" class="small">Ver todas</a>
+      </div>
+      {% if ultimas_entregas %}
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Guia</th><th>Destino</th><th>Data</th><th class="text-end">Valor</th></tr>
+          </thead>
+          <tbody>
+            {% for e in ultimas_entregas %}
+            <tr>
+              <td>
+                <a href="{{ url_for('almoxarifado.detalhes_entrega', entrega_id=e.id) }}" class="fw-semibold text-decoration-none">{{ e.codigo_guia }}</a>
+                <div class="small text-muted">{{ e.tipo_saida }}</div>
+              </td>
+              <td class="small">
+                <span class="badge {% if e.tipo_destino == 'Escola' %}bg-primary-subtle text-primary{% else %}bg-secondary-subtle text-dark{% endif %} me-1">{{ e.tipo_destino }}</span>
+                {{ e.nome_destino_exibicao }}
+              </td>
+              <td class="small">{{ e.data_entrega.strftime('%d/%m/%Y') }}</td>
+              <td class="text-end small fw-bold">{{ formatar_moeda_br(e.valor_total) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center text-muted py-4 small">Nenhuma guia de entrega emitida ainda.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const ctx = document.getElementById('graficoFluxoAlmox');
+  if (ctx && typeof Chart !== 'undefined') {
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: {{ meses_labels_json|safe }},
+        datasets: [
+          {
+            label: 'Entradas (R$)',
+            data: {{ meses_entradas_json|safe }},
+            backgroundColor: 'rgba(15, 76, 129, 0.85)',
+            borderRadius: 6
+          },
+          {
+            label: 'Saídas / Entregas (R$)',
+            data: {{ meses_saidas_json|safe }},
+            backgroundColor: 'rgba(25, 135, 84, 0.85)',
+            borderRadius: 6
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } },
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+  }
+});
+</script>
 {% endblock %}

@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Relatório Geral de Entregas — Almoxarifado SEME{% endblock %}
+
+{% block content %}
+{% include 'almoxarifado/_nav.html' %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0"><i class="bi bi-list-ul text-primary me-2"></i>Relatório de Entregas Geral</h3>
+    <small class="text-muted">Visão analítica e consolidada de todas as saídas destinadas a Escolas e Setores da SEME.</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('almoxarifado.relatorio_entregas_geral', data_inicio=data_inicio, data_fim=data_fim, tipo_destino=tipo_destino, tipo_saida=tipo_saida, categoria_id=categoria_id, material_id=material_id, formato='pdf') }}" target="_blank" class="btn btn-danger btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>Exportar PDF</a>
+    <a href="{{ url_for('almoxarifado.relatorio_entregas_geral', data_inicio=data_inicio, data_fim=data_fim, tipo_destino=tipo_destino, tipo_saida=tipo_saida, categoria_id=categoria_id, material_id=material_id, formato='excel') }}" class="btn btn-success btn-sm"><i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel</a>
+  </div>
+</div>
+
+<div class="almox-card p-3 mb-3">
+  <form method="GET" class="row g-2 align-items-end">
+    <div class="col-md-2"><label class="form-label small fw-semibold mb-1">Início</label><input type="date" class="form-control form-control-sm" name="data_inicio" value="{{ data_inicio }}"></div>
+    <div class="col-md-2"><label class="form-label small fw-semibold mb-1">Fim</label><input type="date" class="form-control form-control-sm" name="data_fim" value="{{ data_fim }}"></div>
+    <div class="col-md-2">
+      <label class="form-label small fw-semibold mb-1">Tipo Destino</label>
+      <select class="form-select form-select-sm" name="tipo_destino">
+        <option value="">Todos</option>
+        <option value="Escola" {% if tipo_destino == 'Escola' %}selected{% endif %}>Escolas</option>
+        <option value="Setor SEME" {% if tipo_destino == 'Setor SEME' %}selected{% endif %}>Setores SEME</option>
+        <option value="Outro" {% if tipo_destino == 'Outro' %}selected{% endif %}>Outros</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small fw-semibold mb-1">Categoria</label>
+      <select class="form-select form-select-sm" name="categoria_id">
+        <option value="">Todas</option>
+        {% for c in categorias %}<option value="{{ c.id }}" {% if c.id == categoria_id %}selected{% endif %}>{{ c.nome }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold mb-1">Material</label>
+      <select class="form-select form-select-sm" name="material_id">
+        <option value="">Todos</option>
+        {% for m in materiais %}<option value="{{ m.id }}" {% if m.id == material_id %}selected{% endif %}>{{ m.descricao }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-1"><button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-search"></i></button></div>
+  </form>
+</div>
+
+<div class="row g-2 mb-3">
+  <div class="col-md-3"><div class="almox-kpi p-3"><div class="small text-muted">Guias Emitidas</div><div class="fs-4 fw-bold text-primary">{{ total_guias }}</div></div></div>
+  <div class="col-md-3"><div class="almox-kpi p-3"><div class="small text-muted">Entregue às Escolas</div><div class="fs-4 fw-bold text-success">{{ formatar_moeda_br(valor_escolas) }}</div></div></div>
+  <div class="col-md-3"><div class="almox-kpi p-3"><div class="small text-muted">Entregue aos Setores SEME</div><div class="fs-4 fw-bold text-info">{{ formatar_moeda_br(valor_setores) }}</div></div></div>
+  <div class="col-md-3"><div class="almox-kpi p-3"><div class="small text-muted">Valor Total Geral</div><div class="fs-4 fw-bold">{{ formatar_moeda_br(total_valor) }}</div></div></div>
+</div>
+
+<div class="almox-card p-3">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Data</th><th>Guia</th><th>Tipo</th><th>Destino</th><th>Material</th><th class="text-center">Qtd.</th><th class="text-end">Custo Méd.</th><th class="text-end">Total</th><th>Recebedor</th></tr>
+      </thead>
+      <tbody>
+        {% for r in linhas %}
+        <tr>
+          <td class="small">{{ r.data.strftime('%d/%m/%Y') }}</td>
+          <td class="small"><a href="{{ url_for('almoxarifado.detalhes_entrega', entrega_id=r.entrega_id) }}" class="fw-semibold">{{ r.guia }}</a></td>
+          <td><span class="badge {% if r.tipo_destino == 'Escola' %}bg-primary-subtle text-primary{% else %}bg-success-subtle text-success{% endif %}">{{ r.tipo_destino }}</span></td>
+          <td class="small fw-semibold">{{ r.destino }}</td>
+          <td class="small">{{ r.material }}</td>
+          <td class="text-center small fw-bold">{{ r.quantidade }} {{ r.unidade }}</td>
+          <td class="text-end small">{{ formatar_moeda_br(r.custo_unit) }}</td>
+          <td class="text-end small fw-bold">{{ formatar_moeda_br(r.valor_total) }}</td>
+          <td class="small text-muted">{{ r.recebedor }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center text-muted py-4">Nenhuma entrega encontrada para o período/filtros informados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

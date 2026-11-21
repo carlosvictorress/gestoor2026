@@ -1,46 +1,80 @@
 {% extends 'base.html' %}
-
-{% block title %}Registrar Entrada de Material{% endblock %}
+{% block title %}Entrada Rápida — {{ material.descricao }}{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Registrar Entrada de Estoque</h1>
+{% include 'almoxarifado/_nav.html' %}
 
-<div class="card">
-    <div class="card-header">
-        <h4>Material: {{ material.descricao }}</h4>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="fw-bold mb-0"><i class="bi bi-plus-circle text-success me-2"></i>Entrada Rápida de Material</h3>
+  <a href="{{ url_for('almoxarifado.nova_entrada') }}" class="btn btn-sm btn-outline-primary">Precisa lançar vários itens / XML? Use Entrada em Lote →</a>
+</div>
+
+<div class="almox-card p-4">
+  <div class="alert alert-light border d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h5 class="fw-bold mb-0">{{ material.descricao }}</h5>
+      <small class="text-muted">Código: {{ material.codigo_interno or material.id }} · Categoria: {{ material.nome_categoria_exibicao }}</small>
     </div>
-    <div class="card-body">
-        <p><strong>Estoque Atual:</strong> {{ material.estoque_atual }} {{ material.unidade_medida }}</p>
-        <hr>
-        <form method="POST" action="{{ url_for('almoxarifado.entrada_material', material_id=material.id) }}">
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label for="quantidade" class="form-label">Quantidade a Adicionar*</label>
-                    <input type="number" step="0.01" class="form-control" id="quantidade" name="quantidade" required>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label for="valor_unitario" class="form-label">Custo por Unidade (R$)</label>
-                    <input type="text" class="form-control" id="valor_unitario" name="valor_unitario" placeholder="Ex: 12,50">
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label for="nota_fiscal" class="form-label">Nº da Nota Fiscal (Opcional)</label>
-                    <input type="text" class="form-control" id="nota_fiscal" name="nota_fiscal">
-                </div>
-            </div>
-            <div class="mb-3">
-                <label for="justificativa" class="form-label">Justificativa / Observação (Opcional)</label>
-                <textarea class="form-control" id="justificativa" name="justificativa" rows="2"></textarea>
-            </div>
-            
-            <hr>
-            
-            <a href="{{ url_for('almoxarifado.gerenciar_materiais') }}" class="btn btn-secondary">
-                <i class="bi bi-arrow-left"></i> Voltar
-            </a>
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-check-circle"></i> Confirmar Entrada
-            </button>
-        </form>
+    <div class="text-end">
+      <span class="badge bg-primary fs-6">Saldo Atual: {{ material.estoque_atual }} {{ material.unidade_medida }}</span>
     </div>
+  </div>
+
+  <form method="POST" action="{{ url_for('almoxarifado.entrada_material', material_id=material.id) }}">
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Quantidade ({{ material.unidade_medida }})*</label>
+        <input type="number" step="0.01" min="0.01" class="form-control" name="quantidade" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Valor Unitário (R$)</label>
+        <input type="text" class="form-control" name="valor_unitario" placeholder="Ex: 12,50">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Nº Nota Fiscal</label>
+        <input type="text" class="form-control" name="nota_fiscal">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Nº Empenho</label>
+        <input type="text" class="form-control" name="numero_empenho">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Fornecedor</label>
+        <select class="form-select" name="fornecedor_id">
+          <option value="">Opcional...</option>
+          {% for f in fornecedores %}
+          <option value="{{ f.id }}" {% if material.fornecedor_padrao_id == f.id %}selected{% endif %}>{{ f.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Fonte de Recursos</label>
+        <select class="form-select" name="fonte_recursos">
+          <option value="">Opcional...</option>
+          <option value="MDE (25% Educação)">MDE (25% Educação)</option>
+          <option value="FUNDEB (30%)">FUNDEB (30%)</option>
+          <option value="QSE / Salário-Educação">QSE / Salário-Educação</option>
+          <option value="Recursos Próprios">Recursos Próprios</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label fw-semibold">Lote</label>
+        <input type="text" class="form-control" name="lote">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label fw-semibold">Validade</label>
+        <input type="date" class="form-control" name="data_validade">
+      </div>
+      <div class="col-12">
+        <label class="form-label fw-semibold">Justificativa / Observação</label>
+        <textarea class="form-control" name="justificativa" rows="2"></textarea>
+      </div>
+    </div>
+    <hr>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('almoxarifado.gerenciar_materiais') }}" class="btn btn-secondary">Voltar</a>
+      <button type="submit" class="btn btn-success"><i class="bi bi-check-circle me-1"></i>Confirmar Entrada</button>
+    </div>
+  </form>
 </div>
 {% endblock %}

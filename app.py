@@ -262,6 +262,8 @@ def role_required(*roles):
                     return redirect(url_for("merenda.dashboard"))
                 if session.get("role") == "Patrimonio":
                     return redirect(url_for("patrimonio.listar_itens"))
+                if session.get("role") == "almoxarifado":
+                    return redirect(url_for("almoxarifado.dashboard"))
                 return redirect(
                     url_for("dashboard")
                 )  # Redireciona para o painel principal
@@ -307,6 +309,10 @@ def restringir_acesso_frentista():
     elif role_atual == "Patrimonio":
         if request.endpoint and request.endpoint not in endpoints_basicos and not request.endpoint.startswith("patrimonio."):
             return redirect(url_for("patrimonio.listar_itens"))
+
+    elif role_atual == "almoxarifado":
+        if request.endpoint and request.endpoint not in endpoints_basicos and not request.endpoint.startswith("almoxarifado."):
+            return redirect(url_for("almoxarifado.dashboard"))
 
 
 def check_license(f):

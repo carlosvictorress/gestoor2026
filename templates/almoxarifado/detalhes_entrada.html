@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block title %}Entrada {{ entrada.numero_entrada }} — Almoxarifado SEME{% endblock %}
+
+{% block content %}
+{% include 'almoxarifado/_nav.html' %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0">
+      Entrada {{ entrada.numero_entrada }}
+      <span class="badge {% if entrada.status == 'Confirmada' %}bg-success{% else %}bg-danger{% endif %} fs-6 ms-2">{{ entrada.status }}</span>
+    </h3>
+    <small class="text-muted">{{ entrada.tipo_entrada }} · Registrada por {{ entrada.usuario.username if entrada.usuario else '-' }}</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('almoxarifado.comprovante_entrada_pdf', entrada_id=entrada.id) }}" target="_blank" class="btn btn-danger btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>Comprovante PDF</a>
+    {% if entrada.arquivo_nf_url %}
+    <a href="{{ entrada.arquivo_nf_url }}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="bi bi-paperclip me-1"></i>Ver NF Anexada</a>
+    {% endif %}
+    {% if entrada.status == 'Confirmada' and session.get('role') in ['admin', 'almoxarifado'] %}
+    <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalEstornoEntrada"><i class="bi bi-arrow-counterclockwise me-1"></i>Estornar Entrada</button>
+    {% endif %}
+    <a href="{{ url_for('almoxarifado.listar_entradas') }}" class="btn btn-outline-secondary btn-sm">Voltar</a>
+  </div>
+</div>
+
+{% if entrada.status == 'Estornada' %}
+<div class="alert alert-danger">
+  <strong>Entrada Estornada</strong> em {{ entrada.data_estorno.strftime('%d/%m/%Y %H:%M') if entrada.data_estorno else '-' }}. Motivo: {{ entrada.motivo_estorno }}
+</div>
+{% endif %}
+
+<div class="almox-card p-3 mb-3">
+  <div class="row g-3 small">
+    <div class="col-md-4"><strong>Fornecedor:</strong><br>{{ entrada.fornecedor.nome if entrada.fornecedor else (entrada.fornecedor_nome_snapshot or '-') }}</div>
+    <div class="col-md-2"><strong>Nota Fiscal / Série:</strong><br>{{ entrada.numero_nf or '-' }} / {{ entrada.serie_nf or '-' }}</div>
+    <div class="col-md-2"><strong>Data Emissão:</strong><br>{{ entrada.data_emissao_nf.strftime('%d/%m/%Y') if entrada.data_emissao_nf else '-' }}</div>
+    <div class="col-md-2"><strong>Recebimento:</strong><br>{{ entrada.data_recebimento.strftime('%d/%m/%Y') }}</div>
+    <div class="col-md-2"><strong>Valor Total:</strong><br><span class="fw-bold text-success fs-6">{{ formatar_moeda_br(entrada.valor_total) }}</span></div>
+    <div class="col-md-3"><strong>Nº Empenho:</strong><br>{{ entrada.numero_empenho or '-' }}</div>
+    <div class="col-md-3"><strong>Processo / Modalidade:</strong><br>{{ entrada.numero_processo or '-' }} {{ '(' ~ entrada.modalidade_licitacao ~ ')' if entrada.modalidade_licitacao else '' }}</div>
+    <div class="col-md-3"><strong>Contrato / ARP:</strong><br>{{ entrada.numero_contrato_arp or '-' }}</div>
+    <div class="col-md-3"><strong>Fonte de Recursos:</strong><br>{{ entrada.fonte_recursos or '-' }}</div>
+    {% if entrada.chave_nfe %}<div class="col-md-6"><strong>Chave NF-e:</strong> <code>{{ entrada.chave_nfe }}</code></div>{% endif %}
+    {% if entrada.observacoes %}<div class="col-12"><strong>Observações:</strong> {{ entrada.observacoes }}</div>{% endif %}
+  </div>
+</div>
+
+<div class="almox-card p-3">
+  <h6 class="fw-bold mb-2">Itens Recebidos</h6>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Material</th><th class="text-center">Emb. Entrada</th><th class="text-center">Qtd. Base</th><th>Lote / Validade</th><th class="text-end">Unit. Base</th><th class="text-end">Subtotal</th></tr>
+      </thead>
+      <tbody>
+        {% for it in entrada.itens %}
+        <tr>
+          <td class="fw-semibold">{{ it.material.descricao }}</td>
+          <td class="text-center small">{{ it.quantidade_embalagem }} {{ it.unidade_entrada or it.material.unidade_medida }} (x{{ it.fator_conversao }})</td>
+          <td class="text-center fw-bold">{{ it.quantidade_base }} {{ it.material.unidade_medida }}</td>
+          <td class="small">{{ it.lote or '-' }} {% if it.data_validade %}· Val: {{ it.data_validade.strftime('%d/%m/%Y') }}{% endif %}</td>
+          <td class="text-end small">{{ formatar_moeda_br(it.valor_unitario_base) }}</td>
+          <td class="text-end fw-bold">{{ formatar_moeda_br(it.valor_total) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal fade" id="modalEstornoEntrada" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('almoxarifado.estornar_entrada', entrada_id=entrada.id) }}">
+        <div class="modal-header bg-danger text-white"><h5 class="modal-title">Estornar Entrada {{ entrada.numero_entrada }}</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <p class="small">O estorno reverterá os saldos no estoque e registrará lançamentos de <strong>Estorno Entrada</strong> no Kardex para trilha de auditoria.</p>
+          <label class="form-label fw-semibold">Motivo do Estorno*</label>
+          <textarea class="form-control" name="motivo_estorno" rows="3" required placeholder="Descreva o motivo do estorno..."></textarea>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-danger">Confirmar Estorno</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

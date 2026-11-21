@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block title %}RMA — Relatório Mensal de Almoxarifado (SEME){% endblock %}
+
+{% block content %}
+{% include 'almoxarifado/_nav.html' %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0"><i class="bi bi-journal-check text-success me-2"></i>RMA — Relatório Mensal de Almoxarifado</h3>
+    <small class="text-muted">Demonstrativo contábil por Subelemento (3.3.90.30) para conciliação com a Contabilidade Municipal e TCE (NBC TSP 04).</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('almoxarifado.relatorio_rma', mes=mes, ano=ano, formato='pdf') }}" target="_blank" class="btn btn-danger btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>RMA Oficial PDF</a>
+    <a href="{{ url_for('almoxarifado.relatorio_rma', mes=mes, ano=ano, formato='excel') }}" class="btn btn-success btn-sm"><i class="bi bi-file-earmark-excel me-1"></i>Excel</a>
+  </div>
+</div>
+
+<div class="almox-card p-3 mb-3">
+  <form method="GET" class="row g-2 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold mb-1">Mês de Competência</label>
+      <select class="form-select form-select-sm" name="mes">
+        {% for m_num in range(1, 13) %}
+        <option value="{{ m_num }}" {% if m_num == mes %}selected{% endif %}>{{ "%02d"|format(m_num) }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold mb-1">Exercício (Ano)</label>
+      <input type="number" class="form-control form-control-sm" name="ano" value="{{ ano }}">
+    </div>
+    <div class="col-md-2"><button type="submit" class="btn btn-sm btn-primary w-100">Gerar RMA</button></div>
+  </form>
+</div>
+
+<div class="row g-2 mb-3">
+  <div class="col"><div class="almox-kpi p-3"><div class="small text-muted">Saldo Anterior</div><div class="fs-5 fw-bold">{{ formatar_moeda_br(totais.saldo_anterior) }}</div></div></div>
+  <div class="col"><div class="almox-kpi p-3"><div class="small text-muted">Entradas (+)</div><div class="fs-5 fw-bold text-success">{{ formatar_moeda_br(totais.entradas) }}</div></div></div>
+  <div class="col"><div class="almox-kpi p-3"><div class="small text-muted">Saídas (−)</div><div class="fs-5 fw-bold text-danger">{{ formatar_moeda_br(totais.saidas) }}</div></div></div>
+  <div class="col"><div class="almox-kpi p-3"><div class="small text-muted">Ajustes (±)</div><div class="fs-5 fw-bold text-warning">{{ formatar_moeda_br(totais.ajustes) }}</div></div></div>
+  <div class="col"><div class="almox-kpi p-3 border-primary"><div class="small text-muted">Saldo Atual</div><div class="fs-5 fw-bold text-primary">{{ formatar_moeda_br(totais.saldo_atual) }}</div></div></div>
+</div>
+
+<div class="almox-card p-3">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Subelemento</th><th>Conta Contábil</th><th>Especificação</th><th class="text-end">Saldo Anterior</th><th class="text-end">Entradas (+)</th><th class="text-end">Saídas (−)</th><th class="text-end">Ajustes (±)</th><th class="text-end">Saldo Atual</th></tr>
+      </thead>
+      <tbody>
+        {% for x in linhas_rma %}
+        <tr>
+          <td><span class="badge bg-primary-subtle text-primary">{{ x.subelemento }}</span></td>
+          <td class="small text-muted">{{ x.conta_contabil }}</td>
+          <td class="small fw-semibold">{{ x.categoria }}</td>
+          <td class="text-end small">{{ formatar_moeda_br(x.saldo_anterior) }}</td>
+          <td class="text-end small text-success">{{ formatar_moeda_br(x.entradas) }}</td>
+          <td class="text-end small text-danger">{{ formatar_moeda_br(x.saidas) }}</td>
+          <td class="text-end small">{{ formatar_moeda_br(x.ajustes) }}</td>
+          <td class="text-end small fw-bold text-primary">{{ formatar_moeda_br(x.saldo_atual) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-4">Sem dados contábeis na competência selecionada.</td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-bold">
+        <tr>
+          <td colspan="3">TOTAL CONSOLIDADO — SEME ({{ "%02d"|format(mes) }}/{{ ano }})</td>
+          <td class="text-end">{{ formatar_moeda_br(totais.saldo_anterior) }}</td>
+          <td class="text-end text-success">{{ formatar_moeda_br(totais.entradas) }}</td>
+          <td class="text-end text-danger">{{ formatar_moeda_br(totais.saidas) }}</td>
+          <td class="text-end">{{ formatar_moeda_br(totais.ajustes) }}</td>
+          <td class="text-end text-primary">{{ formatar_moeda_br(totais.saldo_atual) }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,48 +1,24 @@
 {% extends 'base.html' %}
-
-{% block title %}QR Code - {{ material.descricao }}{% endblock %}
+{% block title %}Etiqueta QR Code — {{ material.descricao }}{% endblock %}
 
 {% block content %}
+{% include 'almoxarifado/_nav.html' %}
+
 <div class="container text-center">
-    <h1 class="mb-2">QR Code do Material</h1>
-    <h4 class="text-muted mb-4">{{ material.descricao }}</h4>
-
-    <div class="card mx-auto" style="max-width: 300px;">
-        <div class="card-body">
-            <img src="data:image/png;base64,{{ qr_code_image }}" class="img-fluid" alt="QR Code para {{ material.descricao }}">
-        </div>
-        <div class="card-footer">
-            <p class="mb-0"><strong>ID Interno:</strong> {{ material.id }}</p>
-        </div>
+  <div class="card mx-auto shadow-sm" style="max-width: 340px;" id="areaEtiquetaQr">
+    <div class="card-header bg-primary text-white fw-bold small">SEME — ALMOXARIFADO CENTRAL</div>
+    <div class="card-body">
+      <h6 class="fw-bold mb-2">{{ material.descricao }}</h6>
+      <img src="data:image/png;base64,{{ qr_code_image }}" class="img-fluid" style="max-width: 210px;" alt="QR Code">
+      <div class="small text-muted mt-2">
+        <strong>Código:</strong> {{ material.codigo_interno or material.id }}<br>
+        <strong>Local:</strong> {{ material.localizacao_fisica or 'Não definido' }} | <strong>Unid.:</strong> {{ material.unidade_medida }}
+      </div>
     </div>
-    
-    <div class="mt-4">
-        <a href="{{ url_for('almoxarifado.gerenciar_materiais') }}" class="btn btn-secondary">
-            <i class="bi bi-arrow-left"></i> Voltar
-        </a>
-        <button onclick="window.print()" class="btn btn-primary">
-            <i class="bi bi-printer-fill"></i> Imprimir
-        </button>
-    </div>
+  </div>
+  <div class="mt-4 d-print-none">
+    <a href="{{ url_for('almoxarifado.gerenciar_materiais') }}" class="btn btn-secondary">Voltar</a>
+    <button onclick="window.print()" class="btn btn-primary"><i class="bi bi-printer-fill me-1"></i>Imprimir Etiqueta</button>
+  </div>
 </div>
-
-<style>
-    /* Estilo para impressão: esconde elementos desnecessários */
-    @media print {
-        body * {
-            visibility: hidden;
-        }
-        .container.text-center, .container.text-center * {
-            visibility: visible;
-        }
-        .container.text-center {
-            position: absolute;
-            left: 0;
-            top: 0;
-        }
-        .btn {
-            display: none;
-        }
-    }
-</style>
 {% endblock %}

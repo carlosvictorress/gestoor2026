@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block title %}Inventários Formais — Almoxarifado SEME{% endblock %}
+
+{% block content %}
+{% include 'almoxarifado/_nav.html' %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0"><i class="bi bi-clipboard-check text-primary me-2"></i>Inventários Físico-Financeiros (TCE / NBC TSP 04)</h3>
+    <small class="text-muted">Comissão de Inventário, contagem cega, apuração de divergências, ajustes no Kardex e emissão de Ata oficial.</small>
+  </div>
+  {% if session.get('role') in ['admin', 'almoxarifado'] %}
+  <a href="{{ url_for('almoxarifado.novo_inventario') }}" class="btn btn-primary fw-semibold">
+    <i class="bi bi-plus-circle me-1"></i>Abrir Novo Inventário
+  </a>
+  {% endif %}
+</div>
+
+<div class="almox-card p-3">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Código / Exercício</th>
+          <th>Tipo / Portaria SEME</th>
+          <th>Abertura / Fechamento</th>
+          <th>Presidente Comissão</th>
+          <th class="text-center">Contados / Diverg.</th>
+          <th class="text-end">Dif. Líquida (R$)</th>
+          <th>Status</th>
+          <th class="text-end">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in inventarios %}
+        <tr>
+          <td>
+            <a href="{{ url_for('almoxarifado.detalhes_inventario', inv_id=inv.id) }}" class="fw-bold text-decoration-none">{{ inv.codigo }}</a>
+            <div class="small text-muted">Exercício {{ inv.exercicio }}</div>
+          </td>
+          <td class="small">
+            <strong>{{ inv.tipo }}</strong>
+            {% if inv.portaria_comissao %}<div class="text-muted">{{ inv.portaria_comissao }}</div>{% endif %}
+            {% if inv.contagem_cega %}<span class="badge bg-info-subtle text-info">Contagem Cega</span>{% endif %}
+            {% if inv.bloquear_movimentacoes %}<span class="badge bg-warning text-dark">Bloqueando Estoque</span>{% endif %}
+          </td>
+          <td class="small">
+            <div>Ab: {{ inv.data_abertura.strftime('%d/%m/%Y') }}</div>
+            {% if inv.data_fechamento %}<div class="text-muted">Fc: {{ inv.data_fechamento.strftime('%d/%m/%Y') }}</div>{% endif %}
+          </td>
+          <td class="small">{{ inv.presidente_comissao or '-' }}</td>
+          <td class="text-center small">
+            <span class="badge bg-light text-dark border">{{ inv.total_itens_contados }} cont.</span>
+            {% if inv.total_divergencias > 0 %}<span class="badge bg-danger ms-1">{{ inv.total_divergencias }} div.</span>{% endif %}
+          </td>
+          <td class="text-end small fw-bold {% if (inv.valor_diferenca_liquida or 0) < 0 %}text-danger{% elif (inv.valor_diferenca_liquida or 0) > 0 %}text-success{% endif %}">
+            {{ formatar_moeda_br(inv.valor_diferenca_liquida) }}
+          </td>
+          <td>
+            <span class="badge {% if inv.status == 'Finalizado' %}bg-success{% elif inv.status == 'Em Conferência' %}bg-info text-dark{% elif inv.status == 'Cancelado' %}bg-secondary{% else %}bg-warning text-dark{% endif %}">{{ inv.status }}</span>
+          </td>
+          <td class="text-end text-nowrap">
+            <a href="{{ url_for('almoxarifado.detalhes_inventario', inv_id=inv.id) }}" class="btn btn-sm btn-outline-primary" title="Abrir Contagem"><i class="bi bi-pencil-square"></i></a>
+            <a href="{{ url_for('almoxarifado.inventario_ata_pdf', inv_id=inv.id) }}" target="_blank" class="btn btn-sm btn-outline-danger" title="Ata PDF"><i class="bi bi-file-earmark-pdf"></i></a>
+            <a href="{{ url_for('almoxarifado.inventario_excel', inv_id=inv.id) }}" class="btn btn-sm btn-outline-success" title="Excel"><i class="bi bi-file-earmark-excel"></i></a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-4">Nenhum inventário registrado ainda. Clique em "Abrir Novo Inventário" para iniciar.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

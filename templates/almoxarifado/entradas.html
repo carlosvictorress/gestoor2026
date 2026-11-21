@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block title %}Entradas (NF-e / Empenho) — Almoxarifado SEME{% endblock %}
+
+{% block content %}
+{% include 'almoxarifado/_nav.html' %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0"><i class="bi bi-box-arrow-in-down text-success me-2"></i>Entradas de Materiais (Notas Fiscais / Empenhos)</h3>
+    <small class="text-muted">Recebimentos em lote, importação de XML NF-e, controle de lotes/validades e cálculo de Custo Médio (CMPM).</small>
+  </div>
+  {% if session.get('role') in ['admin', 'almoxarifado'] %}
+  <a href="{{ url_for('almoxarifado.nova_entrada') }}" class="btn btn-success fw-semibold">
+    <i class="bi bi-plus-circle me-1"></i>Nova Entrada / Importar XML NF-e
+  </a>
+  {% endif %}
+</div>
+
+<div class="almox-card p-3 mb-3">
+  <form method="GET" class="row g-2 align-items-end">
+    <div class="col-md-2">
+      <label class="form-label small fw-semibold mb-1">Data Início</label>
+      <input type="date" class="form-control form-control-sm" name="data_inicio" value="{{ data_inicio or '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small fw-semibold mb-1">Data Fim</label>
+      <input type="date" class="form-control form-control-sm" name="data_fim" value="{{ data_fim or '' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold mb-1">Fornecedor</label>
+      <select class="form-select form-select-sm" name="fornecedor_id">
+        <option value="">Todos</option>
+        {% for f in fornecedores %}
+        <option value="{{ f.id }}" {% if f.id == fornecedor_id %}selected{% endif %}>{{ f.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small fw-semibold mb-1">Status</label>
+      <select class="form-select form-select-sm" name="status">
+        <option value="">Todos</option>
+        <option value="Confirmada" {% if status == 'Confirmada' %}selected{% endif %}>Confirmada</option>
+        <option value="Estornada" {% if status == 'Estornada' %}selected{% endif %}>Estornada</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold mb-1">NF / Empenho / Contrato</label>
+      <div class="input-group input-group-sm">
+        <input type="text" class="form-control" name="busca" value="{{ busca }}" placeholder="Buscar...">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i></button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<div class="almox-card p-3">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <span class="small text-muted">Exibindo {{ entradas|length }} entrada(s)</span>
+    <span class="badge bg-success-subtle text-success fs-6">Total Confirmado: {{ formatar_moeda_br(total_valor) }}</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Código / Tipo</th>
+          <th>Recebimento</th>
+          <th>NF / Empenho</th>
+          <th>Fornecedor</th>
+          <th>Fonte Recursos</th>
+          <th class="text-center">Itens</th>
+          <th class="text-end">Valor Total</th>
+          <th>Status</th>
+          <th class="text-end">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in entradas %}
+        <tr class="{% if e.status == 'Estornada' %}table-secondary text-muted{% endif %}">
+          <td>
+            <a href="{{ url_for('almoxarifado.detalhes_entrada', entrada_id=e.id) }}" class="fw-bold text-decoration-none">{{ e.numero_entrada }}</a>
+            <div class="small text-muted">{{ e.tipo_entrada }}</div>
+          </td>
+          <td class="small">{{ e.data_recebimento.strftime('%d/%m/%Y') }}</td>
+          <td class="small">
+            <div><strong>NF:</strong> {{ e.numero_nf or '-' }}</div>
+            {% if e.numero_empenho %}<div class="text-muted">Emp: {{ e.numero_empenho }}</div>{% endif %}
+          </td>
+          <td class="small">{{ e.fornecedor.nome if e.fornecedor else (e.fornecedor_nome_snapshot or '-') }}</td>
+          <td class="small">{{ e.fonte_recursos or '-' }}</td>
+          <td class="text-center"><span class="badge bg-light text-dark border">{{ e.itens|length }}</span></td>
+          <td class="text-end fw-bold small">{{ formatar_moeda_br(e.valor_total) }}</td>
+          <td>
+            <span class="badge {% if e.status == 'Confirmada' %}bg-success{% else %}bg-danger{% endif %}">{{ e.status }}</span>
+          </td>
+          <td class="text-end text-nowrap">
+            <a href="{{ url_for('almoxarifado.detalhes_entrada', entrada_id=e.id) }}" class="btn btn-sm btn-outline-primary" title="Ver Detalhes"><i class="bi bi-eye"></i></a>
+            <a href="{{ url_for('almoxarifado.comprovante_entrada_pdf', entrada_id=e.id) }}" target="_blank" class="btn btn-sm btn-outline-danger" title="Comprovante PDF"><i class="bi bi-file-earmark-pdf"></i></a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center text-muted py-4">Nenhuma entrada encontrada.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

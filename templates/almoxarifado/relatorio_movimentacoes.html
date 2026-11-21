@@ -1,95 +1,69 @@
 {% extends 'base.html' %}
-
-{% block title %}Relatório de Movimentações de Estoque{% endblock %}
+{% block title %}Movimentações Gerais — Almoxarifado SEME{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Relatório de Movimentações</h1>
+{% include 'almoxarifado/_nav.html' %}
 
-<div class="card mb-4">
-    <div class="card-header">
-        Filtros do Relatório
-    </div>
-    <div class="card-body">
-        <form method="GET" action="{{ url_for('almoxarifado.relatorio_movimentacoes') }}">
-            <div class="row">
-                <div class="col-md-3">
-                    <label for="data_inicio" class="form-label">Data Início</label>
-                    <input type="date" class="form-control" id="data_inicio" name="data_inicio" value="{{ data_inicio or '' }}">
-                </div>
-                <div class="col-md-3">
-                    <label for="data_fim" class="form-label">Data Fim</label>
-                    <input type="date" class="form-control" id="data_fim" name="data_fim" value="{{ data_fim or '' }}">
-                </div>
-                <div class="col-md-4">
-                    <label for="material_id" class="form-label">Material</label>
-                    <select class="form-select" id="material_id" name="material_id">
-                        <option value="">Todos os materiais</option>
-                        {% for material in materiais %}
-                            <option value="{{ material.id }}" {% if material.id == material_id_selecionado %}selected{% endif %}>
-                                {{ material.descricao }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label for="tipo_movimento" class="form-label">Tipo</label>
-                    <select class="form-select" id="tipo_movimento" name="tipo_movimento">
-                        <option value="">Todos</option>
-                        <option value="Entrada NF" {% if tipo_movimento_selecionado == 'Entrada NF' %}selected{% endif %}>Entrada</option>
-                        <option value="Saída Requisição" {% if tipo_movimento_selecionado == 'Saída Requisição' %}selected{% endif %}>Saída</option>
-                    </select>
-                </div>
-            </div>
-            <div class="mt-3">
-                <button type="submit" class="btn btn-primary">Filtrar</button>
-                <a href="{{ url_for('almoxarifado.relatorio_movimentacoes') }}" class="btn btn-secondary">Limpar Filtros</a>
-            </div>
-        </form>
-    </div>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0"><i class="bi bi-arrow-left-right text-info me-2"></i>Relatório de Movimentações Gerais (Livro Razão)</h3>
+    <small class="text-muted">Inclui entradas fiscais, saídas para escolas/setores, baixas, ajustes de inventário e estornos.</small>
+  </div>
+  <a href="{{ url_for('almoxarifado.relatorio_movimentacoes', data_inicio=data_inicio, data_fim=data_fim, material_id=material_id_selecionado, tipo_movimento=tipo_movimento_selecionado, formato='excel') }}" class="btn btn-success btn-sm"><i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel</a>
 </div>
 
-<div class="card">
-    <div class="card-body">
-        <table class="table table-striped table-hover table-sm">
-            <thead>
-                <tr>
-                    <th>Data/Hora</th>
-                    <th>Material</th>
-                    <th class="text-center">Tipo</th>
-                    <th class="text-center">Quantidade</th>
-                    <th>Usuário</th>
-                    <th>Justificativa / Doc.</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for mov in movimentacoes %}
-                <tr>
-                    <td>{{ mov.data_movimento.strftime('%d/%m/%Y %H:%M') }}</td>
-                    <td>{{ mov.material.descricao }}</td>
-                    <td class="text-center">
-                        {% if mov.quantidade > 0 %}
-                            <span class="badge bg-success">Entrada</span>
-                        {% else %}
-                            <span class="badge bg-danger">Saída</span>
-                        {% endif %}
-                    </td>
-                    <td class="text-center fw-bold">{{ mov.quantidade }}</td>
-                    <td>{{ mov.usuario.username }}</td>
-                    <td>
-                        {% if mov.nota_fiscal %}
-                            NF: {{ mov.nota_fiscal }}
-                        {% elif mov.justificativa %}
-                            {{ mov.justificativa }}
-                        {% endif %}
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="6" class="text-center">Nenhuma movimentação encontrada para os filtros selecionados.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="almox-card p-3 mb-3">
+  <form method="GET" class="row g-2 align-items-end">
+    <div class="col-md-2"><label class="form-label small fw-semibold mb-1">Início</label><input type="date" class="form-control form-control-sm" name="data_inicio" value="{{ data_inicio or '' }}"></div>
+    <div class="col-md-2"><label class="form-label small fw-semibold mb-1">Fim</label><input type="date" class="form-control form-control-sm" name="data_fim" value="{{ data_fim or '' }}"></div>
+    <div class="col-md-4">
+      <label class="form-label small fw-semibold mb-1">Material</label>
+      <select class="form-select form-select-sm" name="material_id">
+        <option value="">Todos os materiais</option>
+        {% for material in materiais %}
+        <option value="{{ material.id }}" {% if material.id == material_id_selecionado %}selected{% endif %}>{{ material.descricao }}</option>
+        {% endfor %}
+      </select>
     </div>
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold mb-1">Tipo de Movimento</label>
+      <select class="form-select form-select-sm" name="tipo_movimento">
+        <option value="">Todos</option>
+        {% for tp in tipos_disponiveis %}
+        <option value="{{ tp }}" {% if tipo_movimento_selecionado == tp %}selected{% endif %}>{{ tp }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-1"><button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-search"></i></button></div>
+  </form>
+</div>
+
+<div class="almox-card p-3">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Data/Hora</th><th>Material</th><th>Tipo Movimento</th><th>Doc. / NF</th><th>Origem / Destino</th><th class="text-center">Qtd.</th><th class="text-end">Valor Total</th><th class="text-center">Saldo Após</th><th>Usuário</th></tr>
+      </thead>
+      <tbody>
+        {% for mov in movimentacoes %}
+        <tr>
+          <td class="small">{{ mov.data_movimento.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td class="small fw-semibold">{{ mov.material.descricao if mov.material else '-' }}</td>
+          <td>
+            <span class="badge {% if 'Ajuste' in mov.tipo_movimento %}bg-warning text-dark{% elif 'Estorno' in mov.tipo_movimento %}bg-secondary{% elif mov.quantidade > 0 %}bg-success{% else %}bg-danger{% endif %}">{{ mov.tipo_movimento }}</span>
+          </td>
+          <td class="small">{{ mov.documento_ref or mov.nota_fiscal or '-' }}</td>
+          <td class="small">{{ mov.escola.nome if mov.escola else (mov.setor.nome if mov.setor else (mov.fornecedor.nome if mov.fornecedor else (mov.justificativa or '-'))) }}</td>
+          <td class="text-center small fw-bold {% if mov.quantidade > 0 %}text-success{% else %}text-danger{% endif %}">{{ mov.quantidade }}</td>
+          <td class="text-end small">{{ formatar_moeda_br(mov.valor_total or 0) }}</td>
+          <td class="text-center small">{{ mov.saldo_apos if mov.saldo_apos is not none else '-' }}</td>
+          <td class="small text-muted">{{ mov.usuario.username if mov.usuario else '-' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center text-muted py-4">Nenhuma movimentação encontrada para os filtros selecionados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}Validade de Lotes (FEFO) — Almoxarifado SEME{% endblock %}
+
+{% block content %}
+{% include 'almoxarifado/_nav.html' %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0"><i class="bi bi-calendar-event text-danger me-2"></i>Controle de Validade de Lotes (FEFO)</h3>
+    <small class="text-muted">Monitoramento preventivo de lotes próximos ao vencimento para priorização de saída.</small>
+  </div>
+  <a href="{{ url_for('almoxarifado.relatorio_validades', dias=dias, formato='pdf') }}" target="_blank" class="btn btn-danger btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF Oficial</a>
+</div>
+
+<div class="almox-card p-3 mb-3">
+  <form method="GET" class="d-flex align-items-center gap-2">
+    <label class="small fw-semibold mb-0">Horizonte de Alerta:</label>
+    <select name="dias" class="form-select form-select-sm" style="width: 180px;" onchange="this.form.submit()">
+      <option value="30" {% if dias == 30 %}selected{% endif %}>Vencidos + próximos 30 dias</option>
+      <option value="60" {% if dias == 60 %}selected{% endif %}>Vencidos + próximos 60 dias</option>
+      <option value="90" {% if dias == 90 %}selected{% endif %}>Vencidos + próximos 90 dias</option>
+      <option value="180" {% if dias == 180 %}selected{% endif %}>Vencidos + próximos 180 dias</option>
+      <option value="365" {% if dias == 365 %}selected{% endif %}>Todos (até 1 ano)</option>
+    </select>
+  </form>
+</div>
+
+<div class="almox-card p-3">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Material</th><th>Lote</th><th>Validade</th><th class="text-center">Dias Restantes</th><th class="text-center">Saldo no Lote</th><th class="text-end">Valor Estimado</th><th>Situação</th></tr>
+      </thead>
+      <tbody>
+        {% for l in lotes %}
+        {% set dr = (l.data_validade - hoje).days %}
+        <tr class="{% if dr < 0 %}table-danger{% elif dr <= 30 %}table-warning{% endif %}">
+          <td class="small fw-semibold">{{ l.material.descricao }}</td>
+          <td class="small"><code>{{ l.numero_lote }}</code></td>
+          <td class="small fw-bold">{{ l.data_validade.strftime('%d/%m/%Y') }}</td>
+          <td class="text-center small fw-bold">{{ dr }}</td>
+          <td class="text-center small">{{ l.quantidade_atual }} {{ l.material.unidade_medida }}</td>
+          <td class="text-end small">{{ formatar_moeda_br(l.quantidade_atual * (l.custo_unitario or l.material.custo_referencia)) }}</td>
+          <td>
+            {% if dr < 0 %}<span class="badge bg-danger">VENCIDO</span>
+            {% elif dr <= 30 %}<span class="badge bg-warning text-dark">CRÍTICO</span>
+            {% else %}<span class="badge bg-info text-dark">ATENÇÃO</span>{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center text-muted py-4">Nenhum lote com validade crítica no horizonte selecionado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

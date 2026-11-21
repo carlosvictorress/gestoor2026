@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block title %}Central de Relatórios — Almoxarifado SEME{% endblock %}
+
+{% block content %}
+{% include 'almoxarifado/_nav.html' %}
+
+<div class="almox-hero mb-4">
+  <h3 class="fw-bold mb-1"><i class="bi bi-file-earmark-bar-graph me-2"></i>Central de Relatórios Gerenciais e Prestação de Contas (SEME)</h3>
+  <p class="mb-0 opacity-75">Todos os relatórios podem ser visualizados em tela e exportados em <strong>PDF institucional (timbre SEME)</strong> e <strong>Excel (.xlsx)</strong>.</p>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-4">
+    <a href="{{ url_for('almoxarifado.relatorio_entregas_geral') }}" class="text-decoration-none">
+      <div class="almox-kpi p-4 h-100">
+        <div class="d-flex align-items-center gap-3 mb-2">
+          <span class="badge bg-primary-subtle text-primary p-3 rounded-3"><i class="bi bi-list-ul fs-4"></i></span>
+          <h5 class="fw-bold text-dark mb-0">Entregas Geral</h5>
+        </div>
+        <p class="small text-muted mb-0">Consolidado e analítico de todas as entregas do almoxarifado por período, categoria, material e modalidade.</p>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-4">
+    <a href="{{ url_for('almoxarifado.relatorio_entregas_escolas') }}" class="text-decoration-none">
+      <div class="almox-kpi p-4 h-100">
+        <div class="d-flex align-items-center gap-3 mb-2">
+          <span class="badge bg-success-subtle text-success p-3 rounded-3"><i class="bi bi-mortarboard fs-4"></i></span>
+          <h5 class="fw-bold text-dark mb-0">Entregas por Escola</h5>
+        </div>
+        <p class="small text-muted mb-0">Extrato por unidade escolar, filtro por Zona Urbana/Rural, ranking de consumo e <strong>Custo Médio por Aluno Matriculado</strong>.</p>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-4">
+    <a href="{{ url_for('almoxarifado.relatorio_entregas_setores') }}" class="text-decoration-none">
+      <div class="almox-kpi p-4 h-100">
+        <div class="d-flex align-items-center gap-3 mb-2">
+          <span class="badge bg-info-subtle text-info p-3 rounded-3"><i class="bi bi-diagram-3 fs-4"></i></span>
+          <h5 class="fw-bold text-dark mb-0">Entregas por Setor da SEME</h5>
+        </div>
+        <p class="small text-muted mb-0">Consumo detalhado por diretoria/coordenação interna da SEME com percentual de participação no gasto.</p>
+      </div>
+    </a>
+  </div>
+
+  <div class="col-md-4">
+    <a href="{{ url_for('almoxarifado.relatorio_rma') }}" class="text-decoration-none">
+      <div class="almox-kpi p-4 h-100 border-success border-opacity-25">
+        <div class="d-flex align-items-center gap-3 mb-2">
+          <span class="badge bg-success text-white p-3 rounded-3"><i class="bi bi-journal-check fs-4"></i></span>
+          <h5 class="fw-bold text-dark mb-0">RMA — Relatório Mensal Contábil</h5>
+        </div>
+        <p class="small text-muted mb-0">Saldo Anterior + Entradas − Saídas ± Ajustes = Saldo Atual por Subelemento 3.3.90.30 para conciliação com a Contabilidade/TCE.</p>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-4">
+    <a href="{{ url_for('almoxarifado.relatorio_estoque') }}" class="text-decoration-none">
+      <div class="almox-kpi p-4 h-100">
+        <div class="d-flex align-items-center gap-3 mb-2">
+          <span class="badge bg-warning-subtle text-warning p-3 rounded-3"><i class="bi bi-archive fs-4"></i></span>
+          <h5 class="fw-bold text-dark mb-0">Posição de Estoque &amp; Alertas</h5>
+        </div>
+        <p class="small text-muted mb-0">Saldos físicos e financeiros pelo Custo Médio Ponderado, filtro de itens abaixo do mínimo, ponto de pedido e zerados.</p>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-4">
+    <a href="{{ url_for('almoxarifado.relatorio_kardex') }}" class="text-decoration-none">
+      <div class="almox-kpi p-4 h-100">
+        <div class="d-flex align-items-center gap-3 mb-2">
+          <span class="badge bg-dark-subtle text-dark p-3 rounded-3"><i class="bi bi-card-list fs-4"></i></span>
+          <h5 class="fw-bold text-dark mb-0">Ficha de Prateleira (Kardex)</h5>
+        </div>
+        <p class="small text-muted mb-0">Extrato cronológico completo de um material com saldo acumulado e evolução do custo médio após cada lançamento.</p>
+      </div>
+    </a>
+  </div>
+
+  <div class="col-md-3">
+    <a href="{{ url_for('almoxarifado.relatorio_entradas') }}" class="text-decoration-none">
+      <div class="almox-kpi p-3 h-100">
+        <h6 class="fw-bold text-dark mb-1"><i class="bi bi-receipt text-primary me-1"></i>Entradas (NF / Empenho)</h6>
+        <p class="small text-muted mb-0">Rastreabilidade de compras por fornecedor, nota fiscal, contrato e fonte de recursos.</p>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-3">
+    <a href="{{ url_for('almoxarifado.relatorio_validades') }}" class="text-decoration-none">
+      <div class="almox-kpi p-3 h-100">
+        <h6 class="fw-bold text-dark mb-1"><i class="bi bi-calendar-event text-danger me-1"></i>Validade de Lotes (FEFO)</h6>
+        <p class="small text-muted mb-0">Lotes vencidos ou próximos ao vencimento em 30, 60 ou 90 dias.</p>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-3">
+    <a href="{{ url_for('almoxarifado.relatorio_curva_abc') }}" class="text-decoration-none">
+      <div class="almox-kpi p-3 h-100">
+        <h6 class="fw-bold text-dark mb-1"><i class="bi bi-bar-chart-steps text-success me-1"></i>Curva ABC de Consumo</h6>
+        <p class="small text-muted mb-0">Classificação A/B/C para planejamento das licitações anuais da SEME.</p>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-3">
+    <a href="{{ url_for('almoxarifado.relatorio_movimentacoes') }}" class="text-decoration-none">
+      <div class="almox-kpi p-3 h-100">
+        <h6 class="fw-bold text-dark mb-1"><i class="bi bi-arrow-left-right text-info me-1"></i>Movimentações Gerais</h6>
+        <p class="small text-muted mb-0">Histórico consolidado de entradas, saídas, ajustes de inventário e estornos.</p>
+      </div>
+    </a>
+  </div>
+</div>
+{% endblock %}

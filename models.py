@@ -974,82 +974,445 @@ class Secretaria(db.Model):
         return f'<Secretaria {self.nome}>'    
 
 		
+# ==========================================================
+# MÓDULO DE ALMOXARIFADO (GESTÃO PÚBLICA MUNICIPAL - SEME)
+# ==========================================================
+
+class AlmoxCategoria(db.Model):
+    __tablename__ = 'almox_categoria'
+    id = db.Column(db.Integer, primary_key=True)
+    codigo_subelemento = db.Column(db.String(30), nullable=True, index=True)  # Ex: 3.3.90.30.16
+    conta_contabil = db.Column(db.String(50), nullable=True)  # Ex: 1.1.5.6.1.01.00
+    nome = db.Column(db.String(150), nullable=False, unique=True)
+    descricao = db.Column(db.String(300), nullable=True)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
+
+    materiais = db.relationship('Material', back_populates='categoria_rel', lazy=True)
+
+    def __repr__(self):
+        return f'<AlmoxCategoria {self.codigo_subelemento or ""} - {self.nome}>'
+
+
+class AlmoxSetor(db.Model):
+    """Setores internos da Secretaria Municipal de Educação (SEME)."""
+    __tablename__ = 'almox_setor'
+    id = db.Column(db.Integer, primary_key=True)
+    codigo = db.Column(db.String(30), unique=True, nullable=True)  # Ex: SEME-PED
+    nome = db.Column(db.String(180), nullable=False, unique=True)
+    sigla = db.Column(db.String(30), nullable=True)
+    responsavel_nome = db.Column(db.String(200), nullable=True)
+    responsavel_cpf = db.Column(db.String(14), db.ForeignKey('servidor.cpf'), nullable=True)
+    telefone = db.Column(db.String(30), nullable=True)
+    email = db.Column(db.String(120), nullable=True)
+    observacoes = db.Column(db.Text, nullable=True)
+    secretaria_id = db.Column(db.Integer, db.ForeignKey('secretaria.id'), nullable=True)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
+
+    secretaria = db.relationship('Secretaria', backref='setores_almoxarifado')
+    responsavel_servidor = db.relationship('Servidor', foreign_keys=[responsavel_cpf])
+
+    def __repr__(self):
+        return f'<AlmoxSetor {self.nome}>'
+
+
 class Fornecedor(db.Model):
     __tablename__ = 'almox_fornecedor'
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(200), nullable=False)
+    razao_social = db.Column(db.String(220), nullable=True)
     cnpj = db.Column(db.String(20), unique=True, nullable=True)
+    inscricao_estadual = db.Column(db.String(40), nullable=True)
     endereco = db.Column(db.String(300))
-    telefone = db.Column(db.String(20))
+    telefone = db.Column(db.String(30))
     email = db.Column(db.String(120))
+    contato_nome = db.Column(db.String(150), nullable=True)
     dados_bancarios = db.Column(db.Text)
-    
+    ativo = db.Column(db.Boolean, default=True)
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
+
     materiais = db.relationship('Material', back_populates='fornecedor_padrao')
     movimentacoes = db.relationship('MovimentoEstoque', back_populates='fornecedor')
+    entradas = db.relationship('AlmoxEntrada', back_populates='fornecedor', lazy=True)
+
 
 class Material(db.Model):
     __tablename__ = 'almox_material'
     id = db.Column(db.Integer, primary_key=True)
     codigo_interno = db.Column(db.String(50), unique=True, nullable=True)
+    codigo_catmat = db.Column(db.String(40), nullable=True)
     descricao = db.Column(db.String(300), nullable=False)
-    unidade_medida = db.Column(db.String(20), nullable=False)
-    categoria = db.Column(db.String(100))
+    especificacao_tecnica = db.Column(db.Text, nullable=True)
+    marca_referencia = db.Column(db.String(100), nullable=True)
+    unidade_medida = db.Column(db.String(20), nullable=False)  # Unidade base de consumo/saída (UN, RESMA, PCT, L)
+    unidade_compra = db.Column(db.String(20), nullable=True)   # Unidade de entrada opcional (CX, FRD)
+    fator_conversao = db.Column(db.Float, default=1.0)         # Quantas unidades base existem em 1 unidade de compra
+    categoria = db.Column(db.String(100))                      # Retrocompatibilidade texto
+    categoria_id = db.Column(db.Integer, db.ForeignKey('almox_categoria.id'), nullable=True)
     estoque_atual = db.Column(db.Float, nullable=False, default=0.0)
     estoque_minimo = db.Column(db.Float, default=0.0)
+    ponto_pedido = db.Column(db.Float, default=0.0)
     estoque_maximo = db.Column(db.Float, default=0.0)
     localizacao_fisica = db.Column(db.String(100))
     ultimo_custo = db.Column(db.Float, default=0.0)
+    custo_medio = db.Column(db.Float, default=0.0)             # Custo Médio Ponderado Móvel (NBC TSP 04)
     codigo_barras = db.Column(db.String(100), unique=True, nullable=True)
-    
+    controla_validade = db.Column(db.Boolean, default=False)
+    controla_lote = db.Column(db.Boolean, default=False)
+    ativo = db.Column(db.Boolean, default=True)
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
+
     fornecedor_padrao_id = db.Column(db.Integer, db.ForeignKey('almox_fornecedor.id'), nullable=True)
     fornecedor_padrao = db.relationship('Fornecedor', back_populates='materiais')
+    categoria_rel = db.relationship('AlmoxCategoria', back_populates='materiais')
 
     movimentacoes = db.relationship('MovimentoEstoque', backref='material', lazy=True)
+    lotes = db.relationship('AlmoxLote', back_populates='material', lazy=True)
+
+    @property
+    def custo_referencia(self):
+        """Retorna o Custo Médio Ponderado (CMPM) vigente ou fallback para ultimo_custo."""
+        if self.custo_medio and self.custo_medio > 0:
+            return float(self.custo_medio)
+        return float(self.ultimo_custo or 0.0)
+
+    @property
+    def valor_estoque_atual(self):
+        return round(float(self.estoque_atual or 0.0) * self.custo_referencia, 2)
+
+    @property
+    def nome_categoria_exibicao(self):
+        if self.categoria_rel:
+            return self.categoria_rel.nome
+        return self.categoria or 'Sem Categoria'
+
+    @property
+    def codigo_subelemento_exibicao(self):
+        if self.categoria_rel and self.categoria_rel.codigo_subelemento:
+            return self.categoria_rel.codigo_subelemento
+        return '3.3.90.30.99'
+
+
+class AlmoxEntrada(db.Model):
+    """Documento de Entrada / Recebimento de Materiais no Almoxarifado (NF-e / Empenho / Doação)."""
+    __tablename__ = 'almox_entrada'
+    id = db.Column(db.Integer, primary_key=True)
+    numero_entrada = db.Column(db.String(40), unique=True, nullable=False, index=True)
+    tipo_entrada = db.Column(db.String(80), nullable=False, default='Compra / Licitação')
+    # Dados Fiscais
+    numero_nf = db.Column(db.String(60), nullable=True, index=True)
+    serie_nf = db.Column(db.String(20), nullable=True)
+    chave_nfe = db.Column(db.String(60), nullable=True)
+    data_emissao_nf = db.Column(db.Date, nullable=True)
+    data_recebimento = db.Column(db.Date, nullable=False, default=date.today, index=True)
+    # Dados Orçamentários e Contratuais
+    fornecedor_id = db.Column(db.Integer, db.ForeignKey('almox_fornecedor.id'), nullable=True)
+    fornecedor_nome_snapshot = db.Column(db.String(220), nullable=True)
+    contrato_fiscal_id = db.Column(db.Integer, db.ForeignKey('fiscal_contrato.id'), nullable=True)
+    numero_empenho = db.Column(db.String(80), nullable=True, index=True)
+    numero_processo = db.Column(db.String(100), nullable=True)
+    modalidade_licitacao = db.Column(db.String(100), nullable=True)
+    numero_contrato_arp = db.Column(db.String(80), nullable=True)
+    fonte_recursos = db.Column(db.String(120), nullable=True)  # MDE 25%, FUNDEB, QSE, PDDE, Recursos Próprios
+    # Valores, Anexos e Auditoria
+    valor_total = db.Column(db.Float, default=0.0)
+    arquivo_nf_url = db.Column(db.String(500), nullable=True)  # URL no Supabase Storage
+    observacoes = db.Column(db.Text, nullable=True)
+    conferido_por_nome = db.Column(db.String(150), nullable=True)
+    status = db.Column(db.String(30), nullable=False, default='Confirmada')  # Confirmada, Estornada
+    motivo_estorno = db.Column(db.Text, nullable=True)
+    data_estorno = db.Column(db.DateTime, nullable=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
+
+    fornecedor = db.relationship('Fornecedor', back_populates='entradas')
+    contrato_fiscal = db.relationship('FiscalContrato', foreign_keys=[contrato_fiscal_id])
+    usuario = db.relationship('User', foreign_keys=[usuario_id])
+    itens = db.relationship('AlmoxEntradaItem', backref='entrada', lazy=True, cascade='all, delete-orphan')
+
+
+class AlmoxEntradaItem(db.Model):
+    __tablename__ = 'almox_entrada_item'
+    id = db.Column(db.Integer, primary_key=True)
+    entrada_id = db.Column(db.Integer, db.ForeignKey('almox_entrada.id'), nullable=False)
+    material_id = db.Column(db.Integer, db.ForeignKey('almox_material.id'), nullable=False)
+    quantidade_embalagem = db.Column(db.Float, nullable=False)
+    unidade_entrada = db.Column(db.String(20), nullable=True)
+    fator_conversao = db.Column(db.Float, default=1.0)
+    quantidade_base = db.Column(db.Float, nullable=False)
+    valor_unitario_base = db.Column(db.Float, default=0.0)
+    valor_total = db.Column(db.Float, default=0.0)
+    lote = db.Column(db.String(60), nullable=True)
+    data_fabricacao = db.Column(db.Date, nullable=True)
+    data_validade = db.Column(db.Date, nullable=True)
+
+    material = db.relationship('Material')
+
+
+class AlmoxLote(db.Model):
+    """Controle de saldos por lote e validade (FEFO)."""
+    __tablename__ = 'almox_lote'
+    id = db.Column(db.Integer, primary_key=True)
+    material_id = db.Column(db.Integer, db.ForeignKey('almox_material.id'), nullable=False, index=True)
+    entrada_item_id = db.Column(db.Integer, db.ForeignKey('almox_entrada_item.id'), nullable=True)
+    numero_lote = db.Column(db.String(60), nullable=False)
+    data_fabricacao = db.Column(db.Date, nullable=True)
+    data_validade = db.Column(db.Date, nullable=True, index=True)
+    quantidade_inicial = db.Column(db.Float, nullable=False, default=0.0)
+    quantidade_atual = db.Column(db.Float, nullable=False, default=0.0)
+    custo_unitario = db.Column(db.Float, default=0.0)
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
+
+    material = db.relationship('Material', back_populates='lotes')
+    entrada_item = db.relationship('AlmoxEntradaItem', foreign_keys=[entrada_item_id])
+
 
 class Requisicao(db.Model):
     __tablename__ = 'almox_requisicao'
     id = db.Column(db.Integer, primary_key=True)
+    numero_requisicao = db.Column(db.String(40), unique=True, nullable=True, index=True)
     data_solicitacao = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    status = db.Column(db.String(50), nullable=False, default='Pendente') # Ex: Pendente, Aprovada, Atendida, Recusada
+    status = db.Column(db.String(50), nullable=False, default='Pendente')
+    # Pendente, Aprovada, Em Separação, Atendida Parcialmente, Atendida, Recusada, Cancelada
+    prioridade = db.Column(db.String(20), default='Normal')  # Normal, Urgente
     justificativa = db.Column(db.Text)
-    
-    secretaria_solicitante_id = db.Column(db.Integer, db.ForeignKey('secretaria.id'), nullable=False)
+
+    # Destino (Escola ou Setor da SEME)
+    tipo_destino = db.Column(db.String(30), default='Setor SEME')  # Escola, Setor SEME, Outro
+    escola_id = db.Column(db.Integer, db.ForeignKey('escola.id'), nullable=True, index=True)
+    setor_id = db.Column(db.Integer, db.ForeignKey('almox_setor.id'), nullable=True, index=True)
+    destino_outro_descricao = db.Column(db.String(200), nullable=True)
+    solicitante_nome_unidade = db.Column(db.String(180), nullable=True)  # Ex: Nome do Diretor ou Coordenador solicitante
+
+    # Aprovação e Auditoria
+    aprovador_usuario_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    data_aprovacao = db.Column(db.DateTime, nullable=True)
+    parecer_aprovacao = db.Column(db.Text, nullable=True)
+    observacoes_almoxarifado = db.Column(db.Text, nullable=True)
+
+    secretaria_solicitante_id = db.Column(db.Integer, db.ForeignKey('secretaria.id'), nullable=True)
     secretaria_solicitante = db.relationship('Secretaria', backref='requisicoes_almoxarifado')
-    
+
     usuario_solicitante_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    usuario_solicitante = db.relationship('User', backref='requisicoes_almoxarifado')
+    usuario_solicitante = db.relationship('User', foreign_keys=[usuario_solicitante_id], backref='requisicoes_almoxarifado')
+    aprovador_usuario = db.relationship('User', foreign_keys=[aprovador_usuario_id])
+
+    escola = db.relationship('Escola', foreign_keys=[escola_id])
+    setor = db.relationship('AlmoxSetor', foreign_keys=[setor_id])
 
     itens = db.relationship('RequisicaoItem', backref='requisicao', lazy='dynamic', cascade="all, delete-orphan")
+    entregas = db.relationship('AlmoxEntrega', back_populates='requisicao', lazy=True)
+
+    @property
+    def nome_destino_exibicao(self):
+        if self.tipo_destino == 'Escola' and self.escola:
+            return self.escola.nome
+        if self.tipo_destino == 'Setor SEME' and self.setor:
+            return self.setor.nome
+        if self.destino_outro_descricao:
+            return self.destino_outro_descricao
+        if self.secretaria_solicitante:
+            return self.secretaria_solicitante.nome
+        return 'SEME (Não especificado)'
+
+    @property
+    def codigo_exibicao(self):
+        return self.numero_requisicao or f"REQ-{self.id:04d}"
+
 
 class RequisicaoItem(db.Model):
     __tablename__ = 'almox_requisicao_item'
     id = db.Column(db.Integer, primary_key=True)
     quantidade_solicitada = db.Column(db.Float, nullable=False)
     quantidade_atendida = db.Column(db.Float, default=0.0)
-    
+
     requisicao_id = db.Column(db.Integer, db.ForeignKey('almox_requisicao.id'), nullable=False)
     material_id = db.Column(db.Integer, db.ForeignKey('almox_material.id'), nullable=False)
     material = db.relationship('Material')
 
+    @property
+    def saldo_pendente(self):
+        return max(0.0, float(self.quantidade_solicitada or 0.0) - float(self.quantidade_atendida or 0.0))
+
+
+class AlmoxEntrega(db.Model):
+    """Guia de Entrega / Saída de Materiais (Requisição, Entrega Direta, Distribuição em Lote, Baixa ou Devolução)."""
+    __tablename__ = 'almox_entrega'
+    id = db.Column(db.Integer, primary_key=True)
+    codigo_guia = db.Column(db.String(40), unique=True, nullable=False, index=True)  # Ex: GUIA-2026-0001
+    codigo_autenticacao = db.Column(db.String(40), nullable=True)
+    tipo_saida = db.Column(db.String(60), nullable=False, default='Entrega Direta')
+    # Requisição, Entrega Direta, Distribuição em Lote, Baixa Técnica, Devolução de Unidade
+
+    requisicao_id = db.Column(db.Integer, db.ForeignKey('almox_requisicao.id'), nullable=True)
+    lote_distribuicao_codigo = db.Column(db.String(40), nullable=True, index=True)  # Agrupa guias de uma distribuição em lote
+
+    # Destino / Origem (em caso de devolução)
+    tipo_destino = db.Column(db.String(30), nullable=False, default='Escola')  # Escola, Setor SEME, Outro, Baixa Interna
+    escola_id = db.Column(db.Integer, db.ForeignKey('escola.id'), nullable=True, index=True)
+    setor_id = db.Column(db.Integer, db.ForeignKey('almox_setor.id'), nullable=True, index=True)
+    destino_nome_snapshot = db.Column(db.String(220), nullable=True)
+
+    # Datas e Responsáveis
+    data_emissao = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    data_entrega = db.Column(db.Date, nullable=False, default=date.today, index=True)
+    entregador_nome = db.Column(db.String(160), nullable=True)
+    recebedor_nome = db.Column(db.String(180), nullable=True)
+    recebedor_cpf = db.Column(db.String(25), nullable=True)
+    recebedor_cargo = db.Column(db.String(120), nullable=True)
+    recebedor_servidor_cpf = db.Column(db.String(14), db.ForeignKey('servidor.cpf'), nullable=True)
+    data_confirmacao_recebimento = db.Column(db.DateTime, nullable=True)
+
+    # Financeiro, Documentos e Status
+    valor_total = db.Column(db.Float, default=0.0)
+    numero_processo_baixa = db.Column(db.String(100), nullable=True)
+    comprovante_assinado_url = db.Column(db.String(500), nullable=True)  # URL no Supabase Storage
+    justificativa = db.Column(db.Text, nullable=True)
+    observacoes = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(40), nullable=False, default='Entregue', index=True)
+    # Em Separação, Em Trânsito, Entregue, Estornada
+    motivo_estorno = db.Column(db.Text, nullable=True)
+    data_estorno = db.Column(db.DateTime, nullable=True)
+    usuario_emissor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    requisicao = db.relationship('Requisicao', back_populates='entregas')
+    escola = db.relationship('Escola', foreign_keys=[escola_id])
+    setor = db.relationship('AlmoxSetor', foreign_keys=[setor_id])
+    recebedor_servidor = db.relationship('Servidor', foreign_keys=[recebedor_servidor_cpf])
+    usuario_emissor = db.relationship('User', foreign_keys=[usuario_emissor_id])
+    itens = db.relationship('AlmoxEntregaItem', backref='entrega', lazy=True, cascade='all, delete-orphan')
+
+    @property
+    def nome_destino_exibicao(self):
+        if self.escola:
+            return self.escola.nome
+        if self.setor:
+            return self.setor.nome
+        return self.destino_nome_snapshot or 'Baixa / Uso Interno'
+
+
+class AlmoxEntregaItem(db.Model):
+    __tablename__ = 'almox_entrega_item'
+    id = db.Column(db.Integer, primary_key=True)
+    entrega_id = db.Column(db.Integer, db.ForeignKey('almox_entrega.id'), nullable=False)
+    material_id = db.Column(db.Integer, db.ForeignKey('almox_material.id'), nullable=False)
+    requisicao_item_id = db.Column(db.Integer, db.ForeignKey('almox_requisicao_item.id'), nullable=True)
+    lote_id = db.Column(db.Integer, db.ForeignKey('almox_lote.id'), nullable=True)
+    quantidade = db.Column(db.Float, nullable=False)
+    custo_unitario_medio = db.Column(db.Float, default=0.0)
+    valor_total = db.Column(db.Float, default=0.0)
+    observacao = db.Column(db.String(250), nullable=True)
+
+    material = db.relationship('Material')
+    requisicao_item = db.relationship('RequisicaoItem')
+    lote = db.relationship('AlmoxLote')
+
+
+class AlmoxInventario(db.Model):
+    """Inventário Formal de Almoxarifado (Conformidade NBC TSP 04 / Controle Interno / TCE)."""
+    __tablename__ = 'almox_inventario'
+    id = db.Column(db.Integer, primary_key=True)
+    codigo = db.Column(db.String(40), unique=True, nullable=False, index=True)  # Ex: INV-2026-001
+    exercicio = db.Column(db.Integer, nullable=False, default=lambda: date.today().year)
+    tipo = db.Column(db.String(60), nullable=False, default='Geral Anual')
+    # Geral Anual, Periódico / Mensal, Rotativo por Categoria, Extraordinário
+    categoria_id = db.Column(db.Integer, db.ForeignKey('almox_categoria.id'), nullable=True)
+
+    # Comissão de Inventário
+    portaria_comissao = db.Column(db.String(150), nullable=True)
+    presidente_comissao = db.Column(db.String(180), nullable=True)
+    membros_comissao = db.Column(db.Text, nullable=True)  # Um membro por linha ou separados por vírgula
+
+    # Configurações
+    contagem_cega = db.Column(db.Boolean, default=True)
+    bloquear_movimentacoes = db.Column(db.Boolean, default=False)
+
+    # Ciclo de vida e Totais
+    data_abertura = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    data_fechamento = db.Column(db.DateTime, nullable=True)
+    status = db.Column(db.String(40), nullable=False, default='Aberto')
+    # Aberto, Em Conferência, Finalizado, Cancelado
+    justificativa_geral = db.Column(db.Text, nullable=True)
+    observacoes_conclusao = db.Column(db.Text, nullable=True)
+
+    total_itens_contados = db.Column(db.Integer, default=0)
+    total_divergencias = db.Column(db.Integer, default=0)
+    valor_estoque_sistema = db.Column(db.Float, default=0.0)
+    valor_estoque_fisico = db.Column(db.Float, default=0.0)
+    valor_diferenca_liquida = db.Column(db.Float, default=0.0)
+
+    usuario_abertura_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    usuario_aprovador_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+    categoria = db.relationship('AlmoxCategoria', foreign_keys=[categoria_id])
+    usuario_abertura = db.relationship('User', foreign_keys=[usuario_abertura_id])
+    usuario_aprovador = db.relationship('User', foreign_keys=[usuario_aprovador_id])
+    itens = db.relationship('AlmoxInventarioItem', backref='inventario', lazy=True, cascade='all, delete-orphan')
+
+
+class AlmoxInventarioItem(db.Model):
+    __tablename__ = 'almox_inventario_item'
+    id = db.Column(db.Integer, primary_key=True)
+    inventario_id = db.Column(db.Integer, db.ForeignKey('almox_inventario.id'), nullable=False, index=True)
+    material_id = db.Column(db.Integer, db.ForeignKey('almox_material.id'), nullable=False)
+
+    estoque_sistema_abertura = db.Column(db.Float, nullable=False, default=0.0)
+    custo_medio_abertura = db.Column(db.Float, nullable=False, default=0.0)
+    quantidade_contada_1 = db.Column(db.Float, nullable=True)
+    quantidade_contada_2 = db.Column(db.Float, nullable=True)  # Recontagem para divergências
+    quantidade_final = db.Column(db.Float, nullable=True)
+    diferenca = db.Column(db.Float, default=0.0)
+    valor_diferenca = db.Column(db.Float, default=0.0)
+    justificativa_item = db.Column(db.String(300), nullable=True)
+    conferido = db.Column(db.Boolean, default=False)
+
+    material = db.relationship('Material')
+
+
 class MovimentoEstoque(db.Model):
+    """Livro Razão / Kardex Auditável do Almoxarifado."""
     __tablename__ = 'almox_movimento_estoque'
     id = db.Column(db.Integer, primary_key=True)
-    data_movimento = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    tipo_movimento = db.Column(db.String(50), nullable=False) # Ex: 'Entrada NF', 'Saída Requisição', 'Ajuste Inventário'
-    quantidade = db.Column(db.Float, nullable=False)
-    valor_unitario = db.Column(db.Float)
+    data_movimento = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    tipo_movimento = db.Column(db.String(60), nullable=False, index=True)
+    # Ex: 'Entrada NF', 'Entrada Doação', 'Devolução Unidade', 'Saída Requisição', 'Saída Entrega Direta',
+    # 'Saída Distribuição Lote', 'Baixa Técnica', 'Ajuste Inventário (+)', 'Ajuste Inventário (-)',
+    # 'Estorno Entrada', 'Estorno Saída'
+    quantidade = db.Column(db.Float, nullable=False)          # Positiva p/ entrada, Negativa p/ saída
+    valor_unitario = db.Column(db.Float, default=0.0)
+    valor_total = db.Column(db.Float, default=0.0)
+    saldo_anterior = db.Column(db.Float, nullable=True)
+    saldo_apos = db.Column(db.Float, nullable=True)
+    custo_medio_apos = db.Column(db.Float, nullable=True)
     justificativa = db.Column(db.Text)
     nota_fiscal = db.Column(db.String(100))
+    documento_ref = db.Column(db.String(80), nullable=True)   # Ex: ENT-2026-0001, GUIA-2026-0010, INV-2026-001
 
-    material_id = db.Column(db.Integer, db.ForeignKey('almox_material.id'), nullable=False)
+    material_id = db.Column(db.Integer, db.ForeignKey('almox_material.id'), nullable=False, index=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     usuario = db.relationship('User', backref='movimentos_estoque')
-    
+
     fornecedor_id = db.Column(db.Integer, db.ForeignKey('almox_fornecedor.id'), nullable=True)
     fornecedor = db.relationship('Fornecedor', back_populates='movimentacoes')
-    
+
     requisicao_item_id = db.Column(db.Integer, db.ForeignKey('almox_requisicao_item.id'), nullable=True)
     requisicao_item = db.relationship('RequisicaoItem', backref='movimentos')
+
+    entrada_id = db.Column(db.Integer, db.ForeignKey('almox_entrada.id'), nullable=True)
+    entrega_id = db.Column(db.Integer, db.ForeignKey('almox_entrega.id'), nullable=True)
+    inventario_id = db.Column(db.Integer, db.ForeignKey('almox_inventario.id'), nullable=True)
+    lote_id = db.Column(db.Integer, db.ForeignKey('almox_lote.id'), nullable=True)
+    escola_id = db.Column(db.Integer, db.ForeignKey('escola.id'), nullable=True, index=True)
+    setor_id = db.Column(db.Integer, db.ForeignKey('almox_setor.id'), nullable=True, index=True)
+    movimento_estornado_id = db.Column(db.Integer, db.ForeignKey('almox_movimento_estoque.id'), nullable=True)
+
+    entrada = db.relationship('AlmoxEntrada', foreign_keys=[entrada_id])
+    entrega = db.relationship('AlmoxEntrega', foreign_keys=[entrega_id])
+    inventario = db.relationship('AlmoxInventario', foreign_keys=[inventario_id])
+    lote = db.relationship('AlmoxLote', foreign_keys=[lote_id])
+    escola = db.relationship('Escola', foreign_keys=[escola_id])
+    setor = db.relationship('AlmoxSetor', foreign_keys=[setor_id])
 		
 # ==========================================================
 # MÓDULO DE GESTÃO ACADÊMICA (ALINHADO AO CENSO ESCOLAR)

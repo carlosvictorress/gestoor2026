@@ -1,0 +1,316 @@
+{% extends 'base.html' %}
+{% block title %}Nova Entrada de Materiais (NF-e / Empenho) — Almoxarifado SEME{% endblock %}
+
+{% block content %}
+{% include 'almoxarifado/_nav.html' %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h3 class="fw-bold mb-0"><i class="bi bi-box-arrow-in-down text-success me-2"></i>Nova Entrada de Materiais em Lote</h3>
+    <small class="text-muted">Preencha manualmente ou importe o arquivo <strong>.XML da NF-e</strong> para preenchimento automático.</small>
+  </div>
+  <a href="{{ url_for('almoxarifado.listar_entradas') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Voltar</a>
+</div>
+
+{# Box Importação XML NF-e #}
+<div class="almox-card p-3 mb-3 border-primary border-opacity-25 bg-primary bg-opacity-10">
+  <div class="row g-2 align-items-center">
+    <div class="col-md-7">
+      <div class="fw-bold text-primary"><i class="bi bi-filetype-xml me-1"></i>Importar XML de Nota Fiscal Eletrônica (NF-e)</div>
+      <small class="text-muted">Carrega automaticamente Fornecedor, Nº NF, Série, Chave, Data de Emissão, Lotes, Validades e Itens.</small>
+    </div>
+    <div class="col-md-5 d-flex gap-2">
+      <input type="file" id="xmlNfeInput" accept=".xml" class="form-control form-control-sm">
+      <button type="button" id="btnImportarXml" class="btn btn-sm btn-primary text-nowrap"><i class="bi bi-cloud-upload me-1"></i>Ler XML</button>
+    </div>
+  </div>
+  <div id="xmlStatus" class="small mt-2 d-none"></div>
+</div>
+
+<form method="POST" enctype="multipart/form-data" id="formNovaEntrada">
+  {# 1. Cabeçalho Fiscal e Orçamentário #}
+  <div class="almox-card p-3 mb-3">
+    <h6 class="fw-bold text-primary mb-3"><i class="bi bi-receipt me-2"></i>1. Dados Fiscais, Orçamentários e do Fornecedor</h6>
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Tipo de Entrada*</label>
+        <select class="form-select form-select-sm" name="tipo_entrada" required>
+          <option value="Compra / Licitação">Compra / Licitação</option>
+          <option value="Ata de Registro de Preços (ARP)">Ata de Registro de Preços (ARP)</option>
+          <option value="Dispensa / Inexigibilidade">Dispensa / Inexigibilidade</option>
+          <option value="Doação / Convênio / FNDE">Doação / Convênio / FNDE</option>
+          <option value="Transferência">Transferência</option>
+          <option value="Saldo Inicial">Saldo Inicial</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Data de Recebimento*</label>
+        <input type="date" class="form-control form-control-sm" name="data_recebimento" value="{{ hoje_iso }}" required>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Nº Nota Fiscal</label>
+        <input type="text" class="form-control form-control-sm" name="numero_nf" id="numero_nf" placeholder="Ex: 12345">
+      </div>
+      <div class="col-md-1">
+        <label class="form-label small fw-semibold">Série</label>
+        <input type="text" class="form-control form-control-sm" name="serie_nf" id="serie_nf" placeholder="1">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Data Emissão NF</label>
+        <input type="date" class="form-control form-control-sm" name="data_emissao_nf" id="data_emissao_nf">
+      </div>
+
+      <div class="col-md-5">
+        <label class="form-label small fw-semibold">Fornecedor Cadastrado</label>
+        <select class="form-select form-select-sm" name="fornecedor_id" id="fornecedor_id">
+          <option value="">-- Selecione ou informe novo abaixo --</option>
+          {% for f in fornecedores %}
+          <option value="{{ f.id }}">{{ f.nome }} {% if f.cnpj %}({{ f.cnpj }}){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small fw-semibold">Fornecedor Novo (se não cadastrado / XML)</label>
+        <input type="text" class="form-control form-control-sm" name="fornecedor_novo_nome" id="fornecedor_novo_nome" placeholder="Auto-preenchido pelo XML se novo">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">CNPJ Fornecedor Novo</label>
+        <input type="text" class="form-control form-control-sm" name="fornecedor_novo_cnpj" id="fornecedor_novo_cnpj">
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label small fw-semibold">Chave de Acesso NF-e (44 dígitos)</label>
+        <input type="text" class="form-control form-control-sm" name="chave_nfe" id="chave_nfe">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Nº Empenho</label>
+        <input type="text" class="form-control form-control-sm" name="numero_empenho" placeholder="Ex: 2026NE0012">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Nº Processo / Licitação</label>
+        <input type="text" class="form-control form-control-sm" name="numero_processo" placeholder="Ex: PE 015/2026">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Fonte de Recursos (SEME)</label>
+        <select class="form-select form-select-sm" name="fonte_recursos">
+          <option value="">Selecione...</option>
+          <option value="MDE (25% Educação)">MDE (25% Educação)</option>
+          <option value="FUNDEB (30%)">FUNDEB (30%)</option>
+          <option value="QSE / Salário-Educação">QSE / Salário-Educação</option>
+          <option value="PDDE / FNDE">PDDE / FNDE</option>
+          <option value="Recursos Próprios">Recursos Próprios</option>
+          <option value="Convênio / Emenda">Convênio / Emenda</option>
+        </select>
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Modalidade Licitação</label>
+        <input type="text" class="form-control form-control-sm" name="modalidade_licitacao" placeholder="Pregão Eletrônico, Dispensa...">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Nº Contrato / ARP</label>
+        <input type="text" class="form-control form-control-sm" name="numero_contrato_arp" placeholder="Ex: CT 010/2026">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Vincular Contrato Fiscalizado</label>
+        <select class="form-select form-select-sm" name="contrato_fiscal_id">
+          <option value="">Opcional...</option>
+          {% for ct in contratos %}
+          <option value="{{ ct.id }}">{{ ct.num_contrato }}/{{ ct.ano }} - {{ ct.empresa_contratada[:30] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Conferente / Atesto</label>
+        <input type="text" class="form-control form-control-sm" name="conferido_por_nome" placeholder="Nome do servidor conferente">
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label small fw-semibold">Anexar PDF / Foto da Nota Fiscal (Supabase Storage)</label>
+        <input type="file" class="form-control form-control-sm" name="arquivo_nf" accept=".pdf,.png,.jpg,.jpeg">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small fw-semibold">Observações</label>
+        <input type="text" class="form-control form-control-sm" name="observacoes" placeholder="Observações sobre o recebimento">
+      </div>
+    </div>
+  </div>
+
+  {# 2. Itens da Entrada #}
+  <div class="almox-card p-3 mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="fw-bold text-primary mb-0"><i class="bi bi-list-ul me-2"></i>2. Itens Recebidos (Conversão de Embalagem, Lote e Validade)</h6>
+      <button type="button" id="btnAddItemEntrada" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg me-1"></i>Adicionar Item</button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0" id="tabelaItensEntrada">
+        <thead class="table-light">
+          <tr>
+            <th style="min-width: 240px;">Material*</th>
+            <th style="width: 90px;">Qtd. Emb.*</th>
+            <th style="width: 80px;">Un. Ent.</th>
+            <th style="width: 80px;">Fator</th>
+            <th style="width: 115px;">Vlr. Unit. (R$)</th>
+            <th style="width: 110px;">Lote</th>
+            <th style="width: 130px;">Validade</th>
+            <th style="width: 110px;" class="text-end">Subtotal</th>
+            <th style="width: 40px;"></th>
+          </tr>
+        </thead>
+        <tbody id="itensEntradaBody"></tbody>
+      </table>
+    </div>
+    <div class="d-flex justify-content-end align-items-center mt-3 pt-2 border-top gap-3">
+      <span class="text-muted small">Valor Total Calculado da Entrada:</span>
+      <h4 class="fw-bold text-success mb-0" id="totalGeralEntrada">R$ 0,00</h4>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-end gap-2">
+    <a href="{{ url_for('almoxarifado.listar_entradas') }}" class="btn btn-secondary">Cancelar</a>
+    <button type="submit" class="btn btn-success fw-semibold px-4"><i class="bi bi-check-circle me-1"></i>Confirmar Entrada e Atualizar CMPM</button>
+  </div>
+</form>
+
+<template id="tplLinhaEntrada">
+  <tr class="linha-item">
+    <td>
+      <select class="form-select form-select-sm sel-material" name="material_id[]" required>
+        <option value="">Selecione o material...</option>
+        {% for m in materiais %}
+        <option value="{{ m.id }}" data-un="{{ m.unidade_compra or m.unidade_medida }}" data-fator="{{ m.fator_conversao or 1 }}">{{ m.descricao }} ({{ m.unidade_medida }})</option>
+        {% endfor %}
+      </select>
+      <div class="small text-muted xml-hint d-none"></div>
+    </td>
+    <td><input type="number" step="0.01" min="0.01" class="form-control form-control-sm inp-qtd" name="quantidade[]" required placeholder="0"></td>
+    <td><input type="text" class="form-control form-control-sm inp-un" name="unidade_entrada[]" value="UN"></td>
+    <td><input type="number" step="0.01" min="0.01" class="form-control form-control-sm inp-fator" name="fator_conversao[]" value="1"></td>
+    <td><input type="text" class="form-control form-control-sm inp-vunit" name="valor_unitario[]" placeholder="0,00" value="0"></td>
+    <td><input type="text" class="form-control form-control-sm inp-lote" name="lote[]" placeholder="Opcional"></td>
+    <td><input type="date" class="form-control form-control-sm inp-val" name="data_validade[]"></td>
+    <td class="text-end fw-semibold small cel-sub">R$ 0,00</td>
+    <td><button type="button" class="btn btn-sm btn-outline-danger btn-rem"><i class="bi bi-trash"></i></button></td>
+  </tr>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const tbody = document.getElementById('itensEntradaBody');
+  const tpl = document.getElementById('tplLinhaEntrada');
+  const totalEl = document.getElementById('totalGeralEntrada');
+
+  function parseBR(v) {
+    if (!v) return 0;
+    let s = String(v).trim().replace('R$', '').replace(/\s/g, '');
+    if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
+    else if (s.includes(',')) s = s.replace(',', '.');
+    return parseFloat(s) || 0;
+  }
+
+  function fmtBR(n) {
+    return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function recalcular() {
+    let total = 0;
+    tbody.querySelectorAll('tr.linha-item').forEach(tr => {
+      const q = parseBR(tr.querySelector('.inp-qtd').value);
+      const vu = parseBR(tr.querySelector('.inp-vunit').value);
+      const sub = q * vu;
+      tr.querySelector('.cel-sub').textContent = fmtBR(sub);
+      total += sub;
+    });
+    totalEl.textContent = fmtBR(total);
+  }
+
+  function addLinha(prefill) {
+    const clone = tpl.content.cloneNode(true);
+    const tr = clone.querySelector('tr');
+    if (prefill) {
+      if (prefill.material_id_sugerido) tr.querySelector('.sel-material').value = prefill.material_id_sugerido;
+      tr.querySelector('.inp-qtd').value = prefill.quantidade || '';
+      tr.querySelector('.inp-un').value = prefill.unidade || 'UN';
+      tr.querySelector('.inp-vunit').value = (prefill.valor_unitario || 0).toFixed(2).replace('.', ',');
+      tr.querySelector('.inp-lote').value = prefill.lote || '';
+      tr.querySelector('.inp-val').value = prefill.data_validade || '';
+      if (prefill.descricao) {
+        const hint = tr.querySelector('.xml-hint');
+        hint.textContent = 'XML: ' + prefill.descricao;
+        hint.classList.remove('d-none');
+      }
+    }
+    tbody.appendChild(tr);
+    recalcular();
+  }
+
+  addLinha();
+  document.getElementById('btnAddItemEntrada').addEventListener('click', () => addLinha());
+
+  tbody.addEventListener('change', e => {
+    if (e.target.classList.contains('sel-material')) {
+      const opt = e.target.selectedOptions[0];
+      const tr = e.target.closest('tr');
+      if (opt && opt.dataset.un) tr.querySelector('.inp-un').value = opt.dataset.un;
+      if (opt && opt.dataset.fator) tr.querySelector('.inp-fator').value = opt.dataset.fator;
+    }
+    recalcular();
+  });
+  tbody.addEventListener('input', recalcular);
+  tbody.addEventListener('click', e => {
+    const btn = e.target.closest('.btn-rem');
+    if (btn) {
+      btn.closest('tr').remove();
+      recalcular();
+    }
+  });
+
+  // Importação XML NF-e
+  document.getElementById('btnImportarXml').addEventListener('click', async () => {
+    const fileInput = document.getElementById('xmlNfeInput');
+    const statusBox = document.getElementById('xmlStatus');
+    if (!fileInput.files.length) {
+      alert('Selecione um arquivo .XML de NF-e primeiro.');
+      return;
+    }
+    const fd = new FormData();
+    fd.append('xml_file', fileInput.files[0]);
+    statusBox.className = 'small mt-2 text-primary fw-semibold';
+    statusBox.textContent = 'Processando XML da NF-e...';
+    statusBox.classList.remove('d-none');
+
+    try {
+      const resp = await fetch("{{ url_for('almoxarifado.importar_xml_nfe') }}", { method: 'POST', body: fd });
+      const data = await resp.json();
+      if (!data.ok) {
+        statusBox.className = 'small mt-2 text-danger fw-semibold';
+        statusBox.textContent = data.erro || 'Falha ao ler XML.';
+        return;
+      }
+      const d = data.dados;
+      document.getElementById('numero_nf').value = d.numero_nf || '';
+      document.getElementById('serie_nf').value = d.serie_nf || '';
+      document.getElementById('chave_nfe').value = d.chave_nfe || '';
+      document.getElementById('data_emissao_nf').value = d.data_emissao_nf || '';
+      if (d.fornecedor_id_encontrado) {
+        document.getElementById('fornecedor_id').value = d.fornecedor_id_encontrado;
+      } else if (d.fornecedor) {
+        document.getElementById('fornecedor_novo_nome').value = d.fornecedor.nome || d.fornecedor.razao_social || '';
+        document.getElementById('fornecedor_novo_cnpj').value = d.fornecedor.cnpj || '';
+      }
+      if (d.itens && d.itens.length) {
+        tbody.innerHTML = '';
+        d.itens.forEach(it => addLinha(it));
+      }
+      statusBox.className = 'small mt-2 text-success fw-semibold';
+      statusBox.textContent = `XML NF-e ${d.numero_nf} importado com ${d.itens.length} item(ns)! Revise a associação dos materiais antes de confirmar.`;
+    } catch (err) {
+      statusBox.className = 'small mt-2 text-danger fw-semibold';
+      statusBox.textContent = 'Erro de comunicação ao ler XML: ' + err;
+    }
+  });
+});
+</script>
+{% endblock %}

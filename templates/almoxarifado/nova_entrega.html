@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+{% block title %}Nova Entrega Direta — Almoxarifado SEME{% endblock %}
+
+{% block content %}
+{% include 'almoxarifado/_nav.html' %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h3 class="fw-bold mb-0"><i class="bi bi-send-check text-primary me-2"></i>Nova Entrega Direta (Saída de Materiais)</h3>
+    <small class="text-muted">Emite Guia de Entrega oficial com baixa automática pelo Custo Médio Ponderado e ordem FEFO de lotes.</small>
+  </div>
+  <a href="{{ url_for('almoxarifado.listar_entregas') }}" class="btn btn-outline-secondary btn-sm">Voltar</a>
+</div>
+
+<form method="POST">
+  <div class="almox-card p-3 mb-3">
+    <h6 class="fw-bold text-primary mb-3">1. Destino e Dados de Entrega</h6>
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Tipo de Destino*</label>
+        <select class="form-select form-select-sm" name="tipo_destino" id="tipoDestino" required>
+          <option value="Escola">Escola Municipal</option>
+          <option value="Setor SEME">Setor da SEME</option>
+          <option value="Outro">Outro Destino / Evento</option>
+        </select>
+      </div>
+      <div class="col-md-5" id="boxEscola">
+        <label class="form-label small fw-semibold">Escola Municipal*</label>
+        <select class="form-select form-select-sm" name="escola_id" id="selEscola">
+          <option value="">Selecione a escola...</option>
+          {% for esc in escolas %}
+          <option value="{{ esc.id }}">{{ esc.nome }} {% if esc.zona %}({{ esc.zona }}){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-5 d-none" id="boxSetor">
+        <label class="form-label small fw-semibold">Setor da SEME*</label>
+        <select class="form-select form-select-sm" name="setor_id" id="selSetor">
+          <option value="">Selecione o setor da SEME...</option>
+          {% for s in setores %}
+          <option value="{{ s.id }}">{{ s.nome }} {% if s.sigla %}({{ s.sigla }}){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-5 d-none" id="boxOutro">
+        <label class="form-label small fw-semibold">Descrição do Destino*</label>
+        <input type="text" class="form-control form-control-sm" name="destino_outro_descricao" placeholder="Ex: Formação Continuada / Evento SEME">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Data Entrega*</label>
+        <input type="date" class="form-control form-control-sm" name="data_entrega" value="{{ hoje_iso }}" required>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Status Inicial</label>
+        <select class="form-select form-select-sm" name="status">
+          <option value="Entregue">Entregue</option>
+          <option value="Em Trânsito">Em Trânsito</option>
+        </select>
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label small fw-semibold">Nome do Recebedor na Unidade</label>
+        <input type="text" class="form-control form-control-sm" name="recebedor_nome" placeholder="Quem recebeu o material">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">CPF do Recebedor</label>
+        <input type="text" class="form-control form-control-sm" name="recebedor_cpf" placeholder="000.000.000-00">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Cargo / Função do Recebedor</label>
+        <input type="text" class="form-control form-control-sm" name="recebedor_cargo" placeholder="Diretor(a), Coordenador(a)...">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Entregador / Motorista</label>
+        <input type="text" class="form-control form-control-sm" name="entregador_nome" placeholder="Responsável pelo transporte">
+      </div>
+      <div class="col-12">
+        <label class="form-label small fw-semibold">Justificativa / Finalidade</label>
+        <input type="text" class="form-control form-control-sm" name="justificativa" placeholder="Ex: Reposição mensal de material de limpeza e expediente">
+      </div>
+    </div>
+  </div>
+
+  <div class="almox-card p-3 mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="fw-bold text-primary mb-0">2. Materiais a Entregar</h6>
+      <button type="button" id="btnAddItemEntrega" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg me-1"></i>Adicionar Material</button>
+    </div>
+    <table class="table table-sm align-middle mb-0">
+      <thead class="table-light">
+        <tr><th style="width: 65%;">Material (apenas com saldo disponível)</th><th style="width: 25%;">Quantidade</th><th style="width: 10%;"></th></tr>
+      </thead>
+      <tbody id="itensEntregaBody"></tbody>
+    </table>
+  </div>
+
+  <div class="d-flex justify-content-end gap-2">
+    <a href="{{ url_for('almoxarifado.listar_entregas') }}" class="btn btn-secondary">Cancelar</a>
+    <button type="submit" class="btn btn-primary fw-semibold px-4"><i class="bi bi-check2-circle me-1"></i>Emitir Guia e Dar Baixa</button>
+  </div>
+</form>
+
+<template id="tplItemEntrega">
+  <tr>
+    <td>
+      <select class="form-select form-select-sm" name="material_id[]" required>
+        <option value="">Selecione o material...</option>
+        {% for m in materiais %}
+        <option value="{{ m.id }}">{{ m.descricao }} — Saldo: {{ m.estoque_atual }} {{ m.unidade_medida }}</option>
+        {% endfor %}
+      </select>
+    </td>
+    <td><input type="number" step="0.01" min="0.01" class="form-control form-control-sm" name="quantidade[]" required placeholder="Qtd."></td>
+    <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger btn-rem"><i class="bi bi-trash"></i></button></td>
+  </tr>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const tipo = document.getElementById('tipoDestino');
+  const bEsc = document.getElementById('boxEscola');
+  const bSet = document.getElementById('boxSetor');
+  const bOut = document.getElementById('boxOutro');
+  function toggleDest() {
+    bEsc.classList.toggle('d-none', tipo.value !== 'Escola');
+    bSet.classList.toggle('d-none', tipo.value !== 'Setor SEME');
+    bOut.classList.toggle('d-none', tipo.value !== 'Outro');
+  }
+  tipo.addEventListener('change', toggleDest);
+  toggleDest();
+
+  const body = document.getElementById('itensEntregaBody');
+  const tpl = document.getElementById('tplItemEntrega');
+  function addRow() { body.appendChild(tpl.content.cloneNode(true)); }
+  addRow();
+  document.getElementById('btnAddItemEntrega').addEventListener('click', addRow);
+  body.addEventListener('click', e => {
+    const b = e.target.closest('.btn-rem');
+    if (b) b.closest('tr').remove();
+  });
+});
+</script>
+{% endblock %}

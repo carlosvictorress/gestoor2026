@@ -1,58 +1,70 @@
 {% extends 'base.html' %}
-
-{% block title %}Relatório de Estoque Atual{% endblock %}
+{% block title %}Posição Atual de Estoque — Almoxarifado SEME{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1>Relatório de Estoque Atual</h1>
-    <a href="{{ url_for('almoxarifado.exportar_relatorio_estoque_csv') }}" class="btn btn-success">
-        <i class="bi bi-file-earmark-spreadsheet"></i> Exportar para CSV
-    </a>
+{% include 'almoxarifado/_nav.html' %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h3 class="fw-bold mb-0"><i class="bi bi-archive text-warning me-2"></i>Posição Atual de Estoque</h3>
+    <small class="text-muted">Avaliação patrimonial pelo Custo Médio Ponderado Móvel (CMPM).</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('almoxarifado.relatorio_estoque', categoria_id=categoria_id, situacao=situacao, formato='pdf') }}" target="_blank" class="btn btn-danger btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF Oficial</a>
+    <a href="{{ url_for('almoxarifado.relatorio_estoque', categoria_id=categoria_id, situacao=situacao, formato='excel') }}" class="btn btn-success btn-sm"><i class="bi bi-file-earmark-excel me-1"></i>Excel</a>
+    <a href="{{ url_for('almoxarifado.exportar_relatorio_estoque_csv') }}" class="btn btn-outline-success btn-sm"><i class="bi bi-filetype-csv me-1"></i>CSV</a>
+  </div>
 </div>
 
-<div class="card">
-    <div class="card-header">
-        <div class="d-flex justify-content-between">
-            <span>Total de Itens: {{ materiais|length }}</span>
-            <span class="fw-bold">Valor Total do Estoque: R$ {{ "%.2f"|format(valor_total_estoque) }}</span>
-        </div>
+<div class="almox-card p-3 mb-3">
+  <form method="GET" class="row g-2 align-items-end">
+    <div class="col-md-5">
+      <label class="form-label small fw-semibold mb-1">Categoria / Subelemento</label>
+      <select class="form-select form-select-sm" name="categoria_id">
+        <option value="">Todas as categorias</option>
+        {% for c in categorias %}<option value="{{ c.id }}" {% if c.id == categoria_id %}selected{% endif %}>{{ c.codigo_subelemento or '' }} - {{ c.nome }}</option>{% endfor %}
+      </select>
     </div>
-    <div class="card-body">
-        <table class="table table-striped table-hover table-sm">
-            <thead>
-                <tr>
-                    <th>Descrição</th>
-                    <th>Categoria</th>
-                    <th class="text-center">Estoque Atual</th>
-                    <th class="text-end">Custo Unit. (R$)</th>
-                    <th class="text-end">Valor Total (R$)</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for material in materiais %}
-                <tr>
-                    <td>{{ material.descricao }}</td>
-                    <td>{{ material.categoria or '-' }}</td>
-                    <td class="text-center">{{ material.estoque_atual }} {{ material.unidade_medida }}</td>
-                    <td class="text-end">{{ "%.2f"|format(material.ultimo_custo) }}</td>
-                    <td class="text-end fw-bold">{{ "%.2f"|format(material.estoque_atual * material.ultimo_custo) }}</td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="5" class="text-center">Nenhum material cadastrado para exibir no relatório.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="col-md-5">
+      <label class="form-label small fw-semibold mb-1">Situação de Estoque</label>
+      <select class="form-select form-select-sm" name="situacao">
+        <option value="todos" {% if situacao == 'todos' %}selected{% endif %}>Todos os Itens Ativos</option>
+        <option value="baixo" {% if situacao == 'baixo' %}selected{% endif %}>Abaixo do Estoque Mínimo</option>
+        <option value="ponto_pedido" {% if situacao == 'ponto_pedido' %}selected{% endif %}>No Ponto de Pedido</option>
+        <option value="zerado" {% if situacao == 'zerado' %}selected{% endif %}>Estoque Zerado</option>
+      </select>
     </div>
+    <div class="col-md-2"><button type="submit" class="btn btn-sm btn-primary w-100">Filtrar</button></div>
+  </form>
 </div>
 
-<div class="mt-4">
-    <a href="{{ url_for('almoxarifado.dashboard') }}" class="btn btn-secondary">
-        <i class="bi bi-arrow-left"></i> Voltar ao Painel
-    </a>
-	<a href="{{ url_for('almoxarifado.relatorio_movimentacoes') }}" class="btn btn-info">
-        <i class="bi bi-list-check"></i> Relatório de Movimentações
-    </a>
+<div class="almox-card p-3">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <span class="small text-muted">Total de itens: <strong>{{ materiais|length }}</strong></span>
+    <span class="badge bg-primary fs-6">Valor Total em Estoque (CMPM): {{ formatar_moeda_br(valor_total_estoque) }}</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Código</th><th>Material</th><th>Subelemento / Categoria</th><th>Local</th><th class="text-center">Saldo</th><th class="text-center">Mínimo</th><th class="text-end">Custo Médio</th><th class="text-end">Valor Total</th></tr>
+      </thead>
+      <tbody>
+        {% for m in materiais %}
+        <tr>
+          <td class="small">{{ m.codigo_interno or m.id }}</td>
+          <td class="small fw-semibold"><a href="{{ url_for('almoxarifado.relatorio_kardex', material_id=m.id) }}" class="text-decoration-none">{{ m.descricao }}</a></td>
+          <td class="small text-muted">{{ m.codigo_subelemento_exibicao }} — {{ m.nome_categoria_exibicao }}</td>
+          <td class="small">{{ m.localizacao_fisica or '-' }}</td>
+          <td class="text-center"><span class="badge {% if (m.estoque_atual or 0) <= 0 %}bg-danger{% elif (m.estoque_minimo or 0) > 0 and (m.estoque_atual or 0) <= (m.estoque_minimo or 0) %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ m.estoque_atual }} {{ m.unidade_medida }}</span></td>
+          <td class="text-center small">{{ m.estoque_minimo or 0 }}</td>
+          <td class="text-end small">{{ formatar_moeda_br(m.custo_referencia) }}</td>
+          <td class="text-end small fw-bold">{{ formatar_moeda_br(m.valor_estoque_atual) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-4">Nenhum material encontrado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}
